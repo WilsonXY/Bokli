@@ -7,6 +7,14 @@ import type { UserRole } from "@/db/schema";
  */
 export const SESSION_MAX_AGE = 30 * 24 * 60 * 60;
 
+// Align AUTH_URL and NEXTAUTH_URL for parity between v4 and v5 NextAuth tooling
+if (!process.env.AUTH_URL && process.env.NEXTAUTH_URL) {
+  process.env.AUTH_URL = process.env.NEXTAUTH_URL;
+}
+if (!process.env.NEXTAUTH_URL && process.env.AUTH_URL) {
+  process.env.NEXTAUTH_URL = process.env.AUTH_URL;
+}
+
 /**
  * Base NextAuth configuration.
  * Edge-compatible (no node-specific sqlite or native modules)

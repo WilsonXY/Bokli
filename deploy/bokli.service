@@ -1,0 +1,31 @@
+[Unit]
+Description=Bokli Bookkeeping Web App
+Documentation=https://github.com/WilsonXY/Bokli
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/projects/bokli
+
+# Default environment contract
+Environment=NODE_ENV=production
+Environment=PORT=3000
+Environment=BOKLI_DB_PATH=%h/projects/bokli/data/bokli.db
+
+# Load custom secrets, passwords, and URLs from .env if present
+EnvironmentFile=-%h/projects/bokli/.env
+
+# Node v22 standalone server execution
+ExecStart=/usr/bin/node .next/standalone/server.js
+
+# Restart on failure or unexpected exit
+Restart=always
+RestartSec=5s
+
+# Standard output and error to systemd journal
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=bokli
+
+[Install]
+WantedBy=default.target
