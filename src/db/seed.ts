@@ -16,14 +16,14 @@ export interface SeedOptions {
  * Idempotently upserts using ON CONFLICT DO UPDATE.
  */
 export async function seedUsers(db: Db, options: SeedOptions = {}) {
-  const momPassword =
-    options.momPassword ??
-    process.env.BOKLI_MOM_PASSWORD ??
-    "mom-bokli-default-pass";
-  const adminPassword =
-    options.adminPassword ??
-    process.env.BOKLI_ADMIN_PASSWORD ??
-    "katte-bokli-default-pass";
+  const momPassword = options.momPassword ?? process.env.BOKLI_MOM_PASSWORD;
+  const adminPassword = options.adminPassword ?? process.env.BOKLI_ADMIN_PASSWORD;
+  if (!momPassword || !adminPassword) {
+    throw new Error(
+      "Seeding requires BOKLI_MOM_PASSWORD and BOKLI_ADMIN_PASSWORD (or explicit options). " +
+      "Default credentials are intentionally not provided."
+    );
+  }
 
   const momHash = await hashPassword(momPassword);
   const adminHash = await hashPassword(adminPassword);
