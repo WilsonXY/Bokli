@@ -427,6 +427,12 @@ export async function getDashboard(
   month: string,
   options?: { db?: Db },
 ): Promise<DashboardMonthData> {
+  if (!isValidMonthStr(month)) {
+    throw new ValidationError(
+      `Invalid month format: "${month}", expected YYYY-MM`,
+    );
+  }
+
   const [tile, trend, split, costByCategory] = await Promise.all([
     getMonthTile(month, options),
     getDailyTrend(month, options),

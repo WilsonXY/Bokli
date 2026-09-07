@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/auth/guard";
 import { openDb } from "@/db";
 import {
-  getCashTngSplit,
-  getCostByCategory,
-  getDailyTrend,
-  getMonthTile,
+  getDashboard,
   hasMonthData,
   listMonthTiles,
   type CashTngSplit,
@@ -59,7 +56,7 @@ function formatCostByCategory(costByCategory: CostByCategory) {
 /**
  * GET /api/dashboard
  * - With ?month=YYYY-MM: returns tile, trend, split, costByCategory for that month.
- * - Without month: returns listMonthTiles.
+ * - Without month: returns listMonthTiles (supports ?limit=N and ?upToMonth=YYYY-MM).
  */
 export const GET = withAuth(async (req: NextRequest) => {
   try {
@@ -83,26 +80,48 @@ export const GET = withAuth(async (req: NextRequest) => {
         );
       }
 
-      const [tile, trend, split, costByCategory] = await Promise.all([
-        getMonthTile(trimmedMonth, { db }),
-        getDailyTrend(trimmedMonth, { db }),
-        getCashTngSplit(trimmedMonth, { db }),
-        getCostByCategory(trimmedMonth, { db }),
-      ]);
+      const data = await getDashboard(trimmedMonth, { db });
 
       return NextResponse.json(
         {
-          tile: formatTile(tile),
-          trend: formatTrend(trend),
-          split: formatSplit(split),
-          costByCategory: formatCostByCategory(costByCategory),
+          tile: formatTile(data.tile),
+          trend: formatTrend(data.trend),
+          split: formatSplit(data.split),
+          costByCategory: formatCostByCategory(data.costByCategory),
         },
         { status: 200 },
       );
     }
 
+    const limitParam = searchParams.get("limit");
+    const upToMonthParam = searchParams.get("upToMonth");
+    let limit: number | undefined;
+    let upToMonth: string | undefined;
+
+    if (limitParam !== null) {
+      const parsed = Number.parseInt(limitParam, 10);
+      if (Number.isNaN(parsed) || parsed <= 0) {
+        return NextResponse.json(
+          { error: `Invalid limit parameter: "${limitParam}", expected positive integer` },
+          { status: 400 },
+        );
+      }
+      limit = parsed;
+    }
+
+    if (upToMonthParam !== null) {
+      const trimmedUpTo = upToMonthParam.trim();
+      if (!isValidMonthStr(trimmedUpTo)) {
+        return NextResponse.json(
+          { error: `Invalid upToMonth parameter: "${upToMonthParam}", expected YYYY-MM` },
+          { status: 400 },
+        );
+      }
+      upToMonth = trimmedUpTo;
+    }
+
     const { db } = openDb();
-    const tiles = await listMonthTiles({ db });
+    const tiles = await listMonthTiles({ limit, upToMonth, db });
 
     return NextResponse.json(
       {

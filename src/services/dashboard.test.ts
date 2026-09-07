@@ -18,7 +18,9 @@ import {
   getDailyTrend,
   getMonthTile,
   getCashTngSplit,
+  hasMonthData,
   listMonthTiles,
+  ValidationError,
 } from "./dashboard";
 import { addCostLine, getOrCreateSheet, setRevenue } from "./daily-sheet";
 import { addOperatingExpense } from "./operating-expense";
@@ -93,6 +95,12 @@ describe("Dashboard Service - getMonthTile", () => {
     expect(tile.status).toBe("open");
     expect(tile.balanced).toBeUndefined();
   });
+
+  it("rejects invalid month format with ValidationError", async () => {
+    await expect(getMonthTile("invalid-month", { db })).rejects.toThrow(
+      ValidationError,
+    );
+  });
 });
 
 describe("Dashboard Service - getDailyTrend", () => {
@@ -111,6 +119,12 @@ describe("Dashboard Service - getDailyTrend", () => {
     expect(trend[1].tngSen).toBe(12000n);
     expect(trend[1].totalSen).toBe(32000n);
   });
+
+  it("rejects invalid month format with ValidationError", async () => {
+    await expect(getDailyTrend("2025-13", { db })).rejects.toThrow(
+      ValidationError,
+    );
+  });
 });
 
 describe("Dashboard Service - getCashTngSplit", () => {
@@ -124,6 +138,12 @@ describe("Dashboard Service - getCashTngSplit", () => {
     // Total: 55000 sen
     expect(split.totalSen).toBe(55000n);
     expect(split.cashSen + split.tngSen).toBe(split.totalSen);
+  });
+
+  it("rejects invalid month format with ValidationError", async () => {
+    await expect(getCashTngSplit("bad-format", { db })).rejects.toThrow(
+      ValidationError,
+    );
   });
 });
 
@@ -144,6 +164,12 @@ describe("Dashboard Service - getCostByCategory", () => {
       costs["wages-daily"] +
       costs.other;
     expect(sumAll).toBe(15000n);
+  });
+
+  it("rejects invalid month format with ValidationError", async () => {
+    await expect(getCostByCategory("not-a-month", { db })).rejects.toThrow(
+      ValidationError,
+    );
   });
 });
 
@@ -218,6 +244,48 @@ describe("Dashboard Service - listMonthTiles", () => {
     for (const t of tiles) {
       expect(t.month <= "2025-01").toBe(true);
     }
+  });
+});
+
+describe("Dashboard Service - getDashboard", () => {
+  it("aggregates tile, trend, split, and costByCategory for a month", async () => {
+    const data = await getDashboard(TEST_MONTH, { db });
+
+    expect(data.tile.month).toBe(TEST_MONTH);
+    expect(data.tile.revenueSen).toBe(55000n);
+    expect(data.tile.dailyCostSen).toBe(15000n);
+    expect(data.tile.grossSen).toBe(40000n);
+    expect(data.tile.operatingSen).toBe(15000n);
+    expect(data.tile.netSen).toBe(25000n);
+
+    expect(data.trend).toHaveLength(2);
+    expect(data.split.cashSen).toBe(35000n);
+    expect(data.split.tngSen).toBe(20000n);
+    expect(data.costByCategory.restock).toBe(4000n);
+    expect(data.costByCategory.gas).toBe(2000n);
+    expect(data.costByCategory.transport).toBe(3000n);
+    expect(data.costByCategory["wages-daily"]).toBe(5000n);
+    expect(data.costByCategory.other).toBe(1000n);
+  });
+
+  it("rejects invalid month format with ValidationError", async () => {
+    await expect(getDashboard("invalid", { db })).rejects.toThrow(
+      ValidationError,
+    );
+  });
+});
+
+describe("Dashboard Service - hasMonthData", () => {
+  it("returns true when bookkeeping data exists for month", () => {
+    expect(hasMonthData(TEST_MONTH, { db })).toBe(true);
+  });
+
+  it("returns false when no data exists for month", () => {
+    expect(hasMonthData("2099-01", { db })).toBe(false);
+  });
+
+  it("rejects invalid month format with ValidationError", () => {
+    expect(() => hasMonthData("bad-month", { db })).toThrow(ValidationError);
   });
 });
 
@@ -309,5 +377,37 @@ describe("Dashboard API route - GET /api/dashboard", () => {
     expect(Array.isArray(json.tiles)).toBe(true);
     expect(json.tiles.length).toBeGreaterThan(0);
     expect(json.tiles.some((t: any) => t.month === TEST_MONTH)).toBe(true);
+  });
+
+  it("supports limit query parameter when listing tiles", async () => {
+    const req = makeAuthReq("http://localhost:3000/api/dashboard?limit=2");
+    const res = await dashboardGet(req);
+    expect(res.status).toBe(200);
+
+    const json = await res.json();
+    expect(json.tiles).toHaveLength(2);
+  });
+
+  it("supports upToMonth query parameter when listing tiles", async () => {
+    const req = makeAuthReq("http://localhost:3000/api/dashboard?upToMonth=2025-01");
+    const res = await dashboardGet(req);
+    expect(res.status).toBe(200);
+
+    const json = await res.json();
+    for (const t of json.tiles) {
+      expect(t.month <= "2025-01").toBe(true);
+    }
+  });
+
+  it("rejects invalid limit parameter with 400", async () => {
+    const req = makeAuthReq("http://localhost:3000/api/dashboard?limit=notanumber");
+    const res = await dashboardGet(req);
+    expect(res.status).toBe(400);
+  });
+
+  it("rejects invalid upToMonth parameter with 400", async () => {
+    const req = makeAuthReq("http://localhost:3000/api/dashboard?upToMonth=badmonth");
+    const res = await dashboardGet(req);
+    expect(res.status).toBe(400);
   });
 });
