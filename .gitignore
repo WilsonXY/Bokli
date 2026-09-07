@@ -1,2 +1,8 @@
-.agents/
-skills-lock.json
+node_modules/
+.next/
+data/
+*.db
+*.db-wal
+*.db-shm
+next-env.d.ts
+*.tsbuildinfo
