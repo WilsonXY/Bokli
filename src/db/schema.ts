@@ -55,6 +55,9 @@ export const dailySheets = sqliteTable(
   ],
 );
 
+export type DailySheet = typeof dailySheets.$inferSelect;
+export type NewDailySheet = typeof dailySheets.$inferInsert;
+
 export const costLines = sqliteTable(
   "cost_lines",
   {
@@ -80,6 +83,9 @@ export const costLines = sqliteTable(
   ],
 );
 
+export type CostLine = typeof costLines.$inferSelect;
+export type NewCostLine = typeof costLines.$inferInsert;
+
 export const operatingExpenses = sqliteTable(
   "operating_expenses",
   {
@@ -98,6 +104,9 @@ export const operatingExpenses = sqliteTable(
     check("chk_opex_amount_nonneg", sql`${t.amountSen} >= 0`),
   ],
 );
+
+export type OperatingExpense = typeof operatingExpenses.$inferSelect;
+export type NewOperatingExpense = typeof operatingExpenses.$inferInsert;
 
 export const monthCloses = sqliteTable(
   "month_closes",
@@ -120,3 +129,6 @@ export const monthCloses = sqliteTable(
   },
   (t) => [uniqueIndex("uq_month_closes_month").on(t.month)],
 );
+
+export type MonthClose = typeof monthCloses.$inferSelect;
+export type NewMonthClose = typeof monthCloses.$inferInsert;
