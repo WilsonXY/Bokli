@@ -1,37 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { type AuthSession, withAuth } from "@/auth/guard";
-import {
-  ClosedMonthError,
-  ForbiddenError,
-  FutureDateError,
-  NotFoundError,
-  reopenMonth,
-  ValidationError,
-} from "@/services/month-close";
-
-function handleError(err: unknown): NextResponse {
-  if (err instanceof ForbiddenError) {
-    return NextResponse.json({ error: err.message }, { status: 403 });
-  }
-  if (
-    err instanceof ValidationError ||
-    err instanceof FutureDateError ||
-    err instanceof ClosedMonthError
-  ) {
-    return NextResponse.json({ error: err.message }, { status: 400 });
-  }
-  if (err instanceof NotFoundError) {
-    return NextResponse.json({ error: err.message }, { status: 404 });
-  }
-  if (err instanceof SyntaxError) {
-    return NextResponse.json(
-      { error: "Invalid JSON in request body" },
-      { status: 400 },
-    );
-  }
-  const message = err instanceof Error ? err.message : "Internal server error";
-  return NextResponse.json({ error: message }, { status: 400 });
-}
+import { reopenMonth } from "@/services/month-close";
+import { handleError } from "@/services/errors";
 
 /**
  * POST /api/close/reopen
@@ -80,7 +50,7 @@ export const POST = withAuth(
       const updatedClose = await reopenMonth(
         body.month,
         body.reason,
-        session.user.role,
+        { role: session.user.role },
       );
 
       return NextResponse.json(

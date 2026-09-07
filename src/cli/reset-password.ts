@@ -1,4 +1,3 @@
-import readline from "node:readline";
 import { eq, sql } from "drizzle-orm";
 
 import { hashPassword } from "@/auth/password";
@@ -7,21 +6,53 @@ import { users } from "@/db/schema";
 
 /**
  * Reads the password from a stream (defaults to stdin).
- * Works interactively if TTY, or via pipe/redirect.
+ * Works interactively if TTY (input masked), or via pipe/redirect.
+ * The password is NOT trimmed — leading/trailing spaces are significant.
  */
 export async function readPassword(
   stream: NodeJS.ReadableStream = process.stdin,
 ): Promise<string> {
   if (process.stdin.isTTY && stream === process.stdin) {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-    return new Promise((resolve) => {
-      rl.question("Enter new password: ", (answer) => {
-        rl.close();
-        resolve(answer.trim());
-      });
+    // Masked input: route keystrokes through raw mode so the terminal
+    // does not echo the password.
+    return new Promise((resolve, reject) => {
+      process.stdout.write("Enter new password: ");
+      const chars: string[] = [];
+      let rawModeSupported = false;
+      try {
+        process.stdin.setRawMode(true);
+        rawModeSupported = true;
+      } catch {
+        // Non-TTY fallback below.
+      }
+      process.stdin.setEncoding("utf-8");
+      const onData = (chunk: string) => {
+        for (const ch of chunk) {
+          if (ch === "\r" || ch === "\n") {
+            process.stdin.setRawMode?.(false);
+            process.stdin.removeListener("data", onData);
+            process.stdout.write("\n");
+            resolve(chars.join(""));
+            return;
+          }
+          if (ch === "\u0003") {
+            // Ctrl+C
+            process.stdin.setRawMode?.(false);
+            process.stdin.removeListener("data", onData);
+            process.stdout.write("\n");
+            reject(new Error("Aborted."));
+            return;
+          }
+          if (ch === "\u007f" || ch === "\b") {
+            chars.pop();
+            continue;
+          }
+          chars.push(ch);
+        }
+        // Echo a dot per character only when raw mode is active (real TTY).
+        if (rawModeSupported) process.stdout.write(".");
+      };
+      process.stdin.on("data", onData);
     });
   }
 
@@ -32,7 +63,8 @@ export async function readPassword(
       data += chunk;
     });
     stream.on("end", () => {
-      resolve(data.trim());
+      // Strip a single trailing newline added by echo/pipe, preserve other whitespace.
+      resolve(data.replace(/\r?\n$/, ""));
     });
     stream.on("error", (err) => {
       reject(err);
@@ -59,7 +91,7 @@ export async function resetPassword(
   const target = db
     .select()
     .from(users)
-    .where(sql`lower(${users.username}) = ${username.toLowerCase().trim()}`)
+    .where(sql`lower(${users.username}) = ${username.toLowerCase()}`)
     .get();
 
   if (!target) {

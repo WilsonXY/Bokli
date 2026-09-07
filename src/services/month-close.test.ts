@@ -261,7 +261,8 @@ describe("5. Reopen gating (Operator rejected with Forbidden, Admin allowed)", (
 
   it("rejects non-Admin / Operator attempting to reopen with ForbiddenError", async () => {
     await expect(
-      reopenMonth(MONTH, "Need to add late restock", "Operator", {
+      reopenMonth(MONTH, "Need to add late restock", {
+        role: "Operator",
         db,
         now: MOCK_NOW,
       }),
@@ -269,7 +270,6 @@ describe("5. Reopen gating (Operator rejected with Forbidden, Admin allowed)", (
 
     await expect(
       reopenMonth(MONTH, "Need to add late restock", {
-        role: "Operator",
         db,
         now: MOCK_NOW,
       }),
@@ -278,17 +278,18 @@ describe("5. Reopen gating (Operator rejected with Forbidden, Admin allowed)", (
 
   it("requires a non-empty reason to reopen", async () => {
     await expect(
-      reopenMonth(MONTH, "", "Admin", { db, now: MOCK_NOW }),
+      reopenMonth(MONTH, "", { role: "Admin", db, now: MOCK_NOW }),
     ).rejects.toThrow(ValidationError);
 
     await expect(
-      reopenMonth(MONTH, "   ", "Admin", { db, now: MOCK_NOW }),
+      reopenMonth(MONTH, "   ", { role: "Admin", db, now: MOCK_NOW }),
     ).rejects.toThrow(ValidationError);
   });
 
   it("allows Admin to reopen with reason and sets reopenedAt + reopenReason", async () => {
     const reason = "Correction for missing restock receipt";
-    const reopened = await reopenMonth(MONTH, reason, "Admin", {
+    const reopened = await reopenMonth(MONTH, reason, {
+      role: "Admin",
       db,
       now: MOCK_NOW,
     });
@@ -305,13 +306,13 @@ describe("5. Reopen gating (Operator rejected with Forbidden, Admin allowed)", (
 
   it("rejects reopening a month that is already open", async () => {
     await expect(
-      reopenMonth(MONTH, "Second reopen attempt", "Admin", { db, now: MOCK_NOW }),
+      reopenMonth(MONTH, "Second reopen attempt", { role: "Admin", db, now: MOCK_NOW }),
     ).rejects.toThrow(ValidationError);
   });
 
   it("rejects reopening a non-existent month close", async () => {
     await expect(
-      reopenMonth("2024-01", "Does not exist", "Admin", { db, now: MOCK_NOW }),
+      reopenMonth("2024-01", "Does not exist", { role: "Admin", db, now: MOCK_NOW }),
     ).rejects.toThrow(NotFoundError);
   });
 });
@@ -333,27 +334,27 @@ describe("6. Edits blocked while closed and allowed after reopen", () => {
 
     // 3. Edits are BLOCKED while closed:
     // Create new sheet in closed month
-    await expect(
+    expect(() =>
       getOrCreateSheet(`${MONTH}-02`, { db, now: MOCK_NOW }),
-    ).rejects.toThrow(ClosedMonthError);
+    ).toThrow(ClosedMonthError);
 
     // Set revenue on existing sheet in closed month
-    await expect(setRevenue(sheet.id, 30000, 10000, { db })).rejects.toThrow(
+    expect(() => setRevenue(sheet.id, 30000, 10000, { db })).toThrow(
       ClosedMonthError,
     );
 
     // Add cost line in closed month
-    await expect(
+    expect(() =>
       addCostLine(sheet.id, 2000, "restock", null, { db }),
-    ).rejects.toThrow(ClosedMonthError);
+    ).toThrow(ClosedMonthError);
 
     // Update cost line in closed month
-    await expect(
+    expect(() =>
       updateCostLine(costLine.id, { amountSen: 6000 }, { db }),
-    ).rejects.toThrow(ClosedMonthError);
+    ).toThrow(ClosedMonthError);
 
     // Remove cost line in closed month
-    await expect(removeCostLine(costLine.id, { db })).rejects.toThrow(
+    expect(() => removeCostLine(costLine.id, { db })).toThrow(
       ClosedMonthError,
     );
 
@@ -373,7 +374,8 @@ describe("6. Edits blocked while closed and allowed after reopen", () => {
     );
 
     // 4. Admin reopens month
-    await reopenMonth(MONTH, "Late adjustment to utilities and gas", "Admin", {
+    await reopenMonth(MONTH, "Late adjustment to utilities and gas", {
+      role: "Admin",
       db,
       now: MOCK_NOW,
     });
@@ -426,9 +428,9 @@ describe("6. Edits blocked while closed and allowed after reopen", () => {
     expect(reclosed.reopenReason).toBeNull();
 
     // Edits are locked again
-    await expect(
+    expect(() =>
       getOrCreateSheet(`${MONTH}-03`, { db, now: MOCK_NOW }),
-    ).rejects.toThrow(ClosedMonthError);
+    ).toThrow(ClosedMonthError);
   });
 });
 
@@ -468,7 +470,7 @@ describe("8. API Routes (/api/close and /api/close/reopen)", () => {
   };
 
   function makeAuthReq(url: string, session: any, init?: any) {
-    const req = new NextRequest(url, init);
+    const req = new NextRequest(url, init as any);
     (req as any).auth = session;
     return req;
   }

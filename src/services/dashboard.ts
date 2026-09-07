@@ -1,4 +1,4 @@
-import { asc, desc, eq, like } from "drizzle-orm";
+import { asc, eq, like } from "drizzle-orm";
 import { openDb, type Db } from "@/db";
 import {
   costLines,
@@ -7,12 +7,7 @@ import {
   operatingExpenses,
 } from "@/db/schema";
 import { isValidMonthStr, subSen, sumSen } from "@/lib/money";
-import {
-  COST_CATEGORIES,
-  type CostCategory,
-  NotFoundError,
-  ValidationError,
-} from "./daily-sheet";
+import { type CostCategory, NotFoundError, ValidationError } from "./daily-sheet";
 import { getMonthPreview } from "./operating-expense";
 
 export { NotFoundError, ValidationError } from "./daily-sheet";
@@ -58,6 +53,12 @@ export interface DashboardMonthData {
  */
 export function hasMonthData(month: string, options?: { db?: Db }): boolean {
   const db = options?.db ?? openDb().db;
+
+  if (!isValidMonthStr(month)) {
+    throw new ValidationError(
+      `Invalid month format: "${month}", expected YYYY-MM`,
+    );
+  }
 
   const sheet = db
     .select({ id: dailySheets.id })
@@ -265,7 +266,7 @@ export async function getCostByCategory(
 
   for (const c of costs) {
     const cat = c.category as CostCategory;
-    if (cat in sums) {
+    if (Object.hasOwn(sums, cat)) {
       sums[cat] = sumSen([sums[cat], BigInt(c.amountSen)]);
     }
   }
@@ -273,65 +274,89 @@ export async function getCostByCategory(
   return sums;
 }
 
+export interface ListMonthTilesOptions {
+  limit?: number;
+  upToMonth?: string;
+  db?: Db;
+}
+
 /**
  * List recent Month Tiles.
  * Discovers distinct months with bookkeeping records (Daily Sheets, Operating Expenses, Month Closes),
  * ordered newest first.
- * @param upTo Optional limit or filter: number of recent months, or upper bound month string "YYYY-MM", or options object.
+ * Batches queries in a single pass over sheets/expenses/closes without N+1 query loops.
  */
 export async function listMonthTiles(
-  upTo?: number | string | { limit?: number; upToMonth?: string; db?: Db },
-  options?: { db?: Db },
+  options?: ListMonthTilesOptions,
 ): Promise<MonthTile[]> {
-  let limit: number | undefined;
-  let upToMonth: string | undefined;
-  let db: Db;
+  const db = options?.db ?? openDb().db;
+  const limit = options?.limit;
+  const upToMonth = options?.upToMonth;
 
-  if (typeof upTo === "number") {
-    limit = upTo;
-    db = options?.db ?? openDb().db;
-  } else if (typeof upTo === "string") {
-    if (isValidMonthStr(upTo)) {
-      upToMonth = upTo;
-    } else if (/^\d+$/.test(upTo.trim())) {
-      limit = Number(upTo.trim());
-    }
-    db = options?.db ?? openDb().db;
-  } else if (typeof upTo === "object" && upTo !== null) {
-    limit = upTo.limit;
-    upToMonth = upTo.upToMonth;
-    db = upTo.db ?? options?.db ?? openDb().db;
-  } else {
-    db = options?.db ?? openDb().db;
-  }
-
-  // Query distinct months from dailySheets, operatingExpenses, and monthCloses
+  // Single pass batch queries
   const sheetRows = db
-    .select({ date: dailySheets.date })
+    .select({
+      date: dailySheets.date,
+      cashSen: dailySheets.cashSen,
+      tngSen: dailySheets.tngSen,
+    })
     .from(dailySheets)
     .all();
 
+  const costRows = db
+    .select({
+      date: dailySheets.date,
+      amountSen: costLines.amountSen,
+    })
+    .from(costLines)
+    .innerJoin(dailySheets, eq(costLines.dailySheetId, dailySheets.id))
+    .all();
+
   const expenseRows = db
-    .select({ month: operatingExpenses.month })
+    .select({
+      month: operatingExpenses.month,
+      amountSen: operatingExpenses.amountSen,
+    })
     .from(operatingExpenses)
     .all();
 
   const closeRows = db
-    .select({ month: monthCloses.month })
+    .select()
     .from(monthCloses)
     .all();
 
   const monthsSet = new Set<string>();
-  for (const r of sheetRows) {
-    if (r.date.length >= 7) {
-      monthsSet.add(r.date.slice(0, 7));
+  const revenueByMonth = new Map<string, bigint>();
+  const dailyCostByMonth = new Map<string, bigint>();
+  const operatingByMonth = new Map<string, bigint>();
+  const closeByMonth = new Map<string, (typeof closeRows)[number]>();
+
+  for (const s of sheetRows) {
+    if (s.date.length >= 7) {
+      const m = s.date.slice(0, 7);
+      monthsSet.add(m);
+      const curr = revenueByMonth.get(m) ?? 0n;
+      revenueByMonth.set(m, sumSen([curr, BigInt(s.cashSen), BigInt(s.tngSen)]));
     }
   }
-  for (const r of expenseRows) {
-    monthsSet.add(r.month);
+
+  for (const c of costRows) {
+    if (c.date.length >= 7) {
+      const m = c.date.slice(0, 7);
+      const curr = dailyCostByMonth.get(m) ?? 0n;
+      dailyCostByMonth.set(m, sumSen([curr, BigInt(c.amountSen)]));
+    }
   }
-  for (const r of closeRows) {
-    monthsSet.add(r.month);
+
+  for (const e of expenseRows) {
+    monthsSet.add(e.month);
+    const curr = operatingByMonth.get(e.month) ?? 0n;
+    operatingByMonth.set(e.month, sumSen([curr, BigInt(e.amountSen)]));
+  }
+
+  for (const cl of closeRows) {
+    monthsSet.add(cl.month);
+    closeByMonth.set(cl.month, cl);
   }
 
   let months = Array.from(monthsSet).sort().reverse();
@@ -345,8 +370,47 @@ export async function listMonthTiles(
   }
 
   const tiles: MonthTile[] = [];
+
   for (const m of months) {
-    tiles.push(await getMonthTile(m, { db }));
+    const closeRecord = closeByMonth.get(m);
+
+    if (closeRecord && !closeRecord.reopenedAt) {
+      // Month is closed: use frozen snapshot and evaluate balanced
+      const netSen = BigInt(closeRecord.netSen);
+      const cashOnHand = BigInt(closeRecord.cashOnHandSen ?? 0);
+      const tngOnHand = BigInt(closeRecord.tngOnHandSen ?? 0);
+      const actualSen = sumSen([cashOnHand, tngOnHand]);
+      const differenceSen = subSen(actualSen, netSen);
+      const balanced = differenceSen === 0n;
+
+      tiles.push({
+        month: m,
+        revenueSen: BigInt(closeRecord.revenueSen),
+        dailyCostSen: BigInt(closeRecord.dailyCostSen),
+        grossSen: BigInt(closeRecord.grossSen),
+        operatingSen: BigInt(closeRecord.operatingSen),
+        netSen,
+        status: "closed",
+        balanced,
+      });
+    } else {
+      const revenueSen = revenueByMonth.get(m) ?? 0n;
+      const dailyCostSen = dailyCostByMonth.get(m) ?? 0n;
+      const operatingSen = operatingByMonth.get(m) ?? 0n;
+      const grossSen = subSen(revenueSen, dailyCostSen);
+      const netSen = subSen(grossSen, operatingSen);
+      const status: MonthStatus = closeRecord?.reopenedAt ? "reopened" : "open";
+
+      tiles.push({
+        month: m,
+        revenueSen,
+        dailyCostSen,
+        grossSen,
+        operatingSen,
+        netSen,
+        status,
+      });
+    }
   }
 
   return tiles;

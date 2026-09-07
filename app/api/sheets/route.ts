@@ -2,22 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/auth/guard";
 import {
   addCostLine,
-  ClosedMonthError,
   CostCategory,
-  FutureDateError,
   getOrCreateSheet,
+  getSheetByDate,
   getSheetWithCosts,
-  NotFoundError,
   removeCostLine,
   setRevenue,
   updateCostLine,
-  ValidationError,
 } from "@/services/daily-sheet";
-import { openDb } from "@/db";
-import { dailySheets } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { handleError } from "@/services/errors";
 
-function formatSheetResponse(result: NonNullable<Awaited<ReturnType<typeof getSheetWithCosts>>>) {
+function formatSheetResponse(result: NonNullable<ReturnType<typeof getSheetWithCosts>>) {
   return {
     sheet: result.sheet,
     costLines: result.costLines,
@@ -25,24 +20,6 @@ function formatSheetResponse(result: NonNullable<Awaited<ReturnType<typeof getSh
     totalRevenueSen: Number(result.totalRevenueSen),
     grossProfitSen: Number(result.grossProfitSen),
   };
-}
-
-function handleError(err: unknown): NextResponse {
-  if (
-    err instanceof ValidationError ||
-    err instanceof FutureDateError ||
-    err instanceof ClosedMonthError
-  ) {
-    return NextResponse.json({ error: err.message }, { status: 400 });
-  }
-  if (err instanceof NotFoundError) {
-    return NextResponse.json({ error: err.message }, { status: 404 });
-  }
-  if (err instanceof SyntaxError) {
-    return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 });
-  }
-  const message = err instanceof Error ? err.message : "Internal server error";
-  return NextResponse.json({ error: message }, { status: 400 });
 }
 
 /**
@@ -61,7 +38,7 @@ export const GET = withAuth(async (req: NextRequest) => {
       );
     }
 
-    const result = await getSheetWithCosts(date);
+    const result = getSheetWithCosts(date);
     if (!result) {
       return NextResponse.json(
         { error: `Daily Sheet not found for date: ${date}` },
@@ -96,7 +73,7 @@ export const POST = withAuth(async (req: NextRequest) => {
       if (!Number.isInteger(sheetId) || sheetId <= 0) {
         return NextResponse.json({ error: "Valid sheetId is required" }, { status: 400 });
       }
-      const line = await addCostLine(
+      const line = addCostLine(
         sheetId,
         body.amountSen,
         body.category as CostCategory,
@@ -113,13 +90,13 @@ export const POST = withAuth(async (req: NextRequest) => {
       );
     }
 
-    const sheet = await getOrCreateSheet(body.date);
+    const sheet = getOrCreateSheet(body.date);
 
     // Optional revenue setup
     if (body.cashSen !== undefined || body.tngSen !== undefined) {
       const cash = body.cashSen !== undefined ? body.cashSen : sheet.cashSen;
       const tng = body.tngSen !== undefined ? body.tngSen : sheet.tngSen;
-      await setRevenue(sheet.id, cash, tng);
+      setRevenue(sheet.id, cash, tng);
     }
 
     // Optional initial cost lines
@@ -131,7 +108,7 @@ export const POST = withAuth(async (req: NextRequest) => {
             { status: 400 },
           );
         }
-        await addCostLine(
+        addCostLine(
           sheet.id,
           line.amountSen,
           line.category as CostCategory,
@@ -139,7 +116,7 @@ export const POST = withAuth(async (req: NextRequest) => {
         );
       }
     } else if (body.amountSen !== undefined && body.category) {
-      await addCostLine(
+      addCostLine(
         sheet.id,
         body.amountSen,
         body.category as CostCategory,
@@ -147,7 +124,7 @@ export const POST = withAuth(async (req: NextRequest) => {
       );
     }
 
-    const withCosts = await getSheetWithCosts(body.date);
+    const withCosts = getSheetWithCosts(body.date);
     if (!withCosts) {
       return NextResponse.json({ sheet }, { status: 201 });
     }
@@ -179,7 +156,7 @@ export const PATCH = withAuth(async (req: NextRequest) => {
       if (!Number.isInteger(costLineId) || costLineId <= 0) {
         return NextResponse.json({ error: "Valid costLineId is required" }, { status: 400 });
       }
-      const result = await removeCostLine(costLineId);
+      const result = removeCostLine(costLineId);
       return NextResponse.json(result, { status: 200 });
     }
 
@@ -189,7 +166,7 @@ export const PATCH = withAuth(async (req: NextRequest) => {
       if (!Number.isInteger(costLineId) || costLineId <= 0) {
         return NextResponse.json({ error: "Valid costLineId is required" }, { status: 400 });
       }
-      const updated = await updateCostLine(costLineId, {
+      const updated = updateCostLine(costLineId, {
         amountSen: body.amountSen,
         category: body.category as CostCategory,
         note: body.note,
@@ -202,8 +179,7 @@ export const PATCH = withAuth(async (req: NextRequest) => {
     if (body.sheetId !== undefined) {
       targetSheetId = Number(body.sheetId);
     } else if (body.date && typeof body.date === "string") {
-      const { db } = openDb();
-      const s = db.select().from(dailySheets).where(eq(dailySheets.date, body.date)).get();
+      const s = getSheetByDate(body.date);
       if (!s) {
         return NextResponse.json(
           { error: `Daily Sheet not found for date: ${body.date}` },
@@ -227,8 +203,8 @@ export const PATCH = withAuth(async (req: NextRequest) => {
       );
     }
 
-    const updatedSheet = await setRevenue(targetSheetId, body.cashSen, body.tngSen);
-    const withCosts = await getSheetWithCosts(updatedSheet.date);
+    const updatedSheet = setRevenue(targetSheetId, body.cashSen, body.tngSen);
+    const withCosts = getSheetWithCosts(updatedSheet.date);
 
     return NextResponse.json(
       withCosts ? formatSheetResponse(withCosts) : { sheet: updatedSheet },

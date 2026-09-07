@@ -81,6 +81,7 @@ export function isValidCostCategory(category: unknown): category is CostCategory
 /**
  * Validates that an amount is a non-negative integer representing sen (MYR minor units).
  * Floats, negatives, strings with non-digits, and invalid values are strictly rejected.
+ * Rejects values > Number.MAX_SAFE_INTEGER to prevent precision loss upon Number() conversion.
  */
 export function assertValidSen(amount: unknown, fieldName: string): bigint {
   let val: bigint;
@@ -104,6 +105,12 @@ export function assertValidSen(amount: unknown, fieldName: string): bigint {
   if (val < 0n) {
     throw new ValidationError(
       `${fieldName} cannot be negative, received: ${val.toString()}`,
+    );
+  }
+
+  if (val > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new ValidationError(
+      `${fieldName} exceeds maximum safe amount (${Number.MAX_SAFE_INTEGER} sen), received: ${val.toString()}`,
     );
   }
 
@@ -149,10 +156,10 @@ export interface DailySheetWithCosts {
  * - Date must not be in the future in Asia/Kuala_Lumpur
  * - Month must not be closed when creating a new sheet
  */
-export async function getOrCreateSheet(
+export function getOrCreateSheet(
   date: string,
   options?: { db?: Db; now?: Date },
-): Promise<DailySheet> {
+): DailySheet {
   const db = options?.db ?? openDb().db;
 
   if (!isValidDateStr(date)) {
@@ -208,16 +215,41 @@ export async function getOrCreateSheet(
 }
 
 /**
+ * Fetch a Daily Sheet by exact date string ("YYYY-MM-DD").
+ * Returns null if not found.
+ */
+export function getSheetByDate(
+  date: string,
+  options?: { db?: Db },
+): DailySheet | null {
+  const db = options?.db ?? openDb().db;
+
+  if (!isValidDateStr(date)) {
+    throw new ValidationError(
+      `Invalid date format: "${date}", expected YYYY-MM-DD`,
+    );
+  }
+
+  const sheet = db
+    .select()
+    .from(dailySheets)
+    .where(eq(dailySheets.date, date))
+    .get();
+
+  return sheet ?? null;
+}
+
+/**
  * Set Cash Revenue and TnG Revenue for a Daily Sheet.
  * - Amounts must be non-negative sen integers
  * - Month must not be closed
  */
-export async function setRevenue(
+export function setRevenue(
   sheetId: number,
   cashSen: number | bigint,
   tngSen: number | bigint,
   options?: { db?: Db },
-): Promise<DailySheet> {
+): DailySheet {
   const db = options?.db ?? openDb().db;
 
   const validCash = assertValidSen(cashSen, "Cash Revenue (cashSen)");
@@ -256,15 +288,15 @@ export async function setRevenue(
  * - Note required when category is 'other'
  * - Amount must be non-negative sen integer
  * - Month must not be closed
- * - Updates Daily Sheet's updatedAt timestamp
+ * - Updates Daily Sheet's updatedAt timestamp atomically in a single transaction
  */
-export async function addCostLine(
+export function addCostLine(
   sheetId: number,
   amountSen: number | bigint,
   category: CostCategory,
   note?: string | null,
   options?: { db?: Db },
-): Promise<CostLine> {
+): CostLine {
   const db = options?.db ?? openDb().db;
 
   const validAmount = assertValidSen(
@@ -296,24 +328,26 @@ export async function addCostLine(
   const month = sheet.date.slice(0, 7);
   assertMonthNotClosed(month, db);
 
-  const inserted = db
-    .insert(costLines)
-    .values({
-      dailySheetId: sheetId,
-      amountSen: Number(validAmount),
-      category,
-      note: trimmedNote,
-    })
-    .returning()
-    .get();
+  return db.transaction((tx) => {
+    const inserted = tx
+      .insert(costLines)
+      .values({
+        dailySheetId: sheetId,
+        amountSen: Number(validAmount),
+        category,
+        note: trimmedNote,
+      })
+      .returning()
+      .get();
 
-  // Keep updatedAt timestamp trail on parent Daily Sheet (no hard delete of sheet)
-  db.update(dailySheets)
-    .set({ updatedAt: new Date().toISOString() })
-    .where(eq(dailySheets.id, sheetId))
-    .run();
+    // Keep updatedAt timestamp trail on parent Daily Sheet (no hard delete of sheet)
+    tx.update(dailySheets)
+      .set({ updatedAt: new Date().toISOString() })
+      .where(eq(dailySheets.id, sheetId))
+      .run();
 
-  return inserted;
+    return inserted;
+  });
 }
 
 export interface UpdateCostLineInput {
@@ -325,13 +359,13 @@ export interface UpdateCostLineInput {
 /**
  * Update an existing Cost Line.
  * - Month must not be closed
- * - Corrections keep timestamps on parent Daily Sheet
+ * - Corrections keep timestamps on parent Daily Sheet atomically in a single transaction
  */
-export async function updateCostLine(
+export function updateCostLine(
   costLineId: number,
   updates: UpdateCostLineInput,
   options?: { db?: Db },
-): Promise<CostLine> {
+): CostLine {
   const db = options?.db ?? openDb().db;
 
   const existingLine = db
@@ -388,35 +422,37 @@ export async function updateCostLine(
     throw new ValidationError("Note is required when Cost Category is 'other'");
   }
 
-  const updatedLine = db
-    .update(costLines)
-    .set({
-      amountSen: finalAmountSen,
-      category: finalCategory,
-      note: finalNote,
-    })
-    .where(eq(costLines.id, costLineId))
-    .returning()
-    .get();
+  return db.transaction((tx) => {
+    const updatedLine = tx
+      .update(costLines)
+      .set({
+        amountSen: finalAmountSen,
+        category: finalCategory,
+        note: finalNote,
+      })
+      .where(eq(costLines.id, costLineId))
+      .returning()
+      .get();
 
-  // Keep updatedAt timestamp trail on parent Daily Sheet
-  db.update(dailySheets)
-    .set({ updatedAt: new Date().toISOString() })
-    .where(eq(dailySheets.id, sheet.id))
-    .run();
+    // Keep updatedAt timestamp trail on parent Daily Sheet
+    tx.update(dailySheets)
+      .set({ updatedAt: new Date().toISOString() })
+      .where(eq(dailySheets.id, sheet.id))
+      .run();
 
-  return updatedLine;
+    return updatedLine;
+  });
 }
 
 /**
  * Remove a Cost Line from a Daily Sheet.
  * - Month must not be closed
- * - Daily Sheet is NOT hard deleted; updates parent updatedAt timestamp
+ * - Daily Sheet is NOT hard deleted; updates parent updatedAt timestamp atomically in a single transaction
  */
-export async function removeCostLine(
+export function removeCostLine(
   costLineId: number,
   options?: { db?: Db },
-): Promise<{ success: boolean; removedLine: CostLine }> {
+): { success: boolean; removedLine: CostLine } {
   const db = options?.db ?? openDb().db;
 
   const existingLine = db
@@ -444,15 +480,17 @@ export async function removeCostLine(
   const month = sheet.date.slice(0, 7);
   assertMonthNotClosed(month, db);
 
-  db.delete(costLines).where(eq(costLines.id, costLineId)).run();
+  return db.transaction((tx) => {
+    tx.delete(costLines).where(eq(costLines.id, costLineId)).run();
 
-  // Keep updatedAt timestamp trail on parent Daily Sheet
-  db.update(dailySheets)
-    .set({ updatedAt: new Date().toISOString() })
-    .where(eq(dailySheets.id, sheet.id))
-    .run();
+    // Keep updatedAt timestamp trail on parent Daily Sheet
+    tx.update(dailySheets)
+      .set({ updatedAt: new Date().toISOString() })
+      .where(eq(dailySheets.id, sheet.id))
+      .run();
 
-  return { success: true, removedLine: existingLine };
+    return { success: true, removedLine: existingLine };
+  });
 }
 
 /**
@@ -460,10 +498,10 @@ export async function removeCostLine(
  * - Uses Money helpers (sumSen, subSen) for arithmetic (no floats)
  * - Returns null if no sheet exists for the given date
  */
-export async function getSheetWithCosts(
+export function getSheetWithCosts(
   date: string,
   options?: { db?: Db },
-): Promise<DailySheetWithCosts | null> {
+): DailySheetWithCosts | null {
   const db = options?.db ?? openDb().db;
 
   if (!isValidDateStr(date)) {

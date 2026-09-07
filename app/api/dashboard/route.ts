@@ -8,13 +8,12 @@ import {
   getMonthTile,
   hasMonthData,
   listMonthTiles,
-  NotFoundError,
-  ValidationError,
   type CashTngSplit,
   type CostByCategory,
   type DailyTrendRow,
   type MonthTile,
 } from "@/services/dashboard";
+import { handleError } from "@/services/errors";
 import { isValidMonthStr } from "@/lib/money";
 
 function formatTile(tile: MonthTile) {
@@ -55,17 +54,6 @@ function formatCostByCategory(costByCategory: CostByCategory) {
     "wages-daily": Number(costByCategory["wages-daily"]),
     other: Number(costByCategory.other),
   };
-}
-
-function handleError(err: unknown): NextResponse {
-  if (err instanceof ValidationError) {
-    return NextResponse.json({ error: err.message }, { status: 400 });
-  }
-  if (err instanceof NotFoundError) {
-    return NextResponse.json({ error: err.message }, { status: 404 });
-  }
-  const message = err instanceof Error ? err.message : "Internal server error";
-  return NextResponse.json({ error: message }, { status: 400 });
 }
 
 /**
@@ -114,7 +102,7 @@ export const GET = withAuth(async (req: NextRequest) => {
     }
 
     const { db } = openDb();
-    const tiles = await listMonthTiles(undefined, { db });
+    const tiles = await listMonthTiles({ db });
 
     return NextResponse.json(
       {

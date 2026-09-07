@@ -62,14 +62,14 @@ afterAll(() => {
 });
 
 describe("1. Unique-date enforcement", () => {
-  it("creates a single Daily Sheet per date idempotently", async () => {
-    const sheet1 = await getOrCreateSheet("2026-09-01", { db });
+  it("creates a single Daily Sheet per date idempotently", () => {
+    const sheet1 = getOrCreateSheet("2026-09-01", { db });
     expect(sheet1).toBeDefined();
     expect(sheet1.date).toBe("2026-09-01");
     expect(sheet1.cashSen).toBe(0);
     expect(sheet1.tngSen).toBe(0);
 
-    const sheet2 = await getOrCreateSheet("2026-09-01", { db });
+    const sheet2 = getOrCreateSheet("2026-09-01", { db });
     expect(sheet2.id).toBe(sheet1.id);
 
     const allSheets = db
@@ -88,7 +88,7 @@ describe("1. Unique-date enforcement", () => {
 });
 
 describe("2. Future-date rejection (Asia/Kuala_Lumpur)", () => {
-  it("accepts today and past dates in Asia/Kuala_Lumpur", async () => {
+  it("accepts today and past dates in Asia/Kuala_Lumpur", () => {
     // 2026-09-07 15:30:00 UTC = 2026-09-07 23:30:00 in Asia/Kuala_Lumpur
     const mockNow = new Date("2026-09-07T15:30:00.000Z");
     expect(getTodayInKualaLumpur(mockNow)).toBe("2026-09-07");
@@ -97,46 +97,46 @@ describe("2. Future-date rejection (Asia/Kuala_Lumpur)", () => {
     expect(isFutureDateInKL("2026-09-07", mockNow)).toBe(false);
     expect(isFutureDateInKL("2026-09-08", mockNow)).toBe(true);
 
-    const sheet = await getOrCreateSheet("2026-09-07", { db, now: mockNow });
+    const sheet = getOrCreateSheet("2026-09-07", { db, now: mockNow });
     expect(sheet.date).toBe("2026-09-07");
   });
 
-  it("rejects future dates in Asia/Kuala_Lumpur with FutureDateError", async () => {
+  it("rejects future dates in Asia/Kuala_Lumpur with FutureDateError", () => {
     const mockNow = new Date("2026-09-07T15:30:00.000Z");
-    await expect(
+    expect(() =>
       getOrCreateSheet("2026-09-08", { db, now: mockNow }),
-    ).rejects.toThrow(FutureDateError);
-    await expect(
+    ).toThrow(FutureDateError);
+    expect(() =>
       getOrCreateSheet("2026-10-01", { db, now: mockNow }),
-    ).rejects.toThrow(/future/i);
+    ).toThrow(/future/i);
   });
 
-  it("correctly computes new day when UTC is previous day but Asia/Kuala_Lumpur has rolled over", async () => {
+  it("correctly computes new day when UTC is previous day but Asia/Kuala_Lumpur has rolled over", () => {
     // 2026-09-07 16:15:00 UTC = 2026-09-08 00:15:00 in Asia/Kuala_Lumpur (+8 hours)
     const midnightAfterKL = new Date("2026-09-07T16:15:00.000Z");
     expect(getTodayInKualaLumpur(midnightAfterKL)).toBe("2026-09-08");
 
     // 2026-09-08 is NOT future in KL at this instant
-    const sheet = await getOrCreateSheet("2026-09-08", {
+    const sheet = getOrCreateSheet("2026-09-08", {
       db,
       now: midnightAfterKL,
     });
     expect(sheet.date).toBe("2026-09-08");
 
     // 2026-09-09 is still future in KL
-    await expect(
+    expect(() =>
       getOrCreateSheet("2026-09-09", { db, now: midnightAfterKL }),
-    ).rejects.toThrow(FutureDateError);
+    ).toThrow(FutureDateError);
   });
 
-  it("rejects invalid date strings with ValidationError", async () => {
-    await expect(getOrCreateSheet("not-a-date", { db })).rejects.toThrow(
+  it("rejects invalid date strings with ValidationError", () => {
+    expect(() => getOrCreateSheet("not-a-date", { db })).toThrow(
       ValidationError,
     );
-    await expect(getOrCreateSheet("2026-02-30", { db })).rejects.toThrow(
+    expect(() => getOrCreateSheet("2026-02-30", { db })).toThrow(
       /Invalid date format/,
     );
-    await expect(getOrCreateSheet("2026-13-01", { db })).rejects.toThrow(
+    expect(() => getOrCreateSheet("2026-13-01", { db })).toThrow(
       /Invalid date format/,
     );
   });
@@ -145,11 +145,11 @@ describe("2. Future-date rejection (Asia/Kuala_Lumpur)", () => {
 describe("3. Cost Category CHECK and note requirement", () => {
   let sheet: DailySheet;
 
-  beforeAll(async () => {
-    sheet = await getOrCreateSheet("2026-09-03", { db });
+  beforeAll(() => {
+    sheet = getOrCreateSheet("2026-09-03", { db });
   });
 
-  it("accepts all valid fixed Cost Categories", async () => {
+  it("accepts all valid fixed Cost Categories", () => {
     const validCategories = [
       "restock",
       "gas",
@@ -158,64 +158,74 @@ describe("3. Cost Category CHECK and note requirement", () => {
     ] as const;
 
     for (const cat of validCategories) {
-      const line = await addCostLine(sheet.id, 1000n, cat, null, { db });
+      const line = addCostLine(sheet.id, 1000n, cat, null, { db });
       expect(line.category).toBe(cat);
       expect(line.amountSen).toBe(1000);
       expect(line.dailySheetId).toBe(sheet.id);
     }
   });
 
-  it("rejects invalid Cost Categories with ValidationError", async () => {
-    await expect(
+  it("rejects invalid Cost Categories with ValidationError", () => {
+    expect(() =>
       addCostLine(sheet.id, 500n, "snacks" as any, null, { db }),
-    ).rejects.toThrow(ValidationError);
-    await expect(
+    ).toThrow(ValidationError);
+    expect(() =>
       addCostLine(sheet.id, 500n, "utilities" as any, null, { db }),
-    ).rejects.toThrow(/Invalid Cost Category/);
+    ).toThrow(/Invalid Cost Category/);
   });
 
-  it("requires non-empty note when category is 'other'", async () => {
+  it("requires non-empty note when category is 'other'", () => {
     // Missing or blank notes rejected
-    await expect(
+    expect(() =>
       addCostLine(sheet.id, 500n, "other", null, { db }),
-    ).rejects.toThrow(ValidationError);
-    await expect(
+    ).toThrow(ValidationError);
+    expect(() =>
       addCostLine(sheet.id, 500n, "other", "", { db }),
-    ).rejects.toThrow(ValidationError);
-    await expect(
+    ).toThrow(ValidationError);
+    expect(() =>
       addCostLine(sheet.id, 500n, "other", "   ", { db }),
-    ).rejects.toThrow(/Note is required when Cost Category is 'other'/);
+    ).toThrow(/Note is required when Cost Category is 'other'/);
 
     // Valid note accepted
-    const line = await addCostLine(sheet.id, 500n, "other", "Plastic takeout containers", {
+    const line = addCostLine(sheet.id, 500n, "other", "Plastic takeout containers", {
       db,
     });
     expect(line.category).toBe("other");
     expect(line.note).toBe("Plastic takeout containers");
   });
 
-  it("rejects negative amounts with ValidationError", async () => {
-    await expect(
+  it("rejects negative amounts with ValidationError", () => {
+    expect(() =>
       addCostLine(sheet.id, -100n, "gas", null, { db }),
-    ).rejects.toThrow(ValidationError);
-    await expect(
+    ).toThrow(ValidationError);
+    expect(() =>
       addCostLine(sheet.id, -1, "gas", null, { db }),
-    ).rejects.toThrow(/cannot be negative/);
+    ).toThrow(/cannot be negative/);
   });
 
-  it("rejects float amounts with ValidationError (sen integer only)", async () => {
-    await expect(
+  it("rejects float amounts with ValidationError (sen integer only)", () => {
+    expect(() =>
       addCostLine(sheet.id, 12.34 as any, "gas", null, { db }),
-    ).rejects.toThrow(/must be an integer/);
+    ).toThrow(/must be an integer/);
   });
 
-  it("enforces note rule when updating existing Cost Line to 'other'", async () => {
-    const line = await addCostLine(sheet.id, 800n, "gas", null, { db });
-    await expect(
-      updateCostLine(line.id, { category: "other", note: "" }, { db }),
-    ).rejects.toThrow(ValidationError);
+  it("rejects amounts exceeding Number.MAX_SAFE_INTEGER with ValidationError", () => {
+    const huge = BigInt(Number.MAX_SAFE_INTEGER) + 1n;
+    expect(() =>
+      addCostLine(sheet.id, huge, "gas", null, { db }),
+    ).toThrow(ValidationError);
+    expect(() =>
+      addCostLine(sheet.id, huge, "gas", null, { db }),
+    ).toThrow(/exceeds maximum safe amount/);
+  });
 
-    const updated = await updateCostLine(
+  it("enforces note rule when updating existing Cost Line to 'other'", () => {
+    const line = addCostLine(sheet.id, 800n, "gas", null, { db });
+    expect(() =>
+      updateCostLine(line.id, { category: "other", note: "" }, { db }),
+    ).toThrow(ValidationError);
+
+    const updated = updateCostLine(
       line.id,
       { category: "other", note: "Gas cylinder deposit" },
       { db },
@@ -226,23 +236,23 @@ describe("3. Cost Category CHECK and note requirement", () => {
 });
 
 describe("4. Sen integer arithmetic totals and correction trail", () => {
-  it("computes exact integer totals using sumSen and subSen with no floats", async () => {
-    const sheet = await getOrCreateSheet("2026-09-04", { db });
+  it("computes exact integer totals using sumSen and subSen with no floats", () => {
+    const sheet = getOrCreateSheet("2026-09-04", { db });
 
     // Set revenue: RM152.50 cash (15250 sen) + RM84.00 TnG (8400 sen)
-    await setRevenue(sheet.id, 15250, 8400, { db });
+    setRevenue(sheet.id, 15250, 8400, { db });
 
     // Add cost lines:
     // Restock: RM45.20 (4520 sen)
     // Gas: RM25.00 (2500 sen)
     // Transport: RM8.80 (880 sen)
     // Wages-daily: RM30.00 (3000 sen)
-    await addCostLine(sheet.id, 4520, "restock", null, { db });
-    await addCostLine(sheet.id, 2500, "gas", null, { db });
-    await addCostLine(sheet.id, 880, "transport", null, { db });
-    await addCostLine(sheet.id, 3000, "wages-daily", null, { db });
+    addCostLine(sheet.id, 4520, "restock", null, { db });
+    addCostLine(sheet.id, 2500, "gas", null, { db });
+    addCostLine(sheet.id, 880, "transport", null, { db });
+    addCostLine(sheet.id, 3000, "wages-daily", null, { db });
 
-    const result = await getSheetWithCosts("2026-09-04", { db });
+    const result = getSheetWithCosts("2026-09-04", { db });
     expect(result).not.toBeNull();
     expect(result!.costLines).toHaveLength(4);
 
@@ -254,28 +264,28 @@ describe("4. Sen integer arithmetic totals and correction trail", () => {
     expect(result!.grossProfitSen).toBe(12750n);
   });
 
-  it("updates revenue and rejects negative or float revenues", async () => {
-    const sheet = await getOrCreateSheet("2026-09-04", { db });
+  it("updates revenue and rejects negative or float revenues", () => {
+    const sheet = getOrCreateSheet("2026-09-04", { db });
 
-    await expect(setRevenue(sheet.id, -100, 500, { db })).rejects.toThrow(
+    expect(() => setRevenue(sheet.id, -100, 500, { db })).toThrow(
       ValidationError,
     );
-    await expect(setRevenue(sheet.id, 100.5 as any, 500, { db })).rejects.toThrow(
+    expect(() => setRevenue(sheet.id, 100.5 as any, 500, { db })).toThrow(
       /must be an integer/,
     );
 
-    const updated = await setRevenue(sheet.id, 20000, 10000, { db });
+    const updated = setRevenue(sheet.id, 20000, 10000, { db });
     expect(updated.cashSen).toBe(20000);
     expect(updated.tngSen).toBe(10000);
   });
 
-  it("supports corrections on cost lines and maintains timestamp without hard deleting sheet", async () => {
-    const sheet = await getOrCreateSheet("2026-09-05", { db });
+  it("supports corrections on cost lines and maintains timestamp without hard deleting sheet", () => {
+    const sheet = getOrCreateSheet("2026-09-05", { db });
 
-    const line = await addCostLine(sheet.id, 2000, "restock", null, { db });
+    const line = addCostLine(sheet.id, 2000, "restock", null, { db });
 
     // Correction: update amount from 2000 to 2500
-    const updatedLine = await updateCostLine(
+    const updatedLine = updateCostLine(
       line.id,
       { amountSen: 2500 },
       { db },
@@ -290,7 +300,7 @@ describe("4. Sen integer arithmetic totals and correction trail", () => {
     expect(sheetAfterUpdate.updatedAt).toBeDefined();
 
     // Correction: remove cost line
-    const removeResult = await removeCostLine(line.id, { db });
+    const removeResult = removeCostLine(line.id, { db });
     expect(removeResult.success).toBe(true);
     expect(removeResult.removedLine.id).toBe(line.id);
 
@@ -303,7 +313,7 @@ describe("4. Sen integer arithmetic totals and correction trail", () => {
     expect(sheetAfterDelete).not.toBeNull();
     expect(sheetAfterDelete?.date).toBe("2026-09-05");
 
-    const withCosts = await getSheetWithCosts("2026-09-05", { db });
+    const withCosts = getSheetWithCosts("2026-09-05", { db });
     expect(withCosts?.costLines).toHaveLength(0);
     expect(withCosts?.totalCostSen).toBe(0n);
   });
@@ -335,28 +345,28 @@ describe("5. Closed-month edit rejection", () => {
       .run();
   });
 
-  it("rejects creating a new Daily Sheet in a closed month", async () => {
-    await expect(getOrCreateSheet("2026-07-20", { db })).rejects.toThrow(
+  it("rejects creating a new Daily Sheet in a closed month", () => {
+    expect(() => getOrCreateSheet("2026-07-20", { db })).toThrow(
       ClosedMonthError,
     );
-    await expect(getOrCreateSheet("2026-07-20", { db })).rejects.toThrow(
+    expect(() => getOrCreateSheet("2026-07-20", { db })).toThrow(
       /closed and cannot be edited/,
     );
   });
 
-  it("rejects revenue edits for a Daily Sheet in a closed month", async () => {
+  it("rejects revenue edits for a Daily Sheet in a closed month", () => {
     const existing = db
       .select()
       .from(dailySheets)
       .where(eq(dailySheets.date, "2026-07-15"))
       .get()!;
 
-    await expect(
+    expect(() =>
       setRevenue(existing.id, 2000, 1000, { db }),
-    ).rejects.toThrow(ClosedMonthError);
+    ).toThrow(ClosedMonthError);
   });
 
-  it("rejects adding, updating, or removing cost lines in a closed month", async () => {
+  it("rejects adding, updating, or removing cost lines in a closed month", () => {
     const existing = db
       .select()
       .from(dailySheets)
@@ -375,28 +385,28 @@ describe("5. Closed-month edit rejection", () => {
       .get();
 
     // Adding cost line rejected
-    await expect(
+    expect(() =>
       addCostLine(existing.id, 500, "restock", null, { db }),
-    ).rejects.toThrow(ClosedMonthError);
+    ).toThrow(ClosedMonthError);
 
     // Updating cost line rejected
-    await expect(
+    expect(() =>
       updateCostLine(insertedLine.id, { amountSen: 1600 }, { db }),
-    ).rejects.toThrow(ClosedMonthError);
+    ).toThrow(ClosedMonthError);
 
     // Removing cost line rejected
-    await expect(removeCostLine(insertedLine.id, { db })).rejects.toThrow(
+    expect(() => removeCostLine(insertedLine.id, { db })).toThrow(
       ClosedMonthError,
     );
   });
 
-  it("allows reading sheets from a closed month", async () => {
-    const result = await getSheetWithCosts("2026-07-15", { db });
+  it("allows reading sheets from a closed month", () => {
+    const result = getSheetWithCosts("2026-07-15", { db });
     expect(result).not.toBeNull();
     expect(result!.sheet.date).toBe("2026-07-15");
   });
 
-  it("allows edits once an Admin reopens a closed month", async () => {
+  it("allows edits once an Admin reopens a closed month", () => {
     // Mark 2026-07 as reopened
     db.update(monthCloses)
       .set({
@@ -413,10 +423,10 @@ describe("5. Closed-month edit rejection", () => {
       .get()!;
 
     // Now edits should succeed
-    const updated = await setRevenue(existing.id, 3000, 1500, { db });
+    const updated = setRevenue(existing.id, 3000, 1500, { db });
     expect(updated.cashSen).toBe(3000);
 
-    const newLine = await addCostLine(existing.id, 1200, "gas", null, { db });
+    const newLine = addCostLine(existing.id, 1200, "gas", null, { db });
     expect(newLine.amountSen).toBe(1200);
   });
 });
@@ -462,19 +472,19 @@ describe("6. API routes and auth guard protection (/api/sheets)", () => {
     expect(deleteRes.status).toBe(401);
   });
 
-  it("allows authenticated user to create, read, and patch sheets via API routes", async () => {
-    const authSession = {
-      user: { id: "1", name: "mom", role: "Operator" as const },
+  it("performs end-to-end Daily Sheet lifecycle via API routes", async () => {
+    const operatorSession = {
+      user: { id: "1", username: "operator1", role: "Operator" as const },
+      expires: new Date(Date.now() + 86400000).toISOString(),
     };
 
-    // Helper to simulate request with auth
     function makeAuthReq(url: string, init?: any) {
-      const req = new NextRequest(url, init);
-      (req as any).auth = authSession;
+      const req = new NextRequest(url, init as any);
+      (req as any).auth = operatorSession;
       return req;
     }
 
-    // 1. POST /api/sheets to create a sheet with initial revenue and cost lines
+    // 1. POST /api/sheets to create sheet with revenue and cost lines
     const postReq = makeAuthReq("http://localhost:3000/api/sheets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -561,7 +571,7 @@ describe("6. API routes and auth guard protection (/api/sheets)", () => {
     const delSheetReq = makeAuthReq("http://localhost:3000/api/sheets", {
       method: "DELETE",
     });
-    const delSheetRes = await sheetsPatch(delSheetReq); // or route
+    const delSheetRes = await sheetsPatch(delSheetReq);
     // GET verifies sheet still exists
     const verifyGetReq = makeAuthReq("http://localhost:3000/api/sheets?date=2026-09-06");
     const verifyGetRes = await sheetsGet(verifyGetReq);

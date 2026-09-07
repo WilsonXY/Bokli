@@ -56,7 +56,6 @@ export interface ReopenMonthOptions {
 }
 
 export interface MonthCloseWithReconciliation extends MonthClose {
-  close: MonthClose;
   expectedSen: bigint;
   actualSen: bigint;
   differenceSen: bigint;
@@ -87,14 +86,9 @@ export async function closeMonth(
   cashOnHandSen: number | bigint,
   tngOnHandSen: number | bigint,
   note?: string | null,
-  optionsOrConfirmEmpty?: boolean | CloseMonthOptions,
+  options?: CloseMonthOptions,
 ): Promise<MonthCloseWithReconciliation> {
-  const options: CloseMonthOptions =
-    typeof optionsOrConfirmEmpty === "boolean"
-      ? { confirmEmpty: optionsOrConfirmEmpty }
-      : (optionsOrConfirmEmpty ?? {});
-
-  const db = options.db ?? openDb().db;
+  const db = options?.db ?? openDb().db;
 
   if (!isValidMonthStr(month)) {
     throw new ValidationError(
@@ -102,8 +96,8 @@ export async function closeMonth(
     );
   }
 
-  if (isFutureMonthInKL(month, options.now)) {
-    const currentMonth = getTodayInKualaLumpur(options.now).slice(0, 7);
+  if (isFutureMonthInKL(month, options?.now)) {
+    const currentMonth = getTodayInKualaLumpur(options?.now).slice(0, 7);
     throw new FutureDateError(
       `Month "${month}" is in the future (current month in Asia/Kuala_Lumpur is "${currentMonth}")`,
     );
@@ -127,7 +121,7 @@ export async function closeMonth(
     .where(like(dailySheets.date, `${month}-%`))
     .all();
 
-  if (sheetsInMonth.length === 0 && !options.confirmEmpty) {
+  if (sheetsInMonth.length === 0 && !options?.confirmEmpty) {
     throw new ValidationError(
       `Month "${month}" has zero Daily Sheets. Set confirmEmpty=true to close an empty month.`,
     );
@@ -165,7 +159,7 @@ export async function closeMonth(
     ? `Reconciliation mismatch: expected ${expectedSen.toString()} sen, actual ${actualSen.toString()} sen (difference: ${differenceSen.toString()} sen)`
     : undefined;
 
-  const closedAtTimestamp = (options.now ?? new Date()).toISOString();
+  const closedAtTimestamp = (options?.now ?? new Date()).toISOString();
 
   let closeRecord: MonthClose;
 
@@ -217,7 +211,6 @@ export async function closeMonth(
 
   return {
     ...closeRecord,
-    close: closeRecord,
     expectedSen,
     actualSen,
     differenceSen,
@@ -228,26 +221,17 @@ export async function closeMonth(
 
 /**
  * Reopen a closed month.
- * - Admin-only: caller passes role; asserts role === 'Admin'
+ * - Admin-only: caller passes options.role; asserts role === 'Admin'
  * - Sets reopenedAt + reopenReason on the close row
  * - After reopen, edits to Daily Sheets and Operating Expenses are allowed again
  */
 export async function reopenMonth(
   month: string,
   reason: string,
-  roleOrOptions?: string | ReopenMonthOptions,
-  maybeOptions?: ReopenMonthOptions,
+  options?: ReopenMonthOptions,
 ): Promise<MonthClose> {
-  const role =
-    typeof roleOrOptions === "string"
-      ? roleOrOptions
-      : (roleOrOptions?.role ?? "");
-  const options: ReopenMonthOptions =
-    typeof roleOrOptions === "object"
-      ? roleOrOptions
-      : (maybeOptions ?? {});
-
-  const db = options.db ?? openDb().db;
+  const role = options?.role ?? "";
+  const db = options?.db ?? openDb().db;
 
   if (role !== "Admin") {
     throw new ForbiddenError(
@@ -282,7 +266,7 @@ export async function reopenMonth(
     );
   }
 
-  const reopenedAtTimestamp = (options.now ?? new Date()).toISOString();
+  const reopenedAtTimestamp = (options?.now ?? new Date()).toISOString();
 
   const updated = db
     .update(monthCloses)
@@ -332,7 +316,6 @@ export async function getClose(
 
   return {
     ...close,
-    close,
     expectedSen,
     actualSen,
     differenceSen,

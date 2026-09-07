@@ -2,38 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/auth/guard";
 import {
   closeMonth,
-  ClosedMonthError,
-  ForbiddenError,
-  FutureDateError,
   getClose,
   listCloses,
-  NotFoundError,
-  ValidationError,
 } from "@/services/month-close";
-
-function handleError(err: unknown): NextResponse {
-  if (err instanceof ForbiddenError) {
-    return NextResponse.json({ error: err.message }, { status: 403 });
-  }
-  if (
-    err instanceof ValidationError ||
-    err instanceof FutureDateError ||
-    err instanceof ClosedMonthError
-  ) {
-    return NextResponse.json({ error: err.message }, { status: 400 });
-  }
-  if (err instanceof NotFoundError) {
-    return NextResponse.json({ error: err.message }, { status: 404 });
-  }
-  if (err instanceof SyntaxError) {
-    return NextResponse.json(
-      { error: "Invalid JSON in request body" },
-      { status: 400 },
-    );
-  }
-  const message = err instanceof Error ? err.message : "Internal server error";
-  return NextResponse.json({ error: message }, { status: 400 });
-}
+import { handleError } from "@/services/errors";
 
 /**
  * GET /api/close?month=YYYY-MM or GET /api/close
@@ -54,14 +26,23 @@ export const GET = withAuth(async (req: NextRequest) => {
         );
       }
 
+      const {
+        expectedSen,
+        actualSen,
+        differenceSen,
+        balanced,
+        warning,
+        ...close
+      } = result;
+
       return NextResponse.json(
         {
-          close: result.close,
-          balanced: result.balanced,
-          differenceSen: Number(result.differenceSen),
-          expectedSen: Number(result.expectedSen),
-          actualSen: Number(result.actualSen),
-          ...(result.warning ? { warning: result.warning } : {}),
+          close,
+          balanced,
+          differenceSen: Number(differenceSen),
+          expectedSen: Number(expectedSen),
+          actualSen: Number(actualSen),
+          ...(warning ? { warning } : {}),
         },
         { status: 200 },
       );
@@ -131,14 +112,23 @@ export const POST = withAuth(async (req: NextRequest) => {
       { confirmEmpty: Boolean(body.confirmEmpty) },
     );
 
+    const {
+      expectedSen,
+      actualSen,
+      differenceSen,
+      balanced,
+      warning,
+      ...close
+    } = result;
+
     return NextResponse.json(
       {
-        close: result.close,
-        balanced: result.balanced,
-        differenceSen: Number(result.differenceSen),
-        expectedSen: Number(result.expectedSen),
-        actualSen: Number(result.actualSen),
-        ...(result.warning ? { warning: result.warning } : {}),
+        close,
+        balanced,
+        differenceSen: Number(differenceSen),
+        expectedSen: Number(expectedSen),
+        actualSen: Number(actualSen),
+        ...(warning ? { warning } : {}),
       },
       { status: 201 },
     );

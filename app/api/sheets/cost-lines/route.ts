@@ -2,27 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/auth/guard";
 import {
   addCostLine,
-  ClosedMonthError,
   CostCategory,
-  NotFoundError,
   removeCostLine,
   updateCostLine,
-  ValidationError,
 } from "@/services/daily-sheet";
-
-function handleError(err: unknown): NextResponse {
-  if (err instanceof ValidationError || err instanceof ClosedMonthError) {
-    return NextResponse.json({ error: err.message }, { status: 400 });
-  }
-  if (err instanceof NotFoundError) {
-    return NextResponse.json({ error: err.message }, { status: 404 });
-  }
-  if (err instanceof SyntaxError) {
-    return NextResponse.json({ error: "Invalid JSON in request body" }, { status: 400 });
-  }
-  const message = err instanceof Error ? err.message : "Internal server error";
-  return NextResponse.json({ error: message }, { status: 400 });
-}
+import { handleError } from "@/services/errors";
 
 /**
  * POST /api/sheets/cost-lines
@@ -40,7 +24,7 @@ export const POST = withAuth(async (req: NextRequest) => {
       return NextResponse.json({ error: "Valid 'sheetId' is required" }, { status: 400 });
     }
 
-    const line = await addCostLine(
+    const line = addCostLine(
       sheetId,
       body.amountSen,
       body.category as CostCategory,
@@ -69,7 +53,7 @@ export const PATCH = withAuth(async (req: NextRequest) => {
       return NextResponse.json({ error: "Valid 'costLineId' is required" }, { status: 400 });
     }
 
-    const line = await updateCostLine(costLineId, {
+    const line = updateCostLine(costLineId, {
       amountSen: body.amountSen,
       category: body.category as CostCategory,
       note: body.note,
@@ -105,7 +89,7 @@ export const DELETE = withAuth(async (req: NextRequest) => {
       );
     }
 
-    const result = await removeCostLine(costLineId);
+    const result = removeCostLine(costLineId);
     return NextResponse.json(result, { status: 200 });
   } catch (err) {
     return handleError(err);

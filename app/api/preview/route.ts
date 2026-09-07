@@ -1,22 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/auth/guard";
-import {
-  ClosedMonthError,
-  getMonthPreview,
-  NotFoundError,
-  ValidationError,
-} from "@/services/operating-expense";
-
-function handleError(err: unknown): NextResponse {
-  if (err instanceof ValidationError || err instanceof ClosedMonthError) {
-    return NextResponse.json({ error: err.message }, { status: 400 });
-  }
-  if (err instanceof NotFoundError) {
-    return NextResponse.json({ error: err.message }, { status: 404 });
-  }
-  const message = err instanceof Error ? err.message : "Internal server error";
-  return NextResponse.json({ error: message }, { status: 400 });
-}
+import { getMonthPreview } from "@/services/operating-expense";
+import { handleError } from "@/services/errors";
 
 /**
  * GET /api/preview?month=YYYY-MM
