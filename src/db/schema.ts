@@ -14,6 +14,28 @@ import {
  * months are TEXT "YYYY-MM".
  */
 
+export type UserRole = "Operator" | "Admin";
+
+export const users = sqliteTable(
+  "users",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    username: text("username").notNull(),
+    passwordHash: text("password_hash").notNull(),
+    /** Operator | Admin per CONTEXT.md */
+    role: text("role").$type<UserRole>().notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => [
+    uniqueIndex("uq_users_username").on(t.username),
+    check("chk_users_role", sql`${t.role} IN ('Operator', 'Admin')`),
+  ],
+);
+
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+
 export const dailySheets = sqliteTable(
   "daily_sheets",
   {

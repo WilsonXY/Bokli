@@ -4,7 +4,13 @@ import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { openDb, type Db } from "./index";
-import { costLines, dailySheets, monthCloses, operatingExpenses } from "./schema";
+import {
+  costLines,
+  dailySheets,
+  monthCloses,
+  operatingExpenses,
+  users,
+} from "./schema";
 
 import { runMigrations } from "./migrate";
 
@@ -32,7 +38,13 @@ describe("schema sanity", () => {
       .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
       .all() as Array<{ name: string }>;
     const names = tables.map((r) => r.name);
-    for (const t of ["daily_sheets", "cost_lines", "operating_expenses", "month_closes"]) {
+    for (const t of [
+      "users",
+      "daily_sheets",
+      "cost_lines",
+      "operating_expenses",
+      "month_closes",
+    ]) {
       expect(names).toContain(t);
     }
   });
@@ -45,6 +57,39 @@ describe("schema sanity", () => {
     const tng = info.find((c) => c.name === "tng_sen");
     expect(cash?.type).toBe("INTEGER");
     expect(tng?.type).toBe("INTEGER");
+  });
+
+  it("enforces unique username in users table", () => {
+    db.insert(users)
+      .values({
+        username: "testuser",
+        passwordHash: "hash1",
+        role: "Operator",
+      })
+      .run();
+    expect(() =>
+      db
+        .insert(users)
+        .values({
+          username: "testuser",
+          passwordHash: "hash2",
+          role: "Admin",
+        })
+        .run(),
+    ).toThrow(/UNIQUE/);
+  });
+
+  it("rejects invalid roles via CHECK constraint", () => {
+    expect(() =>
+      db
+        .insert(users)
+        .values({
+          username: "invalidrole",
+          passwordHash: "hash",
+          role: "SuperAdmin" as any,
+        })
+        .run(),
+    ).toThrow(/CHECK/);
   });
 
   it("enforces one Daily Sheet per date (unique)", () => {

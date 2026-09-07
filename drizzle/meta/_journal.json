@@ -8,6 +8,13 @@
       "when": 1788791153593,
       "tag": "0000_smooth_boomer",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788794437842,
+      "tag": "0001_empty_toad",
+      "breakpoints": true
     }
   ]
 }
