@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMyr, parseSen } from "@/lib/money";
 import { useI18n } from "@/lib/i18n";
@@ -52,8 +52,9 @@ export function DailySheetForm({
     { key: "other", label: t.catOther },
   ];
 
-  // Calendar popover toggle state
+  // Calendar popover toggle state & trigger ref
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const dateBtnRef = useRef<HTMLButtonElement>(null);
 
   // Revenue inputs state
   const [cashInput, setCashInput] = useState(senToDecimalStr(initialCashSen));
@@ -199,6 +200,7 @@ export function DailySheetForm({
           {/* Toggleable Date Button with Calendar Popover */}
           <div className="relative">
             <button
+              ref={dateBtnRef}
               type="button"
               onClick={() => setIsCalendarOpen((prev) => !prev)}
               aria-expanded={isCalendarOpen}
@@ -226,6 +228,7 @@ export function DailySheetForm({
               date={date}
               todayKl={todayKl}
               isOpen={isCalendarOpen}
+              triggerRef={dateBtnRef}
               onClose={() => setIsCalendarOpen(false)}
               onSelectDate={(newDate) => {
                 router.push(`/?date=${newDate}`);

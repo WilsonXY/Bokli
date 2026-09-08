@@ -9,6 +9,7 @@ interface CalendarPopoverProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectDate: (date: string) => void;
+  triggerRef?: React.RefObject<HTMLElement | null>;
 }
 
 export function CalendarPopover({
@@ -17,6 +18,7 @@ export function CalendarPopover({
   isOpen,
   onClose,
   onSelectDate,
+  triggerRef,
 }: CalendarPopoverProps) {
   const { lang } = useI18n();
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -28,23 +30,27 @@ export function CalendarPopover({
     initialMonth !== undefined ? initialMonth - 1 : 8,
   );
 
-  // Sync viewing month when date changes
+  // Sync viewing month when date changes or popover opens
   useEffect(() => {
-    const [y, m] = date.split("-").map(Number);
-    if (y && m) {
-      setViewYear(y);
-      setViewMonth(m - 1);
+    if (isOpen) {
+      const [y, m] = date.split("-").map(Number);
+      if (y && m) {
+        setViewYear(y);
+        setViewMonth(m - 1);
+      }
     }
-  }, [date]);
+  }, [isOpen, date]);
 
   // Click outside & Escape key detection
   useEffect(() => {
     if (!isOpen) return;
 
     const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
       if (
         popoverRef.current &&
-        !popoverRef.current.contains(e.target as Node)
+        !popoverRef.current.contains(target) &&
+        (!triggerRef?.current || !triggerRef.current.contains(target))
       ) {
         onClose();
       }
@@ -63,7 +69,7 @@ export function CalendarPopover({
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, triggerRef]);
 
   if (!isOpen) return null;
 
@@ -116,7 +122,7 @@ export function CalendarPopover({
   return (
     <div
       ref={popoverRef}
-      className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-50 bg-white border border-surface-border rounded-xl shadow-lg p-3 w-64 select-none animate-in fade-in zoom-in-95 duration-100"
+      className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-50 bg-white border border-surface-border rounded-xl shadow-lg p-3 w-64 select-none"
       role="dialog"
       aria-modal="true"
       aria-label="Date Picker"
