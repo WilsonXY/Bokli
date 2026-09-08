@@ -194,7 +194,7 @@ export function DashboardView({
             </div>
           </div>
 
-          {/* Net Profit Banner (formula removed per P1) */}
+          {/* Net Profit Banner */}
           <div
             className={`p-3 rounded-lg border flex items-center justify-between ${
               activeTile.netSen >= 0
@@ -279,7 +279,7 @@ export function DashboardView({
         )}
       </div>
 
-      {/* Cost Breakdown */}
+      {/* Cost Breakdown - Neutral Slate Bars (No Orange) */}
       <div className="bg-white border border-surface-border rounded-xl p-3.5 shadow-xs space-y-2.5">
         <div className="flex items-center justify-between">
           <h2 className="text-xs font-bold text-ink-secondary uppercase tracking-wider">
@@ -317,7 +317,7 @@ export function DashboardView({
                   <div className="w-full h-1.5 rounded-full bg-surface-subtle overflow-hidden">
                     <div
                       style={{ width: `${pct}%` }}
-                      className="h-full bg-finance-cost rounded-full"
+                      className="h-full bg-slate-500 rounded-full"
                     />
                   </div>
                 </div>

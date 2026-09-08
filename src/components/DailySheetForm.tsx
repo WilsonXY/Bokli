@@ -181,7 +181,7 @@ export function DailySheetForm({
 
   return (
     <div className="space-y-4">
-      {/* Date Bar & Lock Notice */}
+      {/* Date Bar with Direct Date Picker Trigger & Lock Notice */}
       <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
           <button
@@ -192,11 +192,37 @@ export function DailySheetForm({
             ← {t.prevDay}
           </button>
 
-          <div className="text-center">
+          {/* Clickable Date Selector with Native Date Picker Overlay */}
+          <div className="relative text-center group cursor-pointer px-2 py-1 rounded-lg hover:bg-surface-subtle transition-colors">
+            <input
+              type="date"
+              value={date}
+              max={todayKl}
+              onChange={(e) => {
+                if (e.target.value && e.target.value <= todayKl) {
+                  router.push(`/?date=${e.target.value}`);
+                }
+              }}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+              title="点击选择日期 (Click to pick date)"
+            />
             <div className="flex items-center justify-center gap-1.5">
-              <span className="text-sm font-bold text-ink-primary">
+              <span className="text-sm font-bold text-ink-primary group-hover:text-brand-broccoli transition-colors">
                 {date}
               </span>
+              <svg
+                className="w-3.5 h-3.5 text-ink-muted group-hover:text-brand-broccoli transition-colors"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
               {isToday && (
                 <span className="text-[10px] px-1.5 py-0.2 rounded bg-brand-broccoli-light font-semibold text-brand-broccoli">
                   {t.today}
@@ -263,7 +289,7 @@ export function DailySheetForm({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {/* Cash Revenue Card with colored border indicator & dot (redundant text badge removed) */}
+          {/* Cash Revenue Card */}
           <div className="bg-white border border-surface-border border-l-4 border-l-channel-cash rounded-xl p-3 shadow-xs focus-within:border-channel-cash transition-all">
             <div className="flex items-center gap-1.5 mb-1.5">
               <span className="w-2 h-2 rounded-full bg-channel-cash inline-block shrink-0" />
@@ -292,7 +318,7 @@ export function DailySheetForm({
             </div>
           </div>
 
-          {/* Touch 'n Go Revenue Card with colored border indicator & dot (redundant text badge removed) */}
+          {/* Touch 'n Go Revenue Card */}
           <div className="bg-white border border-surface-border border-l-4 border-l-channel-tng rounded-xl p-3 shadow-xs focus-within:border-channel-tng transition-all">
             <div className="flex items-center gap-1.5 mb-1.5">
               <span className="w-2 h-2 rounded-full bg-channel-tng inline-block shrink-0" />
@@ -334,7 +360,7 @@ export function DailySheetForm({
           </span>
         </div>
 
-        {/* Cost Line Entry Box */}
+        {/* Cost Line Entry Box - Clean Neutral Dark / Slate for Discipline (No Orange) */}
         {!isClosed && (
           <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs space-y-2.5">
             <div>
@@ -351,7 +377,7 @@ export function DailySheetForm({
                       onClick={() => setNewCat(cat.key)}
                       className={`h-7 px-2.5 rounded-md text-xs font-medium transition-all ${
                         isSelected
-                          ? "bg-finance-cost text-white shadow-xs font-semibold"
+                          ? "bg-ink-primary text-white shadow-xs font-semibold"
                           : "bg-surface-subtle text-ink-secondary border border-surface-border hover:border-surface-border-strong"
                       }`}
                     >
@@ -377,7 +403,7 @@ export function DailySheetForm({
                     value={newAmount}
                     onChange={(e) => setNewAmount(e.target.value)}
                     placeholder="0.00"
-                    className="w-full h-9 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm font-medium text-ink-primary focus:outline-none focus:bg-white focus:border-finance-cost"
+                    className="w-full h-9 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm font-medium text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary"
                   />
                 </div>
               </div>
@@ -391,7 +417,7 @@ export function DailySheetForm({
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
                   placeholder={newCat === "other" ? t.noteRequired : t.noteOptional}
-                  className="w-full h-9 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-xs text-ink-primary focus:outline-none focus:bg-white focus:border-finance-cost"
+                  className="w-full h-9 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-xs text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary"
                 />
               </div>
             </div>
@@ -399,7 +425,7 @@ export function DailySheetForm({
             <button
               type="button"
               onClick={handleAddCostLine}
-              className="w-full h-8 rounded-lg border border-dashed border-finance-cost text-finance-cost hover:bg-finance-cost-light/50 font-medium text-xs flex items-center justify-center gap-1 transition-colors"
+              className="w-full h-8 rounded-lg border border-dashed border-surface-border-strong text-ink-primary hover:bg-surface-subtle font-medium text-xs flex items-center justify-center gap-1 transition-colors"
             >
               <span>+</span>
               <span>{t.addCostLine}</span>
@@ -455,7 +481,7 @@ export function DailySheetForm({
         </div>
       </section>
 
-      {/* Sticky Bottom Action Bar - Normalized Height */}
+      {/* Sticky Bottom Action Bar */}
       <div className="sticky bottom-16 z-30 bg-white/95 backdrop-blur-md border border-surface-border rounded-xl p-3 shadow-sm flex items-center justify-between gap-3">
         <div>
           <div className="text-[10px] text-ink-muted font-medium">
