@@ -92,12 +92,12 @@ export function MonthCloseView({
     setErrorMessage(null);
 
     if (!hasSheetsInMonth && !confirmEmpty) {
-      setErrorMessage("该月份暂无每日账单记录。如需强制结账，请勾选确认空月。");
+      setErrorMessage(t.emptyMonthError);
       return;
     }
 
     if (!isBalanced && !closeNote.trim()) {
-      setErrorMessage("实点总金额与账面净利润存在差异，必须填写结账备注说明原因。");
+      setErrorMessage(t.varianceNoteRequired);
       return;
     }
 
@@ -140,7 +140,7 @@ export function MonthCloseView({
     setErrorMessage(null);
 
     if (!reopenReasonInput.trim()) {
-      setErrorMessage("必须填写重新开账原因说明。");
+      setErrorMessage(t.reopenReasonRequired);
       return;
     }
 
@@ -371,7 +371,7 @@ export function MonthCloseView({
                       onClick={() => setShowReopenBox(false)}
                       className="h-8 px-2.5 text-xs text-ink-muted hover:text-ink-primary"
                     >
-                      取消
+                      {t.cancel}
                     </button>
                   </div>
                 </form>
@@ -415,9 +415,6 @@ export function MonthCloseView({
                   className="w-full h-9 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-cash transition-colors"
                 />
               </div>
-              <span className="block text-[10px] text-ink-muted mt-1">
-                {t.cashOnHandHint}
-              </span>
             </div>
 
             {/* TnG Balance */}
@@ -441,9 +438,6 @@ export function MonthCloseView({
                   className="w-full h-9 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-tng transition-colors"
                 />
               </div>
-              <span className="block text-[10px] text-ink-muted mt-1">
-                {t.tngOnHandHint}
-              </span>
             </div>
           </div>
 
@@ -494,7 +488,7 @@ export function MonthCloseView({
                 setCloseNote(e.target.value);
                 if (errorMessage) setErrorMessage(null);
               }}
-              placeholder={!isBalanced && hasInputs ? t.closeNotePlaceholder : "可选结账说明"}
+              placeholder={!isBalanced && hasInputs ? t.closeNotePlaceholder : t.closeNoteOptional}
               className="w-full h-9 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-xs text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary"
             />
           </div>
@@ -508,7 +502,7 @@ export function MonthCloseView({
                 onChange={(e) => setConfirmEmpty(e.target.checked)}
                 className="rounded border-surface-border text-brand-broccoli focus:ring-0"
               />
-              <span>该月份尚无每日账单，确认继续结账空月份</span>
+              <span>{t.confirmEmptyMonth}</span>
             </label>
           )}
 
