@@ -43,7 +43,7 @@ export const DICTIONARY = {
     catRestock: "进货",
     catGas: "煤气",
     catTransport: "交通",
-    catWagesDaily: "每日工资",
+    catWagesDaily: "员工工资",
     catOther: "其他",
     // Gross Profit & Save
     grossProfit: "当日毛利润",
@@ -167,7 +167,7 @@ export const DICTIONARY = {
     catRestock: "Restock",
     catGas: "Gas",
     catTransport: "Transport",
-    catWagesDaily: "Daily Wages",
+    catWagesDaily: "Staff Wages",
     catOther: "Other",
     // Gross Profit & Save
     grossProfit: "Day's Gross Profit",

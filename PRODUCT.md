@@ -31,7 +31,7 @@ Unlike generic accounting software (which demands complex charts of accounts, do
 ## Capabilities and Constraints
 
 - **Daily Sheet**: Strictly one sheet per calendar date in `Asia/Kuala_Lumpur`; future dates blocked. Holds Cash Revenue, TnG Revenue, and an itemized array of Cost Lines.
-- **Cost Categories**: Fixed enum of daily costs: `restock` (进货), `gas` (煤气), `transport` (交通), `wages-daily` (每日工资), and `other` (其他). Note is strictly required when category is `other`.
+- **Cost Categories**: Fixed enum of daily costs: `restock` (进货), `gas` (煤气), `transport` (交通), `wages-daily` (员工工资), and `other` (其他). Note is strictly required when category is `other`.
 - **Operating Expenses**: Monthly fixed overhead recorded per month (`rental`, `utilities`, `wages`, `other`).
 - **Profit Calculation Engine**:
   - `Gross Profit` = Total Revenue (Cash + TnG) − Total Daily Costs
