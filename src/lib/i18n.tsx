@@ -36,7 +36,7 @@ export const DICTIONARY = {
     noteOptional: "可选备注",
     noteRequired: "请填写具体开销说明（必填）",
     noteRequiredBadge: "必填",
-    addCostLine: "添加一条开销",
+    addCostLine: "添加开销",
     noCostsRecorded: "今日暂无开销记录",
     delete: "删除",
     // Categories
@@ -118,7 +118,7 @@ export const DICTIONARY = {
     noteOptional: "Optional note",
     noteRequired: "Please specify description (Required)",
     noteRequiredBadge: "Required",
-    addCostLine: "Add Cost Line",
+    addCostLine: "Add Cost",
     noCostsRecorded: "No costs recorded for today",
     delete: "Delete",
     // Categories

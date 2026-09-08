@@ -436,13 +436,13 @@ export function DailySheetForm({
               </div>
             </div>
 
+            {/* Solid "Add Cost" / "添加开销" button */}
             <button
               type="button"
               onClick={handleAddCostLine}
-              className="w-full h-8 rounded-lg border border-dashed border-surface-border-strong text-ink-primary hover:bg-surface-subtle font-medium text-xs flex items-center justify-center gap-1 transition-colors"
+              className="w-full h-8 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs flex items-center justify-center transition-colors shadow-xs active:scale-[0.99]"
             >
-              <span>+</span>
-              <span>{t.addCostLine}</span>
+              {t.addCostLine}
             </button>
 
             {/* Contextual Error Message Directly Below the Cost Card Button */}
