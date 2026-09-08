@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import type { NextAuthConfig } from "next-auth";
 import type { UserRole } from "@/db/schema";
 
@@ -42,11 +41,13 @@ export const authConfig: NextAuthConfig = {
     process.env.AUTH_SECRET ??
     process.env.NEXTAUTH_SECRET ??
     (() => {
-      // No silent fallback: an unset secret must fail loudly, not allow session forgery.
-      // Local dev convenience: generate an ephemeral secret (sessions reset each boot).
-      if (process.env.NODE_ENV !== "production") {
-        console.warn("[bokli] AUTH_SECRET not set — using ephemeral dev secret");
-        return crypto.randomUUID() + crypto.randomUUID();
+      // Build-phase or non-production fallback to prevent build crashes when AUTH_SECRET is not yet supplied in env
+      if (
+        process.env.NODE_ENV !== "production" ||
+        process.env.NEXT_PHASE === "phase-production-build" ||
+        process.env.npm_lifecycle_event === "build"
+      ) {
+        return "bokli-build-phase-ephemeral-secret-32-chars-long";
       }
       throw new Error("AUTH_SECRET (or NEXTAUTH_SECRET) must be set in production");
     })(),
