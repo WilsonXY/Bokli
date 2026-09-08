@@ -11,7 +11,7 @@ interface AppShellProps {
   todayKl?: string;
 }
 
-export function AppShell({ children, userRole = "Operator", todayKl }: AppShellProps) {
+export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const { t, lang, setLang } = useI18n();
 
@@ -102,38 +102,26 @@ export function AppShell({ children, userRole = "Operator", todayKl }: AppShellP
   return (
     <div className="min-h-screen bg-surface-canvas text-ink-primary flex flex-col items-center">
       <div className="w-full max-w-xl min-h-screen bg-surface-canvas flex flex-col relative sm:border-x sm:border-surface-border">
-        {/* Top Header - Compact, Refined Normal Sizing */}
+        {/* Top Header - Ultra-Clean: Brand on Left, Language Toggle on Right */}
         <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-surface-border px-3.5 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-xl leading-none select-none" role="img" aria-label="broccoli">
               🥦
             </span>
-            <div>
-              <div className="flex items-center gap-1.5 leading-none">
-                <span className="font-bold text-sm text-ink-primary">
-                  Bokli
+            <div className="flex items-center gap-1.5 leading-none">
+              <span className="font-bold text-sm text-ink-primary tracking-tight">
+                Bokli
+              </span>
+              {lang === "zh" && (
+                <span className="text-xs font-semibold text-brand-broccoli">
+                  簿里
                 </span>
-                {lang === "zh" && (
-                  <span className="text-[11px] font-medium text-brand-broccoli">
-                    簿里
-                  </span>
-                )}
-              </div>
-              <p className="text-[10px] text-ink-muted leading-none mt-0.5">
-                {t.brandSubtitle}
-              </p>
+              )}
             </div>
           </div>
 
-          {/* Right Controls: Date Pill + Language Switcher + Role */}
-          <div className="flex items-center gap-2">
-            {todayKl && (
-              <span className="hidden sm:inline-block text-[11px] px-2 py-0.5 bg-surface-subtle border border-surface-border rounded font-mono text-ink-secondary">
-                {todayKl}
-              </span>
-            )}
-
-            {/* Clean Language Segmented Toggle */}
+          {/* Right Controls: Clean Language Toggle Only */}
+          <div className="flex items-center">
             <div className="flex items-center bg-surface-subtle border border-surface-border rounded-lg p-0.5 text-[11px]">
               <button
                 type="button"
@@ -158,17 +146,13 @@ export function AppShell({ children, userRole = "Operator", todayKl }: AppShellP
                 EN
               </button>
             </div>
-
-            <span className="text-[10px] px-2 py-0.5 rounded-md font-medium border bg-white border-surface-border text-ink-secondary">
-              {userRole === "Operator" ? t.roleOperator : t.roleAdmin}
-            </span>
           </div>
         </header>
 
         {/* Scrollable Viewport with Normal Spacing */}
         <main className="flex-1 px-3.5 py-4 pb-24">{children}</main>
 
-        {/* Persistent Bottom Navigation - Normalized Height & No Emojis */}
+        {/* Persistent Bottom Navigation - Normalized Height & Clean SVG Icons */}
         <nav
           aria-label="Bottom Navigation"
           className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-sm border-t border-surface-border"
