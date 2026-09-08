@@ -4,8 +4,8 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] `npm run dev` boots and login shell renders on Android Chrome width with large tap targets
-- [ ] Chinese shows by default, English toggle works, sen amounts format as MYR only at display
-- [ ] SQLite file is created at agreed stable path via online-safe init with no float storage
+- [x] `npm run dev` boots and login shell renders on Android Chrome width with large tap targets
+- [x] Chinese shows by default, English toggle works, sen amounts format as MYR only at display
+- [x] SQLite file is created at agreed stable path via online-safe init with no float storage

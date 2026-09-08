@@ -4,8 +4,8 @@
 
 **Blocked by:** 01-scaffold-modular-monolith.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Mom and admin can log in with seeded credentials and stay logged in about 30 days on phone Chrome
-- [ ] No self-register route exists and bookkeeping routes reject anonymous access
-- [ ] Admin can reset a password via CLI without email dependency
+- [x] Mom and admin can log in with seeded credentials and stay logged in about 30 days on phone Chrome
+- [x] No self-register route exists and bookkeeping routes reject anonymous access
+- [x] Admin can reset a password via CLI without email dependency

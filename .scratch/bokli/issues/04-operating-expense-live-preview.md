@@ -4,8 +4,8 @@
 
 **Blocked by:** 03-daily-sheet-entry.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Admin records rental, utilities, wages and other Operating Expenses anytime during the month
-- [ ] Month tiles for Revenue, Daily Costs, Gross Profit and Net estimate update live after each Daily Sheet or Operating Expense save
-- [ ] Gross equals Revenue minus Daily Costs and Net equals Gross minus Operating Expenses in sen arithmetic
+- [x] Admin records rental, utilities, wages and other Operating Expenses anytime during the month
+- [x] Month tiles for Revenue, Daily Costs, Gross Profit and Net estimate update live after each Daily Sheet or Operating Expense save
+- [x] Gross equals Revenue minus Daily Costs and Net equals Gross minus Operating Expenses in sen arithmetic
