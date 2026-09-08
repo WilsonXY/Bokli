@@ -69,6 +69,7 @@ export function DailySheetForm({
   const [newNote, setNewNote] = useState("");
 
   // Feedback states
+  const [costLineError, setCostLineError] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -97,16 +98,16 @@ export function DailySheetForm({
 
   // Add Cost Line
   function handleAddCostLine() {
-    setErrorMessage(null);
+    setCostLineError(null);
     const amountVal = toSen(newAmount);
 
     if (amountVal <= 0n) {
-      setErrorMessage(t.invalidAmount);
+      setCostLineError(t.invalidAmount);
       return;
     }
 
     if (newCat === "other" && !newNote.trim()) {
-      setErrorMessage(t.otherNoteRequired);
+      setCostLineError(t.otherNoteRequired);
       return;
     }
 
@@ -119,6 +120,7 @@ export function DailySheetForm({
     setCostLines((prev) => [...prev, newLine]);
     setNewAmount("");
     setNewNote("");
+    setCostLineError(null);
   }
 
   // Remove Cost Line
@@ -131,6 +133,7 @@ export function DailySheetForm({
   async function handleSave() {
     if (isClosed) return;
     setErrorMessage(null);
+    setCostLineError(null);
     setSuccessMessage(null);
     setSaving(true);
 
@@ -197,7 +200,7 @@ export function DailySheetForm({
             ← {t.prevDay}
           </button>
 
-          {/* Toggleable Date Button with Calendar Popover (No green outline/ring on click) */}
+          {/* Toggleable Date Button with Calendar Popover */}
           <div className="relative">
             <button
               ref={dateBtnRef}
@@ -256,7 +259,7 @@ export function DailySheetForm({
         )}
       </div>
 
-      {/* Notifications */}
+      {/* Global Sheet Notifications (Save Errors / Confirmations) */}
       {errorMessage && (
         <div className="py-2 px-3 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
           <span>{errorMessage}</span>
@@ -362,7 +365,7 @@ export function DailySheetForm({
           </span>
         </div>
 
-        {/* Cost Line Entry Box - Clean Neutral Dark / Slate for Discipline (No Orange) */}
+        {/* Cost Line Entry Box */}
         {!isClosed && (
           <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs space-y-2.5">
             <div>
@@ -376,7 +379,10 @@ export function DailySheetForm({
                     <button
                       key={cat.key}
                       type="button"
-                      onClick={() => setNewCat(cat.key)}
+                      onClick={() => {
+                        setNewCat(cat.key);
+                        if (costLineError) setCostLineError(null);
+                      }}
                       className={`h-7 px-2.5 rounded-md text-xs font-medium transition-all ${
                         isSelected
                           ? "bg-ink-primary text-white shadow-xs font-semibold"
@@ -403,7 +409,10 @@ export function DailySheetForm({
                     type="text"
                     inputMode="decimal"
                     value={newAmount}
-                    onChange={(e) => setNewAmount(e.target.value)}
+                    onChange={(e) => {
+                      setNewAmount(e.target.value);
+                      if (costLineError) setCostLineError(null);
+                    }}
                     placeholder="0.00"
                     className="w-full h-9 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm font-medium text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary"
                   />
@@ -417,7 +426,10 @@ export function DailySheetForm({
                 <input
                   type="text"
                   value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}
+                  onChange={(e) => {
+                    setNewNote(e.target.value);
+                    if (costLineError) setCostLineError(null);
+                  }}
                   placeholder={newCat === "other" ? t.noteRequired : t.noteOptional}
                   className="w-full h-9 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-xs text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary"
                 />
@@ -432,6 +444,20 @@ export function DailySheetForm({
               <span>+</span>
               <span>{t.addCostLine}</span>
             </button>
+
+            {/* Contextual Error Message Directly Below the Cost Card Button */}
+            {costLineError && (
+              <div className="py-2 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
+                <span>{costLineError}</span>
+                <button
+                  type="button"
+                  onClick={() => setCostLineError(null)}
+                  className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
           </div>
         )}
 
