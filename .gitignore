@@ -1,2 +1,18 @@
+node_modules/
+.next/
+data/
+*.db
+*.db-wal
+*.db-shm
+next-env.d.ts
+*.tsbuildinfo
+
+# Environment secrets
+.env
+.env.local
+.env.production
+.env*.local
+
+# Agent tooling (original repo entries)
 .agents/
 skills-lock.json

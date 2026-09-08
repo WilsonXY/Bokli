@@ -4,8 +4,8 @@
 
 **Blocked by:** 01-scaffold-modular-monolith, 02-family-login.
 
-**Status:** ready-for-agent
+**Status:** completed
 
-- [ ] Operator saves today's Cash Revenue plus TnG Revenue plus one or more Cost Lines on phone in under 2 minutes
-- [ ] One Daily Sheet per date enforced, future dates blocked in Asia/Kuala_Lumpur, amounts stored as sen integers
-- [ ] Same-day correction works before Month Close and keeps timestamps with no hard delete
+- [x] Operator saves today's Cash Revenue plus TnG Revenue plus one or more Cost Lines on phone in under 2 minutes
+- [x] One Daily Sheet per date enforced, future dates blocked in Asia/Kuala_Lumpur, amounts stored as sen integers
+- [x] Same-day correction works before Month Close and keeps timestamps with no hard delete
