@@ -3,9 +3,11 @@
 import React, { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/lib/i18n";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t, lang, setLang } = useI18n();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +26,7 @@ export default function LoginPage() {
       });
 
       if (!res || res.error) {
-        setError("账号或密码不正确 (Invalid username or password)");
+        setError(t.loginError);
         setLoading(false);
         return;
       }
@@ -32,41 +34,67 @@ export default function LoginPage() {
       router.push("/");
       router.refresh();
     } catch {
-      setError("登录失败，请重试 (Sign-in failed, please try again)");
+      setError(t.loginNetworkError);
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen bg-surface-canvas flex flex-col justify-center items-center px-4 py-8">
-      <div className="w-full max-w-sm bg-white border border-surface-border rounded-2xl p-6 sm:p-8 shadow-sm">
+    <div className="min-h-screen bg-surface-canvas flex flex-col justify-center items-center px-4 py-6">
+      <div className="w-full max-w-xs sm:max-w-sm bg-white border border-surface-border rounded-xl p-5 sm:p-6 shadow-xs relative">
+        {/* Language Switcher Top Right */}
+        <div className="absolute top-3.5 right-3.5 flex items-center bg-surface-subtle border border-surface-border rounded-lg p-0.5 text-[10px]">
+          <button
+            type="button"
+            onClick={() => setLang("zh")}
+            className={`px-1.5 py-0.5 rounded font-medium transition-all ${
+              lang === "zh"
+                ? "bg-white text-brand-broccoli font-semibold shadow-xs"
+                : "text-ink-muted hover:text-ink-primary"
+            }`}
+          >
+            中文
+          </button>
+          <button
+            type="button"
+            onClick={() => setLang("en")}
+            className={`px-1.5 py-0.5 rounded font-medium transition-all ${
+              lang === "en"
+                ? "bg-white text-brand-broccoli font-semibold shadow-xs"
+                : "text-ink-muted hover:text-ink-primary"
+            }`}
+          >
+            EN
+          </button>
+        </div>
+
         {/* Brand Header */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-broccoli-light mb-3 text-3xl select-none">
+        <div className="text-center mb-5 mt-1">
+          <div className="inline-flex items-center justify-center w-11 h-11 rounded-xl bg-brand-broccoli-light mb-2 text-2xl select-none">
             🥦
           </div>
-          <h1 className="text-2xl font-extrabold text-ink-primary tracking-tight">
-            Bokli 簿里
+          <h1 className="text-lg font-bold text-ink-primary tracking-tight">
+            {t.loginTitle}
           </h1>
-          <p className="text-xs text-ink-muted mt-1">
-            家庭摊位记账 · 专属登录 (Family Stall Sign In)
+          <p className="text-xs text-ink-muted mt-0.5">
+            {t.loginSubtitle}
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-semibold">
+          <div className="mb-3.5 py-2 px-3 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium">
             {error}
           </div>
         )}
 
         {/* Login Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3.5">
           <div>
             <label
               htmlFor="username"
-              className="block text-xs font-bold text-ink-secondary mb-1.5"
+              className="block text-xs font-semibold text-ink-secondary mb-1"
             >
-              账号 (Username)
+              {t.username}
             </label>
             <input
               id="username"
@@ -76,16 +104,16 @@ export default function LoginPage() {
               onChange={(e) => setUsername(e.target.value)}
               placeholder="mom / katte"
               autoComplete="username"
-              className="w-full h-12 px-3.5 rounded-xl border border-surface-border-strong bg-white text-ink-primary text-sm focus:outline-none focus:border-brand-broccoli focus:ring-2 focus:ring-brand-broccoli-light transition-all"
+              className="w-full h-10 px-3 rounded-lg border border-surface-border-strong bg-white text-ink-primary text-sm focus:outline-none focus:border-brand-broccoli transition-colors"
             />
           </div>
 
           <div>
             <label
               htmlFor="password"
-              className="block text-xs font-bold text-ink-secondary mb-1.5"
+              className="block text-xs font-semibold text-ink-secondary mb-1"
             >
-              密码 (Password)
+              {t.password}
             </label>
             <input
               id="password"
@@ -95,29 +123,22 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               autoComplete="current-password"
-              className="w-full h-12 px-3.5 rounded-xl border border-surface-border-strong bg-white text-ink-primary text-sm focus:outline-none focus:border-brand-broccoli focus:ring-2 focus:ring-brand-broccoli-light transition-all"
+              className="w-full h-10 px-3 rounded-lg border border-surface-border-strong bg-white text-ink-primary text-sm focus:outline-none focus:border-brand-broccoli transition-colors"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-12 rounded-xl bg-brand-broccoli hover:bg-brand-broccoli-dark active:scale-[0.99] text-white font-bold text-sm tracking-wide transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-50"
+            className="w-full h-10 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-xs tracking-wide transition-colors flex items-center justify-center gap-1 shadow-xs disabled:opacity-50"
           >
-            {loading ? (
-              <span>登录中... (Signing in...)</span>
-            ) : (
-              <>
-                <span>进入账本 (Enter Ledger)</span>
-                <span>→</span>
-              </>
-            )}
+            {loading ? t.signingIn : t.signIn}
           </button>
         </form>
 
-        <div className="mt-6 pt-4 border-t border-surface-border text-center">
-          <p className="text-[11px] text-ink-muted">
-            内部专用 · 约30天长效免登录 (30-day persistent session)
+        <div className="mt-5 pt-3 border-t border-surface-border text-center">
+          <p className="text-[10px] text-ink-muted">
+            {t.sessionHint}
           </p>
         </div>
       </div>

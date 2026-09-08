@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMyr, parseSen } from "@/lib/money";
+import { useI18n } from "@/lib/i18n";
 
 export interface CostLineItem {
   id?: number;
@@ -20,19 +21,6 @@ interface DailySheetFormProps {
   todayKl: string;
 }
 
-const CATEGORIES: Array<{
-  key: CostLineItem["category"];
-  zh: string;
-  en: string;
-  icon: string;
-}> = [
-  { key: "restock", zh: "进货", en: "Restock", icon: "🥬" },
-  { key: "gas", zh: "煤气", en: "Gas", icon: "🔥" },
-  { key: "transport", zh: "交通", en: "Transport", icon: "🛵" },
-  { key: "wages-daily", zh: "每日工资", en: "Daily Wages", icon: "👥" },
-  { key: "other", zh: "其他", en: "Other", icon: "📦" },
-];
-
 function senToDecimalStr(sen: number): string {
   if (!sen) return "";
   const ringgit = Math.floor(sen / 100);
@@ -49,7 +37,19 @@ export function DailySheetForm({
   todayKl,
 }: DailySheetFormProps) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  const { t } = useI18n();
+  const [, startTransition] = useTransition();
+
+  const categories: Array<{
+    key: CostLineItem["category"];
+    label: string;
+  }> = [
+    { key: "restock", label: t.catRestock },
+    { key: "gas", label: t.catGas },
+    { key: "transport", label: t.catTransport },
+    { key: "wages-daily", label: t.catWagesDaily },
+    { key: "other", label: t.catOther },
+  ];
 
   // Revenue inputs state
   const [cashInput, setCashInput] = useState(senToDecimalStr(initialCashSen));
@@ -96,12 +96,12 @@ export function DailySheetForm({
     const amountVal = toSen(newAmount);
 
     if (amountVal <= 0n) {
-      setErrorMessage("请输入有效的开销金额 (Please enter a valid amount)");
+      setErrorMessage(t.invalidAmount);
       return;
     }
 
     if (newCat === "other" && !newNote.trim()) {
-      setErrorMessage("类别为'其他'时，必须填写备注说明 (Note is required when category is Other)");
+      setErrorMessage(t.otherNoteRequired);
       return;
     }
 
@@ -147,16 +147,16 @@ export function DailySheetForm({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || "保存失败 (Failed to save)");
+        throw new Error(data.error || t.saveError);
       }
 
-      setSuccessMessage("今日账单保存成功！(Daily Sheet saved successfully!)");
-      setTimeout(() => setSuccessMessage(null), 4000);
+      setSuccessMessage(t.saveSuccess);
+      setTimeout(() => setSuccessMessage(null), 3500);
       startTransition(() => {
         router.refresh();
       });
     } catch (err: any) {
-      setErrorMessage(err.message || "网络或保存错误 (Network or save error)");
+      setErrorMessage(err.message || t.saveError);
     } finally {
       setSaving(false);
     }
@@ -174,33 +174,37 @@ export function DailySheetForm({
   const isToday = date === todayKl;
   const canGoNext = date < todayKl;
 
+  const getCategoryLabel = (key: string) => {
+    const found = categories.find((c) => c.key === key);
+    return found ? found.label : key;
+  };
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {/* Date Bar & Lock Notice */}
-      <div className="bg-white border border-surface-border rounded-2xl p-4 shadow-sm flex flex-col gap-3">
+      <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
           <button
             type="button"
             onClick={() => navigateDate(-1)}
-            className="px-3 py-2 rounded-xl border border-surface-border hover:bg-surface-subtle text-xs font-semibold flex items-center gap-1 min-h-tap"
-            title="前一天 (Previous Day)"
+            className="h-8 px-2.5 rounded-lg border border-surface-border hover:bg-surface-subtle text-xs font-medium flex items-center gap-1 transition-colors"
           >
-            ← 前一天
+            ← {t.prevDay}
           </button>
 
           <div className="text-center">
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-lg font-extrabold text-ink-primary tracking-tight">
+            <div className="flex items-center justify-center gap-1.5">
+              <span className="text-sm font-bold text-ink-primary">
                 {date}
               </span>
               {isToday && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-brand-broccoli-light font-bold text-brand-broccoli">
-                  今日 (Today)
+                <span className="text-[10px] px-1.5 py-0.2 rounded bg-brand-broccoli-light font-semibold text-brand-broccoli">
+                  {t.today}
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-ink-muted mt-0.5">
-              吉隆坡时间 · Asia/Kuala_Lumpur
+            <p className="text-[10px] text-ink-muted">
+              {t.klTime}
             </p>
           </div>
 
@@ -208,31 +212,30 @@ export function DailySheetForm({
             type="button"
             disabled={!canGoNext}
             onClick={() => navigateDate(1)}
-            className="px-3 py-2 rounded-xl border border-surface-border hover:bg-surface-subtle text-xs font-semibold flex items-center gap-1 min-h-tap disabled:opacity-30 disabled:pointer-events-none"
-            title="后一天 (Next Day)"
+            className="h-8 px-2.5 rounded-lg border border-surface-border hover:bg-surface-subtle text-xs font-medium flex items-center gap-1 transition-colors disabled:opacity-30 disabled:pointer-events-none"
           >
-            后一天 →
+            {t.nextDay} →
           </button>
         </div>
 
         {isClosed && (
-          <div className="p-3 rounded-xl bg-status-closed-bg/60 border border-status-closed/20 flex items-center gap-2 text-xs font-bold text-status-closed">
-            <span>🔒</span>
-            <span>
-              该月份已结账锁定，仅供查看，修改需由管理员重开 (Month closed — Read only)
-            </span>
+          <div className="py-2 px-3 rounded-lg bg-status-closed-bg/60 border border-status-closed/20 flex items-center gap-2 text-xs font-medium text-status-closed">
+            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <span>{t.monthLocked}</span>
           </div>
         )}
       </div>
 
       {/* Notifications */}
       {errorMessage && (
-        <div className="p-3 rounded-xl bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-semibold flex items-center justify-between">
-          <span>⚠️ {errorMessage}</span>
+        <div className="py-2 px-3 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
+          <span>{errorMessage}</span>
           <button
             type="button"
             onClick={() => setErrorMessage(null)}
-            className="text-sm font-bold ml-2"
+            className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss"
           >
             ✕
           </button>
@@ -240,43 +243,42 @@ export function DailySheetForm({
       )}
 
       {successMessage && (
-        <div className="p-3 rounded-xl bg-finance-profit-light border border-finance-profit-border text-xs text-brand-broccoli font-bold flex items-center gap-2">
-          <span>✓</span>
+        <div className="py-2 px-3 rounded-lg bg-finance-profit-light border border-finance-profit-border text-xs text-brand-broccoli font-semibold flex items-center gap-1.5">
+          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+          </svg>
           <span>{successMessage}</span>
         </div>
       )}
 
       {/* Section 1: Revenue Entry */}
-      <section aria-label="Revenue Entry" className="space-y-3">
-        <div className="flex items-center justify-between px-1">
-          <h2 className="text-sm font-extrabold text-ink-primary flex items-center gap-2">
-            <span>1. 营业收入 (Revenue)</span>
+      <section aria-label="Revenue Entry" className="space-y-2">
+        <div className="flex items-center justify-between px-0.5">
+          <h2 className="text-xs font-bold text-ink-secondary uppercase tracking-wider">
+            {t.revenueTitle}
           </h2>
-          <span className="text-xs font-bold text-ink-muted">
-            合计: {formatMyr(totalRevenueSen)}
+          <span className="text-xs font-medium text-ink-muted">
+            {t.totalRevenue}: <span className="font-semibold text-ink-primary">{formatMyr(totalRevenueSen)}</span>
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {/* Cash Revenue Card */}
-          <div className="bg-white border-2 border-channel-cash/30 rounded-2xl p-4 shadow-sm relative overflow-hidden focus-within:border-channel-cash transition-all">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-channel-cash inline-block" />
-                <label
-                  htmlFor="cash-input"
-                  className="text-xs font-bold text-ink-primary"
-                >
-                  现金收入 (Cash Revenue)
-                </label>
-              </div>
-              <span className="text-[11px] font-semibold text-channel-cash bg-channel-cash-light px-2 py-0.5 rounded-md">
-                纸币/硬币
+          <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-cash transition-all">
+            <div className="flex items-center justify-between mb-1.5">
+              <label
+                htmlFor="cash-input"
+                className="text-xs font-semibold text-ink-primary"
+              >
+                {t.cashRevenue}
+              </label>
+              <span className="text-[10px] font-medium text-channel-cash bg-channel-cash-light px-1.5 py-0.5 rounded">
+                {t.cashSub}
               </span>
             </div>
 
             <div className="relative flex items-center">
-              <span className="absolute left-3 text-lg font-bold text-ink-muted select-none">
+              <span className="absolute left-2.5 text-xs font-semibold text-ink-muted select-none">
                 RM
               </span>
               <input
@@ -287,30 +289,27 @@ export function DailySheetForm({
                 value={cashInput}
                 onChange={(e) => setCashInput(e.target.value)}
                 placeholder="0.00"
-                className="w-full h-14 pl-12 pr-3 rounded-xl bg-surface-canvas border border-surface-border text-2xl font-black text-ink-primary focus:outline-none focus:bg-white focus:border-channel-cash focus:ring-2 focus:ring-channel-cash-light disabled:opacity-60 transition-all"
+                className="w-full h-10 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-cash disabled:opacity-60 transition-colors"
               />
             </div>
           </div>
 
           {/* Touch 'n Go Revenue Card */}
-          <div className="bg-white border-2 border-channel-tng/30 rounded-2xl p-4 shadow-sm relative overflow-hidden focus-within:border-channel-tng transition-all">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-channel-tng inline-block" />
-                <label
-                  htmlFor="tng-input"
-                  className="text-xs font-bold text-ink-primary"
-                >
-                  TnG 收入 (TnG Revenue)
-                </label>
-              </div>
-              <span className="text-[11px] font-semibold text-channel-tng bg-channel-tng-light px-2 py-0.5 rounded-md">
-                电子钱包
+          <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-tng transition-all">
+            <div className="flex items-center justify-between mb-1.5">
+              <label
+                htmlFor="tng-input"
+                className="text-xs font-semibold text-ink-primary"
+              >
+                {t.tngRevenue}
+              </label>
+              <span className="text-[10px] font-medium text-channel-tng bg-channel-tng-light px-1.5 py-0.5 rounded">
+                {t.tngSub}
               </span>
             </div>
 
             <div className="relative flex items-center">
-              <span className="absolute left-3 text-lg font-bold text-ink-muted select-none">
+              <span className="absolute left-2.5 text-xs font-semibold text-ink-muted select-none">
                 RM
               </span>
               <input
@@ -321,7 +320,7 @@ export function DailySheetForm({
                 value={tngInput}
                 onChange={(e) => setTngInput(e.target.value)}
                 placeholder="0.00"
-                className="w-full h-14 pl-12 pr-3 rounded-xl bg-surface-canvas border border-surface-border text-2xl font-black text-ink-primary focus:outline-none focus:bg-white focus:border-channel-tng focus:ring-2 focus:ring-channel-tng-light disabled:opacity-60 transition-all"
+                className="w-full h-10 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-tng disabled:opacity-60 transition-colors"
               />
             </div>
           </div>
@@ -329,53 +328,51 @@ export function DailySheetForm({
       </section>
 
       {/* Section 2: Itemized Daily Costs */}
-      <section aria-label="Daily Costs Entry" className="space-y-3">
-        <div className="flex items-center justify-between px-1">
-          <h2 className="text-sm font-extrabold text-ink-primary">
-            2. 日常开销明细 (Daily Costs)
+      <section aria-label="Daily Costs Entry" className="space-y-2">
+        <div className="flex items-center justify-between px-0.5">
+          <h2 className="text-xs font-bold text-ink-secondary uppercase tracking-wider">
+            {t.costsTitle}
           </h2>
-          <span className="text-xs font-bold text-finance-loss">
-            总开销: {formatMyr(totalCostSen)}
+          <span className="text-xs font-medium text-ink-muted">
+            {t.totalCosts}: <span className="font-semibold text-finance-loss">{formatMyr(totalCostSen)}</span>
           </span>
         </div>
 
         {/* Cost Line Entry Box */}
         {!isClosed && (
-          <div className="bg-white border border-surface-border rounded-2xl p-4 shadow-sm space-y-3">
+          <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs space-y-2.5">
             <div>
-              <span className="block text-xs font-bold text-ink-secondary mb-2">
-                选择支出类别 (Cost Category)
+              <span className="block text-[11px] font-medium text-ink-muted mb-1.5">
+                {t.selectCategory}
               </span>
-              <div className="flex flex-wrap gap-2">
-                {CATEGORIES.map((cat) => {
+              <div className="flex flex-wrap gap-1.5">
+                {categories.map((cat) => {
                   const isSelected = newCat === cat.key;
                   return (
                     <button
                       key={cat.key}
                       type="button"
                       onClick={() => setNewCat(cat.key)}
-                      className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all min-h-tap ${
+                      className={`h-7 px-2.5 rounded-md text-xs font-medium transition-all ${
                         isSelected
-                          ? "bg-finance-cost text-white shadow-sm ring-2 ring-finance-cost-light"
+                          ? "bg-finance-cost text-white shadow-xs font-semibold"
                           : "bg-surface-subtle text-ink-secondary border border-surface-border hover:border-surface-border-strong"
                       }`}
                     >
-                      <span>{cat.icon}</span>
-                      <span>{cat.zh}</span>
-                      <span className="text-[10px] opacity-80">({cat.en})</span>
+                      {cat.label}
                     </button>
                   );
                 })}
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
-                <label className="block text-xs font-bold text-ink-secondary mb-1">
-                  金额 (Amount)
+                <label className="block text-[11px] font-medium text-ink-muted mb-1">
+                  {t.amount}
                 </label>
                 <div className="relative flex items-center">
-                  <span className="absolute left-3 text-sm font-bold text-ink-muted select-none">
+                  <span className="absolute left-2.5 text-xs font-semibold text-ink-muted select-none">
                     RM
                   </span>
                   <input
@@ -384,21 +381,21 @@ export function DailySheetForm({
                     value={newAmount}
                     onChange={(e) => setNewAmount(e.target.value)}
                     placeholder="0.00"
-                    className="w-full h-12 pl-11 pr-3 rounded-xl bg-surface-canvas border border-surface-border text-base font-bold text-ink-primary focus:outline-none focus:bg-white focus:border-finance-cost focus:ring-1 focus:ring-finance-cost"
+                    className="w-full h-9 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm font-medium text-ink-primary focus:outline-none focus:bg-white focus:border-finance-cost"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-ink-secondary mb-1">
-                  备注 {newCat === "other" && <span className="text-finance-loss">*必填</span>} (Note)
+                <label className="block text-[11px] font-medium text-ink-muted mb-1">
+                  {t.note} {newCat === "other" && <span className="text-finance-loss">({t.noteRequiredBadge})</span>}
                 </label>
                 <input
                   type="text"
                   value={newNote}
                   onChange={(e) => setNewNote(e.target.value)}
-                  placeholder={newCat === "other" ? "说明具体开销内容 (Required)" : "可选备注 (Optional note)"}
-                  className="w-full h-12 px-3 rounded-xl bg-surface-canvas border border-surface-border text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-finance-cost focus:ring-1 focus:ring-finance-cost"
+                  placeholder={newCat === "other" ? t.noteRequired : t.noteOptional}
+                  className="w-full h-9 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-xs text-ink-primary focus:outline-none focus:bg-white focus:border-finance-cost"
                 />
               </div>
             </div>
@@ -406,82 +403,70 @@ export function DailySheetForm({
             <button
               type="button"
               onClick={handleAddCostLine}
-              className="w-full h-12 rounded-xl border-2 border-dashed border-finance-cost text-finance-cost hover:bg-finance-cost-light/50 font-bold text-xs flex items-center justify-center gap-1.5 transition-all min-h-tap"
+              className="w-full h-8 rounded-lg border border-dashed border-finance-cost text-finance-cost hover:bg-finance-cost-light/50 font-medium text-xs flex items-center justify-center gap-1 transition-colors"
             >
               <span>+</span>
-              <span>添加一条开销 (Add Cost Line)</span>
+              <span>{t.addCostLine}</span>
             </button>
           </div>
         )}
 
         {/* Existing Cost Lines List */}
-        <div className="bg-white border border-surface-border rounded-2xl p-4 shadow-sm">
+        <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs">
           {costLines.length === 0 ? (
-            <div className="text-center py-6 text-xs text-ink-muted">
-              今日暂无开销记录 (No cost lines added for today)
+            <div className="text-center py-4 text-xs text-ink-muted">
+              {t.noCostsRecorded}
             </div>
           ) : (
             <div className="divide-y divide-surface-border">
-              {costLines.map((line, idx) => {
-                const catMeta =
-                  CATEGORIES.find((c) => c.key === line.category) ?? {
-                    zh: line.category,
-                    en: line.category,
-                    icon: "📌",
-                  };
-                return (
-                  <div
-                    key={line.id ?? `temp-${idx}`}
-                    className="py-3 flex items-center justify-between gap-2"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <span className="text-xl select-none">{catMeta.icon}</span>
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-ink-primary flex items-center gap-1.5">
-                          <span>{catMeta.zh}</span>
-                          <span className="text-[10px] text-ink-muted">
-                            ({catMeta.en})
-                          </span>
-                        </div>
-                        {line.note && (
-                          <div className="text-[11px] text-ink-muted truncate">
-                            {line.note}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-extrabold text-finance-loss whitespace-nowrap">
-                        {formatMyr(BigInt(line.amountSen))}
+              {costLines.map((line, idx) => (
+                <div
+                  key={line.id ?? `temp-${idx}`}
+                  className="py-2 flex items-center justify-between gap-2"
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-surface-subtle border border-surface-border text-ink-secondary whitespace-nowrap">
+                      {getCategoryLabel(line.category)}
+                    </span>
+                    {line.note && (
+                      <span className="text-xs text-ink-muted truncate">
+                        {line.note}
                       </span>
-                      {!isClosed && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveCostLine(idx)}
-                          className="w-8 h-8 rounded-lg hover:bg-finance-loss-light text-ink-muted hover:text-finance-loss flex items-center justify-center text-base font-bold min-h-tap min-w-tap transition-colors"
-                          title="删除 (Delete)"
-                        >
-                          ✕
-                        </button>
-                      )}
-                    </div>
+                    )}
                   </div>
-                );
-              })}
+
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xs font-bold text-finance-loss whitespace-nowrap">
+                      {formatMyr(BigInt(line.amountSen))}
+                    </span>
+                    {!isClosed && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCostLine(idx)}
+                        className="w-6 h-6 rounded hover:bg-finance-loss-light text-ink-muted hover:text-finance-loss flex items-center justify-center text-xs transition-colors"
+                        title={t.delete}
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
       </section>
 
-      {/* Sticky Bottom Action Bar */}
-      <div className="sticky bottom-16 z-30 bg-white/95 backdrop-blur-md border border-surface-border rounded-2xl p-3.5 shadow-md flex items-center justify-between gap-3">
+      {/* Sticky Bottom Action Bar - Normalized Height */}
+      <div className="sticky bottom-16 z-30 bg-white/95 backdrop-blur-md border border-surface-border rounded-xl p-3 shadow-sm flex items-center justify-between gap-3">
         <div>
-          <div className="text-[11px] text-ink-muted font-medium">
-            当日毛利润 (Day's Gross Profit)
+          <div className="text-[10px] text-ink-muted font-medium">
+            {t.grossProfit}
           </div>
           <div
-            className={`text-xl font-black ${
+            className={`text-base font-bold ${
               grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
             }`}
           >
@@ -492,17 +477,14 @@ export function DailySheetForm({
         {!isClosed && (
           <button
             type="button"
-            disabled={saving || isPending}
+            disabled={saving}
             onClick={handleSave}
-            className="px-5 h-12 rounded-xl bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-extrabold text-sm tracking-wide shadow-sm flex items-center gap-2 min-h-tap transition-all disabled:opacity-50 active:scale-[0.98]"
+            className="h-9 px-4 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-xs tracking-wide shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50 active:scale-[0.98]"
           >
             {saving ? (
-              <span>保存中...</span>
+              <span>{t.saving}</span>
             ) : (
-              <>
-                <span>保存账单 (Save Sheet)</span>
-                <span>✓</span>
-              </>
+              <span>{t.saveSheet}</span>
             )}
           </button>
         )}
