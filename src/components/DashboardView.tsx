@@ -98,12 +98,9 @@ export function DashboardView({
           </span>
         </div>
 
-        {/* Month Selector Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-0.5 no-scrollbar">
           {tiles.length === 0 ? (
-            <div className="text-xs text-ink-muted py-1">
-              {t.noMonthsRecorded}
-            </div>
+            <div className="text-xs text-ink-muted py-2">{t.noMonthsRecorded}</div>
           ) : (
             tiles.map((tile) => {
               const isActive = tile.month === activeMonth;
@@ -111,17 +108,19 @@ export function DashboardView({
                 <Link
                   key={tile.month}
                   href={`/dashboard?month=${tile.month}`}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
                     isActive
-                      ? "bg-brand-broccoli text-white shadow-xs font-semibold"
-                      : "bg-white border border-surface-border text-ink-secondary hover:border-surface-border-strong"
+                      ? "bg-brand-broccoli text-white shadow-xs"
+                      : "bg-surface-subtle text-ink-secondary hover:text-ink-primary hover:bg-surface-border/60 border border-surface-border"
                   }`}
                 >
                   <span>{tile.month}</span>
                   <span
-                    className={`text-[10px] px-1 py-0.2 rounded ${
+                    className={`text-[9px] px-1.5 py-0.2 rounded font-medium ${
                       isActive
                         ? "bg-white/20 text-white"
+                        : tile.status === "closed"
+                        ? "bg-status-closed-bg text-status-closed"
                         : "bg-surface-subtle text-ink-muted"
                     }`}
                   >
@@ -139,7 +138,7 @@ export function DashboardView({
         <div className="bg-white border border-surface-border rounded-xl p-3.5 shadow-xs space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-surface-border">
             <span className="text-xs font-bold text-ink-secondary uppercase tracking-wider">
-              {t.monthSummary} ({activeMonth})
+              {t.monthSummary}
             </span>
             <span
               className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
