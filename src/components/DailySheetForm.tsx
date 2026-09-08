@@ -383,10 +383,10 @@ export function DailySheetForm({
                         setNewCat(cat.key);
                         if (costLineError) setCostLineError(null);
                       }}
-                      className={`h-7 px-2.5 rounded-md text-xs font-medium transition-all ${
+                      className={`h-7 px-2.5 rounded-md text-xs font-medium border transition-colors select-none ${
                         isSelected
-                          ? "bg-ink-primary text-white shadow-xs font-semibold"
-                          : "bg-surface-subtle text-ink-secondary border border-surface-border hover:border-surface-border-strong"
+                          ? "bg-ink-primary text-white border-ink-primary shadow-xs"
+                          : "bg-surface-subtle text-ink-secondary border-surface-border hover:border-surface-border-strong hover:bg-surface-subtle/80"
                       }`}
                     >
                       {cat.label}
