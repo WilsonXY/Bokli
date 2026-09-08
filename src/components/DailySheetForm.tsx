@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMyr, parseSen } from "@/lib/money";
 import { useI18n } from "@/lib/i18n";
@@ -39,6 +39,7 @@ export function DailySheetForm({
   const router = useRouter();
   const { t } = useI18n();
   const [, startTransition] = useTransition();
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   const categories: Array<{
     key: CostLineItem["category"];
@@ -89,6 +90,20 @@ export function DailySheetForm({
   );
 
   const grossProfitSen = totalRevenueSen - totalCostSen;
+
+  // Explicit calendar picker launcher via modern HTML5 showPicker
+  function handleOpenDatePicker() {
+    if (!dateInputRef.current) return;
+    try {
+      if (typeof dateInputRef.current.showPicker === "function") {
+        dateInputRef.current.showPicker();
+      } else {
+        dateInputRef.current.focus();
+      }
+    } catch {
+      dateInputRef.current.focus();
+    }
+  }
 
   // Add Cost Line
   function handleAddCostLine() {
@@ -192,9 +207,15 @@ export function DailySheetForm({
             ← {t.prevDay}
           </button>
 
-          {/* Clickable Date Selector with Native Date Picker Overlay (No icon clutter) */}
-          <div className="relative text-center group cursor-pointer px-2.5 py-1 rounded-lg hover:bg-surface-subtle transition-colors">
+          {/* Clickable Date Button that calls showPicker() on click */}
+          <button
+            type="button"
+            onClick={handleOpenDatePicker}
+            className="relative text-center group cursor-pointer px-2.5 py-1 rounded-lg hover:bg-surface-subtle transition-colors focus:outline-none focus:ring-1 focus:ring-brand-broccoli"
+            title="点击直接选择日期 (Click to pick date)"
+          >
             <input
+              ref={dateInputRef}
               type="date"
               value={date}
               max={todayKl}
@@ -203,10 +224,11 @@ export function DailySheetForm({
                   router.push(`/?date=${e.target.value}`);
                 }
               }}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-              title="点击选择日期 (Click to pick date)"
+              className="absolute inset-0 w-full h-full opacity-0 pointer-events-none"
+              tabIndex={-1}
+              aria-hidden="true"
             />
-            <div className="flex items-center justify-center gap-1.5">
+            <div className="flex items-center justify-center gap-1.5 pointer-events-none">
               <span className="text-sm font-bold text-ink-primary group-hover:text-brand-broccoli transition-colors">
                 {date}
               </span>
@@ -216,10 +238,10 @@ export function DailySheetForm({
                 </span>
               )}
             </div>
-            <p className="text-[10px] text-ink-muted">
+            <p className="text-[10px] text-ink-muted pointer-events-none">
               {t.klTime}
             </p>
-          </div>
+          </button>
 
           <button
             type="button"
