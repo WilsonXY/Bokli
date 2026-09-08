@@ -197,7 +197,7 @@ export function DailySheetForm({
             ← {t.prevDay}
           </button>
 
-          {/* Toggleable Date Button with Calendar Popover */}
+          {/* Toggleable Date Button with Calendar Popover (No green outline/ring on click) */}
           <div className="relative">
             <button
               ref={dateBtnRef}
@@ -205,7 +205,7 @@ export function DailySheetForm({
               onClick={() => setIsCalendarOpen((prev) => !prev)}
               aria-expanded={isCalendarOpen}
               aria-haspopup="dialog"
-              className="relative text-center group cursor-pointer px-2.5 py-1 rounded-lg hover:bg-surface-subtle transition-colors focus:outline-none focus:ring-1 focus:ring-brand-broccoli"
+              className="relative text-center group cursor-pointer px-2.5 py-1 rounded-lg hover:bg-surface-subtle transition-colors focus:outline-none"
               title="点击打开/关闭日历 (Click to toggle calendar)"
             >
               <div className="flex items-center justify-center gap-1.5">
