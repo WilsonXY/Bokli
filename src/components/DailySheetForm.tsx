@@ -263,22 +263,20 @@ export function DailySheetForm({
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {/* Cash Revenue Card */}
-          <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-cash transition-all">
-            <div className="flex items-center justify-between mb-1.5">
+          {/* Cash Revenue Card with colored border indicator & dot (redundant text badge removed) */}
+          <div className="bg-white border border-surface-border border-l-4 border-l-channel-cash rounded-xl p-3 shadow-xs focus-within:border-channel-cash transition-all">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <span className="w-2 h-2 rounded-full bg-channel-cash inline-block shrink-0" />
               <label
                 htmlFor="cash-input"
                 className="text-xs font-semibold text-ink-primary"
               >
                 {t.cashRevenue}
               </label>
-              <span className="text-[10px] font-medium text-channel-cash bg-channel-cash-light px-1.5 py-0.5 rounded">
-                {t.cashSub}
-              </span>
             </div>
 
             <div className="relative flex items-center">
-              <span className="absolute left-2.5 text-xs font-semibold text-ink-muted select-none">
+              <span className="absolute left-2.5 text-xs font-bold text-channel-cash select-none">
                 RM
               </span>
               <input
@@ -294,22 +292,20 @@ export function DailySheetForm({
             </div>
           </div>
 
-          {/* Touch 'n Go Revenue Card */}
-          <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-tng transition-all">
-            <div className="flex items-center justify-between mb-1.5">
+          {/* Touch 'n Go Revenue Card with colored border indicator & dot (redundant text badge removed) */}
+          <div className="bg-white border border-surface-border border-l-4 border-l-channel-tng rounded-xl p-3 shadow-xs focus-within:border-channel-tng transition-all">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <span className="w-2 h-2 rounded-full bg-channel-tng inline-block shrink-0" />
               <label
                 htmlFor="tng-input"
                 className="text-xs font-semibold text-ink-primary"
               >
                 {t.tngRevenue}
               </label>
-              <span className="text-[10px] font-medium text-channel-tng bg-channel-tng-light px-1.5 py-0.5 rounded">
-                {t.tngSub}
-              </span>
             </div>
 
             <div className="relative flex items-center">
-              <span className="absolute left-2.5 text-xs font-semibold text-ink-muted select-none">
+              <span className="absolute left-2.5 text-xs font-bold text-channel-tng select-none">
                 RM
               </span>
               <input

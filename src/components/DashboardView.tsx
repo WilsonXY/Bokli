@@ -194,7 +194,7 @@ export function DashboardView({
             </div>
           </div>
 
-          {/* Net Profit Banner */}
+          {/* Net Profit Banner (formula removed per P1) */}
           <div
             className={`p-3 rounded-lg border flex items-center justify-between ${
               activeTile.netSen >= 0
@@ -202,13 +202,8 @@ export function DashboardView({
                 : "bg-finance-loss-light border-finance-loss-border"
             }`}
           >
-            <div>
-              <div className="text-xs font-bold text-ink-primary">
-                {t.netProfit}
-              </div>
-              <div className="text-[10px] text-ink-muted">
-                {t.netProfitFormula}
-              </div>
+            <div className="text-xs font-bold text-ink-primary">
+              {t.netProfit}
             </div>
             <div
               className={`text-lg font-black ${
