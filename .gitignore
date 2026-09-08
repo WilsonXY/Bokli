@@ -12,3 +12,7 @@ next-env.d.ts
 .env.local
 .env.production
 .env*.local
+
+# Agent tooling (original repo entries)
+.agents/
+skills-lock.json
