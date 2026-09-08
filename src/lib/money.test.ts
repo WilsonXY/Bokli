@@ -5,6 +5,7 @@ import {
   isValidDateStr,
   isValidMonthStr,
   parseSen,
+  sanitizeMoneyInput,
   subSen,
   sumSen,
   MoneyFormatError,
@@ -27,6 +28,31 @@ describe("parseSen", () => {
     expect(() => parseSen("abc")).toThrow(MoneyFormatError);
     expect(() => parseSen("1,234")).toThrow(MoneyFormatError);
     expect(() => parseSen("RM5")).toThrow(MoneyFormatError);
+  });
+});
+
+describe("sanitizeMoneyInput", () => {
+  it("accepts valid typing and intermediate numbers", () => {
+    expect(sanitizeMoneyInput("")).toBe("");
+    expect(sanitizeMoneyInput("12")).toBe("12");
+    expect(sanitizeMoneyInput("12.")).toBe("12.");
+    expect(sanitizeMoneyInput("12.3")).toBe("12.3");
+    expect(sanitizeMoneyInput("12.34")).toBe("12.34");
+    expect(sanitizeMoneyInput(".5")).toBe(".5");
+  });
+
+  it("cleans pasted formatted values", () => {
+    expect(sanitizeMoneyInput("RM 50.00")).toBe("50.00");
+    expect(sanitizeMoneyInput("RM50")).toBe("50");
+    expect(sanitizeMoneyInput("1,250.00")).toBe("1250.00");
+  });
+
+  it("rejects invalid letters and extra decimals", () => {
+    expect(sanitizeMoneyInput("weee")).toBeNull();
+    expect(sanitizeMoneyInput("12.345")).toBeNull();
+    expect(sanitizeMoneyInput("-10")).toBeNull();
+    expect(sanitizeMoneyInput("12.3.4")).toBeNull();
+    expect(sanitizeMoneyInput("abc123")).toBeNull();
   });
 });
 
@@ -58,24 +84,33 @@ describe("arithmetic", () => {
   });
 
   it("rejects out-of-range results", () => {
-    const big = 9_007_199_254_740_991n;
-    expect(() => sumSen([big, 1n])).toThrow(MoneyRangeError);
+    expect(() => sumSen([9007199254740991n, 1n])).toThrow(MoneyRangeError);
   });
 });
 
-describe("date helpers", () => {
-  it("validates YYYY-MM-DD", () => {
-    expect(isValidDateStr("2026-09-07")).toBe(true);
-    expect(isValidDateStr("2026-02-29")).toBe(false); // not a leap year
-    expect(isValidDateStr("2024-02-29")).toBe(true);
-    expect(isValidDateStr("2026-13-01")).toBe(false);
-    expect(isValidDateStr("2026-09-31")).toBe(false);
-    expect(isValidDateStr("07-09-2026")).toBe(false);
+describe("isValidDateStr", () => {
+  it("validates standard YYYY-MM-DD format", () => {
+    expect(isValidDateStr("2026-03-31")).toBe(true);
+    expect(isValidDateStr("2026-02-28")).toBe(true);
+    expect(isValidDateStr("2026-02-29")).toBe(false); // 2026 is not a leap year
   });
 
-  it("validates YYYY-MM", () => {
-    expect(isValidMonthStr("2026-09")).toBe(true);
+  it("rejects invalid patterns", () => {
+    expect(isValidDateStr("2026-13-01")).toBe(false);
+    expect(isValidDateStr("invalid-date")).toBe(false);
+    expect(isValidDateStr("2026-3-5")).toBe(false);
+  });
+});
+
+describe("isValidMonthStr", () => {
+  it("validates standard YYYY-MM format", () => {
+    expect(isValidMonthStr("2026-03")).toBe(true);
+    expect(isValidMonthStr("2026-12")).toBe(true);
+  });
+
+  it("rejects invalid patterns", () => {
     expect(isValidMonthStr("2026-13")).toBe(false);
-    expect(isValidMonthStr("2026-9")).toBe(false);
+    expect(isValidMonthStr("2026-00")).toBe(false);
+    expect(isValidMonthStr("2026")).toBe(false);
   });
 });

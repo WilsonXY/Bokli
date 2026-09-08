@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { formatMyr, parseSen } from "@/lib/money";
+import { formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
 import { useI18n } from "@/lib/i18n";
 
 interface FinancialSnapshot {
@@ -408,8 +408,11 @@ export function MonthCloseView({
                   inputMode="decimal"
                   value={cashOnHandInput}
                   onChange={(e) => {
-                    setCashOnHandInput(e.target.value);
-                    if (errorMessage) setErrorMessage(null);
+                    const sanitized = sanitizeMoneyInput(e.target.value);
+                    if (sanitized !== null) {
+                      setCashOnHandInput(sanitized);
+                      if (errorMessage) setErrorMessage(null);
+                    }
                   }}
                   placeholder="0.00"
                   className="w-full h-9 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-cash transition-colors"
@@ -431,8 +434,11 @@ export function MonthCloseView({
                   inputMode="decimal"
                   value={tngOnHandInput}
                   onChange={(e) => {
-                    setTngOnHandInput(e.target.value);
-                    if (errorMessage) setErrorMessage(null);
+                    const sanitized = sanitizeMoneyInput(e.target.value);
+                    if (sanitized !== null) {
+                      setTngOnHandInput(sanitized);
+                      if (errorMessage) setErrorMessage(null);
+                    }
                   }}
                   placeholder="0.00"
                   className="w-full h-9 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-tng transition-colors"

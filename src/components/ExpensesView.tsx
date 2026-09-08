@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { formatMyr, parseSen } from "@/lib/money";
+import { formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
 import { useI18n } from "@/lib/i18n";
 
 export interface OperatingExpenseItem {
@@ -293,8 +293,11 @@ export function ExpensesView({
                   inputMode="decimal"
                   value={amountInput}
                   onChange={(e) => {
-                    setAmountInput(e.target.value);
-                    if (inlineError) setInlineError(null);
+                    const sanitized = sanitizeMoneyInput(e.target.value);
+                    if (sanitized !== null) {
+                      setAmountInput(sanitized);
+                      if (inlineError) setInlineError(null);
+                    }
                   }}
                   placeholder="0.00"
                   className="w-full h-9 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm font-medium text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary"

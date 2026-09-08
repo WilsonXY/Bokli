@@ -2,7 +2,7 @@
 
 import React, { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { formatMyr, parseSen } from "@/lib/money";
+import { formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
 import { useI18n } from "@/lib/i18n";
 import { CalendarPopover } from "@/components/CalendarPopover";
 
@@ -77,9 +77,10 @@ export function DailySheetForm({
   // Safe parsing helper
   function toSen(val: string): bigint {
     const s = val.trim();
-    if (!s) return 0n;
+    if (!s || s === ".") return 0n;
     try {
-      return parseSen(s);
+      const normalized = s.startsWith(".") ? `0${s}` : s;
+      return parseSen(normalized);
     } catch {
       return 0n;
     }
@@ -135,6 +136,27 @@ export function DailySheetForm({
     setErrorMessage(null);
     setCostLineError(null);
     setSuccessMessage(null);
+
+    // Validate revenue inputs if entered
+    if (cashInput.trim() && cashInput.trim() !== ".") {
+      try {
+        const norm = cashInput.trim().startsWith(".") ? `0${cashInput.trim()}` : cashInput.trim();
+        parseSen(norm);
+      } catch {
+        setErrorMessage(t.invalidAmount);
+        return;
+      }
+    }
+    if (tngInput.trim() && tngInput.trim() !== ".") {
+      try {
+        const norm = tngInput.trim().startsWith(".") ? `0${tngInput.trim()}` : tngInput.trim();
+        parseSen(norm);
+      } catch {
+        setErrorMessage(t.invalidAmount);
+        return;
+      }
+    }
+
     setSaving(true);
 
     try {
@@ -316,7 +338,13 @@ export function DailySheetForm({
                 inputMode="decimal"
                 disabled={isClosed}
                 value={cashInput}
-                onChange={(e) => setCashInput(e.target.value)}
+                onChange={(e) => {
+                  const sanitized = sanitizeMoneyInput(e.target.value);
+                  if (sanitized !== null) {
+                    setCashInput(sanitized);
+                    if (errorMessage) setErrorMessage(null);
+                  }
+                }}
                 placeholder="0.00"
                 className="w-full h-10 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-cash disabled:opacity-60 transition-colors"
               />
@@ -345,7 +373,13 @@ export function DailySheetForm({
                 inputMode="decimal"
                 disabled={isClosed}
                 value={tngInput}
-                onChange={(e) => setTngInput(e.target.value)}
+                onChange={(e) => {
+                  const sanitized = sanitizeMoneyInput(e.target.value);
+                  if (sanitized !== null) {
+                    setTngInput(sanitized);
+                    if (errorMessage) setErrorMessage(null);
+                  }
+                }}
                 placeholder="0.00"
                 className="w-full h-10 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-tng disabled:opacity-60 transition-colors"
               />
@@ -410,8 +444,11 @@ export function DailySheetForm({
                     inputMode="decimal"
                     value={newAmount}
                     onChange={(e) => {
-                      setNewAmount(e.target.value);
-                      if (costLineError) setCostLineError(null);
+                      const sanitized = sanitizeMoneyInput(e.target.value);
+                      if (sanitized !== null) {
+                        setNewAmount(sanitized);
+                        if (costLineError) setCostLineError(null);
+                      }
                     }}
                     placeholder="0.00"
                     className="w-full h-9 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm font-medium text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary"
