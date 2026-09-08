@@ -44,7 +44,9 @@ Unlike generic accounting software (which demands complex charts of accounts, do
 
 ## Brand Commitments
 
-- **Name**: Bokli (簿里 — family stall bookkeeping).
+- **Name**: Bokli (簿里 — family stall bookkeeping; playful homophone for broccoli 🥦).
+- **Signature Brand Motif**: A modern, crisp **broccoli** (🥦) emblem—symbolizing fresh daily market produce, nourishing family livelihood, and the stall's daily culinary craft.
+- **Visual Aesthetic & Vibe**: Clean light mode exclusively. Modern, business ops team daily-use aesthetic—crisp hairline borders, disciplined data grids, tactile 48px controls, and professional clarity without enterprise bloat.
 - **Authoritative Domain Language (from CONTEXT.md)**:
   - *Daily Sheet* (avoid: daily entry, day book, transaction)
   - *Cash Revenue* (avoid: cash sales, cash income)
@@ -66,7 +68,7 @@ Unlike generic accounting software (which demands complex charts of accounts, do
 - `.scratch/bokli/spec.md`: Authoritative specification covering user stories, calculations, data validation, and architecture.
 - `docs/adr/0001-modular-monolith-nextjs-sqlite.md` through `0004-myr-minor-unit-money.md`: Technical decisions for architecture, month locking, credentials auth, and integer sen representation.
 - `src/db/schema.ts` & `src/services/`: Drizzle SQLite database schema and fully tested business logic for sheets, expenses, month close, and dashboard.
-- `app/dashboard/page.tsx`: Existing working bilingual dashboard UI establishing layout, color assignments, and metric presentation.
+- `app/dashboard/page.tsx`: Existing placeholder dashboard establishing basic calculation displays.
 
 ## Product Principles
 
@@ -78,5 +80,5 @@ Unlike generic accounting software (which demands complex charts of accounts, do
 ## Accessibility & Inclusion
 
 - **Touch Ergonomics**: All actionable buttons, links, inputs, and list rows must have at least 48×48px effective tap targets for fast, accurate mobile thumb interaction.
-- **Visual Contrast**: High-contrast text and unmistakable semantic indicators (green for profit, red for costs/warnings, blue for TnG, emerald for cash) legible in stall ambient lighting.
+- **Visual Contrast & Lighting**: Strictly clean light mode with deep slate text (`#0f172a`) against crisp light surfaces, optimized for high legibility under both harsh stall fluorescent lights and bright daytime ambient glare.
 - **Bilingual Interface**: Chinese-first (`zh`) primary labels for mom's direct comfort, supported by concise English (`en`) secondary labels.
