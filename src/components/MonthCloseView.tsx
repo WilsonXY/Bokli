@@ -501,14 +501,17 @@ export function MonthCloseView({
 
           {/* If zero sheets in month */}
           {!hasSheetsInMonth && (
-            <label className="flex items-center gap-2 text-sm text-ink-secondary cursor-pointer">
+            <label className="flex items-center gap-2.5 text-sm font-medium text-ink-primary cursor-pointer select-none py-1">
               <input
                 type="checkbox"
                 checked={confirmEmpty}
                 onChange={(e) => setConfirmEmpty(e.target.checked)}
-                className="rounded border-surface-border text-brand-broccoli focus:ring-0"
+                className="w-5 h-5 rounded border-surface-border accent-brand-broccoli cursor-pointer focus:ring-2 focus:ring-brand-broccoli/50"
+                style={{ accentColor: "#15803d" }}
               />
-              <span>{t.confirmEmptyMonth}</span>
+              <span className={confirmEmpty ? "font-semibold text-brand-broccoli" : ""}>
+                {t.confirmEmptyMonth}
+              </span>
             </label>
           )}
 
