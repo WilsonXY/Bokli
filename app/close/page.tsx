@@ -7,6 +7,7 @@ import { getTodayInKualaLumpur } from "@/services/daily-sheet";
 import { getMonthPreview } from "@/services/operating-expense";
 import { getClose, isFutureMonthInKL } from "@/services/month-close";
 import { MonthCloseView } from "@/components/MonthCloseView";
+import { formatKlDate, formatKlDateTime } from "@/lib/datetime";
 
 interface PageProps {
   searchParams?: Promise<{ month?: string }>;
@@ -90,8 +91,8 @@ export default async function MonthClosePage(props: PageProps) {
       closeRecord = {
         isClosed: !rawClose.reopenedAt,
         isReopened: Boolean(rawClose.reopenedAt),
-        closedAt: rawClose.closedAt,
-        reopenedAt: rawClose.reopenedAt,
+        closedAt: rawClose.closedAt ? formatKlDateTime(rawClose.closedAt) : rawClose.closedAt,
+        reopenedAt: rawClose.reopenedAt ? formatKlDate(rawClose.reopenedAt) : rawClose.reopenedAt,
         reopenReason: rawClose.reopenReason,
         cashOnHandSen: Number(rawClose.cashOnHandSen),
         tngOnHandSen: Number(rawClose.tngOnHandSen),
