@@ -351,6 +351,99 @@ export function addCostLine(
   });
 }
 
+export interface ReplaceCostLineInput {
+  amountSen: number | bigint;
+  category: CostCategory | string;
+  note?: string | null;
+  [key: string]: unknown;
+}
+
+/**
+ * Replace all Cost Lines for a Daily Sheet with the provided list in one atomic transaction.
+ * - Month must not be closed
+ * - Deletes all existing cost lines for that sheet, then inserts the submitted list
+ * - Reuses existing validation (category enum, note required for 'other', non-negative sen, assertMonthNotClosed)
+ * - Keeps updatedAt timestamp trail on parent Daily Sheet (no hard delete of sheet)
+ */
+export function replaceCostLines(
+  sheetId: number,
+  lines: ReplaceCostLineInput[],
+  options?: { db?: Db },
+): CostLine[] {
+  const db = options?.db ?? openDb().db;
+
+  if (!Array.isArray(lines)) {
+    throw new ValidationError("Cost lines must be an array");
+  }
+
+  const sheet = db
+    .select()
+    .from(dailySheets)
+    .where(eq(dailySheets.id, sheetId))
+    .get();
+
+  if (!sheet) {
+    throw new NotFoundError(`Daily Sheet with id ${sheetId} not found`);
+  }
+
+  const month = sheet.date.slice(0, 7);
+  assertMonthNotClosed(month, db);
+
+  // Validate all submitted lines prior to database mutation
+  const validatedLines = lines.map((line) => {
+    if (!line || typeof line !== "object") {
+      throw new ValidationError("Each item in costLines must be an object");
+    }
+
+    const validAmount = assertValidSen(
+      line.amountSen,
+      "Daily Cost amount (amountSen)",
+    );
+
+    if (!isValidCostCategory(line.category)) {
+      throw new ValidationError(
+        `Invalid Cost Category: "${String(line.category)}". Must be one of: ${COST_CATEGORIES.join(", ")}`,
+      );
+    }
+
+    const trimmedNote = line.note?.trim() || null;
+    if (line.category === "other" && !trimmedNote) {
+      throw new ValidationError("Note is required when Cost Category is 'other'");
+    }
+
+    return {
+      dailySheetId: sheetId,
+      amountSen: Number(validAmount),
+      category: line.category,
+      note: trimmedNote,
+    };
+  });
+
+  return db.transaction((tx) => {
+    // Delete all existing cost lines for this sheet
+    tx.delete(costLines).where(eq(costLines.dailySheetId, sheetId)).run();
+
+    // Insert the submitted list
+    const insertedLines: CostLine[] = [];
+    for (const item of validatedLines) {
+      const inserted = tx
+        .insert(costLines)
+        .values(item)
+        .returning()
+        .get();
+      insertedLines.push(inserted);
+    }
+
+    // Keep updatedAt timestamp trail on parent Daily Sheet (no hard delete of sheet)
+    tx.update(dailySheets)
+      .set({ updatedAt: new Date().toISOString() })
+      .where(eq(dailySheets.id, sheetId))
+      .run();
+
+    return insertedLines;
+  });
+}
+
 export interface UpdateCostLineInput {
   amountSen?: number | bigint;
   category?: CostCategory;

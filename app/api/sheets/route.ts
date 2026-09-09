@@ -7,6 +7,7 @@ import {
   getSheetByDate,
   getSheetWithCosts,
   removeCostLine,
+  replaceCostLines,
   setRevenue,
   updateCostLine,
 } from "@/services/daily-sheet";
@@ -54,7 +55,7 @@ export const GET = withAuth(async (req: NextRequest) => {
 
 /**
  * POST /api/sheets
- * Create / ensure a Daily Sheet for a date, optionally setting revenue or adding cost lines.
+ * Create / ensure a Daily Sheet for a date, optionally setting revenue or adding/replacing cost lines.
  */
 export const POST = withAuth(async (req: NextRequest) => {
   try {
@@ -67,8 +68,15 @@ export const POST = withAuth(async (req: NextRequest) => {
       );
     }
 
-    // Action: addCostLine directly by sheetId
-    if (body.action === "addCostLine" || (body.sheetId && body.category && body.amountSen !== undefined)) {
+    // Direct-insert path: append-only single-line add (via sheetId + category + amountSen, or action: "addCostLine").
+    // Hardening: To ensure the sheet-save flow (which specifies 'date' and optional 'costLines' array) cannot
+    // accidentally trigger this single-line append branch, we only enter this branch if action is explicitly
+    // "addCostLine" OR if sheetId + category + amountSen are provided WITHOUT sheet-save fields (no 'date' and no 'costLines').
+    const isDirectAddCostLine =
+      body.action === "addCostLine" ||
+      (!body.date && !Array.isArray(body.costLines) && body.sheetId !== undefined && body.category !== undefined && body.amountSen !== undefined);
+
+    if (isDirectAddCostLine) {
       const sheetId = Number(body.sheetId);
       if (!Number.isInteger(sheetId) || sheetId <= 0) {
         return NextResponse.json({ error: "Valid sheetId is required" }, { status: 400 });
@@ -99,22 +107,10 @@ export const POST = withAuth(async (req: NextRequest) => {
       setRevenue(sheet.id, cash, tng);
     }
 
-    // Optional initial cost lines
+    // Cost lines replacement / addition:
+    // When body.costLines is an array, call replaceCostLines instead of looping addCostLine (idempotent re-save).
     if (Array.isArray(body.costLines)) {
-      for (const line of body.costLines) {
-        if (!line || typeof line !== "object") {
-          return NextResponse.json(
-            { error: "Each item in costLines must be an object" },
-            { status: 400 },
-          );
-        }
-        addCostLine(
-          sheet.id,
-          line.amountSen,
-          line.category as CostCategory,
-          line.note,
-        );
-      }
+      replaceCostLines(sheet.id, body.costLines);
     } else if (body.amountSen !== undefined && body.category) {
       addCostLine(
         sheet.id,
