@@ -3,7 +3,7 @@
 import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, translateApiError } from "@/lib/i18n";
 
 interface FinancialSnapshot {
   revenueSen: number;
@@ -118,7 +118,7 @@ export function MonthCloseView({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || t.saveError);
+        throw new Error(translateApiError(data.error, t));
       }
 
       setSuccessMessage(t.closeSuccess);
@@ -128,7 +128,7 @@ export function MonthCloseView({
         router.refresh();
       });
     } catch (err: any) {
-      setErrorMessage(err.message || t.saveError);
+      setErrorMessage(translateApiError(err.message, t));
     } finally {
       setSubmitting(false);
     }
@@ -158,7 +158,7 @@ export function MonthCloseView({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || t.saveError);
+        throw new Error(translateApiError(data.error, t));
       }
 
       setShowReopenBox(false);
@@ -170,7 +170,7 @@ export function MonthCloseView({
         router.refresh();
       });
     } catch (err: any) {
-      setErrorMessage(err.message || t.saveError);
+      setErrorMessage(translateApiError(err.message, t));
     } finally {
       setSubmitting(false);
     }

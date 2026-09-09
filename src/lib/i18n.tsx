@@ -51,6 +51,10 @@ export const DICTIONARY = {
     saving: "保存中...",
     saveSuccess: "今日账单保存成功",
     saveError: "保存失败，请检查网络或重试",
+    unauthorizedError: "未登录或登录已失效，请重新登录",
+    forbiddenError: "没有操作权限",
+    monthClosedError: "该月份已结账锁定，无法修改",
+    networkError: "网络连接失败，请稍后重试",
     invalidAmount: "请输入有效的开销金额",
     otherNoteRequired: "类别为'其他'时，必须填写备注说明",
     // Dashboard
@@ -175,6 +179,10 @@ export const DICTIONARY = {
     saving: "Saving...",
     saveSuccess: "Daily sheet saved successfully",
     saveError: "Failed to save, please retry",
+    unauthorizedError: "Unauthorized or session expired. Please log in again.",
+    forbiddenError: "Forbidden: You do not have permission to perform this action.",
+    monthClosedError: "This month is closed and locked from changes.",
+    networkError: "Network connection error. Please try again later.",
     invalidAmount: "Please enter a valid cost amount",
     otherNoteRequired: "Note is required when category is 'Other'",
     // Dashboard
@@ -307,4 +315,37 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
 export function useI18n() {
   return useContext(I18nContext);
+}
+
+export function translateApiError(
+  error: string | undefined | null,
+  t: TranslationMap
+): string {
+  if (!error) return t.saveError;
+  const lower = error.toLowerCase();
+  if (
+    lower.includes("unauthorized") ||
+    lower.includes("unauthenticated") ||
+    lower.includes("not logged in")
+  ) {
+    return t.unauthorizedError;
+  }
+  if (
+    lower.includes("forbidden") ||
+    lower.includes("permission") ||
+    lower.includes("role required")
+  ) {
+    return t.forbiddenError;
+  }
+  if (lower.includes("closed") || lower.includes("locked")) {
+    return t.monthClosedError;
+  }
+  if (
+    lower.includes("failed to fetch") ||
+    lower.includes("network") ||
+    lower.includes("load failed")
+  ) {
+    return t.networkError;
+  }
+  return error;
 }

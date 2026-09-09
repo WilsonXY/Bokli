@@ -3,7 +3,7 @@
 import React, { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, translateApiError } from "@/lib/i18n";
 import { CalendarPopover } from "@/components/CalendarPopover";
 
 export interface CostLineItem {
@@ -175,9 +175,9 @@ export function DailySheetForm({
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error || t.saveError);
+        throw new Error(translateApiError(data.error, t));
       }
 
       setSuccessMessage(t.saveSuccess);
@@ -186,7 +186,7 @@ export function DailySheetForm({
         router.refresh();
       });
     } catch (err: any) {
-      setErrorMessage(err.message || t.saveError);
+      setErrorMessage(translateApiError(err.message, t));
     } finally {
       setSaving(false);
     }

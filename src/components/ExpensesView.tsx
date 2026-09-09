@@ -3,7 +3,7 @@
 import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, translateApiError } from "@/lib/i18n";
 
 export interface OperatingExpenseItem {
   id: number;
@@ -112,7 +112,7 @@ export function ExpensesView({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || t.saveError);
+        throw new Error(translateApiError(data.error, t));
       }
 
       setExpenses((prev) => [...prev, data.expense]);
@@ -125,7 +125,7 @@ export function ExpensesView({
         router.refresh();
       });
     } catch (err: any) {
-      setInlineError(err.message || t.saveError);
+      setInlineError(translateApiError(err.message, t));
     } finally {
       setAdding(false);
     }
@@ -143,7 +143,7 @@ export function ExpensesView({
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || t.saveError);
+        throw new Error(translateApiError(data.error, t));
       }
 
       setExpenses((prev) => prev.filter((item) => item.id !== id));
@@ -151,7 +151,7 @@ export function ExpensesView({
         router.refresh();
       });
     } catch (err: any) {
-      alert(err.message || t.saveError);
+      alert(translateApiError(err.message, t));
     } finally {
       setDeletingId(null);
     }
