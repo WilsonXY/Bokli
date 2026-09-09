@@ -215,7 +215,7 @@ export function ExpensesView({
       {/* Month Financial Impact Strip */}
       <div className="grid grid-cols-3 gap-2">
         <div className="bg-white border border-surface-border rounded-xl p-2.5 text-center shadow-xs">
-          <div className="text-[10px] font-medium text-ink-muted mb-0.5">
+          <div className="text-[11px] font-medium text-ink-muted mb-0.5">
             {t.grossProfit}
           </div>
           <div className="text-xs font-bold text-ink-primary">
@@ -224,7 +224,7 @@ export function ExpensesView({
         </div>
 
         <div className="bg-white border border-surface-border rounded-xl p-2.5 text-center shadow-xs">
-          <div className="text-[10px] font-medium text-ink-muted mb-0.5">
+          <div className="text-[11px] font-medium text-ink-muted mb-0.5">
             {t.operatingExpenses}
           </div>
           <div className="text-xs font-bold text-finance-loss">
@@ -233,7 +233,7 @@ export function ExpensesView({
         </div>
 
         <div className="bg-white border border-surface-border rounded-xl p-2.5 text-center shadow-xs">
-          <div className="text-[10px] font-medium text-ink-muted mb-0.5">
+          <div className="text-[11px] font-medium text-ink-muted mb-0.5">
             {t.netProfit}
           </div>
           <div
@@ -266,7 +266,7 @@ export function ExpensesView({
                       setNewType(cat.key);
                       if (inlineError) setInlineError(null);
                     }}
-                    className={`h-7 px-2.5 rounded-md text-xs font-medium border transition-colors select-none ${
+                    className={`min-h-[44px] px-3.5 py-2.5 rounded-lg text-xs font-semibold border transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                       isSelected
                         ? "bg-ink-primary text-white border-ink-primary shadow-xs"
                         : "bg-surface-subtle text-ink-secondary border-surface-border hover:border-surface-border-strong hover:bg-surface-subtle/80"
@@ -300,7 +300,7 @@ export function ExpensesView({
                     }
                   }}
                   placeholder="0.00"
-                  className="w-full h-9 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm font-medium text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary"
+                  className="w-full h-11 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm font-medium text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
                 />
               </div>
             </div>
@@ -317,7 +317,7 @@ export function ExpensesView({
                   if (inlineError) setInlineError(null);
                 }}
                 placeholder={newType === "other" ? t.noteRequired : t.noteOptional}
-                className="w-full h-9 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-xs text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary"
+                className="w-full h-11 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-xs text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
               />
             </div>
           </div>
@@ -327,7 +327,7 @@ export function ExpensesView({
             type="button"
             disabled={adding}
             onClick={handleAddExpense}
-            className="w-full h-8 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs flex items-center justify-center transition-colors shadow-xs active:scale-[0.99] disabled:opacity-50"
+            className="w-full h-11 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-xs flex items-center justify-center transition-all shadow-xs active:scale-[0.99] disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
           >
             {adding ? t.saving : t.addExpense}
           </button>
@@ -391,10 +391,11 @@ export function ExpensesView({
                         type="button"
                         disabled={deletingId === item.id}
                         onClick={() => handleDeleteExpense(item.id)}
-                        className="w-6 h-6 rounded hover:bg-finance-loss-light text-ink-muted hover:text-finance-loss flex items-center justify-center text-xs transition-colors disabled:opacity-40"
+                        aria-label={t.delete}
+                        className="w-11 h-11 rounded-lg hover:bg-finance-loss-light text-ink-muted hover:text-finance-loss flex items-center justify-center text-xs transition-colors disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60"
                         title={t.delete}
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>

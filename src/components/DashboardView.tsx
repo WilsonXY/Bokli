@@ -108,7 +108,7 @@ export function DashboardView({
                 <Link
                   key={tile.month}
                   href={`/dashboard?month=${tile.month}`}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  className={`min-h-[44px] px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                     isActive
                       ? "bg-brand-broccoli text-white shadow-xs"
                       : "bg-surface-subtle text-ink-secondary hover:text-ink-primary hover:bg-surface-border/60 border border-surface-border"
@@ -116,7 +116,7 @@ export function DashboardView({
                 >
                   <span>{tile.month}</span>
                   <span
-                    className={`text-[9px] px-1.5 py-0.2 rounded font-medium ${
+                    className={`text-[11px] px-1.5 py-0.5 rounded font-medium ${
                       isActive
                         ? "bg-white/20 text-white"
                         : tile.status === "closed"
@@ -141,7 +141,7 @@ export function DashboardView({
               {t.monthSummary}
             </span>
             <span
-              className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${
                 activeTile.status === "closed"
                   ? "bg-status-closed-bg text-status-closed"
                   : "bg-brand-broccoli-light text-brand-broccoli"
@@ -257,7 +257,7 @@ export function DashboardView({
                   <span className="font-bold text-ink-primary block">
                     {formatMyr(BigInt(split.cashSen))}
                   </span>
-                  <span className="text-[10px] text-ink-muted">{cashPct}%</span>
+                  <span className="text-[11px] text-ink-muted">{cashPct}%</span>
                 </div>
               </div>
 
@@ -270,7 +270,7 @@ export function DashboardView({
                   <span className="font-bold text-ink-primary block">
                     {formatMyr(BigInt(split.tngSen))}
                   </span>
-                  <span className="text-[10px] text-ink-muted">{tngPct}%</span>
+                  <span className="text-[11px] text-ink-muted">{tngPct}%</span>
                 </div>
               </div>
             </div>
@@ -355,7 +355,7 @@ export function DashboardView({
 
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <span className="text-[10px] text-ink-muted mr-1">{t.sheetRevCol}:</span>
+                    <span className="text-[11px] text-ink-muted mr-1">{t.sheetRevCol}:</span>
                     <span className="font-semibold text-ink-primary">
                       {formatMyr(BigInt(row.totalSen))}
                     </span>

@@ -186,15 +186,15 @@ export function MonthCloseView({
               {t.closeTitle}
             </span>
             {isClosed ? (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-status-closed-bg text-status-closed font-semibold">
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-status-closed-bg text-status-closed font-semibold">
                 {t.closedStatus}
               </span>
             ) : isReopened ? (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-status-reopened-bg text-status-reopened font-semibold">
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-status-reopened-bg text-status-reopened font-semibold">
                 {t.reopenedStatus}
               </span>
             ) : (
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-status-open-bg text-status-open font-semibold">
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-status-open-bg text-status-open font-semibold">
                 {t.openStatus}
               </span>
             )}
@@ -241,7 +241,7 @@ export function MonthCloseView({
       {/* Financial Snapshot Summary Strip */}
       <section aria-label="Month Financial Snapshot" className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <div className="bg-white border border-surface-border rounded-xl p-2.5 shadow-xs">
-          <div className="text-[10px] font-medium text-ink-muted mb-0.5">
+          <div className="text-[11px] font-medium text-ink-muted mb-0.5">
             {t.totalRevenue}
           </div>
           <div className="text-xs font-bold text-ink-primary">
@@ -250,7 +250,7 @@ export function MonthCloseView({
         </div>
 
         <div className="bg-white border border-surface-border rounded-xl p-2.5 shadow-xs">
-          <div className="text-[10px] font-medium text-ink-muted mb-0.5">
+          <div className="text-[11px] font-medium text-ink-muted mb-0.5">
             {t.costsTitle}
           </div>
           <div className="text-xs font-bold text-finance-loss">
@@ -259,7 +259,7 @@ export function MonthCloseView({
         </div>
 
         <div className="bg-white border border-surface-border rounded-xl p-2.5 shadow-xs">
-          <div className="text-[10px] font-medium text-ink-muted mb-0.5">
+          <div className="text-[11px] font-medium text-ink-muted mb-0.5">
             {t.operatingExpenses}
           </div>
           <div className="text-xs font-bold text-finance-loss">
@@ -268,7 +268,7 @@ export function MonthCloseView({
         </div>
 
         <div className="bg-white border border-surface-border rounded-xl p-2.5 shadow-xs">
-          <div className="text-[10px] font-medium text-ink-muted mb-0.5">
+          <div className="text-[11px] font-medium text-ink-muted mb-0.5">
             {t.expectedNet}
           </div>
           <div
@@ -342,7 +342,7 @@ export function MonthCloseView({
                 <button
                   type="button"
                   onClick={() => setShowReopenBox(true)}
-                  className="h-8 px-3 rounded-lg border border-surface-border hover:bg-surface-subtle text-xs font-semibold text-ink-secondary transition-colors"
+                  className="min-h-[44px] px-3.5 rounded-lg border border-surface-border hover:bg-surface-subtle text-xs font-semibold text-ink-secondary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
                 >
                   {t.reopenTitle}
                 </button>
@@ -356,13 +356,13 @@ export function MonthCloseView({
                     value={reopenReasonInput}
                     onChange={(e) => setReopenReasonInput(e.target.value)}
                     placeholder={t.reopenPlaceholder}
-                    className="w-full h-9 px-2.5 rounded-lg bg-white border border-surface-border text-xs text-ink-primary focus:outline-none focus:border-ink-primary"
+                    className="w-full h-11 px-2.5 rounded-lg bg-white border border-surface-border text-xs text-ink-primary focus:outline-none focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
                   />
                   <div className="flex items-center gap-2">
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="h-8 px-3 rounded-lg bg-status-closed text-white font-semibold text-xs transition-colors hover:bg-status-closed/90 disabled:opacity-50"
+                      className="min-h-[44px] px-4 rounded-lg bg-status-closed text-white font-semibold text-xs transition-colors hover:bg-status-closed/90 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-status-closed/60"
                     >
                       {submitting ? t.reopening : t.btnPerformReopen}
                     </button>
@@ -415,7 +415,7 @@ export function MonthCloseView({
                     }
                   }}
                   placeholder="0.00"
-                  className="w-full h-9 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-cash transition-colors"
+                  className="w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-cash focus-visible:ring-2 focus-visible:ring-channel-cash/50 transition-colors"
                 />
               </div>
             </div>
@@ -441,7 +441,7 @@ export function MonthCloseView({
                     }
                   }}
                   placeholder="0.00"
-                  className="w-full h-9 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-tng transition-colors"
+                  className="w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-tng focus-visible:ring-2 focus-visible:ring-channel-tng/50 transition-colors"
                 />
               </div>
             </div>
@@ -469,7 +469,7 @@ export function MonthCloseView({
                 </span>
                 {hasInputs && (
                   <span
-                    className={`text-[10px] px-1.5 py-0.2 rounded font-semibold ${
+                    className={`text-[11px] px-1.5 py-0.2 rounded font-semibold ${
                       isBalanced
                         ? "bg-finance-profit-light text-brand-broccoli"
                         : "bg-finance-loss-light text-finance-loss"
@@ -495,7 +495,7 @@ export function MonthCloseView({
                 if (errorMessage) setErrorMessage(null);
               }}
               placeholder={!isBalanced && hasInputs ? t.closeNotePlaceholder : t.closeNoteOptional}
-              className="w-full h-9 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-xs text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary"
+              className="w-full h-11 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-xs text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
             />
           </div>
 
@@ -516,7 +516,7 @@ export function MonthCloseView({
           <button
             type="submit"
             disabled={submitting}
-            className="w-full h-9 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-xs tracking-wide shadow-xs flex items-center justify-center transition-all disabled:opacity-50 active:scale-[0.99]"
+            className="w-full h-12 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-xs tracking-wide shadow-xs flex items-center justify-center transition-all disabled:opacity-50 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
           >
             {submitting ? t.closingMonth : t.btnPerformClose}
           </button>

@@ -62,6 +62,11 @@ typography:
     fontSize: "12px"
     fontWeight: 600
     lineHeight: 1.4
+  caption:
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+    fontSize: "11px"
+    fontWeight: 700
+    lineHeight: 1.2
 rounded:
   sm: "6px"
   md: "8px"

@@ -217,7 +217,8 @@ export function DailySheetForm({
           <button
             type="button"
             onClick={() => navigateDate(-1)}
-            className="h-8 px-2.5 rounded-lg border border-surface-border hover:bg-surface-subtle text-xs font-medium flex items-center gap-1 transition-colors"
+            aria-label={t.prevDay}
+            className="min-h-[44px] px-3.5 rounded-lg border border-surface-border hover:bg-surface-subtle text-xs font-semibold flex items-center gap-1.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
           >
             ← {t.prevDay}
           </button>
@@ -238,12 +239,12 @@ export function DailySheetForm({
                   {date}
                 </span>
                 {isToday && (
-                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-brand-broccoli-light font-semibold text-brand-broccoli">
+                  <span className="text-[11px] px-1.5 py-0.2 rounded bg-brand-broccoli-light font-semibold text-brand-broccoli">
                     {t.today}
                   </span>
                 )}
               </div>
-              <p className="text-[10px] text-ink-muted">
+              <p className="text-[11px] text-ink-muted">
                 {t.klTime}
               </p>
             </button>
@@ -265,7 +266,8 @@ export function DailySheetForm({
             type="button"
             disabled={!canGoNext}
             onClick={() => navigateDate(1)}
-            className="h-8 px-2.5 rounded-lg border border-surface-border hover:bg-surface-subtle text-xs font-medium flex items-center gap-1 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+            aria-label={t.nextDay}
+            className="min-h-[44px] px-3.5 rounded-lg border border-surface-border hover:bg-surface-subtle text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-30 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
           >
             {t.nextDay} →
           </button>
@@ -317,7 +319,7 @@ export function DailySheetForm({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {/* Cash Revenue Card */}
-          <div className="bg-white border border-surface-border border-l-4 border-l-channel-cash rounded-xl p-3 shadow-xs focus-within:border-channel-cash transition-all">
+          <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-cash transition-all">
             <div className="flex items-center gap-1.5 mb-1.5">
               <span className="w-2 h-2 rounded-full bg-channel-cash inline-block shrink-0" />
               <label
@@ -346,13 +348,13 @@ export function DailySheetForm({
                   }
                 }}
                 placeholder="0.00"
-                className="w-full h-10 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-cash disabled:opacity-60 transition-colors"
+                className="w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-cash focus-visible:ring-2 focus-visible:ring-channel-cash/50 disabled:opacity-60 transition-colors"
               />
             </div>
           </div>
 
           {/* Touch 'n Go Revenue Card */}
-          <div className="bg-white border border-surface-border border-l-4 border-l-channel-tng rounded-xl p-3 shadow-xs focus-within:border-channel-tng transition-all">
+          <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-tng transition-all">
             <div className="flex items-center gap-1.5 mb-1.5">
               <span className="w-2 h-2 rounded-full bg-channel-tng inline-block shrink-0" />
               <label
@@ -381,7 +383,7 @@ export function DailySheetForm({
                   }
                 }}
                 placeholder="0.00"
-                className="w-full h-10 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-tng disabled:opacity-60 transition-colors"
+                className="w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-tng focus-visible:ring-2 focus-visible:ring-channel-tng/50 disabled:opacity-60 transition-colors"
               />
             </div>
           </div>
@@ -417,7 +419,7 @@ export function DailySheetForm({
                         setNewCat(cat.key);
                         if (costLineError) setCostLineError(null);
                       }}
-                      className={`h-7 px-2.5 rounded-md text-xs font-medium border transition-colors select-none ${
+                      className={`min-h-[44px] px-3.5 py-2.5 rounded-lg text-xs font-semibold border transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                         isSelected
                           ? "bg-ink-primary text-white border-ink-primary shadow-xs"
                           : "bg-surface-subtle text-ink-secondary border-surface-border hover:border-surface-border-strong hover:bg-surface-subtle/80"
@@ -451,7 +453,7 @@ export function DailySheetForm({
                       }
                     }}
                     placeholder="0.00"
-                    className="w-full h-9 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm font-medium text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary"
+                    className="w-full h-11 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm font-medium text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
                   />
                 </div>
               </div>
@@ -468,7 +470,7 @@ export function DailySheetForm({
                     if (costLineError) setCostLineError(null);
                   }}
                   placeholder={newCat === "other" ? t.noteRequired : t.noteOptional}
-                  className="w-full h-9 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-xs text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary"
+                  className="w-full h-11 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-xs text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
                 />
               </div>
             </div>
@@ -477,7 +479,7 @@ export function DailySheetForm({
             <button
               type="button"
               onClick={handleAddCostLine}
-              className="w-full h-8 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-medium text-xs flex items-center justify-center transition-colors shadow-xs active:scale-[0.99]"
+              className="w-full h-11 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-xs flex items-center justify-center transition-all shadow-xs active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
             >
               {t.addCostLine}
             </button>
@@ -530,10 +532,11 @@ export function DailySheetForm({
                       <button
                         type="button"
                         onClick={() => handleRemoveCostLine(idx)}
-                        className="w-6 h-6 rounded hover:bg-finance-loss-light text-ink-muted hover:text-finance-loss flex items-center justify-center text-xs transition-colors"
+                        aria-label={t.delete}
+                        className="w-11 h-11 rounded-lg hover:bg-finance-loss-light text-ink-muted hover:text-finance-loss flex items-center justify-center text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60"
                         title={t.delete}
                       >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                         </svg>
                       </button>
@@ -549,7 +552,7 @@ export function DailySheetForm({
       {/* Sticky Bottom Action Bar */}
       <div className="sticky bottom-16 z-30 bg-white/95 backdrop-blur-md border border-surface-border rounded-xl p-3 shadow-sm flex items-center justify-between gap-3">
         <div>
-          <div className="text-[10px] text-ink-muted font-medium">
+          <div className="text-[11px] text-ink-muted font-medium">
             {t.grossProfit}
           </div>
           <div
@@ -566,7 +569,7 @@ export function DailySheetForm({
             type="button"
             disabled={saving}
             onClick={handleSave}
-            className="h-9 px-4 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-xs tracking-wide shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50 active:scale-[0.98]"
+            className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-xs tracking-wide shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
           >
             {saving ? (
               <span>{t.saving}</span>

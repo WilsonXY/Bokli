@@ -122,7 +122,7 @@ export function CalendarPopover({
   return (
     <div
       ref={popoverRef}
-      className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-50 bg-white border border-surface-border rounded-xl shadow-lg p-3 w-64 select-none"
+      className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-50 bg-white border border-surface-border rounded-xl shadow-lg p-3 w-72 max-w-[calc(100vw-2rem)] select-none"
       role="dialog"
       aria-modal="true"
       aria-label="Date Picker"
@@ -132,8 +132,8 @@ export function CalendarPopover({
         <button
           type="button"
           onClick={prevMonth}
-          className="w-7 h-7 rounded-lg border border-surface-border hover:bg-surface-subtle text-ink-secondary flex items-center justify-center text-xs transition-colors"
-          title="Previous Month"
+          aria-label="Previous Month"
+          className="w-9 h-9 rounded-lg border border-surface-border hover:bg-surface-subtle text-ink-secondary flex items-center justify-center text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
         >
           ←
         </button>
@@ -146,8 +146,8 @@ export function CalendarPopover({
           type="button"
           disabled={!canGoNextMonth}
           onClick={nextMonth}
-          className="w-7 h-7 rounded-lg border border-surface-border hover:bg-surface-subtle text-ink-secondary flex items-center justify-center text-xs transition-colors disabled:opacity-20 disabled:pointer-events-none"
-          title="Next Month"
+          aria-label="Next Month"
+          className="w-9 h-9 rounded-lg border border-surface-border hover:bg-surface-subtle text-ink-secondary flex items-center justify-center text-sm font-semibold transition-colors disabled:opacity-20 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
         >
           →
         </button>
@@ -158,7 +158,7 @@ export function CalendarPopover({
         {weekHeaders.map((w) => (
           <span
             key={w}
-            className="text-[10px] font-semibold text-ink-muted h-5 flex items-center justify-center"
+            className="text-[11px] font-semibold text-ink-muted h-5 flex items-center justify-center"
           >
             {w}
           </span>
@@ -192,7 +192,8 @@ export function CalendarPopover({
                 onSelectDate(cellDate);
                 onClose();
               }}
-              className={`h-7 w-7 mx-auto rounded-lg text-xs font-medium flex items-center justify-center transition-all ${
+              aria-label={cellDate}
+              className={`h-8 w-8 mx-auto rounded-lg text-xs font-medium flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                 isSelected
                   ? "bg-brand-broccoli text-white font-bold shadow-xs scale-105"
                   : isFuture
