@@ -179,7 +179,7 @@ export function ExpensesView({
                 key={m}
                 type="button"
                 onClick={() => router.push(`/expenses?month=${m}`)}
-                className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
+                className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all duration-150 active:scale-95 flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                   isSelected
                     ? "bg-brand-broccoli text-white shadow-xs"
                     : "bg-surface-subtle text-ink-secondary hover:text-ink-primary hover:bg-surface-border/60"
@@ -266,7 +266,7 @@ export function ExpensesView({
                       setNewType(cat.key);
                       if (inlineError) setInlineError(null);
                     }}
-                    className={`min-h-[44px] px-3.5 py-2.5 rounded-lg text-sm font-semibold border transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
+                    className={`min-h-[44px] px-3.5 py-2.5 rounded-lg text-sm font-semibold border transition-all duration-150 active:scale-95 select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                       isSelected
                         ? "bg-brand-broccoli text-white border-brand-broccoli shadow-xs hover:bg-brand-broccoli-dark"
                         : "bg-surface-subtle text-ink-secondary border-surface-border hover:border-brand-broccoli hover:text-brand-broccoli hover:bg-brand-broccoli-light/30"

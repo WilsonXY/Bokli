@@ -104,7 +104,7 @@ export function AppShell({ children }: AppShellProps) {
       <div className="w-full max-w-xl min-h-screen bg-surface-canvas flex flex-col relative sm:border-x sm:border-surface-border">
         {/* Top Header - Ultra-Clean: Brand on Left, Language Toggle on Right */}
         <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-surface-border px-3.5 py-2.5 flex items-center justify-between">
-          <div className="flex items-center gap-2.5 min-h-[38px]">
+          <div className="flex items-center gap-2.5 min-h-[38px] active:scale-95 transition-transform duration-150 select-none">
             <span className="text-2xl leading-none select-none flex items-center" role="img" aria-label="broccoli">
               🥦
             </span>
@@ -170,13 +170,15 @@ export function AppShell({ children }: AppShellProps) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex-1 flex flex-col items-center justify-center h-full transition-colors ${
+                  className={`flex-1 flex flex-col items-center justify-center h-full active:scale-90 transition-all duration-150 ${
                     isActive
                       ? "text-brand-broccoli font-semibold"
                       : "text-ink-muted hover:text-ink-primary font-normal"
                   }`}
                 >
-                  <div className="relative">{item.icon}</div>
+                  <div className={`relative transition-transform duration-200 ${isActive ? "scale-110 -translate-y-0.5" : "scale-100"}`}>
+                    {item.icon}
+                  </div>
                   <span className="text-xs tracking-tight mt-0.5">
                     {item.label}
                   </span>
