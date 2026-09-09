@@ -291,28 +291,7 @@ export function DailySheetForm({
         )}
       </div>
 
-      {/* Global Sheet Notifications (Save Errors / Confirmations) */}
-      {errorMessage && (
-        <div className="py-2 px-3 rounded-lg bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-medium flex items-center justify-between">
-          <span>{errorMessage}</span>
-          <button
-            type="button"
-            onClick={() => setErrorMessage(null)}
-            className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss"
-          >
-            ✕
-          </button>
-        </div>
-      )}
 
-      {successMessage && (
-        <div className="py-2 px-3 rounded-lg bg-finance-profit-light border border-finance-profit-border text-sm text-brand-broccoli font-semibold flex items-center gap-1.5">
-          <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-          <span>{successMessage}</span>
-        </div>
-      )}
 
       {/* Section 1: Revenue Entry */}
       <section aria-label="Revenue Entry" className="space-y-2">
@@ -557,35 +536,75 @@ export function DailySheetForm({
         </div>
       </section>
 
-      {/* Sticky Bottom Action Bar */}
-      <div className="sticky bottom-16 z-30 bg-white/95 backdrop-blur-md border border-surface-border rounded-xl p-3 shadow-sm flex items-center justify-between gap-3">
-        <div>
-          <div className="text-[13px] text-ink-muted font-medium">
-            {t.grossProfit}
+      {/* Sticky Bottom Action Bar & Notifications */}
+      <div className="sticky bottom-16 z-30 space-y-2">
+        {errorMessage && (
+          <div className="py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-md animate-slide-down">
+            <div className="flex items-center gap-2 min-w-0">
+              <svg className="w-4 h-4 shrink-0 text-finance-loss" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span className="truncate">{errorMessage}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setErrorMessage(null)}
+              className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss w-7 h-7 flex items-center justify-center rounded-md shrink-0"
+              aria-label="Close"
+            >
+              ✕
+            </button>
           </div>
-          <div
-            className={`text-xl font-bold ${
-              grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
-            }`}
-          >
-            {formatMyr(grossProfitSen)}
-          </div>
-        </div>
-
-        {!isClosed && (
-          <button
-            type="button"
-            disabled={saving}
-            onClick={handleSave}
-            className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
-          >
-            {saving ? (
-              <span>{t.saving}</span>
-            ) : (
-              <span>{t.saveSheet}</span>
-            )}
-          </button>
         )}
+
+        {successMessage && (
+          <div className="py-2.5 px-3.5 rounded-xl bg-brand-broccoli-light border border-brand-broccoli/30 text-sm text-brand-broccoli font-bold flex items-center justify-between shadow-md animate-slide-down">
+            <div className="flex items-center gap-2 min-w-0">
+              <svg className="w-4 h-4 shrink-0 text-brand-broccoli" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="truncate">{successMessage}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSuccessMessage(null)}
+              className="text-xs font-bold ml-2 text-ink-muted hover:text-brand-broccoli w-7 h-7 flex items-center justify-center rounded-md shrink-0"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        <div className="bg-white/95 backdrop-blur-md border border-surface-border rounded-xl p-3 shadow-sm flex items-center justify-between gap-3">
+          <div>
+            <div className="text-[13px] text-ink-muted font-medium">
+              {t.grossProfit}
+            </div>
+            <div
+              className={`text-xl font-bold ${
+                grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
+              }`}
+            >
+              {formatMyr(grossProfitSen)}
+            </div>
+          </div>
+
+          {!isClosed && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={handleSave}
+              className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
+            >
+              {saving ? (
+                <span>{t.saving}</span>
+              ) : (
+                <span>{t.saveSheet}</span>
+              )}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
