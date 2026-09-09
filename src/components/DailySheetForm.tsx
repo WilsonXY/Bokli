@@ -218,23 +218,25 @@ export function DailySheetForm({
             type="button"
             onClick={() => navigateDate(-1)}
             aria-label={t.prevDay}
-            className="min-h-[44px] px-3.5 rounded-lg border border-surface-border hover:bg-surface-subtle text-sm font-semibold flex items-center gap-1.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+            title={t.prevDay}
+            className="w-11 h-11 shrink-0 rounded-lg border border-surface-border hover:bg-surface-subtle text-sm font-semibold flex items-center justify-center gap-1 transition-colors sm:w-auto sm:px-3.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
           >
-            ← {t.prevDay}
+            <span aria-hidden="true" className="text-base">←</span>
+            <span className="hidden sm:inline whitespace-nowrap">{t.prevDay}</span>
           </button>
 
           {/* Toggleable Date Button with Calendar Popover */}
-          <div className="relative">
+          <div className="relative min-w-0">
             <button
               ref={dateBtnRef}
               type="button"
               onClick={() => setIsCalendarOpen((prev) => !prev)}
               aria-expanded={isCalendarOpen}
               aria-haspopup="dialog"
-              className="relative text-center group cursor-pointer px-2.5 py-1 rounded-lg hover:bg-surface-subtle transition-colors focus:outline-none"
+              className="relative text-center group cursor-pointer px-2 py-1 rounded-lg hover:bg-surface-subtle transition-colors focus:outline-none max-w-full"
               title="点击打开/关闭日历 (Click to toggle calendar)"
             >
-              <div className="flex items-center justify-center gap-1.5">
+              <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
                 <span className="text-base font-bold text-ink-primary group-hover:text-brand-broccoli transition-colors">
                   {date}
                 </span>
@@ -267,9 +269,11 @@ export function DailySheetForm({
             disabled={!canGoNext}
             onClick={() => navigateDate(1)}
             aria-label={t.nextDay}
-            className="min-h-[44px] px-3.5 rounded-lg border border-surface-border hover:bg-surface-subtle text-sm font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-30 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+            title={t.nextDay}
+            className="w-11 h-11 shrink-0 rounded-lg border border-surface-border hover:bg-surface-subtle text-sm font-semibold flex items-center justify-center gap-1 transition-colors disabled:opacity-30 disabled:pointer-events-none sm:w-auto sm:px-3.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
           >
-            {t.nextDay} →
+            <span className="hidden sm:inline whitespace-nowrap">{t.nextDay}</span>
+            <span aria-hidden="true" className="text-base">→</span>
           </button>
         </div>
 
