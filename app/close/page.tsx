@@ -102,6 +102,7 @@ export default async function MonthClosePage(props: PageProps) {
 
   return (
     <MonthCloseView
+      key={activeMonth}
       currentMonth={activeMonth}
       availableMonths={availableMonths}
       financials={financials}

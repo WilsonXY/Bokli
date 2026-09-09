@@ -31,6 +31,7 @@ export default async function HomePage(props: PageProps) {
   return (
     <div className="max-w-2xl mx-auto">
       <DailySheetForm
+        key={date}
         date={date}
         initialCashSen={sheetData ? Number(sheetData.sheet.cashSen) : 0}
         initialTngSen={sheetData ? Number(sheetData.sheet.tngSen) : 0}

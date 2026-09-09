@@ -70,6 +70,7 @@ export default async function ExpensesPage(props: PageProps) {
 
   return (
     <ExpensesView
+      key={activeMonth}
       currentMonth={activeMonth}
       availableMonths={availableMonths}
       initialExpenses={expenses}
