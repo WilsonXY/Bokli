@@ -460,13 +460,6 @@ export function MonthCloseView({
             <div className="pt-2 border-t border-surface-border flex items-center justify-between text-sm">
               <span className="font-semibold text-ink-secondary">{t.reconciliationDiff}:</span>
               <div className="flex items-center gap-1.5">
-                <span
-                  className={`font-bold text-base ${
-                    isBalanced ? "text-brand-broccoli" : "text-finance-loss"
-                  }`}
-                >
-                  {formatMyr(varianceSen)}
-                </span>
                 {hasInputs && (
                   <span
                     className={`text-[13px] px-2 py-0.5 rounded font-semibold ${
@@ -478,6 +471,13 @@ export function MonthCloseView({
                     {isBalanced ? t.reconciliationBalanced : t.reconciliationMismatch}
                   </span>
                 )}
+                <span
+                  className={`font-bold text-base ${
+                    isBalanced ? "text-brand-broccoli" : "text-finance-loss"
+                  }`}
+                >
+                  {formatMyr(varianceSen)}
+                </span>
               </div>
             </div>
           </div>
