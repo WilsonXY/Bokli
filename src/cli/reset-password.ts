@@ -125,6 +125,12 @@ async function main() {
     }
     const result = await resetPassword(username, newPassword);
     console.log(`Password for user "${result.username}" reset successfully.`);
+    // Interactive raw-mode stdin keeps the Node event loop alive after the
+    // listener is removed (TTY stays open, prompt never returns). Fix verified
+    // 2026-09-09 via PTY repro: unref() lets the process exit naturally.
+    if (process.stdin.isTTY) {
+      process.stdin.unref();
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`Error: ${msg}`);
