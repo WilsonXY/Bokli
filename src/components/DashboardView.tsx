@@ -93,8 +93,8 @@ export function DashboardView({
           <h1 className="text-xl font-bold text-ink-primary tracking-tight">
             {t.overviewTitle}
           </h1>
-          <span className="text-xs font-medium text-ink-muted">
-            {t.currentViewing}: <span className="font-bold text-ink-primary text-sm">{activeMonth}</span>
+          <span className="text-sm font-medium text-ink-muted">
+            {t.currentViewing}: <span className="font-bold text-ink-primary text-base">{activeMonth}</span>
           </span>
         </div>
 
@@ -175,7 +175,7 @@ export function DashboardView({
                 {t.grossProfit}
               </span>
               <span
-                className={`text-base font-bold ${
+                className={`text-xl font-bold ${
                   activeTile.grossSen >= 0 ? "text-brand-broccoli" : "text-finance-loss"
                 }`}
               >
@@ -187,7 +187,7 @@ export function DashboardView({
               <span className="block text-[13px] text-ink-muted font-semibold mb-0.5">
                 {t.operatingExpenses}
               </span>
-              <span className="text-base font-bold text-ink-secondary">
+              <span className="text-xl font-bold text-ink-secondary">
                 {formatMyr(BigInt(activeTile.operatingSen))}
               </span>
             </div>
@@ -201,11 +201,11 @@ export function DashboardView({
                 : "bg-finance-loss-light border-finance-loss-border"
             }`}
           >
-            <div className="text-xs font-bold text-ink-primary">
+            <div className="text-base font-bold text-ink-primary">
               {t.netProfit}
             </div>
             <div
-              className={`text-lg font-black ${
+              className={`text-2xl font-black ${
                 activeTile.netSen >= 0 ? "text-brand-broccoli" : "text-finance-loss"
               }`}
             >
@@ -221,7 +221,7 @@ export function DashboardView({
           <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
             {t.revenueSplit}
           </h2>
-          <span className="text-xs font-semibold text-ink-primary">
+          <span className="text-base font-bold text-ink-primary">
             {formatMyr(BigInt(split.totalSen))}
           </span>
         </div>
@@ -247,14 +247,14 @@ export function DashboardView({
             </div>
 
             {/* Split Legend & Values */}
-            <div className="grid grid-cols-2 gap-2 pt-1 text-xs">
+            <div className="grid grid-cols-2 gap-2 pt-1 text-sm">
               <div className="flex items-center justify-between p-2 rounded-lg bg-surface-canvas border border-surface-border">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-channel-cash inline-block" />
                   <span className="font-semibold text-ink-secondary">{t.cashRevenue}</span>
                 </div>
                 <div className="text-right">
-                  <span className="font-bold text-ink-primary block">
+                  <span className="text-base font-bold text-ink-primary block">
                     {formatMyr(BigInt(split.cashSen))}
                   </span>
                   <span className="text-[13px] font-medium text-ink-muted">{cashPct}%</span>
@@ -267,7 +267,7 @@ export function DashboardView({
                   <span className="font-semibold text-ink-secondary">{t.tngRevenue}</span>
                 </div>
                 <div className="text-right">
-                  <span className="font-bold text-ink-primary block">
+                  <span className="text-base font-bold text-ink-primary block">
                     {formatMyr(BigInt(split.tngSen))}
                   </span>
                   <span className="text-[13px] font-medium text-ink-muted">{tngPct}%</span>
@@ -284,7 +284,7 @@ export function DashboardView({
           <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
             {t.costDistribution}
           </h2>
-          <span className="text-sm font-bold text-finance-loss">
+          <span className="text-base font-bold text-finance-loss">
             {formatMyr(BigInt(totalCosts))}
           </span>
         </div>
@@ -302,13 +302,13 @@ export function DashboardView({
 
               return (
                 <div key={cat} className="space-y-1">
-                  <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center justify-between text-sm">
                     <span className="font-medium text-ink-secondary">
                       {categoryLabels[cat]}
                     </span>
                     <div className="flex items-center gap-2">
                       <span className="text-[13px] font-medium text-ink-muted">{pct}%</span>
-                      <span className="font-bold text-ink-primary">
+                      <span className="text-sm font-bold text-ink-primary">
                         {formatMyr(BigInt(amount))}
                       </span>
                     </div>
@@ -347,7 +347,7 @@ export function DashboardView({
               <Link
                 key={row.date}
                 href={`/?date=${row.date}`}
-                className="py-2 flex items-center justify-between text-xs hover:bg-surface-subtle -mx-2 px-2 rounded transition-colors"
+                className="py-2.5 flex items-center justify-between text-sm hover:bg-surface-subtle -mx-2 px-2 rounded transition-colors"
               >
                 <span className="font-mono font-semibold text-ink-primary text-sm">
                   {row.date}
@@ -356,7 +356,7 @@ export function DashboardView({
                 <div className="flex items-center gap-3">
                   <div className="text-right">
                     <span className="text-[13px] text-ink-muted mr-1">{t.sheetRevCol}:</span>
-                    <span className="font-bold text-ink-primary text-sm">
+                    <span className="font-bold text-ink-primary text-base">
                       {formatMyr(BigInt(row.totalSen))}
                     </span>
                   </div>

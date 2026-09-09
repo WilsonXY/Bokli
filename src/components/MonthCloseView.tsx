@@ -182,7 +182,7 @@ export function MonthCloseView({
       <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold text-ink-primary">
+            <span className="text-base font-bold text-ink-primary">
               {t.closeTitle}
             </span>
             {isClosed ? (
@@ -209,7 +209,7 @@ export function MonthCloseView({
                   key={m}
                   type="button"
                   onClick={() => router.push(`/close?month=${m}`)}
-                  className={`h-7 px-2.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
+                  className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                     isSelected
                       ? "bg-brand-broccoli text-white shadow-xs"
                       : "bg-surface-subtle text-ink-secondary hover:text-ink-primary hover:bg-surface-border/60"
@@ -223,14 +223,14 @@ export function MonthCloseView({
         </div>
 
         {/* Status description */}
-        <p className="text-xs text-ink-muted leading-relaxed">
+        <p className="text-sm text-ink-muted leading-relaxed">
           {isClosed ? t.monthLocked : t.closeWarning}
         </p>
       </div>
 
       {/* Success Notification */}
       {successMessage && (
-        <div className="py-2 px-3 rounded-lg bg-finance-profit-light border border-finance-profit-border text-xs text-brand-broccoli font-semibold flex items-center gap-1.5">
+        <div className="py-2 px-3 rounded-lg bg-finance-profit-light border border-finance-profit-border text-sm text-brand-broccoli font-semibold flex items-center gap-1.5">
           <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
@@ -244,7 +244,7 @@ export function MonthCloseView({
           <div className="text-[13px] font-medium text-ink-muted mb-0.5">
             {t.totalRevenue}
           </div>
-          <div className="text-xs font-bold text-ink-primary">
+          <div className="text-base font-bold text-ink-primary">
             {formatMyr(BigInt(financials.revenueSen))}
           </div>
         </div>
@@ -253,7 +253,7 @@ export function MonthCloseView({
           <div className="text-[13px] font-medium text-ink-muted mb-0.5">
             {t.costsTitle}
           </div>
-          <div className="text-xs font-bold text-finance-loss">
+          <div className="text-base font-bold text-finance-loss">
             {formatMyr(BigInt(financials.dailyCostSen))}
           </div>
         </div>
@@ -262,7 +262,7 @@ export function MonthCloseView({
           <div className="text-[13px] font-medium text-ink-muted mb-0.5">
             {t.operatingExpenses}
           </div>
-          <div className="text-xs font-bold text-finance-loss">
+          <div className="text-base font-bold text-finance-loss">
             {formatMyr(BigInt(financials.operatingSen))}
           </div>
         </div>
@@ -272,7 +272,7 @@ export function MonthCloseView({
             {t.expectedNet}
           </div>
           <div
-            className={`text-xs font-bold ${
+            className={`text-base font-bold ${
               expectedNetSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
             }`}
           >
@@ -284,36 +284,36 @@ export function MonthCloseView({
       {/* Case 1: Month is CLOSED */}
       {isClosed && (
         <section aria-label="Closed Month Reconciliation Audit" className="bg-white border border-surface-border rounded-xl p-4 shadow-xs space-y-3.5">
-          <div className="flex items-center gap-2 text-status-closed font-semibold text-xs border-b border-surface-border pb-2.5">
+          <div className="flex items-center gap-2 text-status-closed font-semibold text-sm border-b border-surface-border pb-2.5">
             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
             <span>{t.monthLocked}</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 text-xs">
+          <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <span className="text-ink-muted block text-[13px] mb-0.5 font-medium">{t.cashOnHand}</span>
-              <span className="font-semibold text-ink-primary">
+              <span className="font-bold text-ink-primary text-base">
                 {formatMyr(BigInt(closeRecord?.cashOnHandSen ?? 0))}
               </span>
             </div>
             <div>
               <span className="text-ink-muted block text-[13px] mb-0.5 font-medium">{t.tngOnHand}</span>
-              <span className="font-semibold text-ink-primary">
+              <span className="font-bold text-ink-primary text-base">
                 {formatMyr(BigInt(closeRecord?.tngOnHandSen ?? 0))}
               </span>
             </div>
             <div>
               <span className="text-ink-muted block text-[13px] mb-0.5 font-medium">{t.actualTotal}</span>
-              <span className="font-semibold text-ink-primary">
+              <span className="font-bold text-ink-primary text-base">
                 {formatMyr(BigInt(closeRecord?.actualSen ?? 0))}
               </span>
             </div>
             <div>
               <span className="text-ink-muted block text-[13px] mb-0.5 font-medium">{t.reconciliationDiff}</span>
               <span
-                className={`font-semibold ${
+                className={`font-bold text-base ${
                   closeRecord?.balanced ? "text-brand-broccoli" : "text-finance-loss"
                 }`}
               >
@@ -323,7 +323,7 @@ export function MonthCloseView({
           </div>
 
           {closeRecord?.note && (
-            <div className="text-xs bg-surface-subtle p-2.5 rounded-lg border border-surface-border">
+            <div className="text-sm bg-surface-subtle p-2.5 rounded-lg border border-surface-border">
               <span className="font-semibold text-ink-secondary block mb-0.5">{t.closeNote}:</span>
               <span className="text-ink-primary">{closeRecord.note}</span>
             </div>
@@ -369,7 +369,7 @@ export function MonthCloseView({
                     <button
                       type="button"
                       onClick={() => setShowReopenBox(false)}
-                      className="h-8 px-2.5 text-xs text-ink-muted hover:text-ink-primary"
+                      className="min-h-[44px] px-3.5 text-sm font-medium text-ink-muted hover:text-ink-primary flex items-center"
                     >
                       {t.cancel}
                     </button>
@@ -385,7 +385,7 @@ export function MonthCloseView({
       {!isClosed && (
         <form onSubmit={handlePerformClose} className="bg-white border border-surface-border rounded-xl p-3.5 shadow-xs space-y-3.5">
           {isReopened && closeRecord?.reopenReason && (
-            <div className="p-2.5 rounded-lg bg-status-reopened-bg/40 border border-status-reopened/20 text-xs">
+            <div className="p-2.5 rounded-lg bg-status-reopened-bg/40 border border-status-reopened/20 text-sm">
               <span className="font-semibold text-status-reopened block mb-0.5">
                 {t.reopenedStatus} ({closeRecord.reopenedAt?.slice(0, 10)})
               </span>
@@ -400,7 +400,7 @@ export function MonthCloseView({
                 {t.cashOnHand}
               </label>
               <div className="relative flex items-center">
-                <span className="absolute left-2.5 text-xs font-bold text-channel-cash select-none">
+                <span className="absolute left-2.5 text-sm font-bold text-channel-cash select-none">
                   RM
                 </span>
                 <input
@@ -426,7 +426,7 @@ export function MonthCloseView({
                 {t.tngOnHand}
               </label>
               <div className="relative flex items-center">
-                <span className="absolute left-2.5 text-xs font-bold text-channel-tng select-none">
+                <span className="absolute left-2.5 text-sm font-bold text-channel-tng select-none">
                   RM
                 </span>
                 <input
@@ -449,19 +449,19 @@ export function MonthCloseView({
 
           {/* Live Reconciliation Preview Bar */}
           <div className="p-3 rounded-lg bg-surface-subtle border border-surface-border space-y-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-ink-muted">{t.actualTotal}:</span>
-              <span className="font-bold text-ink-primary">{formatMyr(actualCountedSen)}</span>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-ink-muted font-medium">{t.actualTotal}:</span>
+              <span className="font-bold text-ink-primary text-base">{formatMyr(actualCountedSen)}</span>
             </div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-ink-muted">{t.expectedNet}:</span>
-              <span className="font-bold text-ink-primary">{formatMyr(expectedNetSen)}</span>
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-ink-muted font-medium">{t.expectedNet}:</span>
+              <span className="font-bold text-ink-primary text-base">{formatMyr(expectedNetSen)}</span>
             </div>
-            <div className="pt-2 border-t border-surface-border flex items-center justify-between text-xs">
+            <div className="pt-2 border-t border-surface-border flex items-center justify-between text-sm">
               <span className="font-semibold text-ink-secondary">{t.reconciliationDiff}:</span>
               <div className="flex items-center gap-1.5">
                 <span
-                  className={`font-bold ${
+                  className={`font-bold text-base ${
                     isBalanced ? "text-brand-broccoli" : "text-finance-loss"
                   }`}
                 >
@@ -501,7 +501,7 @@ export function MonthCloseView({
 
           {/* If zero sheets in month */}
           {!hasSheetsInMonth && (
-            <label className="flex items-center gap-2 text-xs text-ink-secondary cursor-pointer">
+            <label className="flex items-center gap-2 text-sm text-ink-secondary cursor-pointer">
               <input
                 type="checkbox"
                 checked={confirmEmpty}
