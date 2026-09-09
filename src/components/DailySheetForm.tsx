@@ -425,8 +425,8 @@ export function DailySheetForm({
                       }}
                       className={`min-h-[44px] px-3.5 py-2.5 rounded-lg text-sm font-semibold border transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                         isSelected
-                          ? "bg-ink-primary text-white border-ink-primary shadow-xs"
-                          : "bg-surface-subtle text-ink-secondary border-surface-border hover:border-surface-border-strong hover:bg-surface-subtle/80"
+                          ? "bg-brand-broccoli text-white border-brand-broccoli shadow-xs hover:bg-brand-broccoli-dark"
+                          : "bg-surface-subtle text-ink-secondary border-surface-border hover:border-brand-broccoli hover:text-brand-broccoli hover:bg-brand-broccoli-light/30"
                       }`}
                     >
                       {cat.label}
