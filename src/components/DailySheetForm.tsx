@@ -219,9 +219,11 @@ export function DailySheetForm({
             onClick={() => navigateDate(-1)}
             aria-label={t.prevDay}
             title={t.prevDay}
-            className="w-11 h-11 shrink-0 rounded-lg border border-surface-border hover:bg-surface-subtle text-sm font-semibold flex items-center justify-center gap-1 transition-colors sm:w-auto sm:px-3.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+            className="w-11 h-11 shrink-0 rounded-lg border border-surface-border hover:bg-surface-subtle text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors sm:w-auto sm:px-3.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
           >
-            <span aria-hidden="true" className="text-base">←</span>
+            <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
             <span className="hidden sm:inline whitespace-nowrap">{t.prevDay}</span>
           </button>
 
@@ -270,10 +272,12 @@ export function DailySheetForm({
             onClick={() => navigateDate(1)}
             aria-label={t.nextDay}
             title={t.nextDay}
-            className="w-11 h-11 shrink-0 rounded-lg border border-surface-border hover:bg-surface-subtle text-sm font-semibold flex items-center justify-center gap-1 transition-colors disabled:opacity-30 disabled:pointer-events-none sm:w-auto sm:px-3.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+            className="w-11 h-11 shrink-0 rounded-lg border border-surface-border hover:bg-surface-subtle text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-30 disabled:pointer-events-none sm:w-auto sm:px-3.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
           >
             <span className="hidden sm:inline whitespace-nowrap">{t.nextDay}</span>
-            <span aria-hidden="true" className="text-base">→</span>
+            <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
           </button>
         </div>
 
