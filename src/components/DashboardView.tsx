@@ -28,6 +28,7 @@ export interface SerializedCostByCategory {
   gas: number;
   transport: number;
   "wages-daily": number;
+  maintenance: number;
   other: number;
 }
 
@@ -64,6 +65,7 @@ export function DashboardView({
     costByCategory.gas +
     costByCategory.transport +
     costByCategory["wages-daily"] +
+    costByCategory.maintenance +
     costByCategory.other;
 
   const categoryLabels: Record<keyof SerializedCostByCategory, string> = {
@@ -71,6 +73,7 @@ export function DashboardView({
     gas: t.catGas,
     transport: t.catTransport,
     "wages-daily": t.catWagesDaily,
+    maintenance: t.catMaintenance,
     other: t.catOther,
   };
 

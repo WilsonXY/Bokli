@@ -148,13 +148,14 @@ describe("Dashboard Service - getCashTngSplit", () => {
 });
 
 describe("Dashboard Service - getCostByCategory", () => {
-  it("breaks down daily costs across all 5 cost categories", async () => {
+  it("breaks down daily costs across all cost categories", async () => {
     const costs = await getCostByCategory(TEST_MONTH, { db });
 
     expect(costs.restock).toBe(4000n);
     expect(costs.gas).toBe(2000n);
     expect(costs.transport).toBe(3000n);
     expect(costs["wages-daily"]).toBe(5000n);
+    expect(costs.maintenance).toBe(0n);
     expect(costs.other).toBe(1000n);
 
     const sumAll =
@@ -162,6 +163,7 @@ describe("Dashboard Service - getCostByCategory", () => {
       costs.gas +
       costs.transport +
       costs["wages-daily"] +
+      costs.maintenance +
       costs.other;
     expect(sumAll).toBe(15000n);
   });
@@ -265,6 +267,7 @@ describe("Dashboard Service - getDashboard", () => {
     expect(data.costByCategory.gas).toBe(2000n);
     expect(data.costByCategory.transport).toBe(3000n);
     expect(data.costByCategory["wages-daily"]).toBe(5000n);
+    expect(data.costByCategory.maintenance).toBe(0n);
     expect(data.costByCategory.other).toBe(1000n);
   });
 
@@ -366,6 +369,7 @@ describe("Dashboard API route - GET /api/dashboard", () => {
     expect(json.split.tngSen).toBe(20000);
     expect(json.costByCategory.restock).toBe(4000);
     expect(json.costByCategory["wages-daily"]).toBe(5000);
+    expect(json.costByCategory.maintenance).toBe(0);
   });
 
   it("returns month tiles list when no month is specified", async () => {

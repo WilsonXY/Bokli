@@ -49,6 +49,7 @@ function formatCostByCategory(costByCategory: CostByCategory) {
     gas: Number(costByCategory.gas),
     transport: Number(costByCategory.transport),
     "wages-daily": Number(costByCategory["wages-daily"]),
+    maintenance: Number(costByCategory.maintenance),
     other: Number(costByCategory.other),
   };
 }

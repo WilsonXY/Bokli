@@ -261,6 +261,7 @@ export async function getCostByCategory(
     gas: 0n,
     transport: 0n,
     "wages-daily": 0n,
+    maintenance: 0n,
     other: 0n,
   };
 

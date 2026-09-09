@@ -8,7 +8,7 @@ import { CalendarPopover } from "@/components/CalendarPopover";
 
 export interface CostLineItem {
   id?: number;
-  category: "restock" | "gas" | "transport" | "wages-daily" | "other";
+  category: "restock" | "gas" | "transport" | "wages-daily" | "maintenance" | "other";
   amountSen: number;
   note?: string | null;
 }
@@ -49,6 +49,7 @@ export function DailySheetForm({
     { key: "gas", label: t.catGas },
     { key: "transport", label: t.catTransport },
     { key: "wages-daily", label: t.catWagesDaily },
+    { key: "maintenance", label: t.catMaintenance },
     { key: "other", label: t.catOther },
   ];
 

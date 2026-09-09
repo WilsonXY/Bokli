@@ -14,6 +14,7 @@ export const COST_CATEGORIES = [
   "gas",
   "transport",
   "wages-daily",
+  "maintenance",
   "other",
 ] as const;
 

@@ -155,6 +155,7 @@ describe("3. Cost Category CHECK and note requirement", () => {
       "gas",
       "transport",
       "wages-daily",
+      "maintenance",
     ] as const;
 
     for (const cat of validCategories) {

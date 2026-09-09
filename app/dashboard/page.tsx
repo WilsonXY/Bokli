@@ -44,6 +44,7 @@ export default async function DashboardPage(props: PageProps) {
     gas: 0n,
     transport: 0n,
     "wages-daily": 0n,
+    maintenance: 0n,
     other: 0n,
   };
 
@@ -103,6 +104,7 @@ export default async function DashboardPage(props: PageProps) {
     gas: Number(costByCategory.gas),
     transport: Number(costByCategory.transport),
     "wages-daily": Number(costByCategory["wages-daily"]),
+    maintenance: Number(costByCategory.maintenance),
     other: Number(costByCategory.other),
   };
 

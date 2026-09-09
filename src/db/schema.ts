@@ -66,7 +66,7 @@ export const costLines = sqliteTable(
       .notNull()
       .references(() => dailySheets.id, { onDelete: "cascade" }),
     amountSen: integer("amount_sen").notNull(),
-    /** restock | gas | transport | wages-daily | other */
+    /** restock | gas | transport | wages-daily | maintenance | other */
     category: text("category").notNull(),
     /** Required when category = 'other'. */
     note: text("note"),
@@ -76,7 +76,7 @@ export const costLines = sqliteTable(
     index("ix_cost_lines_sheet").on(t.dailySheetId),
     check(
       "chk_cost_lines_category",
-      sql`${t.category} IN ('restock','gas','transport','wages-daily','other')`,
+      sql`${t.category} IN ('restock','gas','transport','wages-daily','maintenance','other')`,
     ),
     check("chk_cost_lines_other_note", sql`${t.category} <> 'other' OR ${t.note} IS NOT NULL`),
     check("chk_cost_lines_amount_nonneg", sql`${t.amountSen} >= 0`),
