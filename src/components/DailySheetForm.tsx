@@ -219,7 +219,7 @@ export function DailySheetForm({
             onClick={() => navigateDate(-1)}
             aria-label={t.prevDay}
             title={t.prevDay}
-            className="w-11 h-11 shrink-0 rounded-lg border border-surface-border hover:bg-surface-subtle active:scale-90 text-sm font-semibold flex items-center justify-center gap-1.5 transition-all duration-150 sm:w-auto sm:px-3.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+            className="w-11 h-11 shrink-0 rounded-lg border border-surface-border hover:bg-surface-subtle btn-wave text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors sm:w-auto sm:px-3.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
           >
             <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -272,7 +272,7 @@ export function DailySheetForm({
             onClick={() => navigateDate(1)}
             aria-label={t.nextDay}
             title={t.nextDay}
-            className="w-11 h-11 shrink-0 rounded-lg border border-surface-border hover:bg-surface-subtle active:scale-90 text-sm font-semibold flex items-center justify-center gap-1.5 transition-all duration-150 disabled:opacity-30 disabled:pointer-events-none sm:w-auto sm:px-3.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+            className="w-11 h-11 shrink-0 rounded-lg border border-surface-border hover:bg-surface-subtle btn-wave text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-30 disabled:pointer-events-none sm:w-auto sm:px-3.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
           >
             <span className="hidden sm:inline whitespace-nowrap">{t.nextDay}</span>
             <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -427,7 +427,7 @@ export function DailySheetForm({
                         setNewCat(cat.key);
                         if (costLineError) setCostLineError(null);
                       }}
-                      className={`min-h-[44px] px-3.5 py-2.5 rounded-lg text-sm font-semibold border transition-all duration-150 active:scale-95 select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
+                      className={`min-h-[44px] px-3.5 py-2.5 rounded-lg text-sm font-semibold border btn-wave transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                         isSelected
                           ? "bg-brand-broccoli text-white border-brand-broccoli shadow-xs hover:bg-brand-broccoli-dark"
                           : "bg-surface-subtle text-ink-secondary border-surface-border hover:border-brand-broccoli hover:text-brand-broccoli hover:bg-brand-broccoli-light/30"

@@ -104,7 +104,7 @@ export function AppShell({ children }: AppShellProps) {
       <div className="w-full max-w-xl min-h-screen bg-surface-canvas flex flex-col relative sm:border-x sm:border-surface-border">
         {/* Top Header - Ultra-Clean: Brand on Left, Language Toggle on Right */}
         <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-surface-border px-3.5 py-2.5 flex items-center justify-between">
-          <div className="flex items-center gap-2.5 min-h-[38px] active:scale-95 transition-transform duration-150 select-none">
+          <div className="flex items-center gap-2.5 min-h-[38px] select-none">
             <span className="text-2xl leading-none select-none flex items-center" role="img" aria-label="broccoli">
               🥦
             </span>
@@ -127,7 +127,7 @@ export function AppShell({ children }: AppShellProps) {
                 type="button"
                 onClick={() => setLang("zh")}
                 aria-label="切换到中文 (Switch to Chinese)"
-                className={`min-h-[36px] min-w-[44px] px-3 py-1 rounded-md transition-all flex items-center justify-center ${
+                className={`min-h-[36px] min-w-[44px] px-3 py-1 rounded-md btn-wave transition-all flex items-center justify-center ${
                   lang === "zh"
                     ? "bg-white text-brand-broccoli shadow-xs font-bold"
                     : "text-ink-muted hover:text-ink-primary font-medium"
@@ -139,7 +139,7 @@ export function AppShell({ children }: AppShellProps) {
                 type="button"
                 onClick={() => setLang("en")}
                 aria-label="Switch to English"
-                className={`min-h-[36px] min-w-[44px] px-3 py-1 rounded-md transition-all flex items-center justify-center ${
+                className={`min-h-[36px] min-w-[44px] px-3 py-1 rounded-md btn-wave transition-all flex items-center justify-center ${
                   lang === "en"
                     ? "bg-white text-brand-broccoli shadow-xs font-bold"
                     : "text-ink-muted hover:text-ink-primary font-medium"
