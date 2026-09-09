@@ -111,7 +111,7 @@ export const DICTIONARY = {
     closeNotePlaceholder: "如有差异，请务必填写说明",
     confirmEmptyMonth: "本月无账单，确认为空月",
     emptyMonthError: "本月无账单，请先勾选确认为空月",
-    varianceNoteRequired: "实点总金额与账面净利润存在差异，必须填写结账备注说明原因。",
+    varianceNoteRequired: "存在差异，须填写备注。",
     reopenReasonRequired: "必须填写重新开账原因说明。",
     cancel: "取消",
     btnPerformClose: "结账本月",
@@ -249,7 +249,7 @@ export const DICTIONARY = {
     closeNotePlaceholder: "Required if variance is detected",
     confirmEmptyMonth: "No sheets, confirm close empty month",
     emptyMonthError: "No sheets recorded. Check confirm empty month to proceed.",
-    varianceNoteRequired: "Variance detected between counted total and book net profit. A note is required.",
+    varianceNoteRequired: "Variance detected. A note is required.",
     reopenReasonRequired: "Reason is required to reopen this month.",
     cancel: "Cancel",
     btnPerformClose: "Close Month",
@@ -356,6 +356,9 @@ export function translateApiError(
     lower.includes("role required")
   ) {
     return t.forbiddenError;
+  }
+  if (lower.includes("note is required") || lower.includes("a note is required")) {
+    return t.varianceNoteRequired;
   }
   if (lower.includes("closed") || lower.includes("locked")) {
     return t.monthClosedError;
