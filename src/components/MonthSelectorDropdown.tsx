@@ -95,7 +95,7 @@ export function MonthSelectorDropdown({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-label={ariaLabel || t.monthSelect}
-        className="h-10 pl-3 pr-2.5 rounded-xl border border-surface-border bg-white hover:bg-surface-subtle active:scale-[0.98] transition-all flex items-center gap-2 shadow-xs cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+        className="h-10 pl-3 pr-2.5 rounded-xl border border-surface-border bg-white hover:bg-surface-subtle active:scale-[0.98] transition-all flex items-center gap-2 shadow-xs cursor-pointer btn-wave focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
       >
         <span className="font-bold text-sm text-ink-primary tracking-tight">
           {currentMonth}
@@ -128,7 +128,7 @@ export function MonthSelectorDropdown({
         <div
           role="listbox"
           aria-label={ariaLabel || t.monthSelect}
-          className="absolute right-0 top-full mt-1.5 z-50 w-56 max-h-64 overflow-y-auto bg-white border border-surface-border rounded-xl shadow-lg p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150 focus:outline-none"
+          className="absolute right-0 top-full mt-1.5 z-50 w-56 max-h-64 overflow-y-auto bg-white border border-surface-border rounded-xl shadow-lg p-1.5 space-y-1 animate-dropdown focus:outline-none"
         >
           {fullOptions.map((opt) => {
             const isSelected = opt.month === currentMonth;
