@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { MonthSelectorDropdown } from "@/components/MonthSelectorDropdown";
 import { formatMyr } from "@/lib/money";
 import { useI18n } from "@/lib/i18n";
 
@@ -98,33 +99,14 @@ export function DashboardView({
           {t.overviewTitle}
         </h1>
 
-        <div className="relative inline-flex items-center shrink-0">
-          <select
-            value={activeMonth}
-            onChange={(e) => router.push(`/dashboard?month=${e.target.value}`)}
-            aria-label={t.monthSelect}
-            className="appearance-none bg-surface-subtle hover:bg-surface-border/60 border border-surface-border rounded-lg pl-3 pr-8 py-2 text-sm font-bold text-ink-primary cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 transition-colors shadow-xs"
-          >
-            {!tiles.some((tile) => tile.month === activeMonth) && (
-              <option value={activeMonth}>{activeMonth}</option>
-            )}
-            {tiles.map((tile) => (
-              <option key={tile.month} value={tile.month}>
-                {tile.month} ({statusLabel(tile.status)})
-              </option>
-            ))}
-          </select>
-          <svg
-            aria-hidden="true"
-            className="w-4 h-4 text-ink-muted pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
+        <MonthSelectorDropdown
+          currentMonth={activeMonth}
+          options={tiles.map((tile) => ({
+            month: tile.month,
+            status: tile.status,
+          }))}
+          onSelect={(month) => router.push(`/dashboard?month=${month}`)}
+        />
       </div>
 
       {/* KPI Cards Grid */}

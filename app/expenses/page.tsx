@@ -28,10 +28,16 @@ export default async function ExpensesPage(props: PageProps) {
         : currentMonthInKL;
 
   const monthSet = new Set<string>([currentMonthInKL, activeMonth]);
+  const tileStatusMap = new Map<string, "open" | "closed" | "reopened">();
   for (const t of rawTiles) {
     monthSet.add(t.month);
+    tileStatusMap.set(t.month, t.status);
   }
   const availableMonths = Array.from(monthSet).sort().reverse();
+  const monthOptions = availableMonths.map((m) => ({
+    month: m,
+    status: tileStatusMap.get(m) ?? "open",
+  }));
 
   const { db } = openDb();
   let expenses: any[] = [];
@@ -76,6 +82,7 @@ export default async function ExpensesPage(props: PageProps) {
       initialExpenses={expenses}
       summary={summary}
       isClosed={isClosed}
+      monthOptions={monthOptions}
     />
   );
 }

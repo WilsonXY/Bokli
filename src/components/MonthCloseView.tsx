@@ -4,6 +4,7 @@ import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
 import { useI18n, translateApiError } from "@/lib/i18n";
+import { MonthSelectorDropdown, MonthOption } from "@/components/MonthSelectorDropdown";
 
 interface FinancialSnapshot {
   revenueSen: number;
@@ -35,6 +36,7 @@ interface MonthCloseViewProps {
   closeRecord: CloseRecordData | null;
   userRole?: string;
   hasSheetsInMonth: boolean;
+  monthOptions?: MonthOption[];
 }
 
 export function MonthCloseView({
@@ -44,6 +46,7 @@ export function MonthCloseView({
   closeRecord,
   userRole,
   hasSheetsInMonth,
+  monthOptions,
 }: MonthCloseViewProps) {
   const router = useRouter();
   const { t } = useI18n();
@@ -185,49 +188,27 @@ export function MonthCloseView({
             <span className="text-base font-bold text-ink-primary whitespace-nowrap">
               {t.closeTitle}
             </span>
-            {isClosed ? (
-              <span className="text-[13px] px-2.5 py-0.5 rounded-full bg-status-closed-bg text-status-closed font-semibold whitespace-nowrap shrink-0">
-                {t.closedStatus}
-              </span>
-            ) : isReopened ? (
-              <span className="text-[13px] px-2.5 py-0.5 rounded-full bg-status-reopened-bg text-status-reopened font-semibold whitespace-nowrap shrink-0">
-                {t.reopenedStatus}
-              </span>
-            ) : (
-              <span className="text-[13px] px-2.5 py-0.5 rounded-full bg-status-open-bg text-status-open font-semibold whitespace-nowrap shrink-0">
-                {t.openStatus}
-              </span>
-            )}
           </div>
 
           {/* Month Dropdown */}
-          <div className="relative inline-flex items-center shrink-0">
-            <select
-              value={currentMonth}
-              onChange={(e) => router.push(`/close?month=${e.target.value}`)}
-              aria-label={t.monthSelect}
-              className="appearance-none bg-surface-subtle hover:bg-surface-border/60 border border-surface-border rounded-lg pl-3 pr-8 py-2 text-sm font-bold text-ink-primary cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 transition-colors shadow-xs"
-            >
-              {!availableMonths.includes(currentMonth) && (
-                <option value={currentMonth}>{currentMonth}</option>
-              )}
-              {availableMonths.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-            <svg
-              aria-hidden="true"
-              className="w-4 h-4 text-ink-muted pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
+          <MonthSelectorDropdown
+            currentMonth={currentMonth}
+            options={
+              monthOptions ||
+              availableMonths.map((m) => ({
+                month: m,
+                status:
+                  m === currentMonth
+                    ? isClosed
+                      ? "closed"
+                      : isReopened
+                      ? "reopened"
+                      : "open"
+                    : "open",
+              }))
+            }
+            onSelect={(month) => router.push(`/close?month=${month}`)}
+          />
         </div>
 
         {/* Status description */}

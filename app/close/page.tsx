@@ -39,12 +39,18 @@ export default async function MonthClosePage(props: PageProps) {
 
   // Available months: filter out any future months
   const monthSet = new Set<string>([currentMonthInKL, activeMonth]);
+  const tileStatusMap = new Map<string, "open" | "closed" | "reopened">();
   for (const t of rawTiles) {
     if (t.month <= currentMonthInKL) {
       monthSet.add(t.month);
+      tileStatusMap.set(t.month, t.status);
     }
   }
   const availableMonths = Array.from(monthSet).sort().reverse();
+  const monthOptions = availableMonths.map((m) => ({
+    month: m,
+    status: tileStatusMap.get(m) ?? "open",
+  }));
 
   const { db } = openDb();
 
@@ -109,6 +115,7 @@ export default async function MonthClosePage(props: PageProps) {
       closeRecord={closeRecord}
       userRole={session?.user?.role}
       hasSheetsInMonth={hasSheetsInMonth}
+      monthOptions={monthOptions}
     />
   );
 }
