@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
 import { useI18n, translateApiError } from "@/lib/i18n";
@@ -19,6 +19,37 @@ interface MonthSummary {
   grossSen: number;
   operatingSen: number;
   netSen: number;
+}
+
+export interface MergedExpenseItem {
+  key: string;
+  type: OperatingExpenseItem["type"];
+  note: string | null;
+  amountSen: number;
+  ids: number[];
+}
+
+function mergeOperatingExpenses(items: OperatingExpenseItem[]): MergedExpenseItem[] {
+  const merged: MergedExpenseItem[] = [];
+  for (const item of items) {
+    const normNote = (item.note || "").trim();
+    const existing = merged.find(
+      (m) => m.type === item.type && (m.note || "").trim() === normNote
+    );
+    if (existing) {
+      existing.amountSen += item.amountSen;
+      existing.ids.push(item.id);
+    } else {
+      merged.push({
+        key: `${item.type}_${normNote}_${item.id}`,
+        type: item.type,
+        note: normNote || null,
+        amountSen: item.amountSen,
+        ids: [item.id],
+      });
+    }
+  }
+  return merged;
 }
 
 interface ExpensesViewProps {
@@ -45,6 +76,16 @@ export function ExpensesView({
 
   const [expenses, setExpenses] = useState<OperatingExpenseItem[]>(initialExpenses);
 
+  useEffect(() => {
+    setExpenses(initialExpenses);
+  }, [initialExpenses]);
+
+  // Merge expense items on frontend if same category and same note
+  const mergedExpenses = useMemo(
+    () => mergeOperatingExpenses(expenses),
+    [expenses]
+  );
+
   // New expense draft form
   const [newType, setNewType] = useState<OperatingExpenseItem["type"]>("rental");
   const [amountInput, setAmountInput] = useState("");
@@ -52,7 +93,7 @@ export function ExpensesView({
 
   // UI status
   const [adding, setAdding] = useState(false);
-  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
 
@@ -135,28 +176,30 @@ export function ExpensesView({
   }
 
   // Handle Delete Expense
-  async function handleDeleteExpense(id: number) {
-    if (isClosed || deletingId !== null) return;
-    setDeletingId(id);
+  async function handleDeleteExpense(key: string, ids: number[]) {
+    if (isClosed || deletingKey !== null) return;
+    setDeletingKey(key);
 
     try {
-      const res = await fetch(`/api/expenses?id=${id}`, {
-        method: "DELETE",
-      });
+      for (const id of ids) {
+        const res = await fetch(`/api/expenses?id=${id}`, {
+          method: "DELETE",
+        });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(translateApiError(data.error, t));
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(translateApiError(data.error, t));
+        }
       }
 
-      setExpenses((prev) => prev.filter((item) => item.id !== id));
+      setExpenses((prev) => prev.filter((item) => !ids.includes(item.id)));
       startTransition(() => {
         router.refresh();
       });
     } catch (err: any) {
       alert(translateApiError(err.message, t));
     } finally {
-      setDeletingId(null);
+      setDeletingKey(null);
     }
   }
 
@@ -355,15 +398,15 @@ export function ExpensesView({
         </div>
 
         <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs">
-          {expenses.length === 0 ? (
+          {mergedExpenses.length === 0 ? (
             <div className="text-center py-6 text-sm text-ink-muted">
               {t.noExpensesRecorded}
             </div>
           ) : (
             <div className="divide-y divide-surface-border">
-              {expenses.map((item) => (
+              {mergedExpenses.map((item) => (
                 <div
-                  key={item.id}
+                  key={item.key}
                   className="py-2.5 flex items-center justify-between gap-2"
                 >
                   <div className="flex items-center gap-2 min-w-0">
@@ -384,8 +427,8 @@ export function ExpensesView({
                     {!isClosed && (
                       <button
                         type="button"
-                        disabled={deletingId === item.id}
-                        onClick={() => handleDeleteExpense(item.id)}
+                        disabled={deletingKey === item.key}
+                        onClick={() => handleDeleteExpense(item.key, item.ids)}
                         aria-label={t.delete}
                         className="w-11 h-11 rounded-lg hover:bg-finance-loss-light text-ink-muted hover:text-finance-loss flex items-center justify-center text-xs transition-colors disabled:opacity-40 focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60"
                         title={t.delete}
