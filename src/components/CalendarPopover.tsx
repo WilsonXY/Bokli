@@ -138,7 +138,7 @@ export function CalendarPopover({
           ←
         </button>
 
-        <span className="text-xs font-bold text-ink-primary">
+        <span className="text-sm font-bold text-ink-primary">
           {monthTitle}
         </span>
 
@@ -158,7 +158,7 @@ export function CalendarPopover({
         {weekHeaders.map((w) => (
           <span
             key={w}
-            className="text-[11px] font-semibold text-ink-muted h-5 flex items-center justify-center"
+            className="text-[13px] font-semibold text-ink-muted h-5 flex items-center justify-center"
           >
             {w}
           </span>
@@ -193,7 +193,7 @@ export function CalendarPopover({
                 onClose();
               }}
               aria-label={cellDate}
-              className={`h-8 w-8 mx-auto rounded-lg text-xs font-medium flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
+              className={`h-8 w-8 mx-auto rounded-lg text-sm font-medium flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                 isSelected
                   ? "bg-brand-broccoli text-white font-bold shadow-xs scale-105"
                   : isFuture

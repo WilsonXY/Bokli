@@ -90,11 +90,11 @@ export function DashboardView({
       {/* Title & Month Carousel */}
       <div>
         <div className="flex items-center justify-between mb-2">
-          <h1 className="text-base font-bold text-ink-primary tracking-tight">
+          <h1 className="text-xl font-bold text-ink-primary tracking-tight">
             {t.overviewTitle}
           </h1>
           <span className="text-xs font-medium text-ink-muted">
-            {t.currentViewing}: <span className="font-semibold text-ink-primary">{activeMonth}</span>
+            {t.currentViewing}: <span className="font-bold text-ink-primary text-sm">{activeMonth}</span>
           </span>
         </div>
 
@@ -108,7 +108,7 @@ export function DashboardView({
                 <Link
                   key={tile.month}
                   href={`/dashboard?month=${tile.month}`}
-                  className={`min-h-[44px] px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
+                  className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold whitespace-nowrap transition-all flex items-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                     isActive
                       ? "bg-brand-broccoli text-white shadow-xs"
                       : "bg-surface-subtle text-ink-secondary hover:text-ink-primary hover:bg-surface-border/60 border border-surface-border"
@@ -116,7 +116,7 @@ export function DashboardView({
                 >
                   <span>{tile.month}</span>
                   <span
-                    className={`text-[11px] px-1.5 py-0.5 rounded font-medium ${
+                    className={`text-[13px] px-2 py-0.5 rounded font-semibold ${
                       isActive
                         ? "bg-white/20 text-white"
                         : tile.status === "closed"
@@ -137,11 +137,11 @@ export function DashboardView({
       {activeTile && (
         <div className="bg-white border border-surface-border rounded-xl p-3.5 shadow-xs space-y-3">
           <div className="flex items-center justify-between pb-2 border-b border-surface-border">
-            <span className="text-xs font-bold text-ink-secondary uppercase tracking-wider">
+            <span className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
               {t.monthSummary}
             </span>
             <span
-              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md ${
+              className={`text-[13px] font-bold px-2 py-0.5 rounded-md ${
                 activeTile.status === "closed"
                   ? "bg-status-closed-bg text-status-closed"
                   : "bg-brand-broccoli-light text-brand-broccoli"
@@ -153,25 +153,25 @@ export function DashboardView({
 
           <div className="grid grid-cols-2 gap-2.5">
             <div className="p-2.5 rounded-lg bg-surface-canvas border border-surface-border">
-              <span className="block text-[11px] text-ink-muted font-medium mb-0.5">
+              <span className="block text-[13px] text-ink-muted font-semibold mb-0.5">
                 {t.totalRevenue}
               </span>
-              <span className="text-base font-bold text-ink-primary">
+              <span className="text-xl font-bold text-ink-primary">
                 {formatMyr(BigInt(activeTile.revenueSen))}
               </span>
             </div>
 
             <div className="p-2.5 rounded-lg bg-surface-canvas border border-surface-border">
-              <span className="block text-[11px] text-ink-muted font-medium mb-0.5">
+              <span className="block text-[13px] text-ink-muted font-semibold mb-0.5">
                 {t.totalCosts}
               </span>
-              <span className="text-base font-bold text-finance-loss">
+              <span className="text-xl font-bold text-finance-loss">
                 {formatMyr(BigInt(activeTile.dailyCostSen))}
               </span>
             </div>
 
             <div className="p-2.5 rounded-lg bg-surface-canvas border border-surface-border">
-              <span className="block text-[11px] text-ink-muted font-medium mb-0.5">
+              <span className="block text-[13px] text-ink-muted font-semibold mb-0.5">
                 {t.grossProfit}
               </span>
               <span
@@ -184,7 +184,7 @@ export function DashboardView({
             </div>
 
             <div className="p-2.5 rounded-lg bg-surface-canvas border border-surface-border">
-              <span className="block text-[11px] text-ink-muted font-medium mb-0.5">
+              <span className="block text-[13px] text-ink-muted font-semibold mb-0.5">
                 {t.operatingExpenses}
               </span>
               <span className="text-base font-bold text-ink-secondary">
@@ -218,7 +218,7 @@ export function DashboardView({
       {/* Revenue Split: Cash vs TnG */}
       <div className="bg-white border border-surface-border rounded-xl p-3.5 shadow-xs space-y-2.5">
         <div className="flex items-center justify-between">
-          <h2 className="text-xs font-bold text-ink-secondary uppercase tracking-wider">
+          <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
             {t.revenueSplit}
           </h2>
           <span className="text-xs font-semibold text-ink-primary">
@@ -251,26 +251,26 @@ export function DashboardView({
               <div className="flex items-center justify-between p-2 rounded-lg bg-surface-canvas border border-surface-border">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-channel-cash inline-block" />
-                  <span className="font-medium text-ink-secondary">{t.cashRevenue}</span>
+                  <span className="font-semibold text-ink-secondary">{t.cashRevenue}</span>
                 </div>
                 <div className="text-right">
                   <span className="font-bold text-ink-primary block">
                     {formatMyr(BigInt(split.cashSen))}
                   </span>
-                  <span className="text-[11px] text-ink-muted">{cashPct}%</span>
+                  <span className="text-[13px] font-medium text-ink-muted">{cashPct}%</span>
                 </div>
               </div>
 
               <div className="flex items-center justify-between p-2 rounded-lg bg-surface-canvas border border-surface-border">
                 <div className="flex items-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-channel-tng inline-block" />
-                  <span className="font-medium text-ink-secondary">{t.tngRevenue}</span>
+                  <span className="font-semibold text-ink-secondary">{t.tngRevenue}</span>
                 </div>
                 <div className="text-right">
                   <span className="font-bold text-ink-primary block">
                     {formatMyr(BigInt(split.tngSen))}
                   </span>
-                  <span className="text-[11px] text-ink-muted">{tngPct}%</span>
+                  <span className="text-[13px] font-medium text-ink-muted">{tngPct}%</span>
                 </div>
               </div>
             </div>
@@ -281,10 +281,10 @@ export function DashboardView({
       {/* Cost Breakdown - Neutral Slate Bars (No Orange) */}
       <div className="bg-white border border-surface-border rounded-xl p-3.5 shadow-xs space-y-2.5">
         <div className="flex items-center justify-between">
-          <h2 className="text-xs font-bold text-ink-secondary uppercase tracking-wider">
+          <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
             {t.costDistribution}
           </h2>
-          <span className="text-xs font-semibold text-finance-loss">
+          <span className="text-sm font-bold text-finance-loss">
             {formatMyr(BigInt(totalCosts))}
           </span>
         </div>
@@ -307,7 +307,7 @@ export function DashboardView({
                       {categoryLabels[cat]}
                     </span>
                     <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-ink-muted">{pct}%</span>
+                      <span className="text-[13px] font-medium text-ink-muted">{pct}%</span>
                       <span className="font-bold text-ink-primary">
                         {formatMyr(BigInt(amount))}
                       </span>
@@ -329,10 +329,10 @@ export function DashboardView({
       {/* Daily Trend List */}
       <div className="bg-white border border-surface-border rounded-xl p-3.5 shadow-xs space-y-2.5">
         <div className="flex items-center justify-between">
-          <h2 className="text-xs font-bold text-ink-secondary uppercase tracking-wider">
+          <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
             {t.dailyTrend}
           </h2>
-          <span className="text-[11px] text-ink-muted">
+          <span className="text-[13px] text-ink-muted">
             {trend.length} {t.dateCol}
           </span>
         </div>
@@ -349,14 +349,14 @@ export function DashboardView({
                 href={`/?date=${row.date}`}
                 className="py-2 flex items-center justify-between text-xs hover:bg-surface-subtle -mx-2 px-2 rounded transition-colors"
               >
-                <span className="font-mono font-medium text-ink-primary">
+                <span className="font-mono font-semibold text-ink-primary text-sm">
                   {row.date}
                 </span>
 
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <span className="text-[11px] text-ink-muted mr-1">{t.sheetRevCol}:</span>
-                    <span className="font-semibold text-ink-primary">
+                    <span className="text-[13px] text-ink-muted mr-1">{t.sheetRevCol}:</span>
+                    <span className="font-bold text-ink-primary text-sm">
                       {formatMyr(BigInt(row.totalSen))}
                     </span>
                   </div>

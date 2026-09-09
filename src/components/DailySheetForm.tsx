@@ -218,7 +218,7 @@ export function DailySheetForm({
             type="button"
             onClick={() => navigateDate(-1)}
             aria-label={t.prevDay}
-            className="min-h-[44px] px-3.5 rounded-lg border border-surface-border hover:bg-surface-subtle text-xs font-semibold flex items-center gap-1.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+            className="min-h-[44px] px-3.5 rounded-lg border border-surface-border hover:bg-surface-subtle text-sm font-semibold flex items-center gap-1.5 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
           >
             ← {t.prevDay}
           </button>
@@ -235,16 +235,16 @@ export function DailySheetForm({
               title="点击打开/关闭日历 (Click to toggle calendar)"
             >
               <div className="flex items-center justify-center gap-1.5">
-                <span className="text-sm font-bold text-ink-primary group-hover:text-brand-broccoli transition-colors">
+                <span className="text-base font-bold text-ink-primary group-hover:text-brand-broccoli transition-colors">
                   {date}
                 </span>
                 {isToday && (
-                  <span className="text-[11px] px-1.5 py-0.2 rounded bg-brand-broccoli-light font-semibold text-brand-broccoli">
+                  <span className="text-[13px] px-2 py-0.5 rounded bg-brand-broccoli-light font-semibold text-brand-broccoli">
                     {t.today}
                   </span>
                 )}
               </div>
-              <p className="text-[11px] text-ink-muted">
+              <p className="text-[13px] text-ink-muted">
                 {t.klTime}
               </p>
             </button>
@@ -267,14 +267,14 @@ export function DailySheetForm({
             disabled={!canGoNext}
             onClick={() => navigateDate(1)}
             aria-label={t.nextDay}
-            className="min-h-[44px] px-3.5 rounded-lg border border-surface-border hover:bg-surface-subtle text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-30 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+            className="min-h-[44px] px-3.5 rounded-lg border border-surface-border hover:bg-surface-subtle text-sm font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-30 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
           >
             {t.nextDay} →
           </button>
         </div>
 
         {isClosed && (
-          <div className="py-2 px-3 rounded-lg bg-status-closed-bg/60 border border-status-closed/20 flex items-center gap-2 text-xs font-medium text-status-closed">
+          <div className="py-2 px-3 rounded-lg bg-status-closed-bg/60 border border-status-closed/20 flex items-center gap-2 text-sm font-medium text-status-closed">
             <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
@@ -285,7 +285,7 @@ export function DailySheetForm({
 
       {/* Global Sheet Notifications (Save Errors / Confirmations) */}
       {errorMessage && (
-        <div className="py-2 px-3 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
+        <div className="py-2 px-3 rounded-lg bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-medium flex items-center justify-between">
           <span>{errorMessage}</span>
           <button
             type="button"
@@ -298,7 +298,7 @@ export function DailySheetForm({
       )}
 
       {successMessage && (
-        <div className="py-2 px-3 rounded-lg bg-finance-profit-light border border-finance-profit-border text-xs text-brand-broccoli font-semibold flex items-center gap-1.5">
+        <div className="py-2 px-3 rounded-lg bg-finance-profit-light border border-finance-profit-border text-sm text-brand-broccoli font-semibold flex items-center gap-1.5">
           <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
@@ -309,10 +309,10 @@ export function DailySheetForm({
       {/* Section 1: Revenue Entry */}
       <section aria-label="Revenue Entry" className="space-y-2">
         <div className="flex items-center justify-between px-0.5">
-          <h2 className="text-xs font-bold text-ink-secondary uppercase tracking-wider">
+          <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
             {t.revenueTitle}
           </h2>
-          <span className="text-xs font-medium text-ink-muted">
+          <span className="text-sm font-medium text-ink-muted">
             {t.totalRevenue}: <span className="font-semibold text-ink-primary">{formatMyr(totalRevenueSen)}</span>
           </span>
         </div>
@@ -324,14 +324,14 @@ export function DailySheetForm({
               <span className="w-2 h-2 rounded-full bg-channel-cash inline-block shrink-0" />
               <label
                 htmlFor="cash-input"
-                className="text-xs font-semibold text-ink-primary"
+                className="text-sm font-semibold text-ink-primary"
               >
                 {t.cashRevenue}
               </label>
             </div>
 
             <div className="relative flex items-center">
-              <span className="absolute left-2.5 text-xs font-bold text-channel-cash select-none">
+              <span className="absolute left-2.5 text-sm font-bold text-channel-cash select-none">
                 RM
               </span>
               <input
@@ -348,7 +348,7 @@ export function DailySheetForm({
                   }
                 }}
                 placeholder="0.00"
-                className="w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-cash focus-visible:ring-2 focus-visible:ring-channel-cash/50 disabled:opacity-60 transition-colors"
+                className="w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-lg font-bold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-cash focus-visible:ring-2 focus-visible:ring-channel-cash/50 disabled:opacity-60 transition-colors"
               />
             </div>
           </div>
@@ -359,14 +359,14 @@ export function DailySheetForm({
               <span className="w-2 h-2 rounded-full bg-channel-tng inline-block shrink-0" />
               <label
                 htmlFor="tng-input"
-                className="text-xs font-semibold text-ink-primary"
+                className="text-sm font-semibold text-ink-primary"
               >
                 {t.tngRevenue}
               </label>
             </div>
 
             <div className="relative flex items-center">
-              <span className="absolute left-2.5 text-xs font-bold text-channel-tng select-none">
+              <span className="absolute left-2.5 text-sm font-bold text-channel-tng select-none">
                 RM
               </span>
               <input
@@ -383,7 +383,7 @@ export function DailySheetForm({
                   }
                 }}
                 placeholder="0.00"
-                className="w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-tng focus-visible:ring-2 focus-visible:ring-channel-tng/50 disabled:opacity-60 transition-colors"
+                className="w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-lg font-bold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-tng focus-visible:ring-2 focus-visible:ring-channel-tng/50 disabled:opacity-60 transition-colors"
               />
             </div>
           </div>
@@ -393,10 +393,10 @@ export function DailySheetForm({
       {/* Section 2: Itemized Daily Costs */}
       <section aria-label="Daily Costs Entry" className="space-y-2">
         <div className="flex items-center justify-between px-0.5">
-          <h2 className="text-xs font-bold text-ink-secondary uppercase tracking-wider">
+          <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
             {t.costsTitle}
           </h2>
-          <span className="text-xs font-medium text-ink-muted">
+          <span className="text-sm font-medium text-ink-muted">
             {t.totalCosts}: <span className="font-semibold text-finance-loss">{formatMyr(totalCostSen)}</span>
           </span>
         </div>
@@ -405,7 +405,7 @@ export function DailySheetForm({
         {!isClosed && (
           <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs space-y-2.5">
             <div>
-              <span className="block text-[11px] font-medium text-ink-muted mb-1.5">
+              <span className="block text-sm font-medium text-ink-muted mb-1.5">
                 {t.selectCategory}
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -419,7 +419,7 @@ export function DailySheetForm({
                         setNewCat(cat.key);
                         if (costLineError) setCostLineError(null);
                       }}
-                      className={`min-h-[44px] px-3.5 py-2.5 rounded-lg text-xs font-semibold border transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
+                      className={`min-h-[44px] px-3.5 py-2.5 rounded-lg text-sm font-semibold border transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                         isSelected
                           ? "bg-ink-primary text-white border-ink-primary shadow-xs"
                           : "bg-surface-subtle text-ink-secondary border-surface-border hover:border-surface-border-strong hover:bg-surface-subtle/80"
@@ -434,11 +434,11 @@ export function DailySheetForm({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div>
-                <label className="block text-[11px] font-medium text-ink-muted mb-1">
+                <label className="block text-sm font-medium text-ink-muted mb-1">
                   {t.amount}
                 </label>
                 <div className="relative flex items-center">
-                  <span className="absolute left-2.5 text-xs font-semibold text-ink-muted select-none">
+                  <span className="absolute left-2.5 text-sm font-semibold text-ink-muted select-none">
                     RM
                   </span>
                   <input
@@ -453,13 +453,13 @@ export function DailySheetForm({
                       }
                     }}
                     placeholder="0.00"
-                    className="w-full h-11 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm font-medium text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
+                    className="w-full h-11 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-medium text-ink-muted mb-1">
+                <label className="block text-sm font-medium text-ink-muted mb-1">
                   {t.note} {newCat === "other" && <span className="text-finance-loss">({t.noteRequiredBadge})</span>}
                 </label>
                 <input
@@ -470,7 +470,7 @@ export function DailySheetForm({
                     if (costLineError) setCostLineError(null);
                   }}
                   placeholder={newCat === "other" ? t.noteRequired : t.noteOptional}
-                  className="w-full h-11 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-xs text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
+                  className="w-full h-11 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
                 />
               </div>
             </div>
@@ -479,14 +479,14 @@ export function DailySheetForm({
             <button
               type="button"
               onClick={handleAddCostLine}
-              className="w-full h-11 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-xs flex items-center justify-center transition-all shadow-xs active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+              className="w-full h-11 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-sm flex items-center justify-center transition-all shadow-xs active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
             >
               {t.addCostLine}
             </button>
 
             {/* Contextual Error Message Directly Below the Cost Card Button */}
             {costLineError && (
-              <div className="py-2 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
+              <div className="py-2 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-medium flex items-center justify-between">
                 <span>{costLineError}</span>
                 <button
                   type="button"
@@ -503,7 +503,7 @@ export function DailySheetForm({
         {/* Existing Cost Lines List */}
         <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs">
           {costLines.length === 0 ? (
-            <div className="text-center py-4 text-xs text-ink-muted">
+            <div className="text-center py-5 text-sm text-ink-muted">
               {t.noCostsRecorded}
             </div>
           ) : (
@@ -514,18 +514,18 @@ export function DailySheetForm({
                   className="py-2 flex items-center justify-between gap-2"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-surface-subtle border border-surface-border text-ink-secondary whitespace-nowrap">
+                    <span className="text-[13px] font-semibold px-2 py-0.5 rounded bg-surface-subtle border border-surface-border text-ink-secondary whitespace-nowrap">
                       {getCategoryLabel(line.category)}
                     </span>
                     {line.note && (
-                      <span className="text-xs text-ink-muted truncate">
+                      <span className="text-sm text-ink-muted truncate">
                         {line.note}
                       </span>
                     )}
                   </div>
 
                   <div className="flex items-center gap-2.5">
-                    <span className="text-xs font-bold text-finance-loss whitespace-nowrap">
+                    <span className="text-base font-bold text-finance-loss whitespace-nowrap">
                       {formatMyr(BigInt(line.amountSen))}
                     </span>
                     {!isClosed && (
@@ -552,11 +552,11 @@ export function DailySheetForm({
       {/* Sticky Bottom Action Bar */}
       <div className="sticky bottom-16 z-30 bg-white/95 backdrop-blur-md border border-surface-border rounded-xl p-3 shadow-sm flex items-center justify-between gap-3">
         <div>
-          <div className="text-[11px] text-ink-muted font-medium">
+          <div className="text-[13px] text-ink-muted font-medium">
             {t.grossProfit}
           </div>
           <div
-            className={`text-base font-bold ${
+            className={`text-xl font-bold ${
               grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
             }`}
           >
@@ -569,7 +569,7 @@ export function DailySheetForm({
             type="button"
             disabled={saving}
             onClick={handleSave}
-            className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-xs tracking-wide shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
+            className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-all disabled:opacity-50 active:scale-[0.98] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
           >
             {saving ? (
               <span>{t.saving}</span>

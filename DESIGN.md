@@ -49,22 +49,22 @@ typography:
     lineHeight: 1.25
   title:
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-    fontSize: "16px"
+    fontSize: "18px"
     fontWeight: 700
     lineHeight: 1.3
   body:
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-    fontSize: "14px"
+    fontSize: "16px"
     fontWeight: 400
     lineHeight: 1.5
   label:
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-    fontSize: "12px"
+    fontSize: "14px"
     fontWeight: 600
     lineHeight: 1.4
   caption:
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
-    fontSize: "11px"
+    fontSize: "13px"
     fontWeight: 700
     lineHeight: 1.2
 rounded:
@@ -170,13 +170,13 @@ The palette is engineered for immediate semantic recognition across payment chan
 
 **Font Family:** Native System Sans-Serif Stack (`-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`)
 
-### Hierarchy
+### Hierarchy (Mobile-Optimized Scale)
 - **Display** (800 weight, 24px, 1.2 line-height): Top-level screen title, e.g., 🥦 Bokli 经营概览.
-- **Headline** (900 weight, 22px / 800 weight, 20px, 1.25 line-height): Bottom-line Net Profit figures and primary card totals.
-- **Title** (800/700 weight, 16px - 17px, 1.3 line-height): Section titles, metric card labels, and active month identifiers.
-- **Body** (400 weight, 14px, 1.5 line-height): Standard notes, bilingual descriptions, and feedback text.
-- **Label** (600 weight, 12px - 13px, 1.4 line-height): Metric card labels, cost category chips, and trend metadata.
-- **Caption/Badge** (700 weight, 11px, 1.2 line-height): Status badges, percentage pills, and balance confirmations.
+- **Headline** (900/800 weight, 20px, 1.25 line-height): Bottom-line Net Profit figures, live gross profit, and primary revenue card totals.
+- **Title** (700 weight, 18px, 1.3 line-height): Section titles, metric card headers, and active date identifiers.
+- **Body / Inputs** (400/600 weight, 16px, 1.5 line-height): Form inputs (preventing mobile zoom), standard notes, and descriptions.
+- **Label** (600 weight, 14px, 1.4 line-height): Input field headers, cost category chips, button text, and trend metadata.
+- **Caption/Badge** (700 weight, 13px, 1.2 line-height): Status badges, percentage pills, date navigation, and balance confirmations.
 
 ### Named Rules
 **The Bilingual Pairing Rule.** Chinese terms lead with immediate visual weight, followed by parenthetical English translations (e.g. `总营业收入 (Revenue)`) to support family collaboration without creating clutter.

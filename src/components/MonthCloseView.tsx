@@ -186,15 +186,15 @@ export function MonthCloseView({
               {t.closeTitle}
             </span>
             {isClosed ? (
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-status-closed-bg text-status-closed font-semibold">
+              <span className="text-[13px] px-2.5 py-0.5 rounded-full bg-status-closed-bg text-status-closed font-semibold">
                 {t.closedStatus}
               </span>
             ) : isReopened ? (
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-status-reopened-bg text-status-reopened font-semibold">
+              <span className="text-[13px] px-2.5 py-0.5 rounded-full bg-status-reopened-bg text-status-reopened font-semibold">
                 {t.reopenedStatus}
               </span>
             ) : (
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-status-open-bg text-status-open font-semibold">
+              <span className="text-[13px] px-2.5 py-0.5 rounded-full bg-status-open-bg text-status-open font-semibold">
                 {t.openStatus}
               </span>
             )}
@@ -241,7 +241,7 @@ export function MonthCloseView({
       {/* Financial Snapshot Summary Strip */}
       <section aria-label="Month Financial Snapshot" className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <div className="bg-white border border-surface-border rounded-xl p-2.5 shadow-xs">
-          <div className="text-[11px] font-medium text-ink-muted mb-0.5">
+          <div className="text-[13px] font-medium text-ink-muted mb-0.5">
             {t.totalRevenue}
           </div>
           <div className="text-xs font-bold text-ink-primary">
@@ -250,7 +250,7 @@ export function MonthCloseView({
         </div>
 
         <div className="bg-white border border-surface-border rounded-xl p-2.5 shadow-xs">
-          <div className="text-[11px] font-medium text-ink-muted mb-0.5">
+          <div className="text-[13px] font-medium text-ink-muted mb-0.5">
             {t.costsTitle}
           </div>
           <div className="text-xs font-bold text-finance-loss">
@@ -259,7 +259,7 @@ export function MonthCloseView({
         </div>
 
         <div className="bg-white border border-surface-border rounded-xl p-2.5 shadow-xs">
-          <div className="text-[11px] font-medium text-ink-muted mb-0.5">
+          <div className="text-[13px] font-medium text-ink-muted mb-0.5">
             {t.operatingExpenses}
           </div>
           <div className="text-xs font-bold text-finance-loss">
@@ -268,7 +268,7 @@ export function MonthCloseView({
         </div>
 
         <div className="bg-white border border-surface-border rounded-xl p-2.5 shadow-xs">
-          <div className="text-[11px] font-medium text-ink-muted mb-0.5">
+          <div className="text-[13px] font-medium text-ink-muted mb-0.5">
             {t.expectedNet}
           </div>
           <div
@@ -293,25 +293,25 @@ export function MonthCloseView({
 
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div>
-              <span className="text-ink-muted block text-[11px] mb-0.5">{t.cashOnHand}</span>
+              <span className="text-ink-muted block text-[13px] mb-0.5 font-medium">{t.cashOnHand}</span>
               <span className="font-semibold text-ink-primary">
                 {formatMyr(BigInt(closeRecord?.cashOnHandSen ?? 0))}
               </span>
             </div>
             <div>
-              <span className="text-ink-muted block text-[11px] mb-0.5">{t.tngOnHand}</span>
+              <span className="text-ink-muted block text-[13px] mb-0.5 font-medium">{t.tngOnHand}</span>
               <span className="font-semibold text-ink-primary">
                 {formatMyr(BigInt(closeRecord?.tngOnHandSen ?? 0))}
               </span>
             </div>
             <div>
-              <span className="text-ink-muted block text-[11px] mb-0.5">{t.actualTotal}</span>
+              <span className="text-ink-muted block text-[13px] mb-0.5 font-medium">{t.actualTotal}</span>
               <span className="font-semibold text-ink-primary">
                 {formatMyr(BigInt(closeRecord?.actualSen ?? 0))}
               </span>
             </div>
             <div>
-              <span className="text-ink-muted block text-[11px] mb-0.5">{t.reconciliationDiff}</span>
+              <span className="text-ink-muted block text-[13px] mb-0.5 font-medium">{t.reconciliationDiff}</span>
               <span
                 className={`font-semibold ${
                   closeRecord?.balanced ? "text-brand-broccoli" : "text-finance-loss"
@@ -330,7 +330,7 @@ export function MonthCloseView({
           )}
 
           {closeRecord?.closedAt && (
-            <div className="text-[11px] text-ink-muted">
+            <div className="text-[13px] text-ink-muted">
               {t.closedAtLabel}: {closeRecord.closedAt}
             </div>
           )}
@@ -342,13 +342,13 @@ export function MonthCloseView({
                 <button
                   type="button"
                   onClick={() => setShowReopenBox(true)}
-                  className="min-h-[44px] px-3.5 rounded-lg border border-surface-border hover:bg-surface-subtle text-xs font-semibold text-ink-secondary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+                  className="min-h-[44px] px-3.5 rounded-lg border border-surface-border hover:bg-surface-subtle text-sm font-semibold text-ink-secondary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
                 >
                   {t.reopenTitle}
                 </button>
               ) : (
                 <form onSubmit={handlePerformReopen} className="space-y-2.5 bg-surface-subtle p-3 rounded-lg border border-surface-border">
-                  <label className="block text-xs font-semibold text-ink-primary">
+                  <label className="block text-sm font-semibold text-ink-primary">
                     {t.reopenReason} <span className="text-finance-loss">*</span>
                   </label>
                   <input
@@ -356,13 +356,13 @@ export function MonthCloseView({
                     value={reopenReasonInput}
                     onChange={(e) => setReopenReasonInput(e.target.value)}
                     placeholder={t.reopenPlaceholder}
-                    className="w-full h-11 px-2.5 rounded-lg bg-white border border-surface-border text-xs text-ink-primary focus:outline-none focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
+                    className="w-full h-11 px-2.5 rounded-lg bg-white border border-surface-border text-sm text-ink-primary focus:outline-none focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
                   />
                   <div className="flex items-center gap-2">
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="min-h-[44px] px-4 rounded-lg bg-status-closed text-white font-semibold text-xs transition-colors hover:bg-status-closed/90 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-status-closed/60"
+                      className="min-h-[44px] px-4 rounded-lg bg-status-closed text-white font-semibold text-sm transition-colors hover:bg-status-closed/90 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-status-closed/60"
                     >
                       {submitting ? t.reopening : t.btnPerformReopen}
                     </button>
@@ -396,7 +396,7 @@ export function MonthCloseView({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {/* Physical Cash Counted */}
             <div>
-              <label className="block text-xs font-semibold text-ink-primary mb-1">
+              <label className="block text-sm font-semibold text-ink-primary mb-1">
                 {t.cashOnHand}
               </label>
               <div className="relative flex items-center">
@@ -415,14 +415,14 @@ export function MonthCloseView({
                     }
                   }}
                   placeholder="0.00"
-                  className="w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-cash focus-visible:ring-2 focus-visible:ring-channel-cash/50 transition-colors"
+                  className="w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-lg font-bold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-cash focus-visible:ring-2 focus-visible:ring-channel-cash/50 transition-colors"
                 />
               </div>
             </div>
 
             {/* TnG Balance */}
             <div>
-              <label className="block text-xs font-semibold text-ink-primary mb-1">
+              <label className="block text-sm font-semibold text-ink-primary mb-1">
                 {t.tngOnHand}
               </label>
               <div className="relative flex items-center">
@@ -441,7 +441,7 @@ export function MonthCloseView({
                     }
                   }}
                   placeholder="0.00"
-                  className="w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-tng focus-visible:ring-2 focus-visible:ring-channel-tng/50 transition-colors"
+                  className="w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-lg font-bold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-tng focus-visible:ring-2 focus-visible:ring-channel-tng/50 transition-colors"
                 />
               </div>
             </div>
@@ -469,7 +469,7 @@ export function MonthCloseView({
                 </span>
                 {hasInputs && (
                   <span
-                    className={`text-[11px] px-1.5 py-0.2 rounded font-semibold ${
+                    className={`text-[13px] px-2 py-0.5 rounded font-semibold ${
                       isBalanced
                         ? "bg-finance-profit-light text-brand-broccoli"
                         : "bg-finance-loss-light text-finance-loss"
@@ -484,7 +484,7 @@ export function MonthCloseView({
 
           {/* Note input */}
           <div>
-            <label className="block text-xs font-semibold text-ink-primary mb-1">
+            <label className="block text-sm font-semibold text-ink-primary mb-1">
               {t.closeNote} {!isBalanced && hasInputs && <span className="text-finance-loss">({t.noteRequiredBadge})</span>}
             </label>
             <input
@@ -495,7 +495,7 @@ export function MonthCloseView({
                 if (errorMessage) setErrorMessage(null);
               }}
               placeholder={!isBalanced && hasInputs ? t.closeNotePlaceholder : t.closeNoteOptional}
-              className="w-full h-11 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-xs text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
+              className="w-full h-11 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
             />
           </div>
 
@@ -516,7 +516,7 @@ export function MonthCloseView({
           <button
             type="submit"
             disabled={submitting}
-            className="w-full h-12 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-xs tracking-wide shadow-xs flex items-center justify-center transition-all disabled:opacity-50 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+            className="w-full h-12 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-sm tracking-wide shadow-xs flex items-center justify-center transition-all disabled:opacity-50 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
           >
             {submitting ? t.closingMonth : t.btnPerformClose}
           </button>

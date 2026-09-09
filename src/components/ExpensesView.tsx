@@ -215,29 +215,29 @@ export function ExpensesView({
       {/* Month Financial Impact Strip */}
       <div className="grid grid-cols-3 gap-2">
         <div className="bg-white border border-surface-border rounded-xl p-2.5 text-center shadow-xs">
-          <div className="text-[11px] font-medium text-ink-muted mb-0.5">
+          <div className="text-[13px] font-medium text-ink-muted mb-0.5">
             {t.grossProfit}
           </div>
-          <div className="text-xs font-bold text-ink-primary">
+          <div className="text-sm font-bold text-ink-primary">
             {formatMyr(BigInt(summary.grossSen))}
           </div>
         </div>
 
         <div className="bg-white border border-surface-border rounded-xl p-2.5 text-center shadow-xs">
-          <div className="text-[11px] font-medium text-ink-muted mb-0.5">
+          <div className="text-[13px] font-medium text-ink-muted mb-0.5">
             {t.operatingExpenses}
           </div>
-          <div className="text-xs font-bold text-finance-loss">
+          <div className="text-sm font-bold text-finance-loss">
             {formatMyr(totalExpenseSen)}
           </div>
         </div>
 
         <div className="bg-white border border-surface-border rounded-xl p-2.5 text-center shadow-xs">
-          <div className="text-[11px] font-medium text-ink-muted mb-0.5">
+          <div className="text-[13px] font-medium text-ink-muted mb-0.5">
             {t.netProfit}
           </div>
           <div
-            className={`text-xs font-bold ${
+            className={`text-sm font-bold ${
               BigInt(summary.grossSen) - totalExpenseSen >= 0n
                 ? "text-brand-broccoli"
                 : "text-finance-loss"
@@ -252,7 +252,7 @@ export function ExpensesView({
       {!isClosed && (
         <section aria-label="Add Operating Expense" className="bg-white border border-surface-border rounded-xl p-3 shadow-xs space-y-2.5">
           <div>
-            <span className="block text-[11px] font-medium text-ink-muted mb-1.5">
+            <span className="block text-sm font-medium text-ink-muted mb-1.5">
               {t.selectCategory}
             </span>
             <div className="flex flex-wrap gap-1.5">
@@ -266,7 +266,7 @@ export function ExpensesView({
                       setNewType(cat.key);
                       if (inlineError) setInlineError(null);
                     }}
-                    className={`min-h-[44px] px-3.5 py-2.5 rounded-lg text-xs font-semibold border transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
+                    className={`min-h-[44px] px-3.5 py-2.5 rounded-lg text-sm font-semibold border transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                       isSelected
                         ? "bg-ink-primary text-white border-ink-primary shadow-xs"
                         : "bg-surface-subtle text-ink-secondary border-surface-border hover:border-surface-border-strong hover:bg-surface-subtle/80"
@@ -281,11 +281,11 @@ export function ExpensesView({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
-              <label className="block text-[11px] font-medium text-ink-muted mb-1">
+              <label className="block text-sm font-medium text-ink-muted mb-1">
                 {t.amount}
               </label>
               <div className="relative flex items-center">
-                <span className="absolute left-2.5 text-xs font-semibold text-ink-muted select-none">
+                <span className="absolute left-2.5 text-sm font-semibold text-ink-muted select-none">
                   RM
                 </span>
                 <input
@@ -300,13 +300,13 @@ export function ExpensesView({
                     }
                   }}
                   placeholder="0.00"
-                  className="w-full h-11 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm font-medium text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
+                  className="w-full h-11 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[11px] font-medium text-ink-muted mb-1">
+              <label className="block text-sm font-medium text-ink-muted mb-1">
                 {t.note} {newType === "other" && <span className="text-finance-loss">({t.noteRequiredBadge})</span>}
               </label>
               <input
@@ -317,7 +317,7 @@ export function ExpensesView({
                   if (inlineError) setInlineError(null);
                 }}
                 placeholder={newType === "other" ? t.noteRequired : t.noteOptional}
-                className="w-full h-11 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-xs text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
+                className="w-full h-11 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
               />
             </div>
           </div>
@@ -327,7 +327,7 @@ export function ExpensesView({
             type="button"
             disabled={adding}
             onClick={handleAddExpense}
-            className="w-full h-11 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-xs flex items-center justify-center transition-all shadow-xs active:scale-[0.99] disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+            className="w-full h-11 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-sm flex items-center justify-center transition-all shadow-xs active:scale-[0.99] disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
           >
             {adding ? t.saving : t.addExpense}
           </button>
@@ -351,17 +351,17 @@ export function ExpensesView({
       {/* Operating Expenses List */}
       <section aria-label="Operating Expenses List" className="space-y-2">
         <div className="flex items-center justify-between px-0.5">
-          <h2 className="text-xs font-bold text-ink-secondary uppercase tracking-wider">
+          <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
             {t.expenseTotal}
           </h2>
-          <span className="text-xs font-bold text-finance-loss">
+          <span className="text-sm font-bold text-finance-loss">
             {formatMyr(totalExpenseSen)}
           </span>
         </div>
 
         <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs">
           {expenses.length === 0 ? (
-            <div className="text-center py-6 text-xs text-ink-muted">
+            <div className="text-center py-6 text-sm text-ink-muted">
               {t.noExpensesRecorded}
             </div>
           ) : (
@@ -372,18 +372,18 @@ export function ExpensesView({
                   className="py-2.5 flex items-center justify-between gap-2"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-[11px] font-medium px-2 py-0.5 rounded bg-surface-subtle border border-surface-border text-ink-secondary whitespace-nowrap">
+                    <span className="text-[13px] font-semibold px-2 py-0.5 rounded bg-surface-subtle border border-surface-border text-ink-secondary whitespace-nowrap">
                       {getCategoryLabel(item.type)}
                     </span>
                     {item.note && (
-                      <span className="text-xs text-ink-muted truncate">
+                      <span className="text-sm text-ink-muted truncate">
                         {item.note}
                       </span>
                     )}
                   </div>
 
                   <div className="flex items-center gap-2.5">
-                    <span className="text-xs font-bold text-finance-loss whitespace-nowrap">
+                    <span className="text-base font-bold text-finance-loss whitespace-nowrap">
                       {formatMyr(BigInt(item.amountSen))}
                     </span>
                     {!isClosed && (

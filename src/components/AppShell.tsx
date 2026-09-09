@@ -122,7 +122,7 @@ export function AppShell({ children }: AppShellProps) {
 
           {/* Right Controls: Clean Language Toggle Only */}
           <div className="flex items-center">
-            <div className="flex items-center bg-surface-subtle border border-surface-border rounded-lg p-0.5 text-[11px]">
+            <div className="flex items-center bg-surface-subtle border border-surface-border rounded-lg p-0.5 text-xs">
               <button
                 type="button"
                 onClick={() => setLang("zh")}
@@ -175,7 +175,7 @@ export function AppShell({ children }: AppShellProps) {
                   }`}
                 >
                   <div className="relative">{item.icon}</div>
-                  <span className="text-[11px] tracking-tight mt-0.5">
+                  <span className="text-xs tracking-tight mt-0.5">
                     {item.label}
                   </span>
                 </Link>
