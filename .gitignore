@@ -18,3 +18,5 @@ next-env.d.ts
 skills-lock.json
 .gemini/
 .impeccable/
+# Agent scratch space (debug scripts, tickets workspace)
+.scratch/
