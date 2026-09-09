@@ -170,6 +170,22 @@ describe("auth guard", () => {
     const authMwRes = (await middleware(authReq, {} as any)) as Response;
     expect(authMwRes.status).toBe(200);
   });
+
+  it("middleware redirects anonymous page access to /login and allows anonymous /login", async () => {
+    const homeReq = new NextRequest("http://localhost:3000/");
+    const homeRes = (await middleware(homeReq, {} as any)) as Response;
+    expect(homeRes.status).toBe(307);
+    expect(homeRes.headers.get("location")).toBe("http://localhost:3000/login");
+
+    const dashReq = new NextRequest("http://localhost:3000/dashboard");
+    const dashRes = (await middleware(dashReq, {} as any)) as Response;
+    expect(dashRes.status).toBe(307);
+    expect(dashRes.headers.get("location")).toBe("http://localhost:3000/login");
+
+    const loginReq = new NextRequest("http://localhost:3000/login");
+    const loginRes = (await middleware(loginReq, {} as any)) as Response;
+    expect(loginRes.status).toBe(200);
+  });
 });
 
 describe("end-to-end credentials login and API access", () => {
@@ -240,6 +256,28 @@ describe("end-to-end credentials login and API access", () => {
     });
     const mwRes = (await middleware(mwAuthReq, {} as any)) as Response;
     expect(mwRes.status).toBe(200);
+
+    // 6. Verify middleware allows authenticated page access and redirects from /login
+    const mwHomeReq = new NextRequest("http://localhost:3000/", {
+      headers: {
+        Cookie: sessionTokenCookie!,
+        "x-forwarded-proto": "http",
+        Host: "localhost:3000",
+      },
+    });
+    const mwHomeRes = (await middleware(mwHomeReq, {} as any)) as Response;
+    expect(mwHomeRes.status).toBe(200);
+
+    const mwLoginReq = new NextRequest("http://localhost:3000/login", {
+      headers: {
+        Cookie: sessionTokenCookie!,
+        "x-forwarded-proto": "http",
+        Host: "localhost:3000",
+      },
+    });
+    const mwLoginRes = (await middleware(mwLoginReq, {} as any)) as Response;
+    expect(mwLoginRes.status).toBe(307);
+    expect(mwLoginRes.headers.get("location")).toBe("http://localhost:3000/");
   });
 
   it("rejects login with incorrect password", async () => {

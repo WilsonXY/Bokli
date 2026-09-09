@@ -135,6 +135,7 @@ export const DICTIONARY = {
     loginError: "账号或密码不正确",
     loginNetworkError: "登录失败，请重试",
     sessionHint: "内部专用 · 约30天长效免登录",
+    signOut: "退出",
   },
   en: {
     brandSubtitle: "Food Stall Ops",
@@ -266,6 +267,7 @@ export const DICTIONARY = {
     loginError: "Invalid username or password",
     loginNetworkError: "Sign-in failed, please retry",
     sessionHint: "Internal stall use · ~30-day persistent session",
+    signOut: "Sign Out",
   },
 };
 
