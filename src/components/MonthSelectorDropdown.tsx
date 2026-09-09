@@ -151,23 +151,7 @@ export function MonthSelectorDropdown({
                     : "text-ink-primary hover:bg-surface-subtle font-medium"
                 }`}
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  {isSelected ? (
-                    <svg
-                      aria-hidden="true"
-                      className="w-4 h-4 text-brand-broccoli shrink-0"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  ) : (
-                    <span className="w-4 shrink-0" />
-                  )}
-                  <span className="truncate">{opt.month}</span>
-                </div>
+                <span className="truncate">{opt.month}</span>
                 <span
                   className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${getStatusBadgeStyle(
                     status,
