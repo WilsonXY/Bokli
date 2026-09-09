@@ -104,16 +104,16 @@ export function AppShell({ children }: AppShellProps) {
       <div className="w-full max-w-xl min-h-screen bg-surface-canvas flex flex-col relative sm:border-x sm:border-surface-border">
         {/* Top Header - Ultra-Clean: Brand on Left, Language Toggle on Right */}
         <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-surface-border px-3.5 py-2.5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xl leading-none select-none" role="img" aria-label="broccoli">
+          <div className="flex items-center gap-2.5 min-h-[38px]">
+            <span className="text-2xl leading-none select-none flex items-center" role="img" aria-label="broccoli">
               🥦
             </span>
             <div className="flex items-center gap-1.5 leading-none">
-              <span className="font-bold text-sm text-ink-primary tracking-tight">
+              <span className="font-extrabold text-lg text-ink-primary tracking-tight">
                 Bokli
               </span>
               {lang === "zh" && (
-                <span className="text-xs font-semibold text-brand-broccoli">
+                <span className="text-sm font-bold text-brand-broccoli tracking-wide">
                   簿里
                 </span>
               )}
