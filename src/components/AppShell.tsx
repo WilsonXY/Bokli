@@ -15,6 +15,8 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const { t, lang, setLang } = useI18n();
+  const [showConfirmSignOut, setShowConfirmSignOut] = React.useState(false);
+  const [isSigningOut, setIsSigningOut] = React.useState(false);
 
   // Tactile wave / ripple effect on all .btn-wave interactive elements
   React.useEffect(() => {
@@ -45,6 +47,18 @@ export function AppShell({ children }: AppShellProps) {
       window.removeEventListener("pointerdown", handlePointerDown);
     };
   }, []);
+
+  // Close sign out modal on Escape key
+  React.useEffect(() => {
+    if (!showConfirmSignOut) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && !isSigningOut) {
+        setShowConfirmSignOut(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showConfirmSignOut, isSigningOut]);
 
   // Don't render chrome on standalone login page
   if (pathname === "/login") {
@@ -133,7 +147,7 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="min-h-screen bg-surface-canvas text-ink-primary flex flex-col items-center">
       <div className="w-full max-w-xl min-h-screen bg-surface-canvas flex flex-col relative sm:border-x sm:border-surface-border">
-        {/* Top Header - Ultra-Clean: Brand on Left, Language Toggle on Right */}
+        {/* Top Header - Ultra-Clean: Brand on Left, Language Toggle & Sign Out on Right */}
         <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-surface-border px-3.5 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2.5 min-h-[38px] select-none">
             <span className="text-2xl leading-none select-none flex items-center" role="img" aria-label="broccoli">
@@ -151,7 +165,7 @@ export function AppShell({ children }: AppShellProps) {
             </div>
           </div>
 
-          {/* Right Controls: Accessible Language Toggle & Sign Out */}
+          {/* Right Controls: Accessible Language Toggle & Sign Out Button */}
           <div className="flex items-center gap-2">
             <div className="flex items-center bg-surface-subtle border border-surface-border rounded-lg p-1 text-sm font-semibold">
               <button
@@ -182,7 +196,7 @@ export function AppShell({ children }: AppShellProps) {
 
             <button
               type="button"
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={() => setShowConfirmSignOut(true)}
               title={t.signOut}
               aria-label={t.signOut}
               className="min-h-[44px] min-w-[44px] px-2 rounded-lg border border-surface-border hover:bg-surface-subtle btn-wave text-ink-muted hover:text-ink-primary flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
@@ -231,6 +245,67 @@ export function AppShell({ children }: AppShellProps) {
           </div>
         </nav>
       </div>
+
+      {/* Sign Out Confirmation Popout Modal */}
+      {showConfirmSignOut && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-signout-title"
+          aria-describedby="confirm-signout-desc"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-slide-down"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isSigningOut) {
+              setShowConfirmSignOut(false);
+            }
+          }}
+        >
+          <div className="w-full max-w-xs sm:max-w-sm bg-white rounded-2xl p-5 sm:p-6 shadow-xl border border-surface-border space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-finance-loss-light border border-finance-loss-border/60 text-finance-loss flex items-center justify-center shrink-0 select-none">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l3 3m0 0l-3 3m3-3H2.25" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <h3 id="confirm-signout-title" className="text-base font-bold text-ink-primary">
+                  {t.confirmSignOutTitle}
+                </h3>
+                <p id="confirm-signout-desc" className="text-xs text-ink-muted mt-0.5 leading-relaxed">
+                  {t.confirmSignOutDesc}
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center gap-2.5 pt-1">
+              <button
+                type="button"
+                disabled={isSigningOut}
+                onClick={() => setShowConfirmSignOut(false)}
+                className="flex-1 min-h-[44px] h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary font-semibold text-sm transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 disabled:opacity-50"
+              >
+                {t.cancel}
+              </button>
+              <button
+                type="button"
+                disabled={isSigningOut}
+                onClick={async () => {
+                  setIsSigningOut(true);
+                  await signOut({ callbackUrl: "/login" });
+                }}
+                className="flex-1 min-h-[44px] h-11 rounded-xl bg-finance-loss hover:bg-finance-loss/90 active:bg-finance-loss-dark btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 disabled:opacity-50"
+              >
+                {isSigningOut ? (
+                  <span>{t.signingOut}</span>
+                ) : (
+                  <span>{t.confirmSignOutBtn}</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

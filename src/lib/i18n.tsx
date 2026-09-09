@@ -136,6 +136,10 @@ export const DICTIONARY = {
     loginError: "账号或密码不正确",
     loginNetworkError: "登录失败，请重试",
     signOut: "退出",
+    confirmSignOutTitle: "确认退出登录？",
+    confirmSignOutDesc: "退出后需要重新输入账号与密码才能进入系统。",
+    confirmSignOutBtn: "确认退出",
+    signingOut: "退出中...",
   },
   en: {
     brandSubtitle: "Food Stall Ops",
@@ -268,6 +272,10 @@ export const DICTIONARY = {
     loginError: "Invalid username or password",
     loginNetworkError: "Sign-in failed, please retry",
     signOut: "Sign Out",
+    confirmSignOutTitle: "Sign out of Bokli?",
+    confirmSignOutDesc: "You will need to sign in again to view or edit stall records.",
+    confirmSignOutBtn: "Sign Out",
+    signingOut: "Signing out...",
   },
 };
 
