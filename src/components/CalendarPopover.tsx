@@ -122,7 +122,7 @@ export function CalendarPopover({
   return (
     <div
       ref={popoverRef}
-      className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-50 bg-white border border-surface-border rounded-xl shadow-lg p-3 w-72 max-w-[calc(100vw-2rem)] select-none"
+      className="absolute top-full mt-2 left-1/2 z-50 bg-white border border-surface-border rounded-2xl shadow-xl p-3.5 w-72 max-w-[calc(100vw-2rem)] select-none animate-popover"
       role="dialog"
       aria-modal="true"
       aria-label="Date Picker"
@@ -133,9 +133,11 @@ export function CalendarPopover({
           type="button"
           onClick={prevMonth}
           aria-label="Previous Month"
-          className="w-9 h-9 rounded-lg border border-surface-border hover:bg-surface-subtle text-ink-secondary flex items-center justify-center text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+          className="w-9 h-9 rounded-lg border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary flex items-center justify-center text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
         >
-          ←
+          <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
         </button>
 
         <span className="text-sm font-bold text-ink-primary">
@@ -147,9 +149,11 @@ export function CalendarPopover({
           disabled={!canGoNextMonth}
           onClick={nextMonth}
           aria-label="Next Month"
-          className="w-9 h-9 rounded-lg border border-surface-border hover:bg-surface-subtle text-ink-secondary flex items-center justify-center text-sm font-semibold transition-colors disabled:opacity-20 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+          className="w-9 h-9 rounded-lg border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary flex items-center justify-center text-sm font-semibold transition-colors disabled:opacity-20 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
         >
-          →
+          <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+          </svg>
         </button>
       </div>
 
@@ -193,7 +197,7 @@ export function CalendarPopover({
                 onClose();
               }}
               aria-label={cellDate}
-              className={`h-8 w-8 mx-auto rounded-lg text-sm font-medium flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
+              className={`h-8 w-8 mx-auto rounded-lg btn-wave text-sm font-medium flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                 isSelected
                   ? "bg-brand-broccoli text-white font-bold shadow-xs scale-105"
                   : isFuture
