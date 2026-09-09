@@ -181,40 +181,31 @@ export function MonthCloseView({
 
   return (
     <div className="space-y-4">
-      {/* Month Selector & Status Banner */}
-      <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs flex flex-col gap-2.5">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-base font-bold text-ink-primary whitespace-nowrap">
-              {t.closeTitle}
-            </span>
-          </div>
+      {/* Month Selector Strip */}
+      <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs flex items-center justify-between">
+        <span className="text-base font-bold text-ink-primary whitespace-nowrap">
+          {t.closeTitle}
+        </span>
 
-          {/* Month Dropdown */}
-          <MonthSelectorDropdown
-            currentMonth={currentMonth}
-            options={
-              monthOptions ||
-              availableMonths.map((m) => ({
-                month: m,
-                status:
-                  m === currentMonth
-                    ? isClosed
-                      ? "closed"
-                      : isReopened
-                      ? "reopened"
-                      : "open"
-                    : "open",
-              }))
-            }
-            onSelect={(month) => router.push(`/close?month=${month}`)}
-          />
-        </div>
-
-        {/* Status description */}
-        <p className="text-sm text-ink-muted leading-relaxed">
-          {isClosed ? t.monthLocked : t.closeWarning}
-        </p>
+        {/* Month Dropdown */}
+        <MonthSelectorDropdown
+          currentMonth={currentMonth}
+          options={
+            monthOptions ||
+            availableMonths.map((m) => ({
+              month: m,
+              status:
+                m === currentMonth
+                  ? isClosed
+                    ? "closed"
+                    : isReopened
+                    ? "reopened"
+                    : "open"
+                  : "open",
+            }))
+          }
+          onSelect={(month) => router.push(`/close?month=${month}`)}
+        />
       </div>
 
       {/* Success Notification */}
