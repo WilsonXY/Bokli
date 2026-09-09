@@ -325,7 +325,7 @@ export function DashboardView({
                 href={`/?date=${row.date}`}
                 className="py-2.5 flex items-center justify-between text-sm hover:bg-surface-subtle -mx-2 px-2 rounded transition-colors"
               >
-                <span className="font-mono font-semibold text-ink-primary text-sm">
+                <span className="font-semibold text-ink-primary text-sm">
                   {row.date}
                 </span>
 
