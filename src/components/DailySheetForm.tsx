@@ -637,16 +637,16 @@ export function DailySheetForm({
             <div className="p-3 rounded-xl bg-surface-subtle border border-surface-border space-y-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-ink-secondary">{t.totalRevenue}</span>
-                <span className="font-bold text-ink-primary font-mono">{formatMyr(totalRevenueSen)}</span>
+                <span className="font-bold text-ink-primary text-base">{formatMyr(totalRevenueSen)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-ink-secondary">{t.totalCosts}</span>
-                <span className="font-bold text-finance-loss font-mono">{formatMyr(totalCostSen)}</span>
+                <span className="font-bold text-finance-loss text-base">{formatMyr(totalCostSen)}</span>
               </div>
               <div className="pt-2 border-t border-surface-border flex items-center justify-between">
                 <span className="font-semibold text-ink-primary">{t.grossProfit}</span>
                 <span
-                  className={`font-bold font-mono text-base ${
+                  className={`font-bold text-lg ${
                     grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
                   }`}
                 >
