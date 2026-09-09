@@ -15,6 +15,36 @@ export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const { t, lang, setLang } = useI18n();
 
+  // Tactile wave / ripple effect on all .btn-wave interactive elements
+  React.useEffect(() => {
+    function handlePointerDown(e: PointerEvent) {
+      const target = (e.target as HTMLElement)?.closest(".btn-wave") as HTMLElement | null;
+      if (!target) return;
+
+      const rect = target.getBoundingClientRect();
+      const size = Math.max(rect.width, rect.height) * 2.2;
+      const x = e.clientX - rect.left - size / 2;
+      const y = e.clientY - rect.top - size / 2;
+
+      const ripple = document.createElement("span");
+      ripple.className = "ripple-wave";
+      ripple.style.width = `${size}px`;
+      ripple.style.height = `${size}px`;
+      ripple.style.left = `${x}px`;
+      ripple.style.top = `${y}px`;
+
+      target.appendChild(ripple);
+      setTimeout(() => {
+        ripple.remove();
+      }, 600);
+    }
+
+    window.addEventListener("pointerdown", handlePointerDown, { passive: true });
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+    };
+  }, []);
+
   // Don't render chrome on standalone login page
   if (pathname === "/login") {
     return <div className="min-h-screen bg-surface-canvas">{children}</div>;
