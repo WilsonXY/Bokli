@@ -32,7 +32,19 @@ export const authConfig: NextAuthConfig = {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        secure: process.env.NODE_ENV === "production",
+        // Must match the cookie NAME's __Secure- prefix, which @auth/core picks
+        // from the site URL's protocol (AUTH_URL if set, else request URL).
+        // Mismatches break login two ways:
+        // - https site + secure:false -> Chromium silently drops a __Secure-*
+        //   cookie without the Secure attr -> session never persists -> infinite
+        //   redirect to /login (dev via Tailscale https hit this).
+        // - http site + secure:true -> browser stores the cookie but never SENDS
+        //   it over http -> same symptom on prod-over-LAN-http.
+        // So derive it from AUTH_URL exactly like @auth/core does.
+        secure:
+          (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "").startsWith(
+            "https://",
+          ),
         maxAge: SESSION_MAX_AGE,
       },
     },
