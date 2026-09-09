@@ -159,7 +159,13 @@ export function ExpensesView({
         throw new Error(translateApiError(data.error, t));
       }
 
-      setExpenses((prev) => [...prev, data.expense]);
+      setExpenses((prev) => {
+        const exists = prev.some((item) => item.id === data.expense.id);
+        if (exists) {
+          return prev.map((item) => (item.id === data.expense.id ? data.expense : item));
+        }
+        return [...prev, data.expense];
+      });
       setAmountInput("");
       setNoteInput("");
       setSuccessBanner(t.addExpenseSuccess);

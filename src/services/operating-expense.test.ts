@@ -613,3 +613,56 @@ describe("7. API routes & Auth guard protection (/api/expenses and /api/preview)
     expect(delData.removedExpense.id).toBe(expenseId);
   });
 });
+
+describe("8. Duplicate merging behavior", () => {
+  it("merges duplicate expenses with same month, type, and note into a single row and updates amount", async () => {
+    const month = "2026-01";
+    const first = await addOperatingExpense(month, "rental", 7000, "s", { db });
+    const second = await addOperatingExpense(month, "rental", 2000, "s", { db });
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amountSen).toBe(9000);
+    expect(rows[0].id).toBe(first.id);
+    expect(second.id).toBe(first.id);
+    expect(second.amountSen).toBe(9000);
+  });
+
+  it("keeps expenses with same month and type but different notes separate", async () => {
+    const month = "2026-02";
+    const first = await addOperatingExpense(month, "rental", 7000, "stall A", { db });
+    const second = await addOperatingExpense(month, "rental", 2000, "stall B", { db });
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(2);
+    expect(first.id).not.toBe(second.id);
+    expect(rows.find((r) => r.note === "stall A")?.amountSen).toBe(7000);
+    expect(rows.find((r) => r.note === "stall B")?.amountSen).toBe(2000);
+  });
+
+  it("keeps expenses with same note but different type separate", async () => {
+    const month = "2026-03";
+    const first = await addOperatingExpense(month, "rental", 7000, "deposit", { db });
+    const second = await addOperatingExpense(month, "utilities", 2000, "deposit", { db });
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(2);
+    expect(first.id).not.toBe(second.id);
+    expect(rows.find((r) => r.type === "rental")?.amountSen).toBe(7000);
+    expect(rows.find((r) => r.type === "utilities")?.amountSen).toBe(2000);
+  });
+
+  it("merges duplicate expenses when note is null or whitespace", async () => {
+    const month = "2026-04";
+    const first = await addOperatingExpense(month, "rental", 5000, null, { db });
+    const second = await addOperatingExpense(month, "rental", 3000, "   ", { db });
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe(first.id);
+    expect(rows[0].amountSen).toBe(8000);
+    expect(rows[0].note).toBeNull();
+    expect(second.id).toBe(first.id);
+    expect(second.amountSen).toBe(8000);
+  });
+});

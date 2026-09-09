@@ -1,4 +1,4 @@
-import { eq, like } from "drizzle-orm";
+import { and, eq, isNull, like, sql } from "drizzle-orm";
 import { openDb, type Db } from "@/db";
 import {
   costLines,
@@ -68,6 +68,7 @@ export interface MonthPreview {
  * - Note required when type is 'other'
  * - Amount must be a non-negative sen integer
  * - Rejects writes to CLOSED months (ClosedMonthError)
+ * - If expense with same month, type, and note exists, merges amount into existing row
  */
 export async function addOperatingExpense(
   month: string,
@@ -103,6 +104,36 @@ export async function addOperatingExpense(
     amountSen,
     "Operating Expense amount (amountSen)",
   );
+
+  const noteCondition =
+    trimmedNote !== null
+      ? eq(operatingExpenses.note, trimmedNote)
+      : isNull(operatingExpenses.note);
+
+  const existing = db
+    .select()
+    .from(operatingExpenses)
+    .where(
+      and(
+        eq(operatingExpenses.month, month),
+        eq(operatingExpenses.type, type),
+        noteCondition,
+      ),
+    )
+    .get();
+
+  if (existing) {
+    const updated = db
+      .update(operatingExpenses)
+      .set({
+        amountSen: sql`${operatingExpenses.amountSen} + ${Number(validAmount)}`,
+      })
+      .where(eq(operatingExpenses.id, existing.id))
+      .returning()
+      .get();
+
+    return updated;
+  }
 
   const inserted = db
     .insert(operatingExpenses)
@@ -179,29 +210,25 @@ export async function updateOperatingExpense(
     assertMonthNotClosed(updates.month, db);
   }
 
-  const finalType =
-    updates.type !== undefined
-      ? updates.type
-      : (existing.type as OperatingExpenseType);
-
+  const finalType = updates.type ?? (existing.type as OperatingExpenseType);
   if (!isValidOperatingExpenseType(finalType)) {
     throw new ValidationError(
       `Invalid Operating Expense type: "${String(finalType)}". Must be one of: ${OPERATING_EXPENSE_TYPES.join(", ")}`,
     );
   }
 
+  const finalNote =
+    updates.note !== undefined
+      ? updates.note?.trim() || null
+      : existing.note;
+
   let finalAmountSen = existing.amountSen;
   if (updates.amountSen !== undefined) {
-    finalAmountSen = Number(
-      assertValidSen(updates.amountSen, "Operating Expense amount (amountSen)"),
+    const valid = assertValidSen(
+      updates.amountSen,
+      "Operating Expense amount (amountSen)",
     );
-  }
-
-  let finalNote: string | null;
-  if (updates.note !== undefined) {
-    finalNote = updates.note?.trim() || null;
-  } else {
-    finalNote = existing.note;
+    finalAmountSen = Number(valid);
   }
 
   if (finalType === "other" && !finalNote) {
