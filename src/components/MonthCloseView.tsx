@@ -342,7 +342,7 @@ export function MonthCloseView({
                 <button
                   type="button"
                   onClick={() => setShowReopenBox(true)}
-                  className="min-h-[44px] px-3.5 rounded-lg border border-surface-border hover:bg-surface-subtle text-sm font-semibold text-ink-secondary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+                  className="min-h-[44px] px-3.5 rounded-lg border border-surface-border hover:bg-surface-subtle btn-wave text-sm font-semibold text-ink-secondary transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
                 >
                   {t.reopenTitle}
                 </button>
@@ -362,7 +362,7 @@ export function MonthCloseView({
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="min-h-[44px] px-4 rounded-lg bg-status-closed text-white font-semibold text-sm transition-colors hover:bg-status-closed/90 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-status-closed/60"
+                      className="min-h-[44px] px-4 rounded-lg bg-status-closed text-white btn-wave font-semibold text-sm transition-colors hover:bg-status-closed/90 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-status-closed/60"
                     >
                       {submitting ? t.reopening : t.btnPerformReopen}
                     </button>
@@ -516,7 +516,7 @@ export function MonthCloseView({
           <button
             type="submit"
             disabled={submitting}
-            className="w-full h-12 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-sm tracking-wide shadow-xs flex items-center justify-center transition-all disabled:opacity-50 active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+            className="w-full h-12 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center justify-center transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
           >
             {submitting ? t.closingMonth : t.btnPerformClose}
           </button>

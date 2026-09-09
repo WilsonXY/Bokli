@@ -327,7 +327,7 @@ export function ExpensesView({
             type="button"
             disabled={adding}
             onClick={handleAddExpense}
-            className="w-full h-11 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-sm flex items-center justify-center transition-all shadow-xs active:scale-[0.99] disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+            className="w-full h-11 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm flex items-center justify-center transition-colors shadow-xs disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
           >
             {adding ? t.saving : t.addExpense}
           </button>

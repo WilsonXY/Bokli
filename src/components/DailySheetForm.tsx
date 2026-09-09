@@ -466,7 +466,7 @@ export function DailySheetForm({
             <button
               type="button"
               onClick={handleAddCostLine}
-              className="w-full h-11 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark text-white font-semibold text-sm flex items-center justify-center transition-all shadow-xs active:scale-[0.99] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+              className="w-full h-11 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm flex items-center justify-center transition-colors shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
             >
               {t.addCostLine}
             </button>
