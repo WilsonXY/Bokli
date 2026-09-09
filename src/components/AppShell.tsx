@@ -120,16 +120,17 @@ export function AppShell({ children }: AppShellProps) {
             </div>
           </div>
 
-          {/* Right Controls: Clean Language Toggle Only */}
+          {/* Right Controls: Accessible Language Toggle */}
           <div className="flex items-center">
-            <div className="flex items-center bg-surface-subtle border border-surface-border rounded-lg p-0.5 text-xs">
+            <div className="flex items-center bg-surface-subtle border border-surface-border rounded-lg p-1 text-sm font-semibold">
               <button
                 type="button"
                 onClick={() => setLang("zh")}
-                className={`px-2 py-0.5 rounded-md font-medium transition-all ${
+                aria-label="切换到中文 (Switch to Chinese)"
+                className={`min-h-[36px] min-w-[44px] px-3 py-1 rounded-md transition-all flex items-center justify-center ${
                   lang === "zh"
-                    ? "bg-white text-brand-broccoli shadow-xs font-semibold"
-                    : "text-ink-muted hover:text-ink-primary"
+                    ? "bg-white text-brand-broccoli shadow-xs font-bold"
+                    : "text-ink-muted hover:text-ink-primary font-medium"
                 }`}
               >
                 中文
@@ -137,10 +138,11 @@ export function AppShell({ children }: AppShellProps) {
               <button
                 type="button"
                 onClick={() => setLang("en")}
-                className={`px-2 py-0.5 rounded-md font-medium transition-all ${
+                aria-label="Switch to English"
+                className={`min-h-[36px] min-w-[44px] px-3 py-1 rounded-md transition-all flex items-center justify-center ${
                   lang === "en"
-                    ? "bg-white text-brand-broccoli shadow-xs font-semibold"
-                    : "text-ink-muted hover:text-ink-primary"
+                    ? "bg-white text-brand-broccoli shadow-xs font-bold"
+                    : "text-ink-muted hover:text-ink-primary font-medium"
                 }`}
               >
                 EN

@@ -180,28 +180,28 @@ export function MonthCloseView({
     <div className="space-y-4">
       {/* Month Selector & Status Banner */}
       <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs flex flex-col gap-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-base font-bold text-ink-primary">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-base font-bold text-ink-primary whitespace-nowrap">
               {t.closeTitle}
             </span>
             {isClosed ? (
-              <span className="text-[13px] px-2.5 py-0.5 rounded-full bg-status-closed-bg text-status-closed font-semibold">
+              <span className="text-[13px] px-2.5 py-0.5 rounded-full bg-status-closed-bg text-status-closed font-semibold whitespace-nowrap shrink-0">
                 {t.closedStatus}
               </span>
             ) : isReopened ? (
-              <span className="text-[13px] px-2.5 py-0.5 rounded-full bg-status-reopened-bg text-status-reopened font-semibold">
+              <span className="text-[13px] px-2.5 py-0.5 rounded-full bg-status-reopened-bg text-status-reopened font-semibold whitespace-nowrap shrink-0">
                 {t.reopenedStatus}
               </span>
             ) : (
-              <span className="text-[13px] px-2.5 py-0.5 rounded-full bg-status-open-bg text-status-open font-semibold">
+              <span className="text-[13px] px-2.5 py-0.5 rounded-full bg-status-open-bg text-status-open font-semibold whitespace-nowrap shrink-0">
                 {t.openStatus}
               </span>
             )}
           </div>
 
           {/* Month Pills */}
-          <div className="flex items-center gap-1 overflow-x-auto py-0.5 max-w-[55%]">
+          <div className="flex items-center gap-1 overflow-x-auto py-0.5 shrink-0">
             {availableMonths.map((m) => {
               const isSelected = m === currentMonth;
               return (

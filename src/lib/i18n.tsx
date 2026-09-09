@@ -213,7 +213,7 @@ export const DICTIONARY = {
     expenseTotal: "Total Expenses",
     monthSelect: "Month",
     // Month Close
-    closeTitle: "Month Close & Reconciliation",
+    closeTitle: "Month Close",
     closeWarning: "Closing will lock this month from edits.",
     cashOnHand: "Physical Cash Counted",
     tngOnHand: "Touch 'n Go Ending Balance",
