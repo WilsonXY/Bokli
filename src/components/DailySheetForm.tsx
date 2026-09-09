@@ -70,6 +70,7 @@ export function DailySheetForm({
 
   // Feedback states
   const [costLineError, setCostLineError] = useState<string | null>(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -594,7 +595,7 @@ export function DailySheetForm({
             <button
               type="button"
               disabled={saving}
-              onClick={handleSave}
+              onClick={() => setShowConfirmModal(true)}
               className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
             >
               {saving ? (
@@ -606,6 +607,86 @@ export function DailySheetForm({
           )}
         </div>
       </div>
+      {/* Confirmation Popout Modal */}
+      {showConfirmModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-modal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-slide-down"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowConfirmModal(false);
+          }}
+        >
+          <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-brand-broccoli-light flex items-center justify-center text-xl shrink-0 select-none">
+                🥦
+              </div>
+              <div className="min-w-0">
+                <h3 id="confirm-modal-title" className="text-base font-bold text-ink-primary">
+                  {t.confirmSaveTitle}
+                </h3>
+                <p className="text-xs text-ink-muted mt-0.5">
+                  {date} ({t.klTime})
+                </p>
+              </div>
+            </div>
+
+            {/* Financial Summary of Today's Sheet */}
+            <div className="p-3 rounded-xl bg-surface-subtle border border-surface-border space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-ink-secondary">{t.totalRevenue}</span>
+                <span className="font-bold text-ink-primary font-mono">{formatMyr(totalRevenueSen)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-ink-secondary">{t.totalCosts}</span>
+                <span className="font-bold text-finance-loss font-mono">{formatMyr(totalCostSen)}</span>
+              </div>
+              <div className="pt-2 border-t border-surface-border flex items-center justify-between">
+                <span className="font-semibold text-ink-primary">{t.grossProfit}</span>
+                <span
+                  className={`font-bold font-mono text-base ${
+                    grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
+                  }`}
+                >
+                  {formatMyr(grossProfitSen)}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-ink-muted">
+              {t.confirmSaveDesc}
+            </p>
+
+            {/* Modal Actions */}
+            <div className="flex items-center gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowConfirmModal(false)}
+                className="flex-1 h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary font-semibold text-sm transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+              >
+                {t.cancel}
+              </button>
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => {
+                  setShowConfirmModal(false);
+                  handleSave();
+                }}
+                className="flex-1 h-11 rounded-xl bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+              >
+                {saving ? (
+                  <span>{t.saving}</span>
+                ) : (
+                  <span>{t.confirmSaveBtn}</span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

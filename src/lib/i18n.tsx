@@ -48,6 +48,9 @@ export const DICTIONARY = {
     // Gross Profit & Save
     grossProfit: "当日毛利润",
     saveSheet: "保存账单",
+    confirmSaveTitle: "确认保存今日账单？",
+    confirmSaveDesc: "请核对今日营业数据，确认无误后点击保存。",
+    confirmSaveBtn: "确认保存",
     saving: "保存中...",
     saveSuccess: "今日账单保存成功",
     saveError: "保存失败，请检查网络或重试",
@@ -176,6 +179,9 @@ export const DICTIONARY = {
     // Gross Profit & Save
     grossProfit: "Day's Gross Profit",
     saveSheet: "Save Sheet",
+    confirmSaveTitle: "Confirm Save Daily Sheet?",
+    confirmSaveDesc: "Please review today's figures before saving.",
+    confirmSaveBtn: "Confirm & Save",
     saving: "Saving...",
     saveSuccess: "Daily sheet saved successfully",
     saveError: "Failed to save, please retry",
