@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState, useTransition } from "react";
+import React, { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
 import { useI18n, translateApiError } from "@/lib/i18n";
@@ -75,6 +75,48 @@ export function DailySheetForm({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Baseline state representing the saved/initial state for the selected date
+  const [baseline, setBaseline] = useState({
+    cashInput: senToDecimalStr(initialCashSen),
+    tngInput: senToDecimalStr(initialTngSen),
+    costLines: initialCostLines,
+  });
+
+  // Check if current form inputs differ from baseline
+  const isModified = useMemo(() => {
+    if (cashInput.trim() !== baseline.cashInput.trim()) return true;
+    if (tngInput.trim() !== baseline.tngInput.trim()) return true;
+    if (newAmount.trim() !== "" || newNote.trim() !== "") return true;
+    if (costLines.length !== baseline.costLines.length) return true;
+
+    for (let i = 0; i < costLines.length; i++) {
+      const curr = costLines[i];
+      const base = baseline.costLines[i];
+      if (
+        !base ||
+        curr.id !== base.id ||
+        curr.category !== base.category ||
+        curr.amountSen !== base.amountSen ||
+        (curr.note || "") !== (base.note || "")
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }, [cashInput, tngInput, newAmount, newNote, costLines, baseline]);
+
+  // Revert modifications back to baseline
+  function handleRevert() {
+    setCashInput(baseline.cashInput);
+    setTngInput(baseline.tngInput);
+    setCostLines(baseline.costLines);
+    setNewAmount("");
+    setNewNote("");
+    setNewCat("restock");
+    setCostLineError(null);
+    setErrorMessage(null);
+  }
 
   // Safe parsing helper
   function toSen(val: string): bigint {
@@ -180,6 +222,26 @@ export function DailySheetForm({
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(translateApiError(data.error, t));
+      }
+
+      if (data.sheet && Array.isArray(data.costLines)) {
+        const savedCostLines: CostLineItem[] = data.costLines.map((l: any) => ({
+          id: l.id,
+          category: l.category,
+          amountSen: Number(l.amountSen),
+          note: l.note || undefined,
+        }));
+        const savedCash = senToDecimalStr(Number(data.sheet.cashSen));
+        const savedTng = senToDecimalStr(Number(data.sheet.tngSen));
+
+        setBaseline({
+          cashInput: savedCash,
+          tngInput: savedTng,
+          costLines: savedCostLines,
+        });
+        setCostLines(savedCostLines);
+        setCashInput(savedCash);
+        setTngInput(savedTng);
       }
 
       setSuccessMessage(t.saveSuccess);
@@ -593,18 +655,45 @@ export function DailySheetForm({
           </div>
 
           {!isClosed && (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => setShowConfirmModal(true)}
-              className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
-            >
-              {saving ? (
-                <span>{t.saving}</span>
-              ) : (
-                <span>{t.saveSheet}</span>
+            <div className="flex items-center gap-2">
+              {isModified && (
+                <button
+                  type="button"
+                  onClick={handleRevert}
+                  disabled={saving}
+                  title={t.undoChanges}
+                  aria-label={t.undoChanges}
+                  className="h-12 w-12 shrink-0 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary hover:text-ink-primary shadow-xs flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 active:scale-95 cursor-pointer disabled:opacity-50 animate-in fade-in zoom-in-95 duration-150"
+                >
+                  <svg
+                    className="w-5 h-5 text-ink-secondary"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"
+                    />
+                  </svg>
+                </button>
               )}
-            </button>
+
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => setShowConfirmModal(true)}
+                className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
+              >
+                {saving ? (
+                  <span>{t.saving}</span>
+                ) : (
+                  <span>{t.saveSheet}</span>
+                )}
+              </button>
+            </div>
           )}
         </div>
       </div>

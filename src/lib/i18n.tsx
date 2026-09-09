@@ -48,6 +48,7 @@ export const DICTIONARY = {
     catOther: "其他",
     // Gross Profit & Save
     grossProfit: "当日毛利润",
+    undoChanges: "撤销修改",
     saveSheet: "保存账单",
     confirmSaveTitle: "确认保存今日账单？",
     confirmSaveDesc: "请核对今日营业数据，确认无误后点击保存。",
@@ -186,6 +187,7 @@ export const DICTIONARY = {
     catOther: "Other",
     // Gross Profit & Save
     grossProfit: "Day's Gross Profit",
+    undoChanges: "Undo changes",
     saveSheet: "Save Sheet",
     confirmSaveTitle: "Confirm Save Daily Sheet?",
     confirmSaveDesc: "Please review today's figures before saving.",
