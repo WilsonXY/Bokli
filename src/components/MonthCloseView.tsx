@@ -176,6 +176,7 @@ export function MonthCloseView({
   // Handle Month Close submission
   async function handlePerformClose(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting) return;
     setErrorMessage(null);
 
     if (hasParseError || cashOnHandSen === null || tngOnHandSen === null) {
@@ -229,6 +230,7 @@ export function MonthCloseView({
   // Handle Admin Reopen
   async function handlePerformReopen(e: React.FormEvent) {
     e.preventDefault();
+    if (submitting) return;
     setErrorMessage(null);
 
     if (!reopenReasonInput.trim()) {

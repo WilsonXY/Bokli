@@ -154,6 +154,7 @@ export function ExpensesView({
   // Handle Add Expense
   async function handleAddExpense(e: React.FormEvent) {
     e.preventDefault();
+    if (adding) return;
     if (isClosed) return;
     setInlineError(null);
 
