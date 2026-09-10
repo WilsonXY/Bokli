@@ -6,6 +6,7 @@ import { useI18n } from "@/lib/i18n";
 export interface MonthOption {
   month: string;
   status?: "open" | "closed" | "reopened";
+  disabled?: boolean;
 }
 
 interface MonthSelectorDropdownProps {
@@ -15,6 +16,7 @@ interface MonthSelectorDropdownProps {
   ariaLabel?: string;
   showStatusInTrigger?: boolean;
   className?: string;
+  defaultOpen?: boolean;
 }
 
 export function MonthSelectorDropdown({
@@ -24,9 +26,10 @@ export function MonthSelectorDropdown({
   ariaLabel,
   showStatusInTrigger = true,
   className = "",
+  defaultOpen = false,
 }: MonthSelectorDropdownProps) {
   const { t } = useI18n();
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(defaultOpen);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Click outside and Escape key to close
@@ -139,16 +142,21 @@ export function MonthSelectorDropdown({
                 role="option"
                 aria-selected={isSelected}
                 type="button"
+                disabled={opt.disabled}
                 onClick={() => {
+                  if (opt.disabled) return;
                   setIsOpen(false);
                   if (opt.month !== currentMonth) {
                     onSelect(opt.month);
                   }
                 }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all text-left cursor-pointer ${
-                  isSelected
-                    ? "bg-brand-broccoli-light/70 font-bold text-brand-broccoli"
-                    : "text-ink-primary hover:bg-surface-subtle font-medium"
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all text-left ${
+                  opt.disabled
+                    ? "opacity-40 cursor-not-allowed text-ink-muted"
+                    : "cursor-pointer " +
+                      (isSelected
+                        ? "bg-brand-broccoli-light/70 font-bold text-brand-broccoli"
+                        : "text-ink-primary hover:bg-surface-subtle font-medium")
                 }`}
               >
                 <span className="truncate">{opt.month}</span>
