@@ -1,4 +1,4 @@
-import { and, eq, isNull, like, sql } from "drizzle-orm";
+import { and, eq, isNull, like } from "drizzle-orm";
 import { getDb, openDb, type Db } from "@/db";
 import {
   costLines,

@@ -7,7 +7,7 @@ import { listMonthTiles, type MonthTile } from "@/services/dashboard";
 import { getTodayInKualaLumpur } from "@/services/daily-sheet";
 import { isValidMonthStr } from "@/lib/money";
 import { getMonthPreview } from "@/services/operating-expense";
-import { getClose, isFutureMonthInKL } from "@/services/month-close";
+import { getClose } from "@/services/month-close";
 import { MonthCloseView, type CloseRecordData } from "@/components/MonthCloseView";
 import { formatKlDate, formatKlDateTime } from "@/lib/datetime";
 
