@@ -62,7 +62,7 @@ export function DashboardView({
 
   const totalRev = split ? BigInt(split.totalSen) : 0n;
   const cashPct =
-    totalRev > 0n && split ? Math.round(Number((BigInt(split.cashSen) * 100n) / totalRev)) : 0;
+    totalRev > 0n && split ? Math.round((Number(split.cashSen) * 100) / Number(totalRev)) : 0;
   const tngPct = totalRev > 0n ? 100 - cashPct : 0;
 
   const totalCosts = costByCategory
@@ -279,6 +279,7 @@ export function DashboardView({
                 {(Object.keys(categoryLabels) as Array<keyof SerializedCostByCategory>).map((cat) => {
                   const amount = costByCategory[cat];
                   if (amount === 0) return null;
+                  // Display-only category progress bar: rounding drift across independent categories is accepted.
                   const pct = totalCosts > 0 ? Math.round((amount / totalCosts) * 100) : 0;
 
                   return (
