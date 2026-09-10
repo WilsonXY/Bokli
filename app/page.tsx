@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  type CostCategory,
   getTodayInKualaLumpur,
   getSheetWithCosts,
   isMonthClosed,
@@ -41,7 +42,7 @@ export default async function HomePage(props: PageProps) {
           sheetData
             ? sheetData.costLines.map((l) => ({
                 id: l.id,
-                category: l.category as any,
+                category: l.category as CostCategory,
                 amountSen: Number(l.amountSen),
                 note: l.note,
               }))

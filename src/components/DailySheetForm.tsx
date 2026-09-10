@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
 import { useI18n, translateApiError } from "@/lib/i18n";
 import { CalendarPopover } from "@/components/CalendarPopover";
+import type { CostCategory } from "@/services/daily-sheet";
+import type { CostLine } from "@/db/schema";
 
 export interface CostLineItem {
   id?: number;
-  category: "restock" | "gas" | "transport" | "wages-daily" | "maintenance" | "other";
+  category: CostCategory;
   amountSen: number;
   note?: string | null;
 }
@@ -268,10 +270,10 @@ export function DailySheetForm({
       }
 
       if (data.sheet && Array.isArray(data.costLines)) {
-        const savedCostLines: CostLineItem[] = data.costLines.map((l: any) =>
+        const savedCostLines: CostLineItem[] = data.costLines.map((l: CostLine) =>
           normalizeCostLine({
             id: l.id,
-            category: l.category,
+            category: l.category as CostCategory,
             amountSen: Number(l.amountSen),
             note: l.note || undefined,
           })
