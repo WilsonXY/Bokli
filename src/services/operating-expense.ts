@@ -31,6 +31,7 @@ export const OPERATING_EXPENSE_TYPES = [
   "other",
 ] as const;
 
+export type { OperatingExpense } from "@/db/schema";
 export type OperatingExpenseType = (typeof OPERATING_EXPENSE_TYPES)[number];
 
 /**

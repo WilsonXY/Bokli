@@ -14,7 +14,7 @@ interface FinancialSnapshot {
   netSen: number;
 }
 
-interface CloseRecordData {
+export interface CloseRecordData {
   isClosed: boolean;
   isReopened: boolean;
   closedAt?: string | null;

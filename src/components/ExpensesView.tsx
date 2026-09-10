@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import { formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
 import { useI18n, translateApiError } from "@/lib/i18n";
 import { MonthSelectorDropdown, MonthOption } from "@/components/MonthSelectorDropdown";
+import type { OperatingExpenseType } from "@/services/operating-expense";
 
 export interface OperatingExpenseItem {
   id: number;
   month: string;
-  type: "rental" | "utilities" | "wages" | "other";
+  type: OperatingExpenseType;
   amountSen: number;
   note: string | null;
   createdAt: string;

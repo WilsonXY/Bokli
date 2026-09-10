@@ -5,8 +5,9 @@ import { getTodayInKualaLumpur, isMonthClosed } from "@/services/daily-sheet";
 import {
   getMonthPreview,
   listOperatingExpenses,
+  type OperatingExpenseType,
 } from "@/services/operating-expense";
-import { ExpensesView } from "@/components/ExpensesView";
+import { ExpensesView, type OperatingExpenseItem } from "@/components/ExpensesView";
 
 interface PageProps {
   searchParams?: Promise<{ month?: string }>;
@@ -54,7 +55,7 @@ export default async function ExpensesPage(props: PageProps) {
   }));
 
   const { db } = openDb();
-  let expenses: any[] = [];
+  let expenses: OperatingExpenseItem[] = [];
   let isClosed = false;
   let summary: {
     grossSen: number;
@@ -74,7 +75,7 @@ export default async function ExpensesPage(props: PageProps) {
       expenses = rawExpenses.map((e) => ({
         id: e.id,
         month: e.month,
-        type: e.type,
+        type: e.type as OperatingExpenseType,
         amountSen: Number(e.amountSen),
         note: e.note,
         createdAt: e.createdAt,
