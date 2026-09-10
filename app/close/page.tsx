@@ -5,6 +5,7 @@ import { getDb } from "@/db";
 import { dailySheets, monthCloses } from "@/db/schema";
 import { listMonthTiles, type MonthTile } from "@/services/dashboard";
 import { getTodayInKualaLumpur } from "@/services/daily-sheet";
+import { isValidMonthStr } from "@/lib/money";
 import { getMonthPreview } from "@/services/operating-expense";
 import { getClose, isFutureMonthInKL } from "@/services/month-close";
 import { MonthCloseView, type CloseRecordData } from "@/components/MonthCloseView";
@@ -34,13 +35,11 @@ export default async function MonthClosePage(props: PageProps) {
     loadError = "Failed to load month close data. Please refresh or try again later.";
   }
 
-  // Active month: requested month, or first existing month, or current month
+  // Active month: requested valid month, or first existing non-future month, or current month
   let activeMonth =
-    requestedMonth && /^\d{4}-\d{2}$/.test(requestedMonth)
+    requestedMonth && isValidMonthStr(requestedMonth)
       ? requestedMonth
-      : rawTiles.length > 0
-        ? rawTiles[0].month
-        : currentMonthInKL;
+      : rawTiles.find((t) => t.month <= currentMonthInKL)?.month ?? currentMonthInKL;
 
   // Disallow future months for month close
   if (activeMonth > currentMonthInKL) {

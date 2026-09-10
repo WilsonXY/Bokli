@@ -8,6 +8,7 @@ import {
   type OperatingExpenseType,
 } from "@/services/operating-expense";
 import { ExpensesView, type OperatingExpenseItem } from "@/components/ExpensesView";
+import { isValidMonthStr } from "@/lib/money";
 
 interface PageProps {
   searchParams?: Promise<{ month?: string }>;
@@ -29,24 +30,25 @@ export default async function ExpensesPage(props: PageProps) {
     loadError = "Failed to load expenses data. Please refresh or try again later.";
   }
 
-  // Active month: requested valid month, or first existing month, or current month
+  // Active month: requested valid month, or first existing non-future month, or current month
   let activeMonth =
-    requestedMonth && /^\d{4}-\d{2}$/.test(requestedMonth)
+    requestedMonth && isValidMonthStr(requestedMonth)
       ? requestedMonth
-      : rawTiles.length > 0
-        ? rawTiles[0].month
-        : currentMonthInKL;
+      : rawTiles.find((t) => t.month <= currentMonthInKL)?.month ?? currentMonthInKL;
 
   // Disallow future months: clamp to current month in KL
   if (activeMonth > currentMonthInKL) {
     activeMonth = currentMonthInKL;
   }
 
+  // Available months: filter out any future months (same rule as app/close/page.tsx ~53-57)
   const monthSet = new Set<string>([currentMonthInKL, activeMonth]);
   const tileStatusMap = new Map<string, "open" | "closed" | "reopened">();
   for (const t of rawTiles) {
-    monthSet.add(t.month);
-    tileStatusMap.set(t.month, t.status);
+    if (t.month <= currentMonthInKL) {
+      monthSet.add(t.month);
+      tileStatusMap.set(t.month, t.status);
+    }
   }
   const availableMonths = Array.from(monthSet).sort().reverse();
   const monthOptions = availableMonths.map((m) => ({

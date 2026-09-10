@@ -10,6 +10,7 @@ import {
   type MonthTile,
 } from "@/services/dashboard";
 import { getTodayInKualaLumpur } from "@/services/daily-sheet";
+import { isValidMonthStr } from "@/lib/money";
 import {
   DashboardView,
   type SerializedMonthTile,
@@ -38,13 +39,11 @@ export default async function DashboardPage(props: PageProps) {
 
   const currentMonthInKL = getTodayInKualaLumpur().slice(0, 7);
 
-  // Active month: requested month, or first existing month tile, or current month
+  // Active month: requested valid month, or first existing non-future month tile, or current month
   let activeMonth =
-    requestedMonth && /^\d{4}-\d{2}$/.test(requestedMonth)
+    requestedMonth && isValidMonthStr(requestedMonth)
       ? requestedMonth
-      : rawTiles.length > 0
-        ? rawTiles[0].month
-        : currentMonthInKL;
+      : rawTiles.find((t) => t.month <= currentMonthInKL)?.month ?? currentMonthInKL;
 
   // Disallow future months: clamp to current month in KL
   if (activeMonth > currentMonthInKL) {
@@ -77,13 +76,16 @@ export default async function DashboardPage(props: PageProps) {
     }
   }
 
+  // Filter month tiles to only months up to current KL month (filter out future months)
+  const validTiles = rawTiles.filter((t) => t.month <= currentMonthInKL);
+
   // Ensure activeMonth is in tiles list even if empty
-  const hasActiveMonthInTiles = rawTiles.some((t) => t.month === activeMonth);
+  const hasActiveMonthInTiles = validTiles.some((t) => t.month === activeMonth);
   const effectiveTiles = hasActiveMonthInTiles
-    ? rawTiles
+    ? validTiles
     : [
         ...(activeTile ? [activeTile] : []),
-        ...rawTiles,
+        ...validTiles,
       ];
 
   const serializedTiles: SerializedMonthTile[] = effectiveTiles.map((t) => ({

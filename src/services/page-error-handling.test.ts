@@ -1,6 +1,10 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
 import React from "react";
 import ReactDOMServer from "react-dom/server";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { runMigrations } from "@/db/migrate";
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
@@ -55,6 +59,25 @@ import { getTodayInKualaLumpur } from "@/services/daily-sheet";
 
 describe("Server page error handling regression tests", () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
+  let tmpDir: string;
+  let originalDbPath: string | undefined;
+
+  beforeAll(() => {
+    originalDbPath = process.env.BOKLI_DB_PATH;
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "bokli-page-test-"));
+    const dbPath = path.join(tmpDir, "test.db");
+    process.env.BOKLI_DB_PATH = dbPath;
+    runMigrations(dbPath);
+  });
+
+  afterAll(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    if (originalDbPath) {
+      process.env.BOKLI_DB_PATH = originalDbPath;
+    } else {
+      delete process.env.BOKLI_DB_PATH;
+    }
+  });
 
   beforeEach(() => {
     consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -138,6 +161,14 @@ describe("Server page error handling regression tests", () => {
       expect(html).toContain('role="alert"');
       expect(html).not.toContain("btnPerformClose");
     });
+
+    it("rejects malformed month like 2026-13 and falls back without throwing", async () => {
+      const pageElement = await MonthClosePage({
+        searchParams: Promise.resolve({ month: "2026-13" }),
+      });
+      const html = ReactDOMServer.renderToStaticMarkup(pageElement);
+      expect(html).not.toContain("2026-13");
+    });
   });
 
   describe("ExpensesPage (/expenses)", () => {
@@ -158,6 +189,47 @@ describe("Server page error handling regression tests", () => {
       // Add form should be suppressed
       expect(html).not.toContain("Add Operating Expense");
     });
+
+    it("filters out future months in DB from month dropdown options", async () => {
+      vi.mocked(dashboardService.listMonthTiles).mockResolvedValueOnce([
+        {
+          month: "2099-01",
+          revenueSen: 0n,
+          dailyCostSen: 0n,
+          grossSen: 0n,
+          operatingSen: 0n,
+          netSen: 0n,
+          status: "open",
+          balanced: false,
+        },
+        {
+          month: "2026-08",
+          revenueSen: 0n,
+          dailyCostSen: 0n,
+          grossSen: 0n,
+          operatingSen: 0n,
+          netSen: 0n,
+          status: "open",
+          balanced: false,
+        },
+      ]);
+
+      const pageElement = await ExpensesPage({
+        searchParams: Promise.resolve({ month: "2026-08" }),
+      });
+      const html = ReactDOMServer.renderToStaticMarkup(pageElement);
+      expect(html).not.toContain("2099-01");
+      expect(html).toContain("2026-08");
+    });
+
+    it("rejects malformed month like 2026-13 and falls back to valid month without error", async () => {
+      const pageElement = await ExpensesPage({
+        searchParams: Promise.resolve({ month: "2026-13" }),
+      });
+      const html = ReactDOMServer.renderToStaticMarkup(pageElement);
+      expect(html).not.toContain("2026-13");
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
+    });
   });
 
   describe("DashboardPage (/dashboard)", () => {
@@ -175,6 +247,47 @@ describe("Server page error handling regression tests", () => {
       expect(consoleErrorSpy).toHaveBeenCalled();
       expect(html).toContain('role="alert"');
       expect(html).toContain("Failed to load dashboard data");
+    });
+
+    it("filters out future months in DB from dashboard tiles", async () => {
+      vi.mocked(dashboardService.listMonthTiles).mockResolvedValueOnce([
+        {
+          month: "2099-01",
+          revenueSen: 0n,
+          dailyCostSen: 0n,
+          grossSen: 0n,
+          operatingSen: 0n,
+          netSen: 0n,
+          status: "open",
+          balanced: false,
+        },
+        {
+          month: "2026-08",
+          revenueSen: 0n,
+          dailyCostSen: 0n,
+          grossSen: 0n,
+          operatingSen: 0n,
+          netSen: 0n,
+          status: "open",
+          balanced: false,
+        },
+      ]);
+
+      const pageElement = await DashboardPage({
+        searchParams: Promise.resolve({ month: "2026-08" }),
+      });
+      const html = ReactDOMServer.renderToStaticMarkup(pageElement);
+      expect(html).not.toContain("2099-01");
+      expect(html).toContain("2026-08");
+    });
+
+    it("rejects malformed month like 2026-13 and falls back to valid month without error", async () => {
+      const pageElement = await DashboardPage({
+        searchParams: Promise.resolve({ month: "2026-13" }),
+      });
+      const html = ReactDOMServer.renderToStaticMarkup(pageElement);
+      expect(html).not.toContain("2026-13");
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
     });
   });
 });
