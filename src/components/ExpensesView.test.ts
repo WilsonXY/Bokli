@@ -77,8 +77,8 @@ describe("ExpensesView frontend review fixes", () => {
     });
   });
 
-  describe("Delete confirmation modal record count rendering", () => {
-    it("renders record count in modal copy matching ids.length for merged items", () => {
+  describe("Delete confirmation modal rendering", () => {
+    it("renders clean confirmation modal without redundant records count row", () => {
       const pendingDelete = {
         key: "rental_Main Stall_101",
         type: "rental" as const,
@@ -102,37 +102,14 @@ describe("ExpensesView frontend review fixes", () => {
       expect(html).toContain('role="dialog"');
       expect(html).toContain('id="confirm-delete-expense-desc"');
 
-      // Verify the red record count prefix was removed from confirmation description
+      // Verify redundant record count is omitted from description and details table
       expect(html).not.toContain("removes 3 records</span> — ");
+      expect(html).not.toContain('data-testid="modal-record-count"');
+      expect(html).not.toContain("Records:");
 
-      // Verify modal snapshot details show 3 records
-      expect(html).toContain("removes 3 records");
-      expect(html).toContain('data-testid="modal-record-count"');
-      expect(html).toContain("Records:");
-    });
-
-    it("renders singular 'removes 1 record' when deleting a single-row item", () => {
-      const pendingDelete = {
-        key: "utilities_Water_201",
-        type: "utilities" as const,
-        note: "Water",
-        amountSen: 2500,
-        ids: [201],
-      };
-
-      const html = ReactDOMServer.renderToStaticMarkup(
-        React.createElement(ExpensesView, {
-          currentMonth: "2026-05",
-          availableMonths: ["2026-05"],
-          initialExpenses: [],
-          summary: null,
-          isClosed: false,
-          initialPendingDeleteExpense: pendingDelete,
-        }),
-      );
-
-      expect(html).toContain("removes 1 record");
-      expect(html).not.toContain("removes 1 records");
+      // Verify item snapshot details still show note and amount
+      expect(html).toContain("Main Stall");
+      expect(html).toContain("100.00");
     });
   });
 });

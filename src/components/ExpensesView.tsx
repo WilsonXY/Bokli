@@ -588,14 +588,6 @@ export function ExpensesView({
                       {getCategoryLabel(pendingDeleteExpense.type)}
                     </span>
                   </div>
-                  <div className="flex justify-between" data-testid="modal-record-count">
-                    <span className="text-ink-muted font-medium">
-                      Records:
-                    </span>
-                    <span className="font-semibold text-ink-primary">
-                      {formatDeleteModalRecordCount(pendingDeleteExpense.ids.length)}
-                    </span>
-                  </div>
                   {pendingDeleteExpense.note && (
                     <div className="flex justify-between gap-2">
                       <span className="text-ink-muted font-medium shrink-0">{t.note}:</span>
