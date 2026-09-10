@@ -268,6 +268,7 @@ export async function updateOperatingExpense(
       type: finalType,
       amountSen: finalAmountSen,
       note: finalNote,
+      updatedAt: new Date().toISOString(),
     })
     .where(eq(operatingExpenses.id, id))
     .returning()

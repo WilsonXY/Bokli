@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
 import { NextRequest } from "next/server";
 
 import { openDb, type Db } from "@/db";
@@ -360,6 +361,34 @@ describe("5. CRUD and listing operations", () => {
     expect(updated.amountSen).toBe(95000);
     expect(updated.type).toBe("other");
     expect(updated.note).toBe("Stall + maintenance fee");
+  });
+
+  it("updates updatedAt timestamp on edit", async () => {
+    const month = "2025-07";
+    const initial = await addOperatingExpense(
+      month,
+      "rental",
+      90000,
+      "Stall",
+      { db },
+    );
+
+    // Set an older timestamp in the database to verify the update modifies updatedAt
+    db.update(operatingExpenses)
+      .set({ updatedAt: "2020-01-01T00:00:00.000Z" })
+      .where(eq(operatingExpenses.id, initial.id))
+      .run();
+
+    const updated = await updateOperatingExpense(
+      initial.id,
+      { amountSen: 95000 },
+      { db },
+    );
+
+    expect(updated.updatedAt).not.toBe("2020-01-01T00:00:00.000Z");
+    expect(new Date(updated.updatedAt).getTime()).toBeGreaterThan(
+      new Date("2020-01-01T00:00:00.000Z").getTime(),
+    );
   });
 
   it("throws NotFoundError when updating or deleting non-existent expense", async () => {
