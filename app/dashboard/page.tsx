@@ -39,12 +39,17 @@ export default async function DashboardPage(props: PageProps) {
   const currentMonthInKL = getTodayInKualaLumpur().slice(0, 7);
 
   // Active month: requested month, or first existing month tile, or current month
-  const activeMonth =
+  let activeMonth =
     requestedMonth && /^\d{4}-\d{2}$/.test(requestedMonth)
       ? requestedMonth
       : rawTiles.length > 0
         ? rawTiles[0].month
         : currentMonthInKL;
+
+  // Disallow future months: clamp to current month in KL
+  if (activeMonth > currentMonthInKL) {
+    activeMonth = currentMonthInKL;
+  }
 
   let activeTile: MonthTile | null = null;
   let trend: DailyTrendRow[] = [];

@@ -29,12 +29,17 @@ export default async function ExpensesPage(props: PageProps) {
   }
 
   // Active month: requested valid month, or first existing month, or current month
-  const activeMonth =
+  let activeMonth =
     requestedMonth && /^\d{4}-\d{2}$/.test(requestedMonth)
       ? requestedMonth
       : rawTiles.length > 0
         ? rawTiles[0].month
         : currentMonthInKL;
+
+  // Disallow future months: clamp to current month in KL
+  if (activeMonth > currentMonthInKL) {
+    activeMonth = currentMonthInKL;
+  }
 
   const monthSet = new Set<string>([currentMonthInKL, activeMonth]);
   const tileStatusMap = new Map<string, "open" | "closed" | "reopened">();
