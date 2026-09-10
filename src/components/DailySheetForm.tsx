@@ -13,13 +13,15 @@ export interface CostLineItem {
   note?: string | null;
 }
 
-interface DailySheetFormProps {
+export interface DailySheetFormProps {
   date: string;
   initialCashSen: number;
   initialTngSen: number;
   initialCostLines: CostLineItem[];
   isClosed: boolean;
   todayKl: string;
+  initialCashInput?: string;
+  initialTngInput?: string;
 }
 
 function normalizeCostLine(line: CostLineItem): CostLineItem {
@@ -36,6 +38,17 @@ function senToDecimalStr(sen: number): string {
   return cents === "00" ? `${ringgit}` : `${ringgit}.${cents}`;
 }
 
+// Safe parsing helper: returns null for unparseable non-empty inputs
+export function toSen(val: string): bigint | null {
+  const s = val.trim();
+  if (!s) return 0n;
+  try {
+    return parseSen(s);
+  } catch {
+    return null;
+  }
+}
+
 export function DailySheetForm({
   date,
   initialCashSen,
@@ -43,6 +56,8 @@ export function DailySheetForm({
   initialCostLines,
   isClosed,
   todayKl,
+  initialCashInput,
+  initialTngInput,
 }: DailySheetFormProps) {
   const router = useRouter();
   const { t } = useI18n();
@@ -65,8 +80,10 @@ export function DailySheetForm({
   const dateBtnRef = useRef<HTMLButtonElement>(null);
 
   // Revenue inputs state
-  const [cashInput, setCashInput] = useState(senToDecimalStr(initialCashSen));
-  const [tngInput, setTngInput] = useState(senToDecimalStr(initialTngSen));
+  const initCashStr = initialCashInput !== undefined ? initialCashInput : senToDecimalStr(initialCashSen);
+  const initTngStr = initialTngInput !== undefined ? initialTngInput : senToDecimalStr(initialTngSen);
+  const [cashInput, setCashInput] = useState(initCashStr);
+  const [tngInput, setTngInput] = useState(initTngStr);
 
   // Cost lines state - distinct same-category+same-note rows remain representable
   const [costLines, setCostLines] = useState<CostLineItem[]>(() =>
@@ -101,8 +118,8 @@ export function DailySheetForm({
 
   // Baseline state representing the saved/initial state for the selected date
   const [baseline, setBaseline] = useState(() => ({
-    cashInput: senToDecimalStr(initialCashSen),
-    tngInput: senToDecimalStr(initialTngSen),
+    cashInput: initCashStr,
+    tngInput: initTngStr,
     costLines: initialCostLines.map(normalizeCostLine),
   }));
 
@@ -129,6 +146,24 @@ export function DailySheetForm({
     return false;
   }, [cashInput, tngInput, newAmount, newNote, costLines, baseline]);
 
+  // Update form inputs when selected date or initial data changes
+  useEffect(() => {
+    const cashStr = initialCashInput !== undefined ? initialCashInput : senToDecimalStr(initialCashSen);
+    const tngStr = initialTngInput !== undefined ? initialTngInput : senToDecimalStr(initialTngSen);
+    setCashInput(cashStr);
+    setTngInput(tngStr);
+    setCostLines(initialCostLines.map(normalizeCostLine));
+    setBaseline({
+      cashInput: cashStr,
+      tngInput: tngStr,
+      costLines: initialCostLines.map(normalizeCostLine),
+    });
+    setNewAmount("");
+    setNewNote("");
+    setCostLineError(null);
+    setErrorMessage(null);
+  }, [date, initialCashSen, initialTngSen, initialCashInput, initialTngInput, initialCostLines]);
+
   // Revert modifications back to baseline
   function handleRevert() {
     setCashInput(baseline.cashInput);
@@ -141,35 +176,31 @@ export function DailySheetForm({
     setErrorMessage(null);
   }
 
-  // Safe parsing helper
-  function toSen(val: string): bigint {
-    const s = val.trim();
-    if (!s || s === ".") return 0n;
-    try {
-      const normalized = s.startsWith(".") ? `0${s}` : s;
-      return parseSen(normalized);
-    } catch {
-      return 0n;
-    }
-  }
-
   const cashSen = toSen(cashInput);
   const tngSen = toSen(tngInput);
-  const totalRevenueSen = cashSen + tngSen;
+  const cashError = cashInput.trim() !== "" && cashSen === null;
+  const tngError = tngInput.trim() !== "" && tngSen === null;
+  const hasParseError = cashError || tngError;
+
+  const totalRevenueSen =
+    hasParseError || cashSen === null || tngSen === null
+      ? null
+      : cashSen + tngSen;
 
   const totalCostSen = costLines.reduce(
     (acc, line) => acc + BigInt(line.amountSen),
     0n,
   );
 
-  const grossProfitSen = totalRevenueSen - totalCostSen;
+  const grossProfitSen =
+    totalRevenueSen !== null ? totalRevenueSen - totalCostSen : null;
 
   // Add Cost Line (preserves distinct rows without silent collapsing)
   function handleAddCostLine() {
     setCostLineError(null);
     const amountVal = toSen(newAmount);
 
-    if (amountVal <= 0n) {
+    if (amountVal === null || amountVal <= 0n) {
       setCostLineError(t.invalidAmount);
       return;
     }
@@ -205,29 +236,13 @@ export function DailySheetForm({
   async function handleSave() {
     if (saving) return;
     if (isClosed) return;
+    if (hasParseError || cashSen === null || tngSen === null) {
+      setErrorMessage(t.invalidAmount);
+      return;
+    }
     setErrorMessage(null);
     setCostLineError(null);
     setSuccessMessage(null);
-
-    // Validate revenue inputs if entered
-    if (cashInput.trim() && cashInput.trim() !== ".") {
-      try {
-        const norm = cashInput.trim().startsWith(".") ? `0${cashInput.trim()}` : cashInput.trim();
-        parseSen(norm);
-      } catch {
-        setErrorMessage(t.invalidAmount);
-        return;
-      }
-    }
-    if (tngInput.trim() && tngInput.trim() !== ".") {
-      try {
-        const norm = tngInput.trim().startsWith(".") ? `0${tngInput.trim()}` : tngInput.trim();
-        parseSen(norm);
-      } catch {
-        setErrorMessage(t.invalidAmount);
-        return;
-      }
-    }
 
     setSaving(true);
 
@@ -385,8 +400,6 @@ export function DailySheetForm({
         )}
       </div>
 
-
-
       {/* Section 1: Revenue Entry */}
       <section aria-label="Revenue Entry" className="space-y-2">
         <div className="flex items-center justify-between px-0.5">
@@ -394,7 +407,7 @@ export function DailySheetForm({
             {t.revenueTitle}
           </h2>
           <span className="text-sm font-medium text-ink-muted">
-            {t.totalRevenue}: <span className="font-semibold text-ink-primary">{formatMyr(totalRevenueSen)}</span>
+            {t.totalRevenue}: <span className="font-semibold text-ink-primary">{totalRevenueSen !== null ? formatMyr(totalRevenueSen) : "—"}</span>
           </span>
         </div>
 
@@ -429,9 +442,20 @@ export function DailySheetForm({
                   }
                 }}
                 placeholder="0.00"
-                className="w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-lg font-bold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-cash focus-visible:ring-2 focus-visible:ring-channel-cash/50 disabled:opacity-60 transition-colors"
+                className={`w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
+                  cashError ? "border-finance-loss" : "border-surface-border"
+                } text-lg font-bold text-ink-primary focus:outline-none focus:bg-white ${
+                  cashError
+                    ? "focus:border-finance-loss focus-visible:ring-finance-loss/50"
+                    : "focus:border-channel-cash focus-visible:ring-channel-cash/50"
+                } focus-visible:ring-2 disabled:opacity-60 transition-colors`}
               />
             </div>
+            {cashError && (
+              <div className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
+                <span>{t.invalidAmount}</span>
+              </div>
+            )}
           </div>
 
           {/* Touch 'n Go Revenue Card */}
@@ -464,9 +488,20 @@ export function DailySheetForm({
                   }
                 }}
                 placeholder="0.00"
-                className="w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-lg font-bold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-tng focus-visible:ring-2 focus-visible:ring-channel-tng/50 disabled:opacity-60 transition-colors"
+                className={`w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
+                  tngError ? "border-finance-loss" : "border-surface-border"
+                } text-lg font-bold text-ink-primary focus:outline-none focus:bg-white ${
+                  tngError
+                    ? "focus:border-finance-loss focus-visible:ring-finance-loss/50"
+                    : "focus:border-channel-tng focus-visible:ring-channel-tng/50"
+                } focus-visible:ring-2 disabled:opacity-60 transition-colors`}
               />
             </div>
+            {tngError && (
+              <div className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
+                <span>{t.invalidAmount}</span>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -677,10 +712,10 @@ export function DailySheetForm({
             </div>
             <div
               className={`text-xl font-bold ${
-                grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
+                grossProfitSen !== null && grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
               }`}
             >
-              {formatMyr(grossProfitSen)}
+              {grossProfitSen !== null ? formatMyr(grossProfitSen) : "—"}
             </div>
           </div>
 
@@ -713,8 +748,14 @@ export function DailySheetForm({
 
               <button
                 type="button"
-                disabled={saving}
-                onClick={() => setShowConfirmModal(true)}
+                disabled={saving || hasParseError}
+                onClick={() => {
+                  if (hasParseError || cashSen === null || tngSen === null) {
+                    setErrorMessage(t.invalidAmount);
+                    return;
+                  }
+                  setShowConfirmModal(true);
+                }}
                 className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
               >
                 {saving ? (
@@ -826,7 +867,7 @@ export function DailySheetForm({
             <div className="p-3 rounded-xl bg-surface-subtle border border-surface-border space-y-2 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-ink-secondary">{t.totalRevenue}</span>
-                <span className="font-bold text-ink-primary text-base">{formatMyr(totalRevenueSen)}</span>
+                <span className="font-bold text-ink-primary text-base">{totalRevenueSen !== null ? formatMyr(totalRevenueSen) : "—"}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-ink-secondary">{t.totalCosts}</span>
@@ -836,10 +877,10 @@ export function DailySheetForm({
                 <span className="font-semibold text-ink-primary">{t.grossProfit}</span>
                 <span
                   className={`font-bold text-lg ${
-                    grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
+                    grossProfitSen !== null && grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
                   }`}
                 >
-                  {formatMyr(grossProfitSen)}
+                  {grossProfitSen !== null ? formatMyr(grossProfitSen) : "—"}
                 </span>
               </div>
             </div>
@@ -859,7 +900,7 @@ export function DailySheetForm({
               </button>
               <button
                 type="button"
-                disabled={saving}
+                disabled={saving || hasParseError}
                 onClick={() => {
                   setShowConfirmModal(false);
                   handleSave();
