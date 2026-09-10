@@ -203,6 +203,7 @@ export function DailySheetForm({
 
   // Save full sheet
   async function handleSave() {
+    if (saving) return;
     if (isClosed) return;
     setErrorMessage(null);
     setCostLineError(null);
