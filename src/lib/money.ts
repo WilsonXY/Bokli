@@ -73,8 +73,9 @@ export function subSen(a: bigint, b: bigint): bigint {
 /**
  * Validate and sanitize money input string while typing or pasting.
  * Cleans whitespace, commas, and optional leading 'RM'. Normalizes '.5' to '0.5'.
+ * Accepts digits with a trailing dot (e.g. '12.') as a transient typing state.
  * Returns the cleaned valid string, or null if the input contains invalid format
- * (such as letters, negative signs, bare '.', trailing '12.', or more than 2 decimal places).
+ * (such as letters, negative signs, bare '.', or more than 2 decimal places).
  */
 export function sanitizeMoneyInput(raw: string): string | null {
   let cleaned = raw.trim().replace(/^RM\s*/i, "").replace(/,/g, "").trim();
@@ -82,7 +83,7 @@ export function sanitizeMoneyInput(raw: string): string | null {
   if (/^\.\d{1,2}$/.test(cleaned)) {
     cleaned = `0${cleaned}`;
   }
-  if (/^\d+(?:\.\d{1,2})?$/.test(cleaned)) {
+  if (/^\d+(?:\.\d{0,2})?$/.test(cleaned)) {
     return cleaned;
   }
   return null;

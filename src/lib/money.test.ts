@@ -32,9 +32,10 @@ describe("parseSen", () => {
 });
 
 describe("sanitizeMoneyInput", () => {
-  it("accepts valid numbers and normalizes leading decimals", () => {
+  it("accepts valid numbers, normalizes leading decimals, and allows trailing-dot transient states", () => {
     expect(sanitizeMoneyInput("")).toBe("");
     expect(sanitizeMoneyInput("12")).toBe("12");
+    expect(sanitizeMoneyInput("12.")).toBe("12.");
     expect(sanitizeMoneyInput("12.3")).toBe("12.3");
     expect(sanitizeMoneyInput("12.34")).toBe("12.34");
     expect(sanitizeMoneyInput(".5")).toBe("0.5");
@@ -48,9 +49,8 @@ describe("sanitizeMoneyInput", () => {
     expect(sanitizeMoneyInput("1,250.00")).toBe("1250.00");
   });
 
-  it("rejects invalid letters, trailing dots, bare dots, and extra decimals", () => {
+  it("rejects invalid letters, bare dots, and extra decimals", () => {
     expect(sanitizeMoneyInput(".")).toBeNull();
-    expect(sanitizeMoneyInput("12.")).toBeNull();
     expect(sanitizeMoneyInput("weee")).toBeNull();
     expect(sanitizeMoneyInput("12.345")).toBeNull();
     expect(sanitizeMoneyInput("-10")).toBeNull();
