@@ -9,6 +9,7 @@ import {
 import { isValidMonthStr, subSen, sumSen } from "@/lib/money";
 import {
   assertMonthNotClosed,
+  assertValidNote,
   assertValidSen,
   ClosedMonthError,
   NotFoundError,
@@ -20,6 +21,7 @@ export {
   NotFoundError,
   ValidationError,
   assertMonthNotClosed,
+  assertValidNote,
   assertValidSen,
   isMonthClosed,
 } from "./daily-sheet";
@@ -98,7 +100,7 @@ export async function addOperatingExpense(
     );
   }
 
-  const trimmedNote = note?.trim() || null;
+  const trimmedNote = assertValidNote(note);
   if (type === "other" && !trimmedNote) {
     throw new ValidationError(
       "Note is required when Operating Expense type is 'other'",
@@ -241,7 +243,7 @@ export async function updateOperatingExpense(
 
   const finalNote =
     updates.note !== undefined
-      ? updates.note?.trim() || null
+      ? assertValidNote(updates.note)
       : existing.note;
 
   let finalAmountSen = existing.amountSen;

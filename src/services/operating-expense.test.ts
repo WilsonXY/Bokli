@@ -172,6 +172,21 @@ describe("2. Type and note rules", () => {
     );
     expect(wages.note).toBeNull();
   });
+
+  it("rejects non-string note with ValidationError (not TypeError) in addOperatingExpense and updateOperatingExpense", async () => {
+    await expect(
+      addOperatingExpense(MONTH, "rental", 5000, 123 as any, { db }),
+    ).rejects.toThrow(ValidationError);
+
+    await expect(
+      addOperatingExpense(MONTH, "rental", 5000, true as any, { db }),
+    ).rejects.toThrow(ValidationError);
+
+    const exp = await addOperatingExpense(MONTH, "rental", 5000, "Initial", { db });
+    await expect(
+      updateOperatingExpense(exp.id, { note: 123 as any }, { db }),
+    ).rejects.toThrow(ValidationError);
+  });
 });
 
 describe("3. Amount validation (sen integer, no floats, non-negative)", () => {
