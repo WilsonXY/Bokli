@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { costLines } from "@/db/schema";
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/auth/guard";
-import { openDb } from "@/db";
+import { getDb } from "@/db";
 import * as dailySheetService from "@/services/daily-sheet";
 import {
   CostCategory,
@@ -119,7 +119,7 @@ export const POST = withAuth(async (req: NextRequest) => {
       dailySheetService.validateCostLines(body.costLines);
     }
 
-    const { db, sqlite } = openDb();
+    const { db, sqlite } = getDb();
     const sheet = dailySheetService.getOrCreateSheet(body.date, { db });
 
     // Single better-sqlite3 transaction wrapping setRevenue + replaceCostLines so POST is all-or-nothing

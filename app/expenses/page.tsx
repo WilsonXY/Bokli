@@ -1,5 +1,5 @@
 import React from "react";
-import { openDb } from "@/db";
+import { getDb } from "@/db";
 import { listMonthTiles, type MonthTile } from "@/services/dashboard";
 import { getTodayInKualaLumpur, isMonthClosed } from "@/services/daily-sheet";
 import {
@@ -54,7 +54,7 @@ export default async function ExpensesPage(props: PageProps) {
     status: tileStatusMap.get(m) ?? "open",
   }));
 
-  const { db } = openDb();
+  const { db } = getDb();
   let expenses: OperatingExpenseItem[] = [];
   let isClosed = false;
   let summary: {

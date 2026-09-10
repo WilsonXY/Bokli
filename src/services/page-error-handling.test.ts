@@ -44,12 +44,14 @@ vi.mock("@/services/month-close", async (importOriginal) => {
   };
 });
 
+import HomePage from "../../app/page";
 import MonthClosePage from "../../app/close/page";
 import ExpensesPage from "../../app/expenses/page";
 import DashboardPage from "../../app/dashboard/page";
 import * as opexService from "@/services/operating-expense";
 import * as dashboardService from "@/services/dashboard";
 import * as monthCloseService from "@/services/month-close";
+import { getTodayInKualaLumpur } from "@/services/daily-sheet";
 
 describe("Server page error handling regression tests", () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
@@ -61,6 +63,35 @@ describe("Server page error handling regression tests", () => {
   afterEach(() => {
     consoleErrorSpy.mockRestore();
     vi.clearAllMocks();
+  });
+
+  describe("HomePage (/)", () => {
+    it("falls back to today in KL when given an invalid date (e.g. 2026-02-30) without throwing 500", async () => {
+      const todayKl = getTodayInKualaLumpur();
+      const pageElement = await HomePage({
+        searchParams: Promise.resolve({ date: "2026-02-30" }),
+      });
+      const html = ReactDOMServer.renderToStaticMarkup(pageElement);
+      expect(html).toContain(todayKl);
+    });
+
+    it("falls back to today in KL when given a future date (e.g. 2099-01-01)", async () => {
+      const todayKl = getTodayInKualaLumpur();
+      const pageElement = await HomePage({
+        searchParams: Promise.resolve({ date: "2099-01-01" }),
+      });
+      const html = ReactDOMServer.renderToStaticMarkup(pageElement);
+      expect(html).toContain(todayKl);
+    });
+
+    it("falls back to today in KL when given a malformed date string", async () => {
+      const todayKl = getTodayInKualaLumpur();
+      const pageElement = await HomePage({
+        searchParams: Promise.resolve({ date: "not-a-date" }),
+      });
+      const html = ReactDOMServer.renderToStaticMarkup(pageElement);
+      expect(html).toContain(todayKl);
+    });
   });
 
   describe("MonthClosePage (/close)", () => {

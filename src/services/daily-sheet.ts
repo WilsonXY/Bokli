@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { openDb, type Db } from "@/db";
+import { getDb, openDb, type Db } from "@/db";
 import {
   costLines,
   dailySheets,
@@ -215,7 +215,7 @@ export function getOrCreateSheet(
   date: string,
   options?: { db?: Db; now?: Date },
 ): DailySheet {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!isValidDateStr(date)) {
     throw new ValidationError(
@@ -277,7 +277,7 @@ export function getSheetByDate(
   date: string,
   options?: { db?: Db },
 ): DailySheet | null {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!isValidDateStr(date)) {
     throw new ValidationError(
@@ -305,7 +305,7 @@ export function setRevenue(
   tngSen: number | bigint,
   options?: { db?: Db },
 ): DailySheet {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   const validCash = assertValidSen(cashSen, "Cash Revenue (cashSen)");
   const validTng = assertValidSen(tngSen, "TnG Revenue (tngSen)");
@@ -352,7 +352,7 @@ export function addCostLine(
   note?: unknown,
   options?: { db?: Db },
 ): CostLine {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   const validAmount = assertValidSen(
     amountSen,
@@ -424,7 +424,7 @@ export function replaceCostLines(
   lines: ReplaceCostLineInput[],
   options?: { db?: Db },
 ): CostLine[] {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   validateCostLines(lines);
 
@@ -498,7 +498,7 @@ export function updateCostLine(
   updates: UpdateCostLineInput,
   options?: { db?: Db },
 ): CostLine {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   const existingLine = db
     .select()
@@ -585,7 +585,7 @@ export function removeCostLine(
   costLineId: number,
   options?: { db?: Db },
 ): { success: boolean; removedLine: CostLine } {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   const existingLine = db
     .select()
@@ -634,7 +634,7 @@ export function getSheetWithCosts(
   date: string,
   options?: { db?: Db },
 ): DailySheetWithCosts | null {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!isValidDateStr(date)) {
     throw new ValidationError(

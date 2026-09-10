@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/auth/guard";
-import { openDb } from "@/db";
+import { getDb } from "@/db";
 import {
   getDashboard,
   hasMonthData,
@@ -73,7 +73,7 @@ export const GET = withAuth(async (req: NextRequest) => {
         );
       }
 
-      const { db } = openDb();
+      const { db } = getDb();
       if (!hasMonthData(trimmedMonth, { db })) {
         return NextResponse.json(
           { error: `Dashboard data not found for month: ${trimmedMonth}` },
@@ -121,7 +121,7 @@ export const GET = withAuth(async (req: NextRequest) => {
       upToMonth = trimmedUpTo;
     }
 
-    const { db } = openDb();
+    const { db } = getDb();
     const tiles = await listMonthTiles({ limit, upToMonth, db });
 
     return NextResponse.json(

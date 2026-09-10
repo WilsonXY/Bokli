@@ -1,5 +1,5 @@
 import { and, eq, isNull, like, sql } from "drizzle-orm";
-import { openDb, type Db } from "@/db";
+import { getDb, openDb, type Db } from "@/db";
 import {
   costLines,
   dailySheets,
@@ -84,7 +84,7 @@ export async function addOperatingExpense(
   note?: string | null,
   options?: { db?: Db },
 ): Promise<AddOperatingExpenseResult> {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!isValidMonthStr(month)) {
     throw new ValidationError(
@@ -180,7 +180,7 @@ export async function listOperatingExpenses(
   month: string,
   options?: { db?: Db },
 ): Promise<OperatingExpense[]> {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!isValidMonthStr(month)) {
     throw new ValidationError(
@@ -207,7 +207,7 @@ export async function updateOperatingExpense(
   updates: UpdateOperatingExpenseInput,
   options?: { db?: Db },
 ): Promise<OperatingExpense> {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!Number.isInteger(id) || id <= 0) {
     throw new ValidationError(`Invalid Operating Expense id: ${id}`);
@@ -286,7 +286,7 @@ export async function removeOperatingExpense(
   id: number,
   options?: { db?: Db },
 ): Promise<{ success: boolean; removedExpense: OperatingExpense }> {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!Number.isInteger(id) || id <= 0) {
     throw new ValidationError(`Invalid Operating Expense id: ${id}`);
@@ -323,7 +323,7 @@ export async function getMonthPreview(
   month: string,
   options?: { db?: Db },
 ): Promise<MonthPreview> {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!isValidMonthStr(month)) {
     throw new ValidationError(

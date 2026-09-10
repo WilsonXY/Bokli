@@ -1,9 +1,11 @@
+import React from "react";
 import {
   getTodayInKualaLumpur,
   getSheetWithCosts,
   isMonthClosed,
 } from "@/services/daily-sheet";
-import { openDb } from "@/db";
+import { getDb } from "@/db";
+import { isValidDateStr } from "@/lib/money";
 import { DailySheetForm } from "@/components/DailySheetForm";
 
 interface PageProps {
@@ -17,16 +19,16 @@ export default async function HomePage(props: PageProps) {
   const requestedDate = searchParams?.date;
   const date =
     typeof requestedDate === "string" &&
-    /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) &&
+    isValidDateStr(requestedDate) &&
     requestedDate <= todayKl
       ? requestedDate
       : todayKl;
 
-  const { db } = openDb();
+  const { db } = getDb();
   const month = date.slice(0, 7);
   const isClosed = isMonthClosed(month, db);
 
-  const sheetData = getSheetWithCosts(date);
+  const sheetData = getSheetWithCosts(date, { db });
 
   return (
     <div className="max-w-2xl mx-auto">

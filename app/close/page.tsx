@@ -1,7 +1,7 @@
 import React from "react";
 import { eq, like } from "drizzle-orm";
 import { auth } from "@/auth";
-import { openDb } from "@/db";
+import { getDb } from "@/db";
 import { dailySheets, monthCloses } from "@/db/schema";
 import { listMonthTiles, type MonthTile } from "@/services/dashboard";
 import { getTodayInKualaLumpur } from "@/services/daily-sheet";
@@ -62,7 +62,7 @@ export default async function MonthClosePage(props: PageProps) {
     status: tileStatusMap.get(m) ?? "open",
   }));
 
-  const { db } = openDb();
+  const { db } = getDb();
 
   let financials: {
     revenueSen: number;
