@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
+import { execSync } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
@@ -62,7 +63,7 @@ describe("password hashing & verify", () => {
   });
 });
 
-describe("session duration config", () => {
+describe("session duration and secret config", () => {
   it("configures ~30-day sessions (30 * 24h)", () => {
     const expectedSeconds = 30 * 24 * 60 * 60; // 2,592,000
     expect(SESSION_MAX_AGE).toBe(expectedSeconds);
@@ -74,6 +75,32 @@ describe("session duration config", () => {
     const sessionCookie = authConfig.cookies?.sessionToken;
     expect(sessionCookie?.options?.maxAge).toBe(30 * 24 * 60 * 60);
     expect(sessionCookie?.options?.httpOnly).toBe(true);
+  });
+
+  it("uses random ephemeral secret per process in non-prod/build phase and fails closed in production", () => {
+    // 1. In dev/build phase without AUTH_SECRET, generates an ephemeral secret (not a static committed fallback)
+    const buildOutput1 = execSync(
+      'npx tsx -e "delete process.env.AUTH_SECRET; delete process.env.NEXTAUTH_SECRET; process.env.NODE_ENV = \\"production\\"; process.env.NEXT_PHASE = \\"phase-production-build\\"; import(\\"./src/auth/config.ts\\").then(m => console.log(m.default.authConfig.secret))"',
+      { stdio: "pipe", encoding: "utf-8" },
+    ).trim();
+
+    expect(buildOutput1.length).toBeGreaterThanOrEqual(32);
+    expect(buildOutput1).not.toBe("bokli-build-phase-ephemeral-secret-32-chars-long");
+
+    // Two separate processes in build phase generate distinct secrets (per-process random)
+    const buildOutput2 = execSync(
+      'npx tsx -e "delete process.env.AUTH_SECRET; delete process.env.NEXTAUTH_SECRET; process.env.NODE_ENV = \\"production\\"; process.env.NEXT_PHASE = \\"phase-production-build\\"; import(\\"./src/auth/config.ts\\").then(m => console.log(m.default.authConfig.secret))"',
+      { stdio: "pipe", encoding: "utf-8" },
+    ).trim();
+    expect(buildOutput1).not.toBe(buildOutput2);
+
+    // 2. In production runtime without AUTH_SECRET, importing throws Error (fails closed)
+    expect(() => {
+      execSync(
+        'npx tsx -e "delete process.env.AUTH_SECRET; delete process.env.NEXTAUTH_SECRET; delete process.env.NEXT_PHASE; delete process.env.npm_lifecycle_event; process.env.NODE_ENV = \\"production\\"; import(\\"./src/auth/config.ts\\")"',
+        { stdio: "pipe", encoding: "utf-8" },
+      );
+    }).toThrow();
   });
 });
 
@@ -108,6 +135,15 @@ describe("seeded family users (db:seed)", () => {
 
     const updatedMom = afterSecondSeed.find((u) => u.username === "mom");
     expect(await verifyPassword("mom-new-password", updatedMom!.passwordHash)).toBe(true);
+  });
+
+  it("fails loudly if required password env vars are missing", async () => {
+    const prevMom = process.env.BOKLI_MOM_PASSWORD;
+    delete process.env.BOKLI_MOM_PASSWORD;
+
+    await expect(seedUsers(db)).rejects.toThrow(/BOKLI_MOM_PASSWORD/);
+
+    process.env.BOKLI_MOM_PASSWORD = prevMom;
   });
 });
 
