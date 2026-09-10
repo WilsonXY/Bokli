@@ -207,20 +207,24 @@ describe("auth guard", () => {
     expect(authMwRes.status).toBe(200);
   });
 
-  it("middleware redirects anonymous page access to /login and allows anonymous /login", async () => {
+  it("middleware redirects anonymous page access to /login with callbackUrl and allows anonymous /login", async () => {
     const homeReq = new NextRequest("http://localhost:3000/");
     const homeRes = (await middleware(homeReq, {} as any)) as Response;
     expect(homeRes.status).toBe(307);
-    expect(homeRes.headers.get("location")).toBe("http://localhost:3000/login");
+    expect(homeRes.headers.get("location")).toBe("http://localhost:3000/login?callbackUrl=%2F");
 
-    const dashReq = new NextRequest("http://localhost:3000/dashboard");
+    const dashReq = new NextRequest("http://localhost:3000/dashboard?month=2026-03");
     const dashRes = (await middleware(dashReq, {} as any)) as Response;
     expect(dashRes.status).toBe(307);
-    expect(dashRes.headers.get("location")).toBe("http://localhost:3000/login");
+    expect(dashRes.headers.get("location")).toBe("http://localhost:3000/login?callbackUrl=%2Fdashboard%3Fmonth%3D2026-03");
 
     const loginReq = new NextRequest("http://localhost:3000/login");
     const loginRes = (await middleware(loginReq, {} as any)) as Response;
     expect(loginRes.status).toBe(200);
+
+    const loginTrailingReq = new NextRequest("http://localhost:3000/login/");
+    const loginTrailingRes = (await middleware(loginTrailingReq, {} as any)) as Response;
+    expect(loginTrailingRes.status).toBe(200);
   });
 });
 
@@ -314,6 +318,17 @@ describe("end-to-end credentials login and API access", () => {
     const mwLoginRes = (await middleware(mwLoginReq, {} as any)) as Response;
     expect(mwLoginRes.status).toBe(307);
     expect(mwLoginRes.headers.get("location")).toBe("http://localhost:3000/");
+
+    const mwLoginTrailingReq = new NextRequest("http://localhost:3000/login/", {
+      headers: {
+        Cookie: sessionTokenCookie!,
+        "x-forwarded-proto": "http",
+        Host: "localhost:3000",
+      },
+    });
+    const mwLoginTrailingRes = (await middleware(mwLoginTrailingReq, {} as any)) as Response;
+    expect(mwLoginTrailingRes.status).toBe(307);
+    expect(mwLoginTrailingRes.headers.get("location")).toBe("http://localhost:3000/");
   });
 
   it("rejects login with incorrect password", async () => {

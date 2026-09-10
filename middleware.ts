@@ -20,7 +20,7 @@ export default auth((req) => {
   }
 
   // 2. Allow login page or redirect to home if already logged in
-  if (pathname === "/login") {
+  if (pathname === "/login" || pathname === "/login/") {
     if (isLoggedIn) {
       return NextResponse.redirect(new URL("/", req.nextUrl));
     }
@@ -30,6 +30,8 @@ export default auth((req) => {
   // 3. Protect all other pages: redirect anonymous visitors to /login
   if (!isLoggedIn) {
     const loginUrl = new URL("/login", req.nextUrl);
+    const callbackUrl = req.nextUrl.pathname + req.nextUrl.search;
+    loginUrl.searchParams.set("callbackUrl", callbackUrl);
     return NextResponse.redirect(loginUrl);
   }
 
