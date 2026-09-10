@@ -92,11 +92,13 @@ describe("isValidDateStr", () => {
   it("validates standard YYYY-MM-DD format", () => {
     expect(isValidDateStr("2026-03-31")).toBe(true);
     expect(isValidDateStr("2026-02-28")).toBe(true);
+    expect(isValidDateStr("2024-02-29")).toBe(true); // leap year
     expect(isValidDateStr("2026-02-29")).toBe(false); // 2026 is not a leap year
   });
 
   it("rejects invalid patterns", () => {
     expect(isValidDateStr("2026-13-01")).toBe(false);
+    expect(isValidDateStr("2026-09-31")).toBe(false); // September has 30 days
     expect(isValidDateStr("invalid-date")).toBe(false);
     expect(isValidDateStr("2026-3-5")).toBe(false);
   });

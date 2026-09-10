@@ -125,16 +125,19 @@ export function ExpensesView({
     return found ? found.label : type;
   };
 
-  // Safe parsing helper
-  function toSen(val: string): bigint {
+  // Safe parsing helper: returns null for unparseable non-empty inputs
+  function toSen(val: string): bigint | null {
     const s = val.trim();
     if (!s) return 0n;
     try {
       return parseSen(s);
     } catch {
-      return 0n;
+      return null;
     }
   }
+
+  const amountSen = toSen(amountInput);
+  const amountError = amountInput.trim() !== "" && amountSen === null;
 
   // Handle Add Expense
   async function handleAddExpense(e: React.FormEvent) {
@@ -143,7 +146,7 @@ export function ExpensesView({
     setInlineError(null);
 
     const amountVal = toSen(amountInput);
-    if (amountVal <= 0n) {
+    if (amountVal === null || amountVal <= 0n) {
       setInlineError(t.invalidAmount);
       return;
     }
@@ -357,9 +360,20 @@ export function ExpensesView({
                     }
                   }}
                   placeholder="0.00"
-                  className="w-full h-11 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
+                  className={`w-full h-11 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
+                    amountError ? "border-finance-loss" : "border-surface-border"
+                  } text-base font-semibold text-ink-primary focus:outline-none focus:bg-white ${
+                    amountError
+                      ? "focus:border-finance-loss focus-visible:ring-finance-loss/50"
+                      : "focus:border-ink-primary focus-visible:ring-brand-broccoli/50"
+                  } focus-visible:ring-2 transition-colors`}
                 />
               </div>
+              {amountError && (
+                <div className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
+                  <span>{t.invalidAmount}</span>
+                </div>
+              )}
             </div>
 
             <div>

@@ -67,23 +67,32 @@ export function MonthCloseView({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Safe parsing helper
-  function toSen(val: string): bigint {
+  // Safe parsing helper: returns null for unparseable non-empty inputs
+  function toSen(val: string): bigint | null {
     const s = val.trim();
     if (!s) return 0n;
     try {
       return parseSen(s);
     } catch {
-      return 0n;
+      return null;
     }
   }
 
   const expectedNetSen = BigInt(financials.netSen);
   const cashOnHandSen = toSen(cashOnHandInput);
   const tngOnHandSen = toSen(tngOnHandInput);
-  const actualCountedSen = cashOnHandSen + tngOnHandSen;
-  const varianceSen = actualCountedSen - expectedNetSen;
-  const isBalanced = varianceSen === 0n;
+
+  const cashError = cashOnHandInput.trim() !== "" && cashOnHandSen === null;
+  const tngError = tngOnHandInput.trim() !== "" && tngOnHandSen === null;
+  const hasParseError = cashError || tngError;
+
+  const actualCountedSen =
+    !hasParseError && cashOnHandSen !== null && tngOnHandSen !== null
+      ? cashOnHandSen + tngOnHandSen
+      : null;
+  const varianceSen =
+    actualCountedSen !== null ? actualCountedSen - expectedNetSen : null;
+  const isBalanced = varianceSen !== null && varianceSen === 0n;
   const hasInputs = cashOnHandInput.trim() !== "" || tngOnHandInput.trim() !== "";
 
   const isClosed = Boolean(closeRecord?.isClosed);
@@ -93,6 +102,11 @@ export function MonthCloseView({
   async function handlePerformClose(e: React.FormEvent) {
     e.preventDefault();
     setErrorMessage(null);
+
+    if (hasParseError || cashOnHandSen === null || tngOnHandSen === null) {
+      setErrorMessage(t.invalidAmount);
+      return;
+    }
 
     if (!hasSheetsInMonth && !confirmEmpty) {
       setErrorMessage(t.emptyMonthError);
@@ -395,9 +409,20 @@ export function MonthCloseView({
                     }
                   }}
                   placeholder="0.00"
-                  className="w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-lg font-bold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-cash focus-visible:ring-2 focus-visible:ring-channel-cash/50 transition-colors"
+                  className={`w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
+                    cashError ? "border-finance-loss" : "border-surface-border"
+                  } text-lg font-bold text-ink-primary focus:outline-none focus:bg-white ${
+                    cashError
+                      ? "focus:border-finance-loss focus-visible:ring-finance-loss/50"
+                      : "focus:border-channel-cash focus-visible:ring-channel-cash/50"
+                  } focus-visible:ring-2 transition-colors`}
                 />
               </div>
+              {cashError && (
+                <div className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
+                  <span>{t.invalidAmount}</span>
+                </div>
+              )}
             </div>
 
             {/* TnG Balance */}
@@ -421,9 +446,20 @@ export function MonthCloseView({
                     }
                   }}
                   placeholder="0.00"
-                  className="w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-lg font-bold text-ink-primary focus:outline-none focus:bg-white focus:border-channel-tng focus-visible:ring-2 focus-visible:ring-channel-tng/50 transition-colors"
+                  className={`w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
+                    tngError ? "border-finance-loss" : "border-surface-border"
+                  } text-lg font-bold text-ink-primary focus:outline-none focus:bg-white ${
+                    tngError
+                      ? "focus:border-finance-loss focus-visible:ring-finance-loss/50"
+                      : "focus:border-channel-tng focus-visible:ring-channel-tng/50"
+                  } focus-visible:ring-2 transition-colors`}
                 />
               </div>
+              {tngError && (
+                <div className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
+                  <span>{t.invalidAmount}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -431,7 +467,9 @@ export function MonthCloseView({
           <div className="p-3 rounded-lg bg-surface-subtle border border-surface-border space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="text-ink-muted font-medium">{t.actualTotal}:</span>
-              <span className="font-bold text-ink-primary text-base">{formatMyr(actualCountedSen)}</span>
+              <span className="font-bold text-ink-primary text-base">
+                {actualCountedSen !== null ? formatMyr(actualCountedSen) : "—"}
+              </span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-ink-muted font-medium">{t.expectedNet}:</span>
@@ -440,7 +478,7 @@ export function MonthCloseView({
             <div className="pt-2 border-t border-surface-border flex items-center justify-between text-sm">
               <span className="font-semibold text-ink-secondary">{t.reconciliationDiff}:</span>
               <div className="flex items-center gap-1.5">
-                {hasInputs && (
+                {hasInputs && !hasParseError && (
                   <span
                     className={`text-[13px] px-2 py-0.5 rounded font-semibold ${
                       isBalanced
@@ -453,10 +491,14 @@ export function MonthCloseView({
                 )}
                 <span
                   className={`font-bold text-base ${
-                    isBalanced ? "text-brand-broccoli" : "text-finance-loss"
+                    hasParseError
+                      ? "text-ink-muted"
+                      : isBalanced
+                      ? "text-brand-broccoli"
+                      : "text-finance-loss"
                   }`}
                 >
-                  {formatMyr(varianceSen)}
+                  {varianceSen !== null ? formatMyr(varianceSen) : "—"}
                 </span>
               </div>
             </div>
@@ -465,7 +507,10 @@ export function MonthCloseView({
           {/* Note input */}
           <div>
             <label className="block text-sm font-semibold text-ink-primary mb-1">
-              {t.closeNote} {!isBalanced && hasInputs && <span className="text-finance-loss">({t.noteRequiredBadge})</span>}
+              {t.closeNote}{" "}
+              {!isBalanced && hasInputs && !hasParseError && (
+                <span className="text-finance-loss">({t.noteRequiredBadge})</span>
+              )}
             </label>
             <input
               type="text"
@@ -474,7 +519,11 @@ export function MonthCloseView({
                 setCloseNote(e.target.value);
                 if (errorMessage) setErrorMessage(null);
               }}
-              placeholder={!isBalanced && hasInputs ? t.closeNotePlaceholder : t.closeNoteOptional}
+              placeholder={
+                !isBalanced && hasInputs && !hasParseError
+                  ? t.closeNotePlaceholder
+                  : t.closeNoteOptional
+              }
               className="w-full h-11 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
             />
           </div>
