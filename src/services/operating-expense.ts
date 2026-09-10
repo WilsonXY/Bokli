@@ -136,6 +136,7 @@ export async function addOperatingExpense(
         .update(operatingExpenses)
         .set({
           amountSen: Number(validMergedTotal),
+          updatedAt: new Date().toISOString(),
         })
         .where(eq(operatingExpenses.id, existing.id))
         .returning()

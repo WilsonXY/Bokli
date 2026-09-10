@@ -97,6 +97,7 @@ export const operatingExpenses = sqliteTable(
     amountSen: integer("amount_sen").notNull(),
     note: text("note"),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
   (t) => [
     index("ix_operating_expenses_month").on(t.month),

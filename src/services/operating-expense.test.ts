@@ -688,4 +688,24 @@ it("safely merges concurrent duplicate expenses via transaction without double-i
       addOperatingExpense(month, "rental", 200n, "max-check", { db }),
     ).rejects.toThrow(ValidationError);
   });
+
+  it("updates updatedAt timestamp when merging duplicate operating expense", async () => {
+    const month = "2026-07";
+    const first = await addOperatingExpense(month, "rental", 5000, "audit-check", { db });
+    expect(first.updatedAt).toBeDefined();
+
+    // Small delay to ensure timestamp progression
+    await new Promise((resolve) => setTimeout(resolve, 15));
+
+    const second = await addOperatingExpense(month, "rental", 3000, "audit-check", { db });
+    expect(second.id).toBe(first.id);
+    expect(second.updatedAt).toBeDefined();
+    expect(new Date(second.updatedAt).getTime()).toBeGreaterThanOrEqual(
+      new Date(first.updatedAt).getTime(),
+    );
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].updatedAt).toBe(second.updatedAt);
+  });
 });
