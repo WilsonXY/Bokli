@@ -157,7 +157,7 @@ The palette is engineered for immediate semantic recognition across payment chan
 - **Loss Crimson Red** (`#dc2626` / `#b91c1c`, background tint: `#fef2f2`): Negative net profit, cost warnings, and reconciliation discrepancy badges.
 
 ### Status Tints
-- **Closed Month** (Background: `#dcfce7`, Text: `#166534`): Locked, frozen month snapshot.
+- **Closed Month** (Background: `#dcfce7`, Text: `#166534`): Locked, closed month snapshot.
 - **Reopened Month** (Background: `#fef9c3`, Text: `#854d0e`): Admin-reopened month requiring verification.
 - **Open Month** (Background: `#e0f2fe`, Text: `#075985`): Active month in progress.
 
@@ -172,7 +172,7 @@ The palette is engineered for immediate semantic recognition across payment chan
 
 ### Hierarchy (Mobile-Optimized Scale)
 - **Display** (800 weight, 24px, 1.2 line-height): Top-level screen title, e.g., 🥦 Bokli 经营概览.
-- **Headline** (900/800 weight, 20px, 1.25 line-height): Bottom-line Net Profit figures, live gross profit, and primary revenue card totals.
+- **Headline** (900/800 weight, 20px, 1.25 line-height): Net Profit figures, live gross profit, and primary revenue card totals.
 - **Title** (700 weight, 18px, 1.3 line-height): Section titles, metric card headers, and active date identifiers.
 - **Body / Inputs** (400/600 weight, 16px, 1.5 line-height): Form inputs (preventing mobile zoom), standard notes, and descriptions.
 - **Label** (600 weight, 14px, 1.4 line-height): Input field headers, cost category chips, button text, and trend metadata.
@@ -213,7 +213,7 @@ Bokli employs a crisp, flat ops-deck aesthetic with hairline borders and subtle 
 ## Components
 
 ### 1. App Header with Broccoli Emblem
-- Crisp top app bar featuring the signature `🥦 Bokli` logo, active date/month badge, and logged-in user role indicator (`Operator` / `Admin`).
+- Crisp top app bar featuring the signature `🥦 Bokli` logo, active date/month badge, and logged-in role indicator (`Operator` / `Admin`).
 
 ### 2. Bottom Navigation Bar
 - 4 primary tabs: `[ 记账 Daily Sheet ]`, `[ 概览 Dashboard ]`, `[ 支出 Expenses ]`, `[ 结账 Month Close ]`.
@@ -242,7 +242,7 @@ Bokli employs a crisp, flat ops-deck aesthetic with hairline borders and subtle 
 - **Do** maintain a minimum `48px` tap target on all interactive buttons, inputs, chips, and links.
 - **Do** format all currency as Malaysian Ringgit (MYR) with sen integers rendered to two decimal places via `formatMyr`.
 - **Do** place Chinese primary terminology first, followed by secondary English parentheticals.
-- **Do** use Cash Emerald (`#059669`) for cash intake and TnG Blue (`#2563eb`) for Touch 'n Go e-wallet transactions.
+- **Do** use Cash Emerald (`#059669`) for cash intake and TnG Blue (`#2563eb`) for Touch 'n Go receipts.
 
 ### Don't:
 - **Don't** implement Dark Mode or dark card containers.
