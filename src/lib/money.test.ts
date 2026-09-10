@@ -32,22 +32,25 @@ describe("parseSen", () => {
 });
 
 describe("sanitizeMoneyInput", () => {
-  it("accepts valid typing and intermediate numbers", () => {
+  it("accepts valid numbers and normalizes leading decimals", () => {
     expect(sanitizeMoneyInput("")).toBe("");
     expect(sanitizeMoneyInput("12")).toBe("12");
-    expect(sanitizeMoneyInput("12.")).toBe("12.");
     expect(sanitizeMoneyInput("12.3")).toBe("12.3");
     expect(sanitizeMoneyInput("12.34")).toBe("12.34");
-    expect(sanitizeMoneyInput(".5")).toBe(".5");
+    expect(sanitizeMoneyInput(".5")).toBe("0.5");
   });
 
-  it("cleans pasted formatted values", () => {
+  it("cleans pasted formatted values and trims whitespace", () => {
     expect(sanitizeMoneyInput("RM 50.00")).toBe("50.00");
+    expect(sanitizeMoneyInput("RM 50.00 ")).toBe("50.00");
+    expect(sanitizeMoneyInput("  50.00  ")).toBe("50.00");
     expect(sanitizeMoneyInput("RM50")).toBe("50");
     expect(sanitizeMoneyInput("1,250.00")).toBe("1250.00");
   });
 
-  it("rejects invalid letters and extra decimals", () => {
+  it("rejects invalid letters, trailing dots, bare dots, and extra decimals", () => {
+    expect(sanitizeMoneyInput(".")).toBeNull();
+    expect(sanitizeMoneyInput("12.")).toBeNull();
     expect(sanitizeMoneyInput("weee")).toBeNull();
     expect(sanitizeMoneyInput("12.345")).toBeNull();
     expect(sanitizeMoneyInput("-10")).toBeNull();
