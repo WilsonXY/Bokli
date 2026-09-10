@@ -110,43 +110,53 @@ export async function addOperatingExpense(
       ? eq(operatingExpenses.note, trimmedNote)
       : isNull(operatingExpenses.note);
 
-  const existing = db
-    .select()
-    .from(operatingExpenses)
-    .where(
-      and(
-        eq(operatingExpenses.month, month),
-        eq(operatingExpenses.type, type),
-        noteCondition,
-      ),
-    )
-    .get();
+  return db.transaction((tx) => {
+    assertMonthNotClosed(month, tx as any);
 
-  if (existing) {
-    const updated = db
-      .update(operatingExpenses)
-      .set({
-        amountSen: sql`${operatingExpenses.amountSen} + ${Number(validAmount)}`,
+    const existing = tx
+      .select()
+      .from(operatingExpenses)
+      .where(
+        and(
+          eq(operatingExpenses.month, month),
+          eq(operatingExpenses.type, type),
+          noteCondition,
+        ),
+      )
+      .get();
+
+    if (existing) {
+      const mergedTotal = BigInt(existing.amountSen) + validAmount;
+      const validMergedTotal = assertValidSen(
+        mergedTotal,
+        "Merged Operating Expense amount (amountSen)",
+      );
+
+      const updated = tx
+        .update(operatingExpenses)
+        .set({
+          amountSen: Number(validMergedTotal),
+        })
+        .where(eq(operatingExpenses.id, existing.id))
+        .returning()
+        .get();
+
+      return updated;
+    }
+
+    const inserted = tx
+      .insert(operatingExpenses)
+      .values({
+        month,
+        type,
+        amountSen: Number(validAmount),
+        note: trimmedNote,
       })
-      .where(eq(operatingExpenses.id, existing.id))
       .returning()
       .get();
 
-    return updated;
-  }
-
-  const inserted = db
-    .insert(operatingExpenses)
-    .values({
-      month,
-      type,
-      amountSen: Number(validAmount),
-      note: trimmedNote,
-    })
-    .returning()
-    .get();
-
-  return inserted;
+    return inserted;
+  });
 }
 
 /**

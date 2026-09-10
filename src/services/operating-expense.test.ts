@@ -665,4 +665,27 @@ describe("8. Duplicate merging behavior", () => {
     expect(second.id).toBe(first.id);
     expect(second.amountSen).toBe(8000);
   });
+it("safely merges concurrent duplicate expenses via transaction without double-insert", async () => {
+    const month = "2026-05";
+    const [first, second] = await Promise.all([
+      addOperatingExpense(month, "rental", 4000, "concurrent", { db }),
+      addOperatingExpense(month, "rental", 6000, "concurrent", { db }),
+    ]);
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amountSen).toBe(10000);
+    expect(rows[0].note).toBe("concurrent");
+    expect(first.id).toBe(second.id);
+  });
+
+  it("throws ValidationError when merged amount exceeds MAX_SEN", async () => {
+    const month = "2026-06";
+    const initial = await addOperatingExpense(month, "rental", 9007199254740900n, "max-check", { db });
+    expect(initial.amountSen).toBe(Number(9007199254740900n));
+
+    await expect(
+      addOperatingExpense(month, "rental", 200n, "max-check", { db }),
+    ).rejects.toThrow(ValidationError);
+  });
 });

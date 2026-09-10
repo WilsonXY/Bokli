@@ -1,5 +1,6 @@
+import React from "react";
 import { openDb } from "@/db";
-import { listMonthTiles } from "@/services/dashboard";
+import { listMonthTiles, type MonthTile } from "@/services/dashboard";
 import { getTodayInKualaLumpur, isMonthClosed } from "@/services/daily-sheet";
 import {
   getMonthPreview,
@@ -17,7 +18,15 @@ export default async function ExpensesPage(props: PageProps) {
     typeof searchParams?.month === "string" ? searchParams.month : undefined;
 
   const currentMonthInKL = getTodayInKualaLumpur().slice(0, 7);
-  const rawTiles = await listMonthTiles();
+  let rawTiles: MonthTile[] = [];
+  let loadError: string | null = null;
+
+  try {
+    rawTiles = await listMonthTiles();
+  } catch (err) {
+    console.error("Failed to list month tiles for expenses:", err);
+    loadError = "Failed to load expenses data. Please refresh or try again later.";
+  }
 
   // Active month: requested valid month, or first existing month, or current month
   const activeMonth =
@@ -42,36 +51,39 @@ export default async function ExpensesPage(props: PageProps) {
   const { db } = openDb();
   let expenses: any[] = [];
   let isClosed = false;
-  let summary = {
-    grossSen: 0,
-    operatingSen: 0,
-    netSen: 0,
-  };
+  let summary: {
+    grossSen: number;
+    operatingSen: number;
+    netSen: number;
+  } | null = null;
 
-  try {
-    const [rawExpenses, preview] = await Promise.all([
-      listOperatingExpenses(activeMonth, { db }),
-      getMonthPreview(activeMonth, { db }),
-    ]);
+  if (!loadError) {
+    try {
+      const [rawExpenses, preview] = await Promise.all([
+        listOperatingExpenses(activeMonth, { db }),
+        getMonthPreview(activeMonth, { db }),
+      ]);
 
-    isClosed = isMonthClosed(activeMonth, db);
+      isClosed = isMonthClosed(activeMonth, db);
 
-    expenses = rawExpenses.map((e) => ({
-      id: e.id,
-      month: e.month,
-      type: e.type,
-      amountSen: Number(e.amountSen),
-      note: e.note,
-      createdAt: e.createdAt,
-    }));
+      expenses = rawExpenses.map((e) => ({
+        id: e.id,
+        month: e.month,
+        type: e.type,
+        amountSen: Number(e.amountSen),
+        note: e.note,
+        createdAt: e.createdAt,
+      }));
 
-    summary = {
-      grossSen: Number(preview.grossSen),
-      operatingSen: Number(preview.operatingSen),
-      netSen: Number(preview.netSen),
-    };
-  } catch {
-    // Fallback gracefully on empty or uninitialized month
+      summary = {
+        grossSen: Number(preview.grossSen),
+        operatingSen: Number(preview.operatingSen),
+        netSen: Number(preview.netSen),
+      };
+    } catch (err) {
+      console.error(`Failed to load expenses data for ${activeMonth}:`, err);
+      loadError = "Failed to load expenses data. Please refresh or try again later.";
+    }
   }
 
   return (
@@ -80,9 +92,10 @@ export default async function ExpensesPage(props: PageProps) {
       currentMonth={activeMonth}
       availableMonths={availableMonths}
       initialExpenses={expenses}
-      summary={summary}
+      summary={loadError ? null : summary}
       isClosed={isClosed}
       monthOptions={monthOptions}
+      loadError={loadError}
     />
   );
 }

@@ -22,30 +22,11 @@ interface DailySheetFormProps {
   todayKl: string;
 }
 
-function normalizeNote(note?: string | null): string {
-  return (note || "").trim();
-}
-
-function mergeCostLines(lines: CostLineItem[]): CostLineItem[] {
-  const merged: CostLineItem[] = [];
-  for (const line of lines) {
-    const normNote = normalizeNote(line.note);
-    const existingIndex = merged.findIndex(
-      (m) => m.category === line.category && normalizeNote(m.note) === normNote
-    );
-    if (existingIndex !== -1) {
-      merged[existingIndex] = {
-        ...merged[existingIndex],
-        amountSen: merged[existingIndex].amountSen + line.amountSen,
-      };
-    } else {
-      merged.push({
-        ...line,
-        note: normNote || null,
-      });
-    }
-  }
-  return merged;
+function normalizeCostLine(line: CostLineItem): CostLineItem {
+  return {
+    ...line,
+    note: line.note?.trim() || null,
+  };
 }
 
 function senToDecimalStr(sen: number): string {
@@ -87,9 +68,9 @@ export function DailySheetForm({
   const [cashInput, setCashInput] = useState(senToDecimalStr(initialCashSen));
   const [tngInput, setTngInput] = useState(senToDecimalStr(initialTngSen));
 
-  // Cost lines state - merged on frontend if same category and same note
+  // Cost lines state - distinct same-category+same-note rows remain representable
   const [costLines, setCostLines] = useState<CostLineItem[]>(() =>
-    mergeCostLines(initialCostLines)
+    initialCostLines.map(normalizeCostLine)
   );
 
   // New cost line draft
@@ -122,7 +103,7 @@ export function DailySheetForm({
   const [baseline, setBaseline] = useState(() => ({
     cashInput: senToDecimalStr(initialCashSen),
     tngInput: senToDecimalStr(initialTngSen),
-    costLines: mergeCostLines(initialCostLines),
+    costLines: initialCostLines.map(normalizeCostLine),
   }));
 
   // Check if current form inputs differ from baseline
@@ -140,7 +121,7 @@ export function DailySheetForm({
         curr.id !== base.id ||
         curr.category !== base.category ||
         curr.amountSen !== base.amountSen ||
-        (curr.note || "") !== (base.note || "")
+        (curr.note || null) !== (base.note || null)
       ) {
         return true;
       }
@@ -183,7 +164,7 @@ export function DailySheetForm({
 
   const grossProfitSen = totalRevenueSen - totalCostSen;
 
-  // Add Cost Line
+  // Add Cost Line (preserves distinct rows without silent collapsing)
   function handleAddCostLine() {
     setCostLineError(null);
     const amountVal = toSen(newAmount);
@@ -198,30 +179,16 @@ export function DailySheetForm({
       return;
     }
 
-    const normNote = normalizeNote(newNote) || null;
+    const trimmedNote = newNote.trim() || null;
 
-    setCostLines((prev) => {
-      const existingIndex = prev.findIndex(
-        (l) => l.category === newCat && normalizeNote(l.note) === normalizeNote(normNote)
-      );
-
-      if (existingIndex !== -1) {
-        return prev.map((line, idx) =>
-          idx === existingIndex
-            ? { ...line, amountSen: line.amountSen + Number(amountVal) }
-            : line
-        );
-      }
-
-      return [
-        ...prev,
-        {
-          category: newCat,
-          amountSen: Number(amountVal),
-          note: normNote,
-        },
-      ];
-    });
+    setCostLines((prev) => [
+      ...prev,
+      {
+        category: newCat,
+        amountSen: Number(amountVal),
+        note: trimmedNote,
+      },
+    ]);
 
     setNewAmount("");
     setNewNote("");
@@ -285,13 +252,13 @@ export function DailySheetForm({
       }
 
       if (data.sheet && Array.isArray(data.costLines)) {
-        const savedCostLines: CostLineItem[] = mergeCostLines(
-          data.costLines.map((l: any) => ({
+        const savedCostLines: CostLineItem[] = data.costLines.map((l: any) =>
+          normalizeCostLine({
             id: l.id,
             category: l.category,
             amountSen: Number(l.amountSen),
             note: l.note || undefined,
-          }))
+          })
         );
         const savedCash = senToDecimalStr(Number(data.sheet.cashSen));
         const savedTng = senToDecimalStr(Number(data.sheet.tngSen));
@@ -623,7 +590,7 @@ export function DailySheetForm({
             <div className="divide-y divide-surface-border">
               {costLines.map((line, idx) => (
                 <div
-                  key={`${line.category}-${line.note || ""}-${idx}`}
+                  key={`${line.id ?? "new"}-${line.category}-${line.note || ""}-${idx}`}
                   className="py-2 flex items-center justify-between gap-2"
                 >
                   <div className="flex items-center gap-2 min-w-0">

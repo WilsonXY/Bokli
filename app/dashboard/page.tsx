@@ -1,3 +1,4 @@
+import React from "react";
 import {
   getCashTngSplit,
   getCostByCategory,
@@ -25,7 +26,16 @@ export default async function DashboardPage(props: PageProps) {
   const requestedMonth =
     typeof searchParams?.month === "string" ? searchParams.month : undefined;
 
-  const rawTiles = await listMonthTiles();
+  let rawTiles: MonthTile[] = [];
+  let loadError: string | null = null;
+
+  try {
+    rawTiles = await listMonthTiles();
+  } catch (err) {
+    console.error("Failed to load month tiles for dashboard:", err);
+    loadError = "Failed to load dashboard data. Please refresh or try again later.";
+  }
+
   const currentMonthInKL = getTodayInKualaLumpur().slice(0, 7);
 
   // Active month: requested month, or first existing month tile, or current month
@@ -48,15 +58,18 @@ export default async function DashboardPage(props: PageProps) {
     other: 0n,
   };
 
-  try {
-    [activeTile, trend, split, costByCategory] = await Promise.all([
-      getMonthTile(activeMonth),
-      getDailyTrend(activeMonth),
-      getCashTngSplit(activeMonth),
-      getCostByCategory(activeMonth),
-    ]);
-  } catch {
-    // If month data cannot be loaded, fallback gracefully
+  if (!loadError) {
+    try {
+      [activeTile, trend, split, costByCategory] = await Promise.all([
+        getMonthTile(activeMonth),
+        getDailyTrend(activeMonth),
+        getCashTngSplit(activeMonth),
+        getCostByCategory(activeMonth),
+      ]);
+    } catch (err) {
+      console.error(`Failed to load dashboard data for ${activeMonth}:`, err);
+      loadError = "Failed to load dashboard data. Please refresh or try again later.";
+    }
   }
 
   // Ensure activeMonth is in tiles list even if empty
@@ -76,7 +89,7 @@ export default async function DashboardPage(props: PageProps) {
     operatingSen: Number(t.operatingSen),
     netSen: Number(t.netSen),
     status: t.status,
-    balanced: t.balanced,
+    balanced: Boolean(t.balanced),
   }));
 
   const serializedActiveTile: SerializedMonthTile | null = activeTile
@@ -88,7 +101,7 @@ export default async function DashboardPage(props: PageProps) {
         operatingSen: Number(activeTile.operatingSen),
         netSen: Number(activeTile.netSen),
         status: activeTile.status,
-        balanced: activeTile.balanced,
+        balanced: Boolean(activeTile.balanced),
       }
     : null;
 
@@ -114,12 +127,17 @@ export default async function DashboardPage(props: PageProps) {
       activeMonth={activeMonth}
       activeTile={serializedActiveTile}
       trend={serializedTrend}
-      split={{
-        cashSen: Number(split.cashSen),
-        tngSen: Number(split.tngSen),
-        totalSen: Number(split.totalSen),
-      }}
-      costByCategory={serializedCostByCategory}
+      split={
+        loadError
+          ? null
+          : {
+              cashSen: Number(split.cashSen),
+              tngSen: Number(split.tngSen),
+              totalSen: Number(split.totalSen),
+            }
+      }
+      costByCategory={loadError ? null : serializedCostByCategory}
+      loadError={loadError}
     />
   );
 }

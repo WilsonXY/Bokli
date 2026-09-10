@@ -53,13 +53,14 @@ export const authConfig: NextAuthConfig = {
     process.env.AUTH_SECRET ??
     process.env.NEXTAUTH_SECRET ??
     (() => {
-      // Build-phase or non-production fallback to prevent build crashes when AUTH_SECRET is not yet supplied in env
+      // Build-phase or non-production fallback to prevent build crashes when AUTH_SECRET is not yet supplied in env.
+      // Generate a random ephemeral secret per process so an unset secret never falls back to a forgeable static string.
       if (
         process.env.NODE_ENV !== "production" ||
         process.env.NEXT_PHASE === "phase-production-build" ||
         process.env.npm_lifecycle_event === "build"
       ) {
-        return "bokli-build-phase-ephemeral-secret-32-chars-long";
+        return globalThis.crypto.randomUUID() + globalThis.crypto.randomUUID();
       }
       throw new Error("AUTH_SECRET (or NEXTAUTH_SECRET) must be set in production");
     })(),
