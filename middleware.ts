@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/auth/config";
+import { sanitizeCallbackUrl } from "@/lib/url";
 
 const { auth } = NextAuth(authConfig);
 
@@ -19,10 +20,12 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
-  // 2. Allow login page or redirect to home if already logged in
+  // 2. Allow login page or redirect to home (or callbackUrl) if already logged in
   if (pathname === "/login" || pathname === "/login/") {
     if (isLoggedIn) {
-      return NextResponse.redirect(new URL("/", req.nextUrl));
+      const callbackUrl = req.nextUrl.searchParams.get("callbackUrl");
+      const targetPath = sanitizeCallbackUrl(callbackUrl, "/");
+      return NextResponse.redirect(new URL(targetPath, req.nextUrl));
     }
     return NextResponse.next();
   }

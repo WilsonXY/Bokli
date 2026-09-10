@@ -85,6 +85,39 @@ describe("middleware logic", () => {
       expect(res.headers.get("location")).toBe("http://localhost:3000/");
     });
 
+    it("redirects authed user hitting /login with valid callbackUrl to that callbackUrl", async () => {
+      const req = createMockRequest("http://localhost:3000/login?callbackUrl=%2Fdashboard", mockSession);
+      const res = await (middleware as any)(req);
+
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toBe("http://localhost:3000/dashboard");
+    });
+
+    it("redirects authed user hitting /login with query params in callbackUrl", async () => {
+      const req = createMockRequest(
+        "http://localhost:3000/login?callbackUrl=%2Fdashboard%3Fmonth%3D2026-03",
+        mockSession,
+      );
+      const res = await (middleware as any)(req);
+
+      expect(res.status).toBe(307);
+      expect(res.headers.get("location")).toBe("http://localhost:3000/dashboard?month=2026-03");
+    });
+
+    it("redirects authed user hitting /login with unsafe or backslash callbackUrl to root /", async () => {
+      const req1 = createMockRequest("http://localhost:3000/login?callbackUrl=https%3A%2F%2Fevil.com", mockSession);
+      const res1 = await (middleware as any)(req1);
+      expect(res1.headers.get("location")).toBe("http://localhost:3000/");
+
+      const req2 = createMockRequest("http://localhost:3000/login?callbackUrl=%2F%2Fevil.com", mockSession);
+      const res2 = await (middleware as any)(req2);
+      expect(res2.headers.get("location")).toBe("http://localhost:3000/");
+
+      const req3 = createMockRequest("http://localhost:3000/login?callbackUrl=%2F%5Cevil.com", mockSession);
+      const res3 = await (middleware as any)(req3);
+      expect(res3.headers.get("location")).toBe("http://localhost:3000/");
+    });
+
     it("allows authed user to access protected routes", async () => {
       const req = createMockRequest("http://localhost:3000/protected", mockSession);
       const res = await (middleware as any)(req);
