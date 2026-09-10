@@ -19,10 +19,13 @@ Split dev and prod via the existing `BOKLI_DB_PATH` contract
   writes only to `data-dev/bokli.db`.
 - Dev-only seed credentials live in the same file
   (`BOKLI_MOM_PASSWORD` / `BOKLI_ADMIN_PASSWORD`) — they are not prod secrets.
-- `data-dev/bokli.db` is created with `npm run db:push` (schema) +
-  `npm run db:seed` (users `mom` = Operator, `katte` = Admin).
-- Production keeps its own absolute `BOKLI_DB_PATH` (see `.env.example`)
+- Dev DB creation: delete `data-dev/bokli.db*`, then
+  `BOKLI_DB_PATH=/home/penguin/projects/bokli/data-dev/bokli.db npx drizzle-kit migrate`,
+  then `npm run db:seed` (with `BOKLI_DB_PATH` set: `BOKLI_DB_PATH=/home/penguin/projects/bokli/data-dev/bokli.db npm run db:seed`)
+  (users `mom` = Operator, `katte` = Admin).
+- Production keeps its own absolute `BOKLI_DB_PATH` (see `.env.example`)\
   pointing at `data/bokli.db` and never reads `.env.local`.
+- Rule: NEVER run db:push against dev or prod databases — schema changes only via drizzle migrations (db:generate to create the file, db:migrate to apply). db:push creates no migration checklist and silently desyncs schema from the logbook.
 
 This is a one-time setup: `.env.local` and `data-dev/` are plain files on disk,
 unaffected by branch switches or new iterations.
@@ -30,8 +33,10 @@ unaffected by branch switches or new iterations.
 ## Consequences
 
 - Testing (month closes, reopens, mismatches) is safe on the dev server.
-- Reset a messy dev DB: delete `data-dev/bokli.db*`, re-run push + seed with
-  `BOKLI_DB_PATH` pointed at it, restart dev server.
+- Reset a messy dev DB: delete `data-dev/bokli.db*`, then run
+  `BOKLI_DB_PATH=/home/penguin/projects/bokli/data-dev/bokli.db npx drizzle-kit migrate`,
+  then `npm run db:seed` (with `BOKLI_DB_PATH` set: `BOKLI_DB_PATH=/home/penguin/projects/bokli/data-dev/bokli.db npm run db:seed`)
+  (migrate + seed, never push), restart dev server.
 - Removing `.env.local` without a replacement `BOKLI_DB_PATH` silently falls
   back to the prod DB — do not remove it casually.
 - `db:seed` requires both `BOKLI_*_PASSWORD` env vars (no defaults by design).
