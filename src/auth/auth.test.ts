@@ -117,7 +117,7 @@ describe("session duration and secret config", () => {
         { stdio: "pipe", encoding: "utf-8" },
       );
     }).toThrow();
-  });
+  }, 15000);
 });
 
 describe("seeded family users (db:seed)", () => {

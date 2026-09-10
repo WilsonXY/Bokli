@@ -4,15 +4,13 @@ import React, { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
+import { sanitizeCallbackUrl } from "@/lib/url";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl");
-  const targetUrl =
-    callbackUrl && callbackUrl.startsWith("/") && !callbackUrl.startsWith("//")
-      ? callbackUrl
-      : "/";
+  const targetUrl = sanitizeCallbackUrl(callbackUrl);
 
   const { t, lang, setLang } = useI18n();
   const [username, setUsername] = useState("");
