@@ -556,23 +556,23 @@ export function ExpensesView({
               role="dialog"
               aria-modal="true"
               aria-labelledby="confirm-delete-expense-title"
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink-primary/40 backdrop-blur-xs animate-fade-in"
-              onClick={() => {
-                if (deletingKey === null) setPendingDeleteExpense(null);
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-slide-down"
+              onClick={(e) => {
+                if (e.target === e.currentTarget && deletingKey === null) setPendingDeleteExpense(null);
               }}
             >
               <div
-                className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4 animate-scale-in"
+                className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4"
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-finance-loss-light border border-finance-loss-border/60 text-finance-loss flex items-center justify-center shrink-0 select-none">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                   </div>
                   <div className="min-w-0">
-                    <h3 id="confirm-delete-expense-title" className="text-base font-bold text-ink-primary leading-tight">
+                    <h3 id="confirm-delete-expense-title" className="text-base font-bold text-ink-primary">
                       {t.confirmDeleteItemTitle}
                     </h3>
                     <p id="confirm-delete-expense-desc" className="text-xs text-ink-muted mt-0.5">
@@ -581,35 +581,30 @@ export function ExpensesView({
                   </div>
                 </div>
 
-                <div className="p-2.5 rounded-lg bg-surface-subtle border border-surface-border text-xs space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-ink-muted font-medium">{t.selectCategory}:</span>
-                    <span className="font-semibold text-ink-primary">
+                {/* Item detail snapshot */}
+                <div className="p-3 rounded-xl bg-surface-subtle border border-surface-border flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white border border-surface-border text-ink-secondary whitespace-nowrap">
                       {getCategoryLabel(pendingDeleteExpense.type)}
                     </span>
-                  </div>
-                  {pendingDeleteExpense.note && (
-                    <div className="flex justify-between gap-2">
-                      <span className="text-ink-muted font-medium shrink-0">{t.note}:</span>
-                      <span className="text-ink-primary truncate font-medium">
+                    {pendingDeleteExpense.note && (
+                      <span className="text-xs text-ink-muted truncate">
                         {pendingDeleteExpense.note}
                       </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between pt-1 border-t border-surface-border">
-                    <span className="text-ink-muted font-medium">{t.amount}:</span>
-                    <span className="font-bold text-finance-loss">
-                      {formatMyr(BigInt(pendingDeleteExpense.amountSen))}
-                    </span>
+                    )}
                   </div>
+                  <span className="text-base font-bold text-finance-loss whitespace-nowrap">
+                    {formatMyr(BigInt(pendingDeleteExpense.amountSen))}
+                  </span>
                 </div>
 
-                <div className="flex items-center justify-end gap-2 pt-1">
+                {/* Modal Actions */}
+                <div className="flex items-center gap-2.5 pt-1">
                   <button
                     type="button"
                     disabled={deletingKey !== null}
                     onClick={() => setPendingDeleteExpense(null)}
-                    className="min-h-[44px] px-4 rounded-lg border border-surface-border hover:bg-surface-subtle text-sm font-semibold text-ink-secondary transition-colors cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
+                    className="flex-1 h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary font-semibold text-sm transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer disabled:opacity-50"
                   >
                     {t.cancel}
                   </button>
@@ -621,9 +616,13 @@ export function ExpensesView({
                       await handleDeleteExpense(target.key, target.ids);
                       setPendingDeleteExpense(null);
                     }}
-                    className="min-h-[44px] px-4 rounded-lg bg-finance-loss hover:bg-finance-loss-dark text-white font-semibold text-sm transition-colors cursor-pointer shadow-xs disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 flex items-center gap-1.5"
+                    className="flex-1 h-11 rounded-xl bg-finance-loss hover:bg-finance-loss/90 btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer disabled:opacity-50"
                   >
-                    {deletingKey !== null ? t.saving : t.confirmDeleteBtn}
+                    {deletingKey !== null ? (
+                      <span>{t.saving}</span>
+                    ) : (
+                      <span>{t.confirmDeleteBtn}</span>
+                    )}
                   </button>
                 </div>
               </div>
