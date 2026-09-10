@@ -13,7 +13,7 @@ import { users } from "@/db/schema";
 import { seedUsers } from "@/db/seed";
 import { resetPassword, readPassword } from "@/cli/reset-password";
 import { hashPassword, verifyPassword } from "./password";
-import { authConfig, SESSION_MAX_AGE } from "./config";
+import { authConfig, SESSION_MAX_AGE, resolveCookieSecure } from "./config";
 import { authGuard, withAuth, isProtectedApiPath } from "./guard";
 import { handlers } from "./index";
 import { GET as bookkeepingGet } from "../../app/api/bookkeeping/route";
@@ -75,6 +75,22 @@ describe("session duration and secret config", () => {
     const sessionCookie = authConfig.cookies?.sessionToken;
     expect(sessionCookie?.options?.maxAge).toBe(30 * 24 * 60 * 60);
     expect(sessionCookie?.options?.httpOnly).toBe(true);
+  });
+
+  it("derives secure cookie setting correctly for various URL and env combinations", () => {
+    // 1. When AUTH_URL has https, secure is true regardless of NODE_ENV
+    expect(resolveCookieSecure({ AUTH_URL: "https://bokli.example.com", NODE_ENV: "development" })).toBe(true);
+    expect(resolveCookieSecure({ NEXTAUTH_URL: "https://bokli.example.com", NODE_ENV: "production" })).toBe(true);
+
+    // 2. When AUTH_URL has http, secure is false even in production (e.g. LAN http deployment)
+    expect(resolveCookieSecure({ AUTH_URL: "http://192.168.1.100:3000", NODE_ENV: "production" })).toBe(false);
+
+    // 3. When URL is unset in production, defaults to true to prevent __Secure- cookie drop
+    expect(resolveCookieSecure({ NODE_ENV: "production" })).toBe(true);
+
+    // 4. When URL is unset in development / test, defaults to false
+    expect(resolveCookieSecure({ NODE_ENV: "development" })).toBe(false);
+    expect(resolveCookieSecure({ NODE_ENV: "test" })).toBe(false);
   });
 
   it("uses random ephemeral secret per process in non-prod/build phase and fails closed in production", () => {

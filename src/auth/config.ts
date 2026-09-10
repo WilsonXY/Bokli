@@ -16,6 +16,21 @@ if (!process.env.NEXTAUTH_URL && process.env.AUTH_URL) {
 }
 
 /**
+ * Derives cookie secure flag:
+ * - If AUTH_URL/NEXTAUTH_URL is provided, matches its protocol ("https://").
+ * - If unset on an https deployment, defaults to true when NODE_ENV=production
+ *   to avoid Chromium dropping __Secure- session cookies in a login loop.
+ * - In development or test with unset URL, defaults to false (keeps local dev over http working).
+ */
+export function resolveCookieSecure(env: NodeJS.ProcessEnv = process.env): boolean {
+  const authUrl = env.AUTH_URL ?? env.NEXTAUTH_URL;
+  if (authUrl) {
+    return authUrl.startsWith("https://");
+  }
+  return env.NODE_ENV === "production";
+}
+
+/**
  * Base NextAuth configuration.
  * Edge-compatible (no node-specific sqlite or native modules)
  * so it can safely be consumed by middleware.
@@ -41,10 +56,7 @@ export const authConfig: NextAuthConfig = {
         // - http site + secure:true -> browser stores the cookie but never SENDS
         //   it over http -> same symptom on prod-over-LAN-http.
         // So derive it from AUTH_URL exactly like @auth/core does.
-        secure:
-          (process.env.AUTH_URL ?? process.env.NEXTAUTH_URL ?? "").startsWith(
-            "https://",
-          ),
+        secure: resolveCookieSecure(),
         maxAge: SESSION_MAX_AGE,
       },
     },
