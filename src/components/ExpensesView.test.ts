@@ -102,11 +102,11 @@ describe("ExpensesView frontend review fixes", () => {
       expect(html).toContain('role="dialog"');
       expect(html).toContain('id="confirm-delete-expense-desc"');
 
-      // Verify the record count is explicitly stated in the confirmation description
-      expect(html).toContain("removes 3 records");
-      expect(html).toContain("removes 3 records</span> — ");
+      // Verify the red record count prefix was removed from confirmation description
+      expect(html).not.toContain("removes 3 records</span> — ");
 
       // Verify modal snapshot details show 3 records
+      expect(html).toContain("removes 3 records");
       expect(html).toContain('data-testid="modal-record-count"');
       expect(html).toContain("Records:");
     });

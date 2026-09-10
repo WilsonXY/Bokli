@@ -576,10 +576,6 @@ export function ExpensesView({
                       {t.confirmDeleteItemTitle}
                     </h3>
                     <p id="confirm-delete-expense-desc" className="text-xs text-ink-muted mt-0.5">
-                      <span className="font-semibold text-finance-loss">
-                        {formatDeleteModalRecordCount(pendingDeleteExpense.ids.length)}
-                      </span>
-                      {" — "}
                       {t.confirmDeleteItemDesc}
                     </p>
                   </div>
