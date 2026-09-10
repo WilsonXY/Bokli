@@ -75,7 +75,10 @@ export const POST = withAuth(async (req: NextRequest) => {
       body.note,
     );
 
-    return NextResponse.json({ expense }, { status: 201 });
+    return NextResponse.json(
+      { expense, merged: expense.merged },
+      { status: expense.merged ? 200 : 201 },
+    );
   } catch (err) {
     return handleError(err);
   }

@@ -548,11 +548,30 @@ describe("7. API routes & Auth guard protection (/api/expenses and /api/preview)
     const postRes = await expensesPost(postReq);
     expect(postRes.status).toBe(201);
     const postData = await postRes.json();
+    expect(postData.merged).toBe(false);
     expect(postData.expense.id).toBeDefined();
     expect(postData.expense.type).toBe("rental");
     expect(postData.expense.amountSen).toBe(120000);
 
     const expenseId = postData.expense.id;
+
+    // 3b. Duplicate POST /api/expenses merges and returns 200
+    const mergePostReq = makeAuthReq("http://localhost:3000/api/expenses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        month: testMonth,
+        type: "rental",
+        amountSen: 30000,
+        note: "Stall rental Dec",
+      }),
+    });
+    const mergePostRes = await expensesPost(mergePostReq);
+    expect(mergePostRes.status).toBe(200);
+    const mergePostData = await mergePostRes.json();
+    expect(mergePostData.merged).toBe(true);
+    expect(mergePostData.expense.id).toBe(expenseId);
+    expect(mergePostData.expense.amountSen).toBe(150000);
 
     // 4. GET /api/expenses?month=2025-12
     const getReq = makeAuthReq(

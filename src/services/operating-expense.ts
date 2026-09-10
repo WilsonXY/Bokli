@@ -70,13 +70,17 @@ export interface MonthPreview {
  * - Rejects writes to CLOSED months (ClosedMonthError)
  * - If expense with same month, type, and note exists, merges amount into existing row
  */
+export type AddOperatingExpenseResult = OperatingExpense & {
+  merged: boolean;
+};
+
 export async function addOperatingExpense(
   month: string,
   type: OperatingExpenseType,
   amountSen: number | bigint,
   note?: string | null,
   options?: { db?: Db },
-): Promise<OperatingExpense> {
+): Promise<AddOperatingExpenseResult> {
   const db = options?.db ?? openDb().db;
 
   if (!isValidMonthStr(month)) {
@@ -142,7 +146,10 @@ export async function addOperatingExpense(
         .returning()
         .get();
 
-      return updated;
+      return {
+        ...updated,
+        merged: true,
+      };
     }
 
     const inserted = tx
@@ -156,7 +163,10 @@ export async function addOperatingExpense(
       .returning()
       .get();
 
-    return inserted;
+    return {
+      ...inserted,
+      merged: false,
+    };
   });
 }
 
