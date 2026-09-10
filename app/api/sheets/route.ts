@@ -1,3 +1,5 @@
+import { eq } from "drizzle-orm";
+import { costLines } from "@/db/schema";
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/auth/guard";
 import { openDb } from "@/db";
@@ -98,6 +100,20 @@ export const POST = withAuth(async (req: NextRequest) => {
       );
     }
 
+    // Ambiguity check: Reject if both full save (costLines array) and legacy fields (amountSen/category) are present
+    if (
+      Array.isArray(body.costLines) &&
+      (body.amountSen !== undefined || body.category !== undefined)
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Ambiguous request body: both 'costLines' and legacy single-line fields ('amountSen'/'category') were provided. Please use 'costLines' exclusively.",
+        },
+        { status: 400 },
+      );
+    }
+
     // Validate costLines fully BEFORE setRevenue if costLines was provided
     if (body.costLines !== undefined) {
       dailySheetService.validateCostLines(body.costLines);
@@ -119,14 +135,51 @@ export const POST = withAuth(async (req: NextRequest) => {
       // When body.costLines is an array, call replaceCostLines instead of looping addCostLine (idempotent re-save).
       if (Array.isArray(body.costLines)) {
         dailySheetService.replaceCostLines(sheet.id, body.costLines, { db });
-      } else if (body.amountSen !== undefined && body.category) {
-        dailySheetService.addCostLine(
-          sheet.id,
+      } else if (body.amountSen !== undefined || body.category !== undefined) {
+        if (body.amountSen === undefined) {
+          throw new ValidationError("Field 'amountSen' is required when 'category' is provided");
+        }
+        if (!body.category) {
+          throw new ValidationError("Field 'category' is required when 'amountSen' is provided");
+        }
+
+        const validAmount = dailySheetService.assertValidSen(
           body.amountSen,
-          body.category as CostCategory,
-          body.note,
-          { db },
+          "Daily Cost amount (amountSen)",
         );
+        if (!dailySheetService.isValidCostCategory(body.category)) {
+          throw new ValidationError(
+            `Invalid Cost Category: "${String(body.category)}". Must be one of: ${dailySheetService.COST_CATEGORIES.join(", ")}`,
+          );
+        }
+        const trimmedNote = dailySheetService.assertValidNote(body.note);
+        if (body.category === "other" && !trimmedNote) {
+          throw new ValidationError("Note is required when Cost Category is 'other'");
+        }
+
+        // Idempotent legacy check: do not duplicate identical cost line on retry
+        const existingLines = db
+          .select()
+          .from(costLines)
+          .where(eq(costLines.dailySheetId, sheet.id))
+          .all();
+
+        const alreadyExists = existingLines.some(
+          (line) =>
+            line.category === body.category &&
+            line.amountSen === Number(validAmount) &&
+            (line.note?.trim() || null) === trimmedNote,
+        );
+
+        if (!alreadyExists) {
+          dailySheetService.addCostLine(
+            sheet.id,
+            validAmount,
+            body.category as CostCategory,
+            trimmedNote,
+            { db },
+          );
+        }
       }
     });
 

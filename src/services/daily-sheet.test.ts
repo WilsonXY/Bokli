@@ -881,8 +881,6 @@ describe("7. Idempotent cost line replacement and hardening (Option A)", () => {
       body: JSON.stringify({
         date: "2026-09-07",
         sheetId: sheet.id,
-        category: "gas", // extraneous category
-        amountSen: 9999, // extraneous amount
         costLines: [
           { amountSen: 2500, category: "maintenance" },
         ],
@@ -901,6 +899,52 @@ describe("7. Idempotent cost line replacement and hardening (Option A)", () => {
       .where(eq(costLines.dailySheetId, sheet.id))
       .all();
     expect(currentLines).toHaveLength(1);
+
+    // 4. Ambiguous body with both costLines array AND legacy single-line fields returns 400
+    const ambiguousReq = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: "2026-09-07",
+        category: "gas",
+        amountSen: 9999,
+        costLines: [
+          { amountSen: 2500, category: "maintenance" },
+        ],
+      }),
+    });
+    const ambiguousRes = await sheetsPost(ambiguousReq);
+    expect(ambiguousRes.status).toBe(400);
+    const ambiguousData = await ambiguousRes.json();
+    expect(ambiguousData.error).toMatch(/Ambiguous request body/);
+
+    // 5. Idempotent legacy single-line save path: retrying the same payload does not duplicate rows
+    const legacyPayload = {
+      date: "2026-09-09",
+      amountSen: 2000,
+      category: "gas",
+      note: "petronas",
+    };
+    const legacyFirstReq = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(legacyPayload),
+    });
+    const legacyFirstRes = await sheetsPost(legacyFirstReq);
+    expect(legacyFirstRes.status).toBe(201);
+    const legacyFirstData = await legacyFirstRes.json();
+    expect(legacyFirstData.costLines).toHaveLength(1);
+
+    const legacyRetryReq = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(legacyPayload),
+    });
+    const legacyRetryRes = await sheetsPost(legacyRetryReq);
+    expect(legacyRetryRes.status).toBe(201);
+    const legacyRetryData = await legacyRetryRes.json();
+    expect(legacyRetryData.costLines).toHaveLength(1);
+    expect(legacyRetryData.costLines[0].id).toBe(legacyFirstData.costLines[0].id);
   });
 });
 
