@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
 import { NextRequest } from "next/server";
 
 import { openDb, type Db } from "@/db";
@@ -171,6 +172,21 @@ describe("2. Type and note rules", () => {
       { db },
     );
     expect(wages.note).toBeNull();
+  });
+
+  it("rejects non-string note with ValidationError (not TypeError) in addOperatingExpense and updateOperatingExpense", async () => {
+    await expect(
+      addOperatingExpense(MONTH, "rental", 5000, 123 as any, { db }),
+    ).rejects.toThrow(ValidationError);
+
+    await expect(
+      addOperatingExpense(MONTH, "rental", 5000, true as any, { db }),
+    ).rejects.toThrow(ValidationError);
+
+    const exp = await addOperatingExpense(MONTH, "rental", 5000, "Initial", { db });
+    await expect(
+      updateOperatingExpense(exp.id, { note: 123 as any }, { db }),
+    ).rejects.toThrow(ValidationError);
   });
 });
 
@@ -345,6 +361,34 @@ describe("5. CRUD and listing operations", () => {
     expect(updated.amountSen).toBe(95000);
     expect(updated.type).toBe("other");
     expect(updated.note).toBe("Stall + maintenance fee");
+  });
+
+  it("updates updatedAt timestamp on edit", async () => {
+    const month = "2025-07";
+    const initial = await addOperatingExpense(
+      month,
+      "rental",
+      90000,
+      "Stall",
+      { db },
+    );
+
+    // Set an older timestamp in the database to verify the update modifies updatedAt
+    db.update(operatingExpenses)
+      .set({ updatedAt: "2020-01-01T00:00:00.000Z" })
+      .where(eq(operatingExpenses.id, initial.id))
+      .run();
+
+    const updated = await updateOperatingExpense(
+      initial.id,
+      { amountSen: 95000 },
+      { db },
+    );
+
+    expect(updated.updatedAt).not.toBe("2020-01-01T00:00:00.000Z");
+    expect(new Date(updated.updatedAt).getTime()).toBeGreaterThan(
+      new Date("2020-01-01T00:00:00.000Z").getTime(),
+    );
   });
 
   it("throws NotFoundError when updating or deleting non-existent expense", async () => {
@@ -548,11 +592,30 @@ describe("7. API routes & Auth guard protection (/api/expenses and /api/preview)
     const postRes = await expensesPost(postReq);
     expect(postRes.status).toBe(201);
     const postData = await postRes.json();
+    expect(postData.merged).toBe(false);
     expect(postData.expense.id).toBeDefined();
     expect(postData.expense.type).toBe("rental");
     expect(postData.expense.amountSen).toBe(120000);
 
     const expenseId = postData.expense.id;
+
+    // 3b. Duplicate POST /api/expenses merges and returns 200
+    const mergePostReq = makeAuthReq("http://localhost:3000/api/expenses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        month: testMonth,
+        type: "rental",
+        amountSen: 30000,
+        note: "Stall rental Dec",
+      }),
+    });
+    const mergePostRes = await expensesPost(mergePostReq);
+    expect(mergePostRes.status).toBe(200);
+    const mergePostData = await mergePostRes.json();
+    expect(mergePostData.merged).toBe(true);
+    expect(mergePostData.expense.id).toBe(expenseId);
+    expect(mergePostData.expense.amountSen).toBe(150000);
 
     // 4. GET /api/expenses?month=2025-12
     const getReq = makeAuthReq(
@@ -611,5 +674,101 @@ describe("7. API routes & Auth guard protection (/api/expenses and /api/preview)
     const delData = await delRes.json();
     expect(delData.success).toBe(true);
     expect(delData.removedExpense.id).toBe(expenseId);
+  });
+});
+
+describe("8. Duplicate merging behavior", () => {
+  it("merges duplicate expenses with same month, type, and note into a single row and updates amount", async () => {
+    const month = "2026-01";
+    const first = await addOperatingExpense(month, "rental", 7000, "s", { db });
+    const second = await addOperatingExpense(month, "rental", 2000, "s", { db });
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amountSen).toBe(9000);
+    expect(rows[0].id).toBe(first.id);
+    expect(second.id).toBe(first.id);
+    expect(second.amountSen).toBe(9000);
+  });
+
+  it("keeps expenses with same month and type but different notes separate", async () => {
+    const month = "2026-02";
+    const first = await addOperatingExpense(month, "rental", 7000, "stall A", { db });
+    const second = await addOperatingExpense(month, "rental", 2000, "stall B", { db });
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(2);
+    expect(first.id).not.toBe(second.id);
+    expect(rows.find((r) => r.note === "stall A")?.amountSen).toBe(7000);
+    expect(rows.find((r) => r.note === "stall B")?.amountSen).toBe(2000);
+  });
+
+  it("keeps expenses with same note but different type separate", async () => {
+    const month = "2026-03";
+    const first = await addOperatingExpense(month, "rental", 7000, "deposit", { db });
+    const second = await addOperatingExpense(month, "utilities", 2000, "deposit", { db });
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(2);
+    expect(first.id).not.toBe(second.id);
+    expect(rows.find((r) => r.type === "rental")?.amountSen).toBe(7000);
+    expect(rows.find((r) => r.type === "utilities")?.amountSen).toBe(2000);
+  });
+
+  it("merges duplicate expenses when note is null or whitespace", async () => {
+    const month = "2026-04";
+    const first = await addOperatingExpense(month, "rental", 5000, null, { db });
+    const second = await addOperatingExpense(month, "rental", 3000, "   ", { db });
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe(first.id);
+    expect(rows[0].amountSen).toBe(8000);
+    expect(rows[0].note).toBeNull();
+    expect(second.id).toBe(first.id);
+    expect(second.amountSen).toBe(8000);
+  });
+it("safely merges concurrent duplicate expenses via transaction without double-insert", async () => {
+    const month = "2026-05";
+    const [first, second] = await Promise.all([
+      addOperatingExpense(month, "rental", 4000, "concurrent", { db }),
+      addOperatingExpense(month, "rental", 6000, "concurrent", { db }),
+    ]);
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amountSen).toBe(10000);
+    expect(rows[0].note).toBe("concurrent");
+    expect(first.id).toBe(second.id);
+  });
+
+  it("throws ValidationError when merged amount exceeds MAX_SEN", async () => {
+    const month = "2026-06";
+    const initial = await addOperatingExpense(month, "rental", 9007199254740900n, "max-check", { db });
+    expect(initial.amountSen).toBe(Number(9007199254740900n));
+
+    await expect(
+      addOperatingExpense(month, "rental", 200n, "max-check", { db }),
+    ).rejects.toThrow(ValidationError);
+  });
+
+  it("updates updatedAt timestamp when merging duplicate operating expense", async () => {
+    const month = "2026-07";
+    const first = await addOperatingExpense(month, "rental", 5000, "audit-check", { db });
+    expect(first.updatedAt).toBeDefined();
+
+    // Small delay to ensure timestamp progression
+    await new Promise((resolve) => setTimeout(resolve, 15));
+
+    const second = await addOperatingExpense(month, "rental", 3000, "audit-check", { db });
+    expect(second.id).toBe(first.id);
+    expect(second.updatedAt).toBeDefined();
+    expect(new Date(second.updatedAt).getTime()).toBeGreaterThanOrEqual(
+      new Date(first.updatedAt).getTime(),
+    );
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].updatedAt).toBe(second.updatedAt);
   });
 });

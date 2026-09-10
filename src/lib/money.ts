@@ -71,6 +71,25 @@ export function subSen(a: bigint, b: bigint): bigint {
 }
 
 /**
+ * Validate and sanitize money input string while typing or pasting.
+ * Cleans whitespace, commas, and optional leading 'RM'. Normalizes '.5' to '0.5'.
+ * Accepts digits with a trailing dot (e.g. '12.') as a transient typing state.
+ * Returns the cleaned valid string, or null if the input contains invalid format
+ * (such as letters, negative signs, bare '.', or more than 2 decimal places).
+ */
+export function sanitizeMoneyInput(raw: string): string | null {
+  let cleaned = raw.trim().replace(/^RM\s*/i, "").replace(/,/g, "").trim();
+  if (cleaned === "") return "";
+  if (/^\.\d{1,2}$/.test(cleaned)) {
+    cleaned = `0${cleaned}`;
+  }
+  if (/^\d+(?:\.\d{0,2})?$/.test(cleaned)) {
+    return cleaned;
+  }
+  return null;
+}
+
+/**
  * Parse an Asia/Kuala_Lumpur calendar date string "YYYY-MM-DD".
  * Stored as plain strings per spec — no Date objects, no timezone math.
  */
@@ -86,7 +105,9 @@ export function isValidDateStr(s: string): boolean {
   return day >= 1 && day <= daysInMonth;
 }
 
-/** Validate "YYYY-MM" month string. */
+/**
+ * Validate an Asia/Kuala_Lumpur calendar month string "YYYY-MM".
+ */
 export function isValidMonthStr(s: string): boolean {
   const m = /^(\d{4})-(\d{2})$/.exec(s);
   if (!m) return false;

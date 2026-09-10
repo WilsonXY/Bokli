@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 
@@ -13,8 +13,10 @@ import {
   monthCloses,
   type DailySheet,
 } from "@/db/schema";
+import * as dailySheetService from "./daily-sheet";
 import {
   addCostLine,
+  assertValidNote,
   ClosedMonthError,
   FutureDateError,
   getOrCreateSheet,
@@ -23,6 +25,7 @@ import {
   isFutureDateInKL,
   NotFoundError,
   removeCostLine,
+  replaceCostLines,
   setRevenue,
   updateCostLine,
   ValidationError,
@@ -155,6 +158,7 @@ describe("3. Cost Category CHECK and note requirement", () => {
       "gas",
       "transport",
       "wages-daily",
+      "maintenance",
     ] as const;
 
     for (const cat of validCategories) {
@@ -576,5 +580,724 @@ describe("6. API routes and auth guard protection (/api/sheets)", () => {
     const verifyGetReq = makeAuthReq("http://localhost:3000/api/sheets?date=2026-09-06");
     const verifyGetRes = await sheetsGet(verifyGetReq);
     expect(verifyGetRes.status).toBe(200);
+  });
+});
+
+describe("7. Idempotent cost line replacement and hardening (Option A)", () => {
+  const operatorSession = {
+    user: { id: "1", username: "operator1", role: "Operator" as const },
+    expires: new Date(Date.now() + 86400000).toISOString(),
+  };
+
+  function makeAuthReq(url: string, init?: any) {
+    const req = new NextRequest(url, init as any);
+    (req as any).auth = operatorSession;
+    return req;
+  }
+
+  it("replaceCostLines() replaces lines idempotently and updates updatedAt trail", () => {
+    const sheet = getOrCreateSheet("2026-09-02", { db });
+
+    // 1. Initial replace with 2 cost lines
+    const lines1 = replaceCostLines(
+      sheet.id,
+      [
+        { amountSen: 2000, category: "gas" },
+        { amountSen: 4000, category: "restock" },
+      ],
+      { db },
+    );
+    expect(lines1).toHaveLength(2);
+
+    let rows = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.dailySheetId, sheet.id))
+      .all();
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.category).sort()).toEqual(["gas", "restock"]);
+
+    // 2. Calling replaceCostLines again with the SAME 2 lines does not append duplicates
+    const lines2 = replaceCostLines(
+      sheet.id,
+      [
+        { amountSen: 2000, category: "gas" },
+        { amountSen: 4000, category: "restock" },
+      ],
+      { db },
+    );
+    expect(lines2).toHaveLength(2);
+
+    rows = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.dailySheetId, sheet.id))
+      .all();
+    expect(rows).toHaveLength(2);
+
+    // 3. Parent sheet still exists and has updatedAt timestamp set
+    const parent = db
+      .select()
+      .from(dailySheets)
+      .where(eq(dailySheets.id, sheet.id))
+      .get()!;
+    expect(parent).toBeDefined();
+    expect(parent.updatedAt).toBeDefined();
+
+    // 4. Replacing with empty array clears all cost lines
+    const cleared = replaceCostLines(sheet.id, [], { db });
+    expect(cleared).toHaveLength(0);
+    rows = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.dailySheetId, sheet.id))
+      .all();
+    expect(rows).toHaveLength(0);
+  });
+
+  it("replaceCostLines() enforces validation and rolls back on error", () => {
+    const sheet = getOrCreateSheet("2026-09-02", { db });
+
+    // Seed 1 valid cost line
+    replaceCostLines(
+      sheet.id,
+      [{ amountSen: 1000, category: "gas" }],
+      { db },
+    );
+
+    // Rejects non-array input
+    expect(() =>
+      replaceCostLines(sheet.id, "not-array" as any, { db }),
+    ).toThrow(ValidationError);
+
+    // Rejects non-object item in array
+    expect(() =>
+      replaceCostLines(sheet.id, [null as any], { db }),
+    ).toThrow(ValidationError);
+
+    // Rejects invalid category
+    expect(() =>
+      replaceCostLines(
+        sheet.id,
+        [{ amountSen: 1000, category: "invalid-cat" as any }],
+        { db },
+      ),
+    ).toThrow(ValidationError);
+
+    // Rejects 'other' without note
+    expect(() =>
+      replaceCostLines(
+        sheet.id,
+        [{ amountSen: 1000, category: "other", note: "   " }],
+        { db },
+      ),
+    ).toThrow(ValidationError);
+
+    // Rejects negative sen
+    expect(() =>
+      replaceCostLines(
+        sheet.id,
+        [{ amountSen: -500, category: "gas" }],
+        { db },
+      ),
+    ).toThrow(ValidationError);
+
+    // Rejects float sen
+    expect(() =>
+      replaceCostLines(
+        sheet.id,
+        [{ amountSen: 12.34 as any, category: "gas" }],
+        { db },
+      ),
+    ).toThrow(ValidationError);
+
+    // Atomicity: existing line was preserved because validation failed before mutation
+    const rows = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.dailySheetId, sheet.id))
+      .all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amountSen).toBe(1000);
+
+    // Rejects nonexistent sheet
+    expect(() =>
+      replaceCostLines(999999, [{ amountSen: 1000, category: "gas" }], { db }),
+    ).toThrow(NotFoundError);
+  });
+
+  it("replaceCostLines() rejects edits in a closed month", () => {
+    // Record a closed month for 2026-05 with reopenedAt: null
+    db.insert(monthCloses)
+      .values({
+        month: "2026-05",
+        revenueSen: 500000,
+        dailyCostSen: 200000,
+        grossSen: 300000,
+        operatingSen: 100000,
+        netSen: 200000,
+        closedAt: "2026-06-01T00:00:00.000Z",
+        reopenedAt: null,
+      })
+      .run();
+
+    const closedSheet = db
+      .insert(dailySheets)
+      .values({
+        date: "2026-05-15",
+        cashSen: 1000,
+        tngSen: 500,
+      })
+      .returning()
+      .get();
+
+    expect(() =>
+      replaceCostLines(
+        closedSheet.id,
+        [{ amountSen: 500, category: "gas" }],
+        { db },
+      ),
+    ).toThrow(ClosedMonthError);
+  });
+
+  it("REGRESSION: saving the same sheet twice via POST /api/sheets with the same 2 cost lines results in exactly 2 rows", async () => {
+    const savePayload = {
+      date: "2026-09-07",
+      cashSen: 8000,
+      tngSen: 4000,
+      costLines: [
+        { amountSen: 3000, category: "restock" },
+        { amountSen: 1500, category: "gas" },
+      ],
+    };
+
+    // First save: creates sheet and inserts the 2 cost lines
+    const firstReq = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(savePayload),
+    });
+    const firstRes = await sheetsPost(firstReq);
+    expect(firstRes.status).toBe(201);
+    const firstData = await firstRes.json();
+    expect(firstData.sheet.date).toBe("2026-09-07");
+    expect(firstData.costLines).toHaveLength(2);
+    expect(firstData.totalCostSen).toBe(4500);
+
+    // Check DB has exactly 2 rows
+    let dbLines = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.dailySheetId, firstData.sheet.id))
+      .all();
+    expect(dbLines).toHaveLength(2);
+
+    // Second save: saving the SAME sheet with the SAME 2 cost lines
+    const secondReq = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(savePayload),
+    });
+    const secondRes = await sheetsPost(secondReq);
+    expect(secondRes.status).toBe(201);
+    const secondData = await secondRes.json();
+    expect(secondData.costLines).toHaveLength(2);
+    expect(secondData.totalCostSen).toBe(4500);
+
+    // Verifying regression fix: DB MUST have exactly 2 rows, NOT 4 rows
+    dbLines = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.dailySheetId, firstData.sheet.id))
+      .all();
+    expect(dbLines).toHaveLength(2);
+  });
+
+  it("hardening: direct-insert stays append-only single-line add and sheet-save cannot trigger it accidentally", async () => {
+    const sheet = getOrCreateSheet("2026-09-07", { db });
+
+    // Sheet currently has 2 lines from the previous test
+    let currentLines = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.dailySheetId, sheet.id))
+      .all();
+    expect(currentLines).toHaveLength(2);
+
+    // 1. Direct-insert with action: "addCostLine" appends a single line
+    const directActionReq = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "addCostLine",
+        sheetId: sheet.id,
+        category: "transport",
+        amountSen: 500,
+      }),
+    });
+    const directActionRes = await sheetsPost(directActionReq);
+    expect(directActionRes.status).toBe(201);
+    const directActionData = await directActionRes.json();
+    expect(directActionData.costLine.category).toBe("transport");
+    expect(directActionData.costLine.amountSen).toBe(500);
+
+    // Now 3 lines
+    currentLines = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.dailySheetId, sheet.id))
+      .all();
+    expect(currentLines).toHaveLength(3);
+
+    // 2. Direct-insert with sheetId + category + amountSen (no date, no costLines) appends a single line
+    const directFieldsReq = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sheetId: sheet.id,
+        category: "wages-daily",
+        amountSen: 1200,
+      }),
+    });
+    const directFieldsRes = await sheetsPost(directFieldsReq);
+    expect(directFieldsRes.status).toBe(201);
+    const directFieldsData = await directFieldsRes.json();
+    expect(directFieldsData.costLine.category).toBe("wages-daily");
+    expect(directFieldsData.costLine.amountSen).toBe(1200);
+
+    // Now 4 lines
+    currentLines = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.dailySheetId, sheet.id))
+      .all();
+    expect(currentLines).toHaveLength(4);
+
+    // 3. Sheet-save flow with date + costLines + extraneous sheetId does NOT trigger direct-insert;
+    // it replaces costLines with the provided array
+    const sheetSaveWithSheetIdReq = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: "2026-09-07",
+        sheetId: sheet.id,
+        costLines: [
+          { amountSen: 2500, category: "maintenance" },
+        ],
+      }),
+    });
+    const sheetSaveRes = await sheetsPost(sheetSaveWithSheetIdReq);
+    expect(sheetSaveRes.status).toBe(201);
+    const sheetSaveData = await sheetSaveRes.json();
+    // It replaced the 4 lines with the 1 submitted line
+    expect(sheetSaveData.costLines).toHaveLength(1);
+    expect(sheetSaveData.costLines[0].category).toBe("maintenance");
+
+    currentLines = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.dailySheetId, sheet.id))
+      .all();
+    expect(currentLines).toHaveLength(1);
+
+    // 4. Ambiguous body with both costLines array AND legacy single-line fields returns 400
+    const ambiguousReq = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: "2026-09-07",
+        category: "gas",
+        amountSen: 9999,
+        costLines: [
+          { amountSen: 2500, category: "maintenance" },
+        ],
+      }),
+    });
+    const ambiguousRes = await sheetsPost(ambiguousReq);
+    expect(ambiguousRes.status).toBe(400);
+    const ambiguousData = await ambiguousRes.json();
+    expect(ambiguousData.error).toMatch(/Ambiguous request body/);
+
+    // 5. Idempotent legacy single-line save path: retrying the same payload does not duplicate rows
+    const legacyPayload = {
+      date: "2026-09-09",
+      amountSen: 2000,
+      category: "gas",
+      note: "petronas",
+    };
+    const legacyFirstReq = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(legacyPayload),
+    });
+    const legacyFirstRes = await sheetsPost(legacyFirstReq);
+    expect(legacyFirstRes.status).toBe(201);
+    const legacyFirstData = await legacyFirstRes.json();
+    expect(legacyFirstData.costLines).toHaveLength(1);
+
+    const legacyRetryReq = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(legacyPayload),
+    });
+    const legacyRetryRes = await sheetsPost(legacyRetryReq);
+    expect(legacyRetryRes.status).toBe(201);
+    const legacyRetryData = await legacyRetryRes.json();
+    expect(legacyRetryData.costLines).toHaveLength(1);
+    expect(legacyRetryData.costLines[0].id).toBe(legacyFirstData.costLines[0].id);
+  });
+});
+
+describe("8. Regression tests: duplicate lines & non-string note validation", () => {
+  const operatorSession = {
+    user: { id: "1", username: "operator1", role: "Operator" as const },
+    expires: new Date(Date.now() + 86400000).toISOString(),
+  };
+
+  function makeAuthReq(url: string, init?: any) {
+    const req = new NextRequest(url, init as any);
+    (req as any).auth = operatorSession;
+    return req;
+  }
+
+  it("REGRESSION: two same-category same-note lines survive save as 2 rows", async () => {
+    const savePayload = {
+      date: "2026-09-08",
+      cashSen: 5000,
+      tngSen: 2000,
+      costLines: [
+        { amountSen: 1000, category: "restock", note: "rice" },
+        { amountSen: 1000, category: "restock", note: "rice" },
+      ],
+    };
+
+    const res = await sheetsPost(
+      makeAuthReq("http://localhost:3000/api/sheets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(savePayload),
+      }),
+    );
+
+    expect(res.status).toBe(201);
+    const data = await res.json();
+    expect(data.costLines).toHaveLength(2);
+    expect(data.costLines[0].category).toBe("restock");
+    expect(data.costLines[0].note).toBe("rice");
+    expect(data.costLines[0].amountSen).toBe(1000);
+    expect(data.costLines[1].category).toBe("restock");
+    expect(data.costLines[1].note).toBe("rice");
+    expect(data.costLines[1].amountSen).toBe(1000);
+
+    const dbRows = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.dailySheetId, data.sheet.id))
+      .all();
+    expect(dbRows).toHaveLength(2);
+    expect(dbRows[0].id).not.toBe(dbRows[1].id);
+    expect(dbRows[0].category).toBe("restock");
+    expect(dbRows[0].note).toBe("rice");
+    expect(dbRows[1].category).toBe("restock");
+    expect(dbRows[1].note).toBe("rice");
+
+    // Also verify replaceCostLines directly retains 2 distinct rows
+    const replaced = replaceCostLines(
+      data.sheet.id,
+      [
+        { amountSen: 1500, category: "gas", note: "shell" },
+        { amountSen: 1500, category: "gas", note: "shell" },
+      ],
+      { db },
+    );
+    expect(replaced).toHaveLength(2);
+    const dbReplaced = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.dailySheetId, data.sheet.id))
+      .all();
+    expect(dbReplaced).toHaveLength(2);
+  });
+
+  it("REGRESSION: POST with note:123 returns 400", async () => {
+    // 1. POST /api/sheets with costLines containing non-string note: 123
+    const postCostLinesReq = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: "2026-09-08",
+        costLines: [{ amountSen: 1000, category: "restock", note: 123 }],
+      }),
+    });
+    const postCostLinesRes = await sheetsPost(postCostLinesReq);
+    expect(postCostLinesRes.status).toBe(400);
+    const postCostLinesBody = await postCostLinesRes.json();
+    expect(postCostLinesBody.error).toMatch(/Note must be a string/);
+
+    // 2. POST /api/sheets with single line containing non-string note: 123
+    const postSingleReq = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: "2026-09-08",
+        amountSen: 1000,
+        category: "restock",
+        note: 123,
+      }),
+    });
+    const postSingleRes = await sheetsPost(postSingleReq);
+    expect(postSingleRes.status).toBe(400);
+    const postSingleBody = await postSingleRes.json();
+    expect(postSingleBody.error).toMatch(/Note must be a string/);
+
+    // 3. POST /api/sheets/cost-lines with note: 123
+    const sheet = getOrCreateSheet("2026-09-08", { db });
+    const postCostLineRouteReq = makeAuthReq("http://localhost:3000/api/sheets/cost-lines", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sheetId: sheet.id,
+        amountSen: 1000,
+        category: "restock",
+        note: 123,
+      }),
+    });
+    const postCostLineRouteRes = await costLinesPost(postCostLineRouteReq);
+    expect(postCostLineRouteRes.status).toBe(400);
+    const postCostLineRouteBody = await postCostLineRouteRes.json();
+    expect(postCostLineRouteBody.error).toMatch(/Note must be a string/);
+
+    // 4. Direct service validations throw ValidationError (not TypeError)
+    expect(() =>
+      addCostLine(sheet.id, 1000, "restock", 123 as any, { db }),
+    ).toThrow(ValidationError);
+
+    expect(() =>
+      replaceCostLines(
+        sheet.id,
+        [{ amountSen: 1000, category: "restock", note: 123 as any }],
+        { db },
+      ),
+    ).toThrow(ValidationError);
+
+    const validLine = addCostLine(sheet.id, 1000, "restock", "valid", { db });
+    expect(() =>
+      updateCostLine(validLine.id, { note: 123 as any }, { db }),
+    ).toThrow(ValidationError);
+
+    // 5. assertValidNote helper behavior
+    expect(assertValidNote(undefined)).toBeNull();
+    expect(assertValidNote(null)).toBeNull();
+    expect(assertValidNote("   ")).toBeNull();
+    expect(assertValidNote("  rice  ")).toBe("rice");
+    expect(() => assertValidNote(123)).toThrow(ValidationError);
+    expect(() => assertValidNote({})).toThrow(ValidationError);
+    expect(() => assertValidNote(true)).toThrow(ValidationError);
+  });
+});
+
+describe("9. Pre-merge review: all-or-nothing atomicity and pre-validation in POST /api/sheets", () => {
+  const operatorSession = {
+    user: { id: "1", username: "operator1", role: "Operator" as const },
+    expires: new Date(Date.now() + 86400000).toISOString(),
+  };
+
+  function makeAuthReq(url: string, init?: any) {
+    const req = new NextRequest(url, init as any);
+    (req as any).auth = operatorSession;
+    return req;
+  }
+
+  it("validates costLines fully BEFORE setRevenue so prior revenue is not mutated on invalid cost lines", async () => {
+    const testDate = "2026-09-02";
+    const sheet = getOrCreateSheet(testDate, { db });
+    setRevenue(sheet.id, 5000, 3000, { db });
+
+    // Verify initial revenue
+    const initial = getOrCreateSheet(testDate, { db });
+    expect(initial.cashSen).toBe(5000);
+    expect(initial.tngSen).toBe(3000);
+
+    // POST with new revenue but invalid costLines (negative amount)
+    const req = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: testDate,
+        cashSen: 99999,
+        tngSen: 88888,
+        costLines: [{ amountSen: -500, category: "gas" }],
+      }),
+    });
+
+    const res = await sheetsPost(req);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/cannot be negative/);
+
+    // Verify revenue was NOT mutated
+    const after = getOrCreateSheet(testDate, { db });
+    expect(after.cashSen).toBe(5000);
+    expect(after.tngSen).toBe(3000);
+  });
+
+  it("rolls back revenue updates when replaceCostLines fails mid-POST (revenue must NOT persist)", async () => {
+    const testDate = "2026-09-03";
+    const sheet = getOrCreateSheet(testDate, { db });
+    setRevenue(sheet.id, 4000, 2000, { db });
+    replaceCostLines(
+      sheet.id,
+      [{ amountSen: 1500, category: "transport", note: "grab" }],
+      { db },
+    );
+
+    // Spy on dailySheetService.replaceCostLines to throw mid-POST
+    const replaceSpy = vi
+      .spyOn(dailySheetService, "replaceCostLines")
+      .mockImplementationOnce(() => {
+        throw new Error("Simulated failure in replaceCostLines mid-POST");
+      });
+
+    const req = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: testDate,
+        cashSen: 90000,
+        tngSen: 70000,
+        costLines: [{ amountSen: 3000, category: "gas" }],
+      }),
+    });
+
+    const res = await sheetsPost(req);
+    expect(res.status).toBe(500);
+
+    replaceSpy.mockRestore();
+
+    // REGRESSION ASSERTION: Revenue must NOT persist (sheet keeps prior revenue)
+    const currentSheet = getOrCreateSheet(testDate, { db });
+    expect(currentSheet.cashSen).toBe(4000);
+    expect(currentSheet.tngSen).toBe(2000);
+
+    // Cost lines must also remain intact
+    const currentCosts = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.dailySheetId, sheet.id))
+      .all();
+    expect(currentCosts).toHaveLength(1);
+    expect(currentCosts[0].category).toBe("transport");
+    expect(currentCosts[0].amountSen).toBe(1500);
+  });
+
+  it("rolls back revenue updates when replaceCostLines throws ClosedMonthError mid-POST", async () => {
+    const testDate = "2026-09-04";
+    const sheet = getOrCreateSheet(testDate, { db });
+    setRevenue(sheet.id, 1200, 800, { db });
+
+    // Spy on dailySheetService.replaceCostLines to simulate a ClosedMonthError mid-POST
+    const replaceSpy = vi
+      .spyOn(dailySheetService, "replaceCostLines")
+      .mockImplementationOnce(() => {
+        throw new ClosedMonthError("Month is closed and cannot be edited");
+      });
+
+    const req = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: testDate,
+        cashSen: 88888,
+        tngSen: 99999,
+        costLines: [{ amountSen: 500, category: "restock" }],
+      }),
+    });
+
+    const res = await sheetsPost(req);
+    expect(res.status).toBe(409);
+
+    replaceSpy.mockRestore();
+
+    // Revenue must not persist
+    const currentSheet = getOrCreateSheet(testDate, { db });
+    expect(currentSheet.cashSen).toBe(1200);
+    expect(currentSheet.tngSen).toBe(800);
+  });
+
+  it("rolls back revenue updates when replaceCostLines throws NotFoundError mid-POST", async () => {
+    const testDate = "2026-09-05";
+    const sheet = getOrCreateSheet(testDate, { db });
+    setRevenue(sheet.id, 6500, 3500, { db });
+
+    // Spy on dailySheetService.replaceCostLines to throw NotFoundError
+    const replaceSpy = vi
+      .spyOn(dailySheetService, "replaceCostLines")
+      .mockImplementationOnce(() => {
+        throw new NotFoundError("Daily Sheet not found");
+      });
+
+    const req = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: testDate,
+        cashSen: 77777,
+        tngSen: 66666,
+        costLines: [{ amountSen: 1000, category: "maintenance" }],
+      }),
+    });
+
+    const res = await sheetsPost(req);
+    expect(res.status).toBe(404);
+
+    replaceSpy.mockRestore();
+
+    // Prior revenue retained
+    const currentSheet = getOrCreateSheet(testDate, { db });
+    expect(currentSheet.cashSen).toBe(6500);
+    expect(currentSheet.tngSen).toBe(3500);
+  });
+
+  it("rolls back getOrCreateSheet when replaceCostLines fails on a new date (leaves NO daily_sheets row)", async () => {
+    const newDate = "2026-09-10";
+
+    // Ensure no sheet exists yet for this date
+    const beforeSheets = db
+      .select()
+      .from(dailySheets)
+      .where(eq(dailySheets.date, newDate))
+      .all();
+    expect(beforeSheets).toHaveLength(0);
+
+    // Spy on dailySheetService.replaceCostLines to throw mid-POST
+    const replaceSpy = vi
+      .spyOn(dailySheetService, "replaceCostLines")
+      .mockImplementationOnce(() => {
+        throw new Error("Simulated failure in replaceCostLines on new date");
+      });
+
+    const req = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: newDate,
+        cashSen: 50000,
+        tngSen: 30000,
+        costLines: [{ amountSen: 1000, category: "gas" }],
+      }),
+    });
+
+    const res = await sheetsPost(req);
+    expect(res.status).toBe(500);
+
+    replaceSpy.mockRestore();
+
+    // REGRESSION ASSERTION: Daily sheet row must NOT exist (no orphan record)
+    const afterSheets = db
+      .select()
+      .from(dailySheets)
+      .where(eq(dailySheets.date, newDate))
+      .all();
+    expect(afterSheets).toHaveLength(0);
   });
 });

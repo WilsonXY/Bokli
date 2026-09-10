@@ -16,3 +16,7 @@ next-env.d.ts
 # Agent tooling (original repo entries)
 .agents/
 skills-lock.json
+.gemini/
+.impeccable/
+# Agent scratch space (debug scripts, tickets workspace)
+.scratch/

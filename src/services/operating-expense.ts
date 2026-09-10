@@ -1,5 +1,5 @@
-import { eq, like } from "drizzle-orm";
-import { openDb, type Db } from "@/db";
+import { and, eq, isNull, like } from "drizzle-orm";
+import { getDb, openDb, type Db } from "@/db";
 import {
   costLines,
   dailySheets,
@@ -9,6 +9,7 @@ import {
 import { isValidMonthStr, subSen, sumSen } from "@/lib/money";
 import {
   assertMonthNotClosed,
+  assertValidNote,
   assertValidSen,
   ClosedMonthError,
   NotFoundError,
@@ -20,6 +21,7 @@ export {
   NotFoundError,
   ValidationError,
   assertMonthNotClosed,
+  assertValidNote,
   assertValidSen,
   isMonthClosed,
 } from "./daily-sheet";
@@ -31,6 +33,7 @@ export const OPERATING_EXPENSE_TYPES = [
   "other",
 ] as const;
 
+export type { OperatingExpense } from "@/db/schema";
 export type OperatingExpenseType = (typeof OPERATING_EXPENSE_TYPES)[number];
 
 /**
@@ -68,15 +71,20 @@ export interface MonthPreview {
  * - Note required when type is 'other'
  * - Amount must be a non-negative sen integer
  * - Rejects writes to CLOSED months (ClosedMonthError)
+ * - If expense with same month, type, and note exists, merges amount into existing row
  */
+export type AddOperatingExpenseResult = OperatingExpense & {
+  merged: boolean;
+};
+
 export async function addOperatingExpense(
   month: string,
   type: OperatingExpenseType,
   amountSen: number | bigint,
   note?: string | null,
   options?: { db?: Db },
-): Promise<OperatingExpense> {
-  const db = options?.db ?? openDb().db;
+): Promise<AddOperatingExpenseResult> {
+  const db = options?.db ?? getDb().db;
 
   if (!isValidMonthStr(month)) {
     throw new ValidationError(
@@ -92,7 +100,7 @@ export async function addOperatingExpense(
     );
   }
 
-  const trimmedNote = note?.trim() || null;
+  const trimmedNote = assertValidNote(note);
   if (type === "other" && !trimmedNote) {
     throw new ValidationError(
       "Note is required when Operating Expense type is 'other'",
@@ -104,18 +112,65 @@ export async function addOperatingExpense(
     "Operating Expense amount (amountSen)",
   );
 
-  const inserted = db
-    .insert(operatingExpenses)
-    .values({
-      month,
-      type,
-      amountSen: Number(validAmount),
-      note: trimmedNote,
-    })
-    .returning()
-    .get();
+  const noteCondition =
+    trimmedNote !== null
+      ? eq(operatingExpenses.note, trimmedNote)
+      : isNull(operatingExpenses.note);
 
-  return inserted;
+  return db.transaction((tx) => {
+    assertMonthNotClosed(month, tx as any);
+
+    const existing = tx
+      .select()
+      .from(operatingExpenses)
+      .where(
+        and(
+          eq(operatingExpenses.month, month),
+          eq(operatingExpenses.type, type),
+          noteCondition,
+        ),
+      )
+      .get();
+
+    if (existing) {
+      const mergedTotal = BigInt(existing.amountSen) + validAmount;
+      const validMergedTotal = assertValidSen(
+        mergedTotal,
+        "Merged Operating Expense amount (amountSen)",
+      );
+
+      const updated = tx
+        .update(operatingExpenses)
+        .set({
+          amountSen: Number(validMergedTotal),
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(operatingExpenses.id, existing.id))
+        .returning()
+        .get();
+
+      return {
+        ...updated,
+        merged: true,
+      };
+    }
+
+    const inserted = tx
+      .insert(operatingExpenses)
+      .values({
+        month,
+        type,
+        amountSen: Number(validAmount),
+        note: trimmedNote,
+      })
+      .returning()
+      .get();
+
+    return {
+      ...inserted,
+      merged: false,
+    };
+  });
 }
 
 /**
@@ -125,7 +180,7 @@ export async function listOperatingExpenses(
   month: string,
   options?: { db?: Db },
 ): Promise<OperatingExpense[]> {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!isValidMonthStr(month)) {
     throw new ValidationError(
@@ -152,7 +207,7 @@ export async function updateOperatingExpense(
   updates: UpdateOperatingExpenseInput,
   options?: { db?: Db },
 ): Promise<OperatingExpense> {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!Number.isInteger(id) || id <= 0) {
     throw new ValidationError(`Invalid Operating Expense id: ${id}`);
@@ -179,29 +234,25 @@ export async function updateOperatingExpense(
     assertMonthNotClosed(updates.month, db);
   }
 
-  const finalType =
-    updates.type !== undefined
-      ? updates.type
-      : (existing.type as OperatingExpenseType);
-
+  const finalType = updates.type ?? (existing.type as OperatingExpenseType);
   if (!isValidOperatingExpenseType(finalType)) {
     throw new ValidationError(
       `Invalid Operating Expense type: "${String(finalType)}". Must be one of: ${OPERATING_EXPENSE_TYPES.join(", ")}`,
     );
   }
 
+  const finalNote =
+    updates.note !== undefined
+      ? assertValidNote(updates.note)
+      : existing.note;
+
   let finalAmountSen = existing.amountSen;
   if (updates.amountSen !== undefined) {
-    finalAmountSen = Number(
-      assertValidSen(updates.amountSen, "Operating Expense amount (amountSen)"),
+    const valid = assertValidSen(
+      updates.amountSen,
+      "Operating Expense amount (amountSen)",
     );
-  }
-
-  let finalNote: string | null;
-  if (updates.note !== undefined) {
-    finalNote = updates.note?.trim() || null;
-  } else {
-    finalNote = existing.note;
+    finalAmountSen = Number(valid);
   }
 
   if (finalType === "other" && !finalNote) {
@@ -217,6 +268,7 @@ export async function updateOperatingExpense(
       type: finalType,
       amountSen: finalAmountSen,
       note: finalNote,
+      updatedAt: new Date().toISOString(),
     })
     .where(eq(operatingExpenses.id, id))
     .returning()
@@ -234,7 +286,7 @@ export async function removeOperatingExpense(
   id: number,
   options?: { db?: Db },
 ): Promise<{ success: boolean; removedExpense: OperatingExpense }> {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!Number.isInteger(id) || id <= 0) {
     throw new ValidationError(`Invalid Operating Expense id: ${id}`);
@@ -271,7 +323,7 @@ export async function getMonthPreview(
   month: string,
   options?: { db?: Db },
 ): Promise<MonthPreview> {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!isValidMonthStr(month)) {
     throw new ValidationError(

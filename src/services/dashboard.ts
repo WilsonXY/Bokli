@@ -1,5 +1,5 @@
 import { asc, eq, like } from "drizzle-orm";
-import { openDb, type Db } from "@/db";
+import { getDb, openDb, type Db } from "@/db";
 import {
   costLines,
   dailySheets,
@@ -52,7 +52,7 @@ export interface DashboardMonthData {
  * across Daily Sheets, Operating Expenses, or Month Closes.
  */
 export function hasMonthData(month: string, options?: { db?: Db }): boolean {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!isValidMonthStr(month)) {
     throw new ValidationError(
@@ -104,7 +104,7 @@ export async function getMonthTile(
   month: string,
   options?: { db?: Db },
 ): Promise<MonthTile> {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!isValidMonthStr(month)) {
     throw new ValidationError(
@@ -162,7 +162,7 @@ export async function getDailyTrend(
   month: string,
   options?: { db?: Db },
 ): Promise<DailyTrendRow[]> {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!isValidMonthStr(month)) {
     throw new ValidationError(
@@ -202,7 +202,7 @@ export async function getCashTngSplit(
   month: string,
   options?: { db?: Db },
 ): Promise<CashTngSplit> {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!isValidMonthStr(month)) {
     throw new ValidationError(
@@ -238,7 +238,7 @@ export async function getCostByCategory(
   month: string,
   options?: { db?: Db },
 ): Promise<CostByCategory> {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!isValidMonthStr(month)) {
     throw new ValidationError(
@@ -261,6 +261,7 @@ export async function getCostByCategory(
     gas: 0n,
     transport: 0n,
     "wages-daily": 0n,
+    maintenance: 0n,
     other: 0n,
   };
 
@@ -289,7 +290,7 @@ export interface ListMonthTilesOptions {
 export async function listMonthTiles(
   options?: ListMonthTilesOptions,
 ): Promise<MonthTile[]> {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
   const limit = options?.limit;
   const upToMonth = options?.upToMonth;
 

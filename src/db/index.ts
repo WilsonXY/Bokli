@@ -24,7 +24,7 @@ export function resolveDbPath(env: NodeJS.ProcessEnv = process.env): string {
 export type Db = BetterSQLite3Database<typeof schema>;
 
 export function openDb(dbPath?: string): { db: Db; sqlite: Database.Database } {
-  const resolved = dbPath ?? resolveDbPath();
+  const resolved = dbPath ? path.resolve(dbPath) : resolveDbPath();
   fs.mkdirSync(path.dirname(resolved), { recursive: true });
 
   const sqlite = new Database(resolved);
@@ -33,4 +33,36 @@ export function openDb(dbPath?: string): { db: Db; sqlite: Database.Database } {
 
   const db = drizzle(sqlite, { schema });
   return { db, sqlite };
+}
+
+const dbCache = new Map<string, { db: Db; sqlite: Database.Database }>();
+
+/**
+ * Returns a cached singleton database handle for the resolved db path.
+ * If the connection was closed or not yet opened, a new one is opened and cached.
+ */
+export function getDb(dbPath?: string): { db: Db; sqlite: Database.Database } {
+  const resolved = dbPath ? path.resolve(dbPath) : resolveDbPath();
+  const cached = dbCache.get(resolved);
+  if (cached && cached.sqlite.open) {
+    return cached;
+  }
+  const opened = openDb(resolved);
+  dbCache.set(resolved, opened);
+  return opened;
+}
+
+/**
+ * Closes the cached singleton database handle for the resolved db path if open,
+ * and evicts it from the cache.
+ */
+export function closeDb(dbPath?: string): void {
+  const resolved = dbPath ? path.resolve(dbPath) : resolveDbPath();
+  const cached = dbCache.get(resolved);
+  if (cached) {
+    if (cached.sqlite.open) {
+      cached.sqlite.close();
+    }
+    dbCache.delete(resolved);
+  }
 }

@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { openDb, type Db } from "./index";
+import { openDb, getDb, closeDb, type Db } from "./index";
 import {
   costLines,
   dailySheets,
@@ -164,5 +164,25 @@ describe("schema sanity", () => {
         })
         .run(),
     ).toThrow(/UNIQUE/);
+  });
+
+  it("getDb() returns cached singleton handle and re-opens if closed", () => {
+    const testDbPath = path.join(tmpDir, "cached-test.db");
+    const handle1 = getDb(testDbPath);
+    const handle2 = getDb(testDbPath);
+    // Exact same cached instance
+    expect(handle1).toBe(handle2);
+    expect(handle1.sqlite).toBe(handle2.sqlite);
+
+    // Close handle
+    closeDb(testDbPath);
+    expect(handle1.sqlite.open).toBe(false);
+
+    // Calling getDb again opens a new cached handle
+    const handle3 = getDb(testDbPath);
+    expect(handle3).not.toBe(handle1);
+    expect(handle3.sqlite.open).toBe(true);
+
+    closeDb(testDbPath);
   });
 });

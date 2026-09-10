@@ -1,5 +1,5 @@
 import { desc, eq, like } from "drizzle-orm";
-import { openDb, type Db } from "@/db";
+import { getDb, openDb, type Db } from "@/db";
 import {
   dailySheets,
   monthCloses,
@@ -88,7 +88,7 @@ export async function closeMonth(
   note?: string | null,
   options?: CloseMonthOptions,
 ): Promise<MonthCloseWithReconciliation> {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!isValidMonthStr(month)) {
     throw new ValidationError(
@@ -231,7 +231,7 @@ export async function reopenMonth(
   options?: ReopenMonthOptions,
 ): Promise<MonthClose> {
   const role = options?.role ?? "";
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (role !== "Admin") {
     throw new ForbiddenError(
@@ -289,7 +289,7 @@ export async function getClose(
   month: string,
   options?: { db?: Db },
 ): Promise<MonthCloseWithReconciliation | null> {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!isValidMonthStr(month)) {
     throw new ValidationError(
@@ -335,7 +335,7 @@ export async function getClose(
 export async function listCloses(
   options?: { db?: Db },
 ): Promise<MonthCloseHistoryItem[]> {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   const rows = db
     .select()

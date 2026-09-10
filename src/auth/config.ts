@@ -1,4 +1,3 @@
-import crypto from "node:crypto";
 import type { NextAuthConfig } from "next-auth";
 import type { UserRole } from "@/db/schema";
 
@@ -14,6 +13,21 @@ if (!process.env.AUTH_URL && process.env.NEXTAUTH_URL) {
 }
 if (!process.env.NEXTAUTH_URL && process.env.AUTH_URL) {
   process.env.NEXTAUTH_URL = process.env.AUTH_URL;
+}
+
+/**
+ * Derives cookie secure flag:
+ * - If AUTH_URL/NEXTAUTH_URL is provided, matches its protocol ("https://").
+ * - If unset on an https deployment, defaults to true when NODE_ENV=production
+ *   to avoid Chromium dropping __Secure- session cookies in a login loop.
+ * - In development or test with unset URL, defaults to false (keeps local dev over http working).
+ */
+export function resolveCookieSecure(env: NodeJS.ProcessEnv = process.env): boolean {
+  const authUrl = env.AUTH_URL ?? env.NEXTAUTH_URL;
+  if (authUrl) {
+    return authUrl.startsWith("https://");
+  }
+  return env.NODE_ENV === "production";
 }
 
 /**
@@ -33,7 +47,16 @@ export const authConfig: NextAuthConfig = {
         httpOnly: true,
         sameSite: "lax",
         path: "/",
-        secure: process.env.NODE_ENV === "production",
+        // Must match the cookie NAME's __Secure- prefix, which @auth/core picks
+        // from the site URL's protocol (AUTH_URL if set, else request URL).
+        // Mismatches break login two ways:
+        // - https site + secure:false -> Chromium silently drops a __Secure-*
+        //   cookie without the Secure attr -> session never persists -> infinite
+        //   redirect to /login (dev via Tailscale https hit this).
+        // - http site + secure:true -> browser stores the cookie but never SENDS
+        //   it over http -> same symptom on prod-over-LAN-http.
+        // So derive it from AUTH_URL exactly like @auth/core does.
+        secure: resolveCookieSecure(),
         maxAge: SESSION_MAX_AGE,
       },
     },
@@ -42,11 +65,14 @@ export const authConfig: NextAuthConfig = {
     process.env.AUTH_SECRET ??
     process.env.NEXTAUTH_SECRET ??
     (() => {
-      // No silent fallback: an unset secret must fail loudly, not allow session forgery.
-      // Local dev convenience: generate an ephemeral secret (sessions reset each boot).
-      if (process.env.NODE_ENV !== "production") {
-        console.warn("[bokli] AUTH_SECRET not set — using ephemeral dev secret");
-        return crypto.randomUUID() + crypto.randomUUID();
+      // Build-phase or non-production fallback to prevent build crashes when AUTH_SECRET is not yet supplied in env.
+      // Generate a random ephemeral secret per process so an unset secret never falls back to a forgeable static string.
+      if (
+        process.env.NODE_ENV !== "production" ||
+        process.env.NEXT_PHASE === "phase-production-build" ||
+        process.env.npm_lifecycle_event === "build"
+      ) {
+        return globalThis.crypto.randomUUID() + globalThis.crypto.randomUUID();
       }
       throw new Error("AUTH_SECRET (or NEXTAUTH_SECRET) must be set in production");
     })(),

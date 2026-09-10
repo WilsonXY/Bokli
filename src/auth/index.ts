@@ -2,7 +2,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { sql } from "drizzle-orm";
 
-import { openDb } from "@/db";
+import { getDb } from "@/db";
 import { users } from "@/db/schema";
 import { authConfig, SESSION_MAX_AGE } from "./config";
 import { verifyPassword } from "./password";
@@ -28,7 +28,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = String(credentials.password);
 
         try {
-          const { db } = openDb();
+          const { db } = getDb();
           const user = db
             .select()
             .from(users)

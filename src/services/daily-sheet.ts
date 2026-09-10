@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { openDb, type Db } from "@/db";
+import { getDb, openDb, type Db } from "@/db";
 import {
   costLines,
   dailySheets,
@@ -7,6 +7,7 @@ import {
   type CostLine,
   type DailySheet,
 } from "@/db/schema";
+export type { CostLine, DailySheet };
 import { isValidDateStr, subSen, sumSen } from "@/lib/money";
 
 export const COST_CATEGORIES = [
@@ -14,6 +15,7 @@ export const COST_CATEGORIES = [
   "gas",
   "transport",
   "wages-daily",
+  "maintenance",
   "other",
 ] as const;
 
@@ -118,6 +120,59 @@ export function assertValidSen(amount: unknown, fieldName: string): bigint {
 }
 
 /**
+ * Validates that an optional note is a string, null, or undefined.
+ * Throws ValidationError if note is provided and not a string.
+ * Returns trimmed string or null if empty/whitespace/null/undefined.
+ */
+export function assertValidNote(note: unknown): string | null {
+  if (note === undefined || note === null) {
+    return null;
+  }
+  if (typeof note !== "string") {
+    throw new ValidationError(
+      `Note must be a string, received: ${typeof note}`,
+    );
+  }
+  return note.trim() || null;
+}
+
+/**
+ * Fully validates an array of cost line inputs according to schema and business rules.
+ * Throws ValidationError if the input is not an array, or if any line has an invalid
+ * structure, invalid or negative/float amount, invalid category, or missing note when category is 'other',
+ * or non-string note.
+ */
+export function validateCostLines(
+  lines: unknown,
+): asserts lines is ReplaceCostLineInput[] {
+  if (!Array.isArray(lines)) {
+    throw new ValidationError("Cost lines must be an array");
+  }
+
+  for (const line of lines) {
+    if (!line || typeof line !== "object") {
+      throw new ValidationError("Each item in costLines must be an object");
+    }
+
+    assertValidSen(
+      (line as ReplaceCostLineInput).amountSen,
+      "Daily Cost amount (amountSen)",
+    );
+
+    if (!isValidCostCategory((line as ReplaceCostLineInput).category)) {
+      throw new ValidationError(
+        `Invalid Cost Category: "${String((line as ReplaceCostLineInput).category)}". Must be one of: ${COST_CATEGORIES.join(", ")}`,
+      );
+    }
+
+    const trimmedNote = assertValidNote((line as ReplaceCostLineInput).note);
+    if ((line as ReplaceCostLineInput).category === "other" && !trimmedNote) {
+      throw new ValidationError("Note is required when Cost Category is 'other'");
+    }
+  }
+}
+
+/**
  * Check if a month ("YYYY-MM") is currently closed (has a month_closes record and reopenedAt IS NULL).
  */
 export function isMonthClosed(month: string, db: Db): boolean {
@@ -160,7 +215,7 @@ export function getOrCreateSheet(
   date: string,
   options?: { db?: Db; now?: Date },
 ): DailySheet {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!isValidDateStr(date)) {
     throw new ValidationError(
@@ -222,7 +277,7 @@ export function getSheetByDate(
   date: string,
   options?: { db?: Db },
 ): DailySheet | null {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!isValidDateStr(date)) {
     throw new ValidationError(
@@ -250,7 +305,7 @@ export function setRevenue(
   tngSen: number | bigint,
   options?: { db?: Db },
 ): DailySheet {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   const validCash = assertValidSen(cashSen, "Cash Revenue (cashSen)");
   const validTng = assertValidSen(tngSen, "TnG Revenue (tngSen)");
@@ -294,10 +349,10 @@ export function addCostLine(
   sheetId: number,
   amountSen: number | bigint,
   category: CostCategory,
-  note?: string | null,
+  note?: unknown,
   options?: { db?: Db },
 ): CostLine {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   const validAmount = assertValidSen(
     amountSen,
@@ -310,7 +365,7 @@ export function addCostLine(
     );
   }
 
-  const trimmedNote = note?.trim() || null;
+  const trimmedNote = assertValidNote(note);
   if (category === "other" && !trimmedNote) {
     throw new ValidationError("Note is required when Cost Category is 'other'");
   }
@@ -350,10 +405,87 @@ export function addCostLine(
   });
 }
 
+export interface ReplaceCostLineInput {
+  amountSen: number | bigint;
+  category: CostCategory | string;
+  note?: unknown;
+  [key: string]: unknown;
+}
+
+/**
+ * Replace all Cost Lines for a Daily Sheet with the provided list in one atomic transaction.
+ * - Month must not be closed
+ * - Deletes all existing cost lines for that sheet, then inserts the submitted list
+ * - Reuses existing validation (category enum, note required for 'other', non-negative sen, assertMonthNotClosed)
+ * - Keeps updatedAt timestamp trail on parent Daily Sheet (no hard delete of sheet)
+ */
+export function replaceCostLines(
+  sheetId: number,
+  lines: ReplaceCostLineInput[],
+  options?: { db?: Db },
+): CostLine[] {
+  const db = options?.db ?? getDb().db;
+
+  validateCostLines(lines);
+
+  const sheet = db
+    .select()
+    .from(dailySheets)
+    .where(eq(dailySheets.id, sheetId))
+    .get();
+
+  if (!sheet) {
+    throw new NotFoundError(`Daily Sheet with id ${sheetId} not found`);
+  }
+
+  const month = sheet.date.slice(0, 7);
+  assertMonthNotClosed(month, db);
+
+  const validatedLines = lines.map((line) => {
+    const validAmount = assertValidSen(
+      line.amountSen,
+      "Daily Cost amount (amountSen)",
+    );
+
+    const trimmedNote = assertValidNote(line.note);
+
+    return {
+      dailySheetId: sheetId,
+      amountSen: Number(validAmount),
+      category: line.category as CostCategory,
+      note: trimmedNote,
+    };
+  });
+
+  return db.transaction((tx) => {
+    // Delete all existing cost lines for this sheet
+    tx.delete(costLines).where(eq(costLines.dailySheetId, sheetId)).run();
+
+    // Insert the submitted list
+    const insertedLines: CostLine[] = [];
+    for (const item of validatedLines) {
+      const inserted = tx
+        .insert(costLines)
+        .values(item)
+        .returning()
+        .get();
+      insertedLines.push(inserted);
+    }
+
+    // Keep updatedAt timestamp trail on parent Daily Sheet (no hard delete of sheet)
+    tx.update(dailySheets)
+      .set({ updatedAt: new Date().toISOString() })
+      .where(eq(dailySheets.id, sheetId))
+      .run();
+
+    return insertedLines;
+  });
+}
+
 export interface UpdateCostLineInput {
   amountSen?: number | bigint;
   category?: CostCategory;
-  note?: string | null;
+  note?: unknown;
 }
 
 /**
@@ -366,7 +498,7 @@ export function updateCostLine(
   updates: UpdateCostLineInput,
   options?: { db?: Db },
 ): CostLine {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   const existingLine = db
     .select()
@@ -413,7 +545,7 @@ export function updateCostLine(
 
   let finalNote: string | null;
   if (updates.note !== undefined) {
-    finalNote = updates.note?.trim() || null;
+    finalNote = assertValidNote(updates.note);
   } else {
     finalNote = existingLine.note;
   }
@@ -453,7 +585,7 @@ export function removeCostLine(
   costLineId: number,
   options?: { db?: Db },
 ): { success: boolean; removedLine: CostLine } {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   const existingLine = db
     .select()
@@ -502,7 +634,7 @@ export function getSheetWithCosts(
   date: string,
   options?: { db?: Db },
 ): DailySheetWithCosts | null {
-  const db = options?.db ?? openDb().db;
+  const db = options?.db ?? getDb().db;
 
   if (!isValidDateStr(date)) {
     throw new ValidationError(

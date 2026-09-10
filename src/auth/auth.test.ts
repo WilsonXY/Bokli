@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
+import { execSync } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
@@ -12,7 +13,7 @@ import { users } from "@/db/schema";
 import { seedUsers } from "@/db/seed";
 import { resetPassword, readPassword } from "@/cli/reset-password";
 import { hashPassword, verifyPassword } from "./password";
-import { authConfig, SESSION_MAX_AGE } from "./config";
+import { authConfig, SESSION_MAX_AGE, resolveCookieSecure } from "./config";
 import { authGuard, withAuth, isProtectedApiPath } from "./guard";
 import { handlers } from "./index";
 import { GET as bookkeepingGet } from "../../app/api/bookkeeping/route";
@@ -62,7 +63,7 @@ describe("password hashing & verify", () => {
   });
 });
 
-describe("session duration config", () => {
+describe("session duration and secret config", () => {
   it("configures ~30-day sessions (30 * 24h)", () => {
     const expectedSeconds = 30 * 24 * 60 * 60; // 2,592,000
     expect(SESSION_MAX_AGE).toBe(expectedSeconds);
@@ -75,6 +76,48 @@ describe("session duration config", () => {
     expect(sessionCookie?.options?.maxAge).toBe(30 * 24 * 60 * 60);
     expect(sessionCookie?.options?.httpOnly).toBe(true);
   });
+
+  it("derives secure cookie setting correctly for various URL and env combinations", () => {
+    // 1. When AUTH_URL has https, secure is true regardless of NODE_ENV
+    expect(resolveCookieSecure({ AUTH_URL: "https://bokli.example.com", NODE_ENV: "development" })).toBe(true);
+    expect(resolveCookieSecure({ NEXTAUTH_URL: "https://bokli.example.com", NODE_ENV: "production" })).toBe(true);
+
+    // 2. When AUTH_URL has http, secure is false even in production (e.g. LAN http deployment)
+    expect(resolveCookieSecure({ AUTH_URL: "http://192.168.1.100:3000", NODE_ENV: "production" })).toBe(false);
+
+    // 3. When URL is unset in production, defaults to true to prevent __Secure- cookie drop
+    expect(resolveCookieSecure({ NODE_ENV: "production" })).toBe(true);
+
+    // 4. When URL is unset in development / test, defaults to false
+    expect(resolveCookieSecure({ NODE_ENV: "development" })).toBe(false);
+    expect(resolveCookieSecure({ NODE_ENV: "test" })).toBe(false);
+  });
+
+  it("uses random ephemeral secret per process in non-prod/build phase and fails closed in production", () => {
+    // 1. In dev/build phase without AUTH_SECRET, generates an ephemeral secret (not a static committed fallback)
+    const buildOutput1 = execSync(
+      'npx tsx -e "delete process.env.AUTH_SECRET; delete process.env.NEXTAUTH_SECRET; process.env.NODE_ENV = \\"production\\"; process.env.NEXT_PHASE = \\"phase-production-build\\"; import(\\"./src/auth/config.ts\\").then(m => console.log(m.default.authConfig.secret))"',
+      { stdio: "pipe", encoding: "utf-8" },
+    ).trim();
+
+    expect(buildOutput1.length).toBeGreaterThanOrEqual(32);
+    expect(buildOutput1).not.toBe("bokli-build-phase-ephemeral-secret-32-chars-long");
+
+    // Two separate processes in build phase generate distinct secrets (per-process random)
+    const buildOutput2 = execSync(
+      'npx tsx -e "delete process.env.AUTH_SECRET; delete process.env.NEXTAUTH_SECRET; process.env.NODE_ENV = \\"production\\"; process.env.NEXT_PHASE = \\"phase-production-build\\"; import(\\"./src/auth/config.ts\\").then(m => console.log(m.default.authConfig.secret))"',
+      { stdio: "pipe", encoding: "utf-8" },
+    ).trim();
+    expect(buildOutput1).not.toBe(buildOutput2);
+
+    // 2. In production runtime without AUTH_SECRET, importing throws Error (fails closed)
+    expect(() => {
+      execSync(
+        'npx tsx -e "delete process.env.AUTH_SECRET; delete process.env.NEXTAUTH_SECRET; delete process.env.NEXT_PHASE; delete process.env.npm_lifecycle_event; process.env.NODE_ENV = \\"production\\"; import(\\"./src/auth/config.ts\\")"',
+        { stdio: "pipe", encoding: "utf-8" },
+      );
+    }).toThrow();
+  }, 15000);
 });
 
 describe("seeded family users (db:seed)", () => {
@@ -108,6 +151,15 @@ describe("seeded family users (db:seed)", () => {
 
     const updatedMom = afterSecondSeed.find((u) => u.username === "mom");
     expect(await verifyPassword("mom-new-password", updatedMom!.passwordHash)).toBe(true);
+  });
+
+  it("fails loudly if required password env vars are missing", async () => {
+    const prevMom = process.env.BOKLI_MOM_PASSWORD;
+    delete process.env.BOKLI_MOM_PASSWORD;
+
+    await expect(seedUsers(db)).rejects.toThrow(/BOKLI_MOM_PASSWORD/);
+
+    process.env.BOKLI_MOM_PASSWORD = prevMom;
   });
 });
 
@@ -169,6 +221,26 @@ describe("auth guard", () => {
     const authReq = new NextRequest("http://localhost:3000/api/auth/csrf");
     const authMwRes = (await middleware(authReq, {} as any)) as Response;
     expect(authMwRes.status).toBe(200);
+  });
+
+  it("middleware redirects anonymous page access to /login with callbackUrl and allows anonymous /login", async () => {
+    const homeReq = new NextRequest("http://localhost:3000/");
+    const homeRes = (await middleware(homeReq, {} as any)) as Response;
+    expect(homeRes.status).toBe(307);
+    expect(homeRes.headers.get("location")).toBe("http://localhost:3000/login?callbackUrl=%2F");
+
+    const dashReq = new NextRequest("http://localhost:3000/dashboard?month=2026-03");
+    const dashRes = (await middleware(dashReq, {} as any)) as Response;
+    expect(dashRes.status).toBe(307);
+    expect(dashRes.headers.get("location")).toBe("http://localhost:3000/login?callbackUrl=%2Fdashboard%3Fmonth%3D2026-03");
+
+    const loginReq = new NextRequest("http://localhost:3000/login");
+    const loginRes = (await middleware(loginReq, {} as any)) as Response;
+    expect(loginRes.status).toBe(200);
+
+    const loginTrailingReq = new NextRequest("http://localhost:3000/login/");
+    const loginTrailingRes = (await middleware(loginTrailingReq, {} as any)) as Response;
+    expect(loginTrailingRes.status).toBe(200);
   });
 });
 
@@ -240,6 +312,39 @@ describe("end-to-end credentials login and API access", () => {
     });
     const mwRes = (await middleware(mwAuthReq, {} as any)) as Response;
     expect(mwRes.status).toBe(200);
+
+    // 6. Verify middleware allows authenticated page access and redirects from /login
+    const mwHomeReq = new NextRequest("http://localhost:3000/", {
+      headers: {
+        Cookie: sessionTokenCookie!,
+        "x-forwarded-proto": "http",
+        Host: "localhost:3000",
+      },
+    });
+    const mwHomeRes = (await middleware(mwHomeReq, {} as any)) as Response;
+    expect(mwHomeRes.status).toBe(200);
+
+    const mwLoginReq = new NextRequest("http://localhost:3000/login", {
+      headers: {
+        Cookie: sessionTokenCookie!,
+        "x-forwarded-proto": "http",
+        Host: "localhost:3000",
+      },
+    });
+    const mwLoginRes = (await middleware(mwLoginReq, {} as any)) as Response;
+    expect(mwLoginRes.status).toBe(307);
+    expect(mwLoginRes.headers.get("location")).toBe("http://localhost:3000/");
+
+    const mwLoginTrailingReq = new NextRequest("http://localhost:3000/login/", {
+      headers: {
+        Cookie: sessionTokenCookie!,
+        "x-forwarded-proto": "http",
+        Host: "localhost:3000",
+      },
+    });
+    const mwLoginTrailingRes = (await middleware(mwLoginTrailingReq, {} as any)) as Response;
+    expect(mwLoginTrailingRes.status).toBe(307);
+    expect(mwLoginTrailingRes.headers.get("location")).toBe("http://localhost:3000/");
   });
 
   it("rejects login with incorrect password", async () => {
