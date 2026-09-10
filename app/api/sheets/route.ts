@@ -119,22 +119,23 @@ export const POST = withAuth(async (req: NextRequest) => {
       dailySheetService.validateCostLines(body.costLines);
     }
 
-    const { db, sqlite } = getDb();
-    const sheet = dailySheetService.getOrCreateSheet(body.date, { db });
+    const { db } = getDb();
 
-    // Single better-sqlite3 transaction wrapping setRevenue + replaceCostLines so POST is all-or-nothing
-    const executePost = sqlite.transaction(() => {
+    // Single drizzle db.transaction wrapping create-or-get sheet + setRevenue + replaceCostLines so POST is all-or-nothing
+    const sheet = db.transaction((tx) => {
+      const currentSheet = dailySheetService.getOrCreateSheet(body.date, { db: tx as any });
+
       // Optional revenue setup
       if (body.cashSen !== undefined || body.tngSen !== undefined) {
-        const cash = body.cashSen !== undefined ? body.cashSen : sheet.cashSen;
-        const tng = body.tngSen !== undefined ? body.tngSen : sheet.tngSen;
-        dailySheetService.setRevenue(sheet.id, cash, tng, { db });
+        const cash = body.cashSen !== undefined ? body.cashSen : currentSheet.cashSen;
+        const tng = body.tngSen !== undefined ? body.tngSen : currentSheet.tngSen;
+        dailySheetService.setRevenue(currentSheet.id, cash, tng, { db: tx as any });
       }
 
       // Cost lines replacement / addition:
       // When body.costLines is an array, call replaceCostLines instead of looping addCostLine (idempotent re-save).
       if (Array.isArray(body.costLines)) {
-        dailySheetService.replaceCostLines(sheet.id, body.costLines, { db });
+        dailySheetService.replaceCostLines(currentSheet.id, body.costLines, { db: tx as any });
       } else if (body.amountSen !== undefined || body.category !== undefined) {
         if (body.amountSen === undefined) {
           throw new ValidationError("Field 'amountSen' is required when 'category' is provided");
@@ -158,10 +159,10 @@ export const POST = withAuth(async (req: NextRequest) => {
         }
 
         // Idempotent legacy check: do not duplicate identical cost line on retry
-        const existingLines = db
+        const existingLines = tx
           .select()
           .from(costLines)
-          .where(eq(costLines.dailySheetId, sheet.id))
+          .where(eq(costLines.dailySheetId, currentSheet.id))
           .all();
 
         const alreadyExists = existingLines.some(
@@ -173,17 +174,17 @@ export const POST = withAuth(async (req: NextRequest) => {
 
         if (!alreadyExists) {
           dailySheetService.addCostLine(
-            sheet.id,
+            currentSheet.id,
             validAmount,
             body.category as CostCategory,
             trimmedNote,
-            { db },
+            { db: tx as any },
           );
         }
       }
-    });
 
-    executePost();
+      return currentSheet;
+    });
 
     const withCosts = dailySheetService.getSheetWithCosts(body.date, { db });
     if (!withCosts) {

@@ -1257,4 +1257,47 @@ describe("9. Pre-merge review: all-or-nothing atomicity and pre-validation in PO
     expect(currentSheet.cashSen).toBe(6500);
     expect(currentSheet.tngSen).toBe(3500);
   });
+
+  it("rolls back getOrCreateSheet when replaceCostLines fails on a new date (leaves NO daily_sheets row)", async () => {
+    const newDate = "2026-09-10";
+
+    // Ensure no sheet exists yet for this date
+    const beforeSheets = db
+      .select()
+      .from(dailySheets)
+      .where(eq(dailySheets.date, newDate))
+      .all();
+    expect(beforeSheets).toHaveLength(0);
+
+    // Spy on dailySheetService.replaceCostLines to throw mid-POST
+    const replaceSpy = vi
+      .spyOn(dailySheetService, "replaceCostLines")
+      .mockImplementationOnce(() => {
+        throw new Error("Simulated failure in replaceCostLines on new date");
+      });
+
+    const req = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: newDate,
+        cashSen: 50000,
+        tngSen: 30000,
+        costLines: [{ amountSen: 1000, category: "gas" }],
+      }),
+    });
+
+    const res = await sheetsPost(req);
+    expect(res.status).toBe(500);
+
+    replaceSpy.mockRestore();
+
+    // REGRESSION ASSERTION: Daily sheet row must NOT exist (no orphan record)
+    const afterSheets = db
+      .select()
+      .from(dailySheets)
+      .where(eq(dailySheets.date, newDate))
+      .all();
+    expect(afterSheets).toHaveLength(0);
+  });
 });
