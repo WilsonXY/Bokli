@@ -151,7 +151,7 @@ The palette is engineered for immediate semantic recognition across payment chan
 
 ### Semantic Payment & Finance Accents
 - **Cash Emerald** (`#059669`, background tint: `#ecfdf5`): Physical cash intake, cash split bar, and cash totals.
-- **TnG Blue** (`#2563eb`, background tint: `#eff6ff`): Touch 'n Go digital receipts, TnG split bar, and e-wallet totals.
+- **TnG Blue** (`#2563eb`, background tint: `#eff6ff`): Touch 'n Go digital receipts, TnG split bar, and TnG Revenue totals.
 - **Cost Amber** (`#d97706`, background tint: `#fffbeb`): Daily costs, cost category bars, and operational expense items.
 - **Profit Forest Green** (`#16a34a` / `#15803d`, background tint: `#f0fdf4`): Positive net profit, healthy month indicators, and balanced reconciliation badges.
 - **Loss Crimson Red** (`#dc2626` / `#b91c1c`, background tint: `#fef2f2`): Negative net profit, cost warnings, and reconciliation discrepancy badges.
