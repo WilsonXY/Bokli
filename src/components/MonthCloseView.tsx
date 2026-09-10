@@ -29,7 +29,7 @@ export interface CloseRecordData {
   note?: string | null;
 }
 
-interface MonthCloseViewProps {
+export interface MonthCloseViewProps {
   currentMonth: string;
   availableMonths: string[];
   financials?: FinancialSnapshot | null;
@@ -38,6 +38,80 @@ interface MonthCloseViewProps {
   hasSheetsInMonth?: boolean;
   monthOptions?: MonthOption[];
   loadError?: string | null;
+  initialCashOnHandInput?: string;
+  initialTngOnHandInput?: string;
+  initialCloseNote?: string;
+  initialConfirmEmpty?: boolean;
+  initialErrorMessage?: string | null;
+}
+
+// Safe parsing helper: returns null for unparseable non-empty inputs
+export function parseMoneyInputSen(val: string): bigint | null {
+  const s = val.trim();
+  if (!s) return 0n;
+  try {
+    return parseSen(s);
+  } catch {
+    return null;
+  }
+}
+
+export interface ReconciliationGatingResult {
+  cashOnHandSen: bigint | null;
+  tngOnHandSen: bigint | null;
+  cashError: boolean;
+  tngError: boolean;
+  hasParseError: boolean;
+  actualCountedSen: bigint | null;
+  varianceSen: bigint | null;
+  isBalanced: boolean;
+  canClose: boolean;
+  validationError: "invalidAmount" | "emptyMonthError" | "varianceNoteRequired" | null;
+}
+
+export function computeReconciliationGating(params: {
+  cashInput: string;
+  tngInput: string;
+  expectedNetSen: bigint;
+  closeNote: string;
+  hasSheetsInMonth: boolean;
+  confirmEmpty: boolean;
+}): ReconciliationGatingResult {
+  const cashOnHandSen = parseMoneyInputSen(params.cashInput);
+  const tngOnHandSen = parseMoneyInputSen(params.tngInput);
+  const cashError = params.cashInput.trim() !== "" && cashOnHandSen === null;
+  const tngError = params.tngInput.trim() !== "" && tngOnHandSen === null;
+  const hasParseError = cashError || tngError;
+
+  const actualCountedSen =
+    !hasParseError && cashOnHandSen !== null && tngOnHandSen !== null
+      ? cashOnHandSen + tngOnHandSen
+      : null;
+  const varianceSen =
+    actualCountedSen !== null ? actualCountedSen - params.expectedNetSen : null;
+  const isBalanced = varianceSen !== null && varianceSen === 0n;
+
+  let validationError: "invalidAmount" | "emptyMonthError" | "varianceNoteRequired" | null = null;
+  if (hasParseError || cashOnHandSen === null || tngOnHandSen === null) {
+    validationError = "invalidAmount";
+  } else if (!params.hasSheetsInMonth && !params.confirmEmpty) {
+    validationError = "emptyMonthError";
+  } else if (!isBalanced && !params.closeNote.trim()) {
+    validationError = "varianceNoteRequired";
+  }
+
+  return {
+    cashOnHandSen,
+    tngOnHandSen,
+    cashError,
+    tngError,
+    hasParseError,
+    actualCountedSen,
+    varianceSen,
+    isBalanced,
+    canClose: validationError === null,
+    validationError,
+  };
 }
 
 export function MonthCloseView({
@@ -49,16 +123,21 @@ export function MonthCloseView({
   hasSheetsInMonth = false,
   monthOptions,
   loadError,
+  initialCashOnHandInput = "",
+  initialTngOnHandInput = "",
+  initialCloseNote = "",
+  initialConfirmEmpty = false,
+  initialErrorMessage = null,
 }: MonthCloseViewProps) {
   const router = useRouter();
   const { t } = useI18n();
   const [, startTransition] = useTransition();
 
   // Input state for reconciliation
-  const [cashOnHandInput, setCashOnHandInput] = useState("");
-  const [tngOnHandInput, setTngOnHandInput] = useState("");
-  const [closeNote, setCloseNote] = useState("");
-  const [confirmEmpty, setConfirmEmpty] = useState(false);
+  const [cashOnHandInput, setCashOnHandInput] = useState(initialCashOnHandInput);
+  const [tngOnHandInput, setTngOnHandInput] = useState(initialTngOnHandInput);
+  const [closeNote, setCloseNote] = useState(initialCloseNote);
+  const [confirmEmpty, setConfirmEmpty] = useState(initialConfirmEmpty);
 
   // Admin reopen state
   const [showReopenBox, setShowReopenBox] = useState(false);
@@ -66,35 +145,29 @@ export function MonthCloseView({
 
   // UI state
   const [submitting, setSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(initialErrorMessage);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Safe parsing helper: returns null for unparseable non-empty inputs
-  function toSen(val: string): bigint | null {
-    const s = val.trim();
-    if (!s) return 0n;
-    try {
-      return parseSen(s);
-    } catch {
-      return null;
-    }
-  }
-
   const expectedNetSen = financials ? BigInt(financials.netSen) : 0n;
-  const cashOnHandSen = toSen(cashOnHandInput);
-  const tngOnHandSen = toSen(tngOnHandInput);
+  const gating = computeReconciliationGating({
+    cashInput: cashOnHandInput,
+    tngInput: tngOnHandInput,
+    expectedNetSen,
+    closeNote,
+    hasSheetsInMonth,
+    confirmEmpty,
+  });
 
-  const cashError = cashOnHandInput.trim() !== "" && cashOnHandSen === null;
-  const tngError = tngOnHandInput.trim() !== "" && tngOnHandSen === null;
-  const hasParseError = cashError || tngError;
-
-  const actualCountedSen =
-    !hasParseError && cashOnHandSen !== null && tngOnHandSen !== null
-      ? cashOnHandSen + tngOnHandSen
-      : null;
-  const varianceSen =
-    actualCountedSen !== null ? actualCountedSen - expectedNetSen : null;
-  const isBalanced = varianceSen !== null && varianceSen === 0n;
+  const {
+    cashOnHandSen,
+    tngOnHandSen,
+    cashError,
+    tngError,
+    hasParseError,
+    actualCountedSen,
+    varianceSen,
+    isBalanced,
+  } = gating;
   const hasInputs = cashOnHandInput.trim() !== "" || tngOnHandInput.trim() !== "";
 
   const isClosed = Boolean(closeRecord?.isClosed);
