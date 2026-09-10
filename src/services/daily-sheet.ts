@@ -7,6 +7,7 @@ import {
   type CostLine,
   type DailySheet,
 } from "@/db/schema";
+export type { CostLine, DailySheet };
 import { isValidDateStr, subSen, sumSen } from "@/lib/money";
 
 export const COST_CATEGORIES = [
@@ -116,6 +117,59 @@ export function assertValidSen(amount: unknown, fieldName: string): bigint {
   }
 
   return val;
+}
+
+/**
+ * Validates that an optional note is a string, null, or undefined.
+ * Throws ValidationError if note is provided and not a string.
+ * Returns trimmed string or null if empty/whitespace/null/undefined.
+ */
+export function assertValidNote(note: unknown): string | null {
+  if (note === undefined || note === null) {
+    return null;
+  }
+  if (typeof note !== "string") {
+    throw new ValidationError(
+      `Note must be a string, received: ${typeof note}`,
+    );
+  }
+  return note.trim() || null;
+}
+
+/**
+ * Fully validates an array of cost line inputs according to schema and business rules.
+ * Throws ValidationError if the input is not an array, or if any line has an invalid
+ * structure, invalid or negative/float amount, invalid category, or missing note when category is 'other',
+ * or non-string note.
+ */
+export function validateCostLines(
+  lines: unknown,
+): asserts lines is ReplaceCostLineInput[] {
+  if (!Array.isArray(lines)) {
+    throw new ValidationError("Cost lines must be an array");
+  }
+
+  for (const line of lines) {
+    if (!line || typeof line !== "object") {
+      throw new ValidationError("Each item in costLines must be an object");
+    }
+
+    assertValidSen(
+      (line as ReplaceCostLineInput).amountSen,
+      "Daily Cost amount (amountSen)",
+    );
+
+    if (!isValidCostCategory((line as ReplaceCostLineInput).category)) {
+      throw new ValidationError(
+        `Invalid Cost Category: "${String((line as ReplaceCostLineInput).category)}". Must be one of: ${COST_CATEGORIES.join(", ")}`,
+      );
+    }
+
+    const trimmedNote = assertValidNote((line as ReplaceCostLineInput).note);
+    if ((line as ReplaceCostLineInput).category === "other" && !trimmedNote) {
+      throw new ValidationError("Note is required when Cost Category is 'other'");
+    }
+  }
 }
 
 /**
@@ -295,7 +349,7 @@ export function addCostLine(
   sheetId: number,
   amountSen: number | bigint,
   category: CostCategory,
-  note?: string | null,
+  note?: unknown,
   options?: { db?: Db },
 ): CostLine {
   const db = options?.db ?? openDb().db;
@@ -311,7 +365,7 @@ export function addCostLine(
     );
   }
 
-  const trimmedNote = note?.trim() || null;
+  const trimmedNote = assertValidNote(note);
   if (category === "other" && !trimmedNote) {
     throw new ValidationError("Note is required when Cost Category is 'other'");
   }
@@ -354,7 +408,7 @@ export function addCostLine(
 export interface ReplaceCostLineInput {
   amountSen: number | bigint;
   category: CostCategory | string;
-  note?: string | null;
+  note?: unknown;
   [key: string]: unknown;
 }
 
@@ -372,9 +426,7 @@ export function replaceCostLines(
 ): CostLine[] {
   const db = options?.db ?? openDb().db;
 
-  if (!Array.isArray(lines)) {
-    throw new ValidationError("Cost lines must be an array");
-  }
+  validateCostLines(lines);
 
   const sheet = db
     .select()
@@ -389,32 +441,18 @@ export function replaceCostLines(
   const month = sheet.date.slice(0, 7);
   assertMonthNotClosed(month, db);
 
-  // Validate all submitted lines prior to database mutation
   const validatedLines = lines.map((line) => {
-    if (!line || typeof line !== "object") {
-      throw new ValidationError("Each item in costLines must be an object");
-    }
-
     const validAmount = assertValidSen(
       line.amountSen,
       "Daily Cost amount (amountSen)",
     );
 
-    if (!isValidCostCategory(line.category)) {
-      throw new ValidationError(
-        `Invalid Cost Category: "${String(line.category)}". Must be one of: ${COST_CATEGORIES.join(", ")}`,
-      );
-    }
-
-    const trimmedNote = line.note?.trim() || null;
-    if (line.category === "other" && !trimmedNote) {
-      throw new ValidationError("Note is required when Cost Category is 'other'");
-    }
+    const trimmedNote = assertValidNote(line.note);
 
     return {
       dailySheetId: sheetId,
       amountSen: Number(validAmount),
-      category: line.category,
+      category: line.category as CostCategory,
       note: trimmedNote,
     };
   });
@@ -447,7 +485,7 @@ export function replaceCostLines(
 export interface UpdateCostLineInput {
   amountSen?: number | bigint;
   category?: CostCategory;
-  note?: string | null;
+  note?: unknown;
 }
 
 /**
@@ -507,7 +545,7 @@ export function updateCostLine(
 
   let finalNote: string | null;
   if (updates.note !== undefined) {
-    finalNote = updates.note?.trim() || null;
+    finalNote = assertValidNote(updates.note);
   } else {
     finalNote = existingLine.note;
   }

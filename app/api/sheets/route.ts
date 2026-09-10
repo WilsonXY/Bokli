@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/auth/guard";
+import { openDb } from "@/db";
+import * as dailySheetService from "@/services/daily-sheet";
 import {
-  addCostLine,
   CostCategory,
-  getOrCreateSheet,
   getSheetByDate,
   getSheetWithCosts,
   removeCostLine,
-  replaceCostLines,
   setRevenue,
   updateCostLine,
+  ValidationError,
 } from "@/services/daily-sheet";
 import { handleError } from "@/services/errors";
 
@@ -39,7 +39,7 @@ export const GET = withAuth(async (req: NextRequest) => {
       );
     }
 
-    const result = getSheetWithCosts(date);
+    const result = dailySheetService.getSheetWithCosts(date);
     if (!result) {
       return NextResponse.json(
         { error: `Daily Sheet not found for date: ${date}` },
@@ -81,7 +81,7 @@ export const POST = withAuth(async (req: NextRequest) => {
       if (!Number.isInteger(sheetId) || sheetId <= 0) {
         return NextResponse.json({ error: "Valid sheetId is required" }, { status: 400 });
       }
-      const line = addCostLine(
+      const line = dailySheetService.addCostLine(
         sheetId,
         body.amountSen,
         body.category as CostCategory,
@@ -98,29 +98,41 @@ export const POST = withAuth(async (req: NextRequest) => {
       );
     }
 
-    const sheet = getOrCreateSheet(body.date);
-
-    // Optional revenue setup
-    if (body.cashSen !== undefined || body.tngSen !== undefined) {
-      const cash = body.cashSen !== undefined ? body.cashSen : sheet.cashSen;
-      const tng = body.tngSen !== undefined ? body.tngSen : sheet.tngSen;
-      setRevenue(sheet.id, cash, tng);
+    // Validate costLines fully BEFORE setRevenue if costLines was provided
+    if (body.costLines !== undefined) {
+      dailySheetService.validateCostLines(body.costLines);
     }
 
-    // Cost lines replacement / addition:
-    // When body.costLines is an array, call replaceCostLines instead of looping addCostLine (idempotent re-save).
-    if (Array.isArray(body.costLines)) {
-      replaceCostLines(sheet.id, body.costLines);
-    } else if (body.amountSen !== undefined && body.category) {
-      addCostLine(
-        sheet.id,
-        body.amountSen,
-        body.category as CostCategory,
-        body.note,
-      );
-    }
+    const { db, sqlite } = openDb();
+    const sheet = dailySheetService.getOrCreateSheet(body.date, { db });
 
-    const withCosts = getSheetWithCosts(body.date);
+    // Single better-sqlite3 transaction wrapping setRevenue + replaceCostLines so POST is all-or-nothing
+    const executePost = sqlite.transaction(() => {
+      // Optional revenue setup
+      if (body.cashSen !== undefined || body.tngSen !== undefined) {
+        const cash = body.cashSen !== undefined ? body.cashSen : sheet.cashSen;
+        const tng = body.tngSen !== undefined ? body.tngSen : sheet.tngSen;
+        dailySheetService.setRevenue(sheet.id, cash, tng, { db });
+      }
+
+      // Cost lines replacement / addition:
+      // When body.costLines is an array, call replaceCostLines instead of looping addCostLine (idempotent re-save).
+      if (Array.isArray(body.costLines)) {
+        dailySheetService.replaceCostLines(sheet.id, body.costLines, { db });
+      } else if (body.amountSen !== undefined && body.category) {
+        dailySheetService.addCostLine(
+          sheet.id,
+          body.amountSen,
+          body.category as CostCategory,
+          body.note,
+          { db },
+        );
+      }
+    });
+
+    executePost();
+
+    const withCosts = dailySheetService.getSheetWithCosts(body.date, { db });
     if (!withCosts) {
       return NextResponse.json({ sheet }, { status: 201 });
     }
