@@ -69,12 +69,12 @@ describe("middleware logic", () => {
   describe("authenticated requests", () => {
     const mockSession = { user: { name: "mom", role: "Operator" } };
 
-    it("redirects authed user hitting /login away to root /", async () => {
+    it("redirects authed user hitting /login away to /dashboard", async () => {
       const req = createMockRequest("http://localhost:3000/login", mockSession);
       const res = await (middleware as any)(req);
 
       expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toBe("http://localhost:3000/");
+      expect(res.headers.get("location")).toBe("http://localhost:3000/dashboard");
     });
 
     it("treats /login/ trailing slash same as /login for authed user (redirects away)", async () => {
@@ -82,7 +82,7 @@ describe("middleware logic", () => {
       const res = await (middleware as any)(req);
 
       expect(res.status).toBe(307);
-      expect(res.headers.get("location")).toBe("http://localhost:3000/");
+      expect(res.headers.get("location")).toBe("http://localhost:3000/dashboard");
     });
 
     it("redirects authed user hitting /login with valid callbackUrl to that callbackUrl", async () => {
@@ -107,15 +107,15 @@ describe("middleware logic", () => {
     it("redirects authed user hitting /login with unsafe or backslash callbackUrl to root /", async () => {
       const req1 = createMockRequest("http://localhost:3000/login?callbackUrl=https%3A%2F%2Fevil.com", mockSession);
       const res1 = await (middleware as any)(req1);
-      expect(res1.headers.get("location")).toBe("http://localhost:3000/");
+      expect(res1.headers.get("location")).toBe("http://localhost:3000/dashboard");
 
       const req2 = createMockRequest("http://localhost:3000/login?callbackUrl=%2F%2Fevil.com", mockSession);
       const res2 = await (middleware as any)(req2);
-      expect(res2.headers.get("location")).toBe("http://localhost:3000/");
+      expect(res2.headers.get("location")).toBe("http://localhost:3000/dashboard");
 
       const req3 = createMockRequest("http://localhost:3000/login?callbackUrl=%2F%5Cevil.com", mockSession);
       const res3 = await (middleware as any)(req3);
-      expect(res3.headers.get("location")).toBe("http://localhost:3000/");
+      expect(res3.headers.get("location")).toBe("http://localhost:3000/dashboard");
     });
 
     it("allows authed user to access protected routes", async () => {

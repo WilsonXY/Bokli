@@ -20,11 +20,14 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
-  // 2. Allow login page or redirect to home (or callbackUrl) if already logged in
+  // 2. Allow login page or redirect to overview dashboard (or callbackUrl) if already logged in
   if (pathname === "/login" || pathname === "/login/") {
     if (isLoggedIn) {
       const callbackUrl = req.nextUrl.searchParams.get("callbackUrl");
-      const targetPath = sanitizeCallbackUrl(callbackUrl, "/");
+      const targetPath =
+        !callbackUrl || callbackUrl === "/" || callbackUrl.startsWith("/login")
+          ? "/dashboard"
+          : sanitizeCallbackUrl(callbackUrl, "/dashboard");
       return NextResponse.redirect(new URL(targetPath, req.nextUrl));
     }
     return NextResponse.next();

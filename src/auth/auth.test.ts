@@ -333,7 +333,7 @@ describe("end-to-end credentials login and API access", () => {
     });
     const mwLoginRes = (await middleware(mwLoginReq, {} as any)) as Response;
     expect(mwLoginRes.status).toBe(307);
-    expect(mwLoginRes.headers.get("location")).toBe("http://localhost:3000/");
+    expect(mwLoginRes.headers.get("location")).toBe("http://localhost:3000/dashboard");
 
     const mwLoginTrailingReq = new NextRequest("http://localhost:3000/login/", {
       headers: {
@@ -344,7 +344,7 @@ describe("end-to-end credentials login and API access", () => {
     });
     const mwLoginTrailingRes = (await middleware(mwLoginTrailingReq, {} as any)) as Response;
     expect(mwLoginTrailingRes.status).toBe(307);
-    expect(mwLoginTrailingRes.headers.get("location")).toBe("http://localhost:3000/");
+    expect(mwLoginTrailingRes.headers.get("location")).toBe("http://localhost:3000/dashboard");
   });
 
   it("rejects login with incorrect password", async () => {

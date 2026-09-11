@@ -10,7 +10,10 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl");
-  const targetUrl = sanitizeCallbackUrl(callbackUrl);
+  const targetUrl =
+    !callbackUrl || callbackUrl === "/" || callbackUrl.startsWith("/login")
+      ? "/dashboard"
+      : sanitizeCallbackUrl(callbackUrl, "/dashboard");
 
   const { t, lang, setLang } = useI18n();
   const [username, setUsername] = useState("");
