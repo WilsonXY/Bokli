@@ -353,7 +353,7 @@ export function ExpensesView({
             <div className="grid grid-cols-3 gap-2">
               <div className="bg-white border border-surface-border rounded-xl p-2.5 text-center shadow-xs">
                 <div className="text-[13px] font-medium text-ink-muted mb-0.5">
-                  {t.grossProfit}
+                  {t.monthGrossProfit}
                 </div>
                 <div className="text-base font-bold text-ink-primary">
                   {formatMyr(BigInt(summary.grossSen))}
@@ -488,9 +488,6 @@ export function ExpensesView({
             <div className="flex items-center justify-between px-1">
               <span className="text-[13px] font-bold text-ink-secondary uppercase tracking-wider">
                 {t.expensesTitle}
-              </span>
-              <span className="text-xs font-semibold text-ink-muted">
-                {mergedExpenses.length} {t.expenseTotal}
               </span>
             </div>
 

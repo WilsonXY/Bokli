@@ -73,4 +73,30 @@ describe("DailySheetForm parse error handling and toSen helper", () => {
     expect(html).toContain("border-finance-loss");
     expect(html).toContain("—");
   });
+
+  it("renders updated Chinese labels for daily costs section: 日常开销, 开销总额, and 开销类别", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCashInput: "50.00",
+        initialTngInput: "50.00",
+        initialCostLines: [],
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+
+    // P1: 日常开销 without 明细
+    expect(html).toContain("日常开销");
+    expect(html).not.toContain("日常开销明细");
+
+    // P2: 开销类别
+    expect(html).toContain("开销类别");
+
+    // P3: 开销总额
+    expect(html).toContain("开销总额");
+    expect(html).not.toContain("开销总计");
+  });
 });

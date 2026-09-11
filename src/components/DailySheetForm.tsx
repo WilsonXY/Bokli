@@ -524,7 +524,7 @@ export function DailySheetForm({
           <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs space-y-2.5">
             <div>
               <span className="block text-sm font-medium text-ink-muted mb-1.5">
-                {t.selectCategory}
+                {t.costCategory ?? t.selectCategory}
               </span>
               <div className="flex flex-wrap gap-1.5">
                 {categories.map((cat) => {

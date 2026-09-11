@@ -111,5 +111,41 @@ describe("ExpensesView frontend review fixes", () => {
       expect(html).toContain("Main Stall");
       expect(html).toContain("100.00");
     });
+
+    it("renders simplified headers, 本月毛利润, and omits the total count badge from list header", () => {
+      const html = ReactDOMServer.renderToStaticMarkup(
+        React.createElement(ExpensesView, {
+          currentMonth: "2026-05",
+          availableMonths: ["2026-05"],
+          initialExpenses: [
+            {
+              id: 1,
+              month: "2026-05",
+              type: "rental",
+              amountSen: 5000,
+              note: "Main Stall",
+              createdAt: "2026-05-01 10:00:00",
+            },
+          ],
+          summary: {
+            grossSen: 10500,
+            operatingSen: 5000,
+            netSen: 5500,
+          },
+          isClosed: false,
+        }),
+      );
+
+      // P4: 固定支出 instead of 固定运营支出
+      expect(html).toContain("固定支出");
+      expect(html).not.toContain("固定运营支出");
+
+      // P5: Removed counter/expenseTotal row from list header
+      expect(html).not.toContain("固定支出总计");
+
+      // P6: Financial impact card renders 本月毛利润 instead of 当日毛利润
+      expect(html).toContain("本月毛利润");
+      expect(html).not.toContain("当日毛利润");
+    });
   });
 });
