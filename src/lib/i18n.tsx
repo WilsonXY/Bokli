@@ -108,10 +108,10 @@ export const DICTIONARY = {
     // Month Close
     closeTitle: "月度结账与对账",
     closeWarning: "结账后将锁定本月数据，不可修改。",
-    cashOnHand: "实际现金盘点",
-    tngOnHand: "Touch 'n Go 期末余额",
+    cashOnHand: "现金实际余额",
+    tngOnHand: "Touch 'n Go 实际余额",
     expectedNet: "账面净利润",
-    actualTotal: "实点总金额",
+    actualTotal: "实际总金额",
     reconciliationDiff: "对账差异",
     reconciliationBalanced: "账实相符",
     reconciliationMismatch: "存在差异 (需填写说明)",

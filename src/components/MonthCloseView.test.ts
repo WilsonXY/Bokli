@@ -178,4 +178,32 @@ describe("MonthCloseView variance-gating", () => {
       expect(html).not.toContain("RM0.00");
     });
   });
+
+  describe("Chinese UI label verification for month close", () => {
+    it("renders updated labels for 现金实际余额, Touch 'n Go 实际余额, and 实际总金额", () => {
+      const html = ReactDOMServer.renderToStaticMarkup(
+        React.createElement(MonthCloseView, {
+          currentMonth: "2026-05",
+          availableMonths: ["2026-05"],
+          financials: mockFinancials,
+          hasSheetsInMonth: true,
+          initialCashOnHandInput: "300.00",
+          initialTngOnHandInput: "200.00",
+          initialCloseNote: "",
+        })
+      );
+
+      // P1: 现金实际余额
+      expect(html).toContain("现金实际余额");
+      expect(html).not.toContain("实际现金盘点");
+
+      // P2: Touch 'n Go 实际余额 (handle HTML entity escaping)
+      expect(html).toContain("Touch &#x27;n Go 实际余额");
+      expect(html).not.toContain("Touch &#x27;n Go 期末余额");
+
+      // P3: 实际总金额
+      expect(html).toContain("实际总金额");
+      expect(html).not.toContain("实点总金额");
+    });
+  });
 });
