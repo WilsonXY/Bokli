@@ -16,7 +16,7 @@ Environment=BOKLI_DB_PATH=%h/projects/bokli/data/bokli.db
 EnvironmentFile=-%h/projects/bokli/.env
 
 # Node v22 standalone server execution
-ExecStart=/usr/bin/node .next/standalone/server.js
+ExecStart=/usr/bin/node .next-prod/standalone/server.js
 
 # Restart on failure or unexpected exit
 Restart=always
