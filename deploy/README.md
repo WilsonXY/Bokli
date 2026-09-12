@@ -7,7 +7,7 @@ This document provides the deployment guide and environment variable contract fo
 ## 1. Overview & Architecture
 
 Bokli is deployed as a single-process modular monolith (per [ADR-0001](file:///home/penguin/projects/bokli/docs/adr/0001-modular-monolith-nextjs-sqlite.md)):
-- **Runtime:** Ubuntu Server with Node.js v22 (LTS) executing Next.js in standalone mode (`.next/standalone/server.js`).
+- **Runtime:** Ubuntu Server with Node.js v22 (LTS) executing Next.js in standalone mode (`.next-prod/standalone/server.js`). Production builds output to `.next-prod` so running `next dev` cannot clobber or delete production standalone artifacts.
 - **Process Manager:** `systemd` user service (`systemctl --user`), running under the host user account (e.g. `penguin`).
 - **Reboot Survival:** Enabled via `loginctl enable-linger $USER`, allowing the user service to boot automatically and persist across logouts and server restarts.
 - **Database:** Single SQLite file with Write-Ahead Logging (`WAL` mode). The filesystem location is governed by `BOKLI_DB_PATH`, serving as the stable coupling point for the future Hermes backup job (ADR-0001, Spec User Story 18).
@@ -81,7 +81,7 @@ BOKLI_ADMIN_PASSWORD=<secure-password-for-admin>
 # Clean install of dependencies
 npm ci
 
-# Build the Next.js application (generates .next/standalone and copies static assets)
+# Build the Next.js application (generates .next-prod/standalone and copies static assets)
 npm run build
 ```
 
