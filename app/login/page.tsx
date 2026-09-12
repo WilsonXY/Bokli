@@ -5,11 +5,14 @@ import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
 import { sanitizeCallbackUrl } from "@/lib/url";
+import { resolveLoginErrorMessage } from "@/lib/login-error";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl");
+  const urlError = searchParams.get("error");
+  const urlCode = searchParams.get("code");
   const targetUrl =
     !callbackUrl || callbackUrl === "/" || callbackUrl.startsWith("/login")
       ? "/dashboard"
@@ -21,6 +24,13 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    const resolved = resolveLoginErrorMessage(urlCode, urlError, t);
+    if (resolved) {
+      setError(resolved);
+    }
+  }, [urlError, urlCode, t]);
 
   // Tactile wave / ripple effect on all .btn-wave interactive elements on the login page
   React.useEffect(() => {
@@ -65,7 +75,20 @@ function LoginForm() {
       });
 
       if (!res || res.error) {
-        setError(t.loginError);
+        const parsedUrlCode = res?.url
+          ? (() => {
+              try {
+                return new URL(res.url, "http://localhost").searchParams.get("code");
+              } catch {
+                return null;
+              }
+            })()
+          : null;
+
+        const resolved =
+          resolveLoginErrorMessage(res?.code || parsedUrlCode, res?.error, t) ||
+          t.loginError;
+        setError(resolved);
         setLoading(false);
         return;
       }
