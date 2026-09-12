@@ -8,6 +8,7 @@ import { verifyPassword } from "@/auth/password";
 export const LOGIN_MAX_ATTEMPTS = 5;
 export const LOGIN_LOCK_MINUTES = 15;
 export const STALE_ATTEMPT_HOURS = 24;
+export const MAX_USERNAME_LENGTH = 64;
 
 /**
  * Constant dummy bcrypt hash (cost 10) used for unknown-username authentication attempts.
@@ -41,6 +42,21 @@ export interface RecordFailureResult {
   lockedUntil: string | null;
   failedCount: number;
   remainingMinutes: number;
+}
+
+/**
+ * Normalizes username (trim + lowercase), rejects empty string and usernames > 64 chars.
+ * Returns null if invalid, preventing arbitrary-length flooding of login_attempts table.
+ */
+export function normalizeUsername(username?: string | null): string | null {
+  if (typeof username !== "string") {
+    return null;
+  }
+  const trimmed = username.trim().toLowerCase();
+  if (trimmed.length === 0 || trimmed.length > MAX_USERNAME_LENGTH) {
+    return null;
+  }
+  return trimmed;
 }
 
 function resolveArgs(
@@ -108,15 +124,23 @@ export function cleanStaleAttempts(database: Db, now: Date): void {
  * Checks if a username is currently locked out.
  * Compares UTC ISO strings via Date parsing in TS.
  * Opportunistically cleans stale entries (>24h).
- * Unconditionally clears lockedUntil when a lock has expired.
+ * When lock is expired: unconditionally clears lockedUntil AND resets failedCount to 0.
  */
 export function checkLock(
   usernameLower: string,
   nowOrOptions?: Date | RateLimitOptions,
   dbArg?: Db,
 ): LockStatus {
+  const normalized = normalizeUsername(usernameLower);
+  if (!normalized) {
+    return {
+      isLocked: false,
+      lockedUntil: null,
+      remainingMinutes: 0,
+    };
+  }
+
   const { now, db } = resolveArgs(nowOrOptions, dbArg);
-  const normalized = usernameLower.trim().toLowerCase();
   const nowIso = now.toISOString();
 
   cleanStaleAttempts(db, now);
@@ -148,10 +172,11 @@ export function checkLock(
     };
   }
 
-  // Lock has expired: unconditionally clear lockedUntil
+  // Lock has expired: unconditionally clear lockedUntil AND reset failedCount to 0
   db.update(loginAttempts)
     .set({
       lockedUntil: null,
+      failedCount: 0,
       updatedAt: nowIso,
     })
     .where(eq(loginAttempts.usernameLower, normalized))
@@ -175,8 +200,17 @@ export function recordFailure(
   nowOrOptions?: Date | RateLimitOptions,
   dbArg?: Db,
 ): RecordFailureResult {
+  const normalized = normalizeUsername(usernameLower);
+  if (!normalized) {
+    return {
+      isLocked: false,
+      lockedUntil: null,
+      failedCount: 0,
+      remainingMinutes: 0,
+    };
+  }
+
   const { now, db } = resolveArgs(nowOrOptions, dbArg);
-  const normalized = usernameLower.trim().toLowerCase();
   const nowIso = now.toISOString();
 
   return db.transaction((tx) => {
@@ -275,8 +309,10 @@ export function recordSuccess(
   usernameLower: string,
   optionsOrDb?: RateLimitOptions | Db,
 ): void {
+  const normalized = normalizeUsername(usernameLower);
+  if (!normalized) return;
+
   const { db } = resolveSuccessArgs(optionsOrDb);
-  const normalized = usernameLower.trim().toLowerCase();
 
   db.delete(loginAttempts)
     .where(eq(loginAttempts.usernameLower, normalized))
@@ -290,8 +326,10 @@ export function getLoginAttempt(
   usernameLower: string,
   optionsOrDb?: RateLimitOptions | Db,
 ): LoginAttempt | undefined {
+  const normalized = normalizeUsername(usernameLower);
+  if (!normalized) return undefined;
+
   const { db } = resolveSuccessArgs(optionsOrDb);
-  const normalized = usernameLower.trim().toLowerCase();
 
   return db
     .select()
@@ -302,7 +340,8 @@ export function getLoginAttempt(
 
 /**
  * Authorize credentials implementation:
- * 1. Normalize username (trim + lowercase).
+ * 1. Hardened username normalization (trim + lowercase, reject empty, reject >64 chars).
+ *    If empty or >64 chars -> return null immediately (no row created, prevents table flooding).
  * 2. Check lock status. If locked -> throw RateLimitedError immediately (skips bcrypt).
  * 3. Look up user in DB.
  *    - If unknown user -> run dummy bcrypt verify (timing oracle fix), record failure
@@ -319,8 +358,12 @@ export async function authenticateCredentials(
     return null;
   }
 
+  const username = normalizeUsername(credentials.username);
+  if (!username) {
+    return null;
+  }
+
   const { now, db } = resolveArgs(options);
-  const username = String(credentials.username).trim().toLowerCase();
   const password = String(credentials.password);
 
   // 1. Check lock status for the submitted username.

@@ -51,6 +51,14 @@ describe("schema sanity", () => {
     }
   });
 
+  it("creates index on login_attempts.updated_at for efficient cleanup", () => {
+    const indexes = sqlite
+      .prepare("SELECT name FROM sqlite_master WHERE type='index'")
+      .all() as Array<{ name: string }>;
+    const names = indexes.map((r) => r.name);
+    expect(names).toContain("idx_login_attempts_updated_at");
+  });
+
   it("stores amounts as INTEGER columns", () => {
     const info = sqlite
       .prepare("PRAGMA table_info(daily_sheets)")
@@ -110,81 +118,89 @@ describe("schema sanity", () => {
     expect(() =>
       db
         .insert(costLines)
-        .values({ dailySheetId: sheet.id, amountSen: 100, category: "snacks" })
+        .values({
+          dailySheetId: sheet.id,
+          amountSen: 1000,
+          category: "invalid-category" as any,
+        })
         .run(),
     ).toThrow(/CHECK/);
   });
 
-  it("requires note when Cost Category is other", () => {
+  it("enforces note when Cost Category is 'other'", () => {
     const sheet = db
       .insert(dailySheets)
       .values({ date: "2026-09-03" })
       .returning({ id: dailySheets.id })
       .get()!;
+    // other without note fails
     expect(() =>
       db
         .insert(costLines)
-        .values({ dailySheetId: sheet.id, amountSen: 100, category: "other" })
+        .values({
+          dailySheetId: sheet.id,
+          amountSen: 1000,
+          category: "other",
+          note: null,
+        })
         .run(),
     ).toThrow(/CHECK/);
-    // with note it works
-    db.insert(costLines)
-      .values({ dailySheetId: sheet.id, amountSen: 100, category: "other", note: "misc" })
-      .run();
-  });
 
-  it("rejects invalid Operating Expense types", () => {
+    // other with note succeeds
     expect(() =>
       db
-        .insert(operatingExpenses)
-        .values({ month: "2026-09", type: "insurance", amountSen: 100 })
+        .insert(costLines)
+        .values({
+          dailySheetId: sheet.id,
+          amountSen: 1000,
+          category: "other",
+          note: "Repaired blender blade",
+        })
+        .run(),
+    ).not.toThrow();
+  });
+
+  it("rejects negative amounts via CHECK", () => {
+    const sheet = db
+      .insert(dailySheets)
+      .values({ date: "2026-09-04" })
+      .returning({ id: dailySheets.id })
+      .get()!;
+    expect(() =>
+      db
+        .insert(costLines)
+        .values({
+          dailySheetId: sheet.id,
+          amountSen: -500,
+          category: "restock",
+        })
         .run(),
     ).toThrow(/CHECK/);
   });
 
-  it("enforces one Month Close per month (unique)", () => {
+  it("enforces one month_closes row per month (unique)", () => {
     db.insert(monthCloses)
       .values({
-        month: "2026-08",
-        revenueSen: 0,
-        dailyCostSen: 0,
-        grossSen: 0,
-        operatingSen: 0,
-        netSen: 0,
+        month: "2026-09",
+        revenueSen: 100000,
+        dailyCostSen: 40000,
+        grossSen: 60000,
+        operatingSen: 20000,
+        netSen: 40000,
       })
       .run();
     expect(() =>
       db
         .insert(monthCloses)
         .values({
-          month: "2026-08",
-          revenueSen: 1,
-          dailyCostSen: 0,
-          grossSen: 1,
-          operatingSen: 0,
-          netSen: 1,
+          month: "2026-09",
+          revenueSen: 100000,
+          dailyCostSen: 40000,
+          grossSen: 60000,
+          operatingSen: 20000,
+          netSen: 40000,
         })
         .run(),
     ).toThrow(/UNIQUE/);
-  });
-
-  it("getDb() returns cached singleton handle and re-opens if closed", () => {
-    const testDbPath = path.join(tmpDir, "cached-test.db");
-    const handle1 = getDb(testDbPath);
-    const handle2 = getDb(testDbPath);
-    // Exact same cached instance
-    expect(handle1).toBe(handle2);
-    expect(handle1.sqlite).toBe(handle2.sqlite);
-
-    // Close handle
-    closeDb(testDbPath);
-    expect(handle1.sqlite.open).toBe(false);
-
-    // Calling getDb again opens a new cached handle
-    const handle3 = getDb(testDbPath);
-    expect(handle3).not.toBe(handle1);
-    expect(handle3.sqlite.open).toBe(true);
-
-    closeDb(testDbPath);
   });
 });

@@ -15,6 +15,8 @@ import {
   getLoginAttempt,
   LOGIN_LOCK_MINUTES,
   LOGIN_MAX_ATTEMPTS,
+  MAX_USERNAME_LENGTH,
+  normalizeUsername,
   RateLimitedError,
   recordFailure,
   recordSuccess,
@@ -65,10 +67,11 @@ beforeEach(() => {
 });
 
 describe("login rate limiter constants & error", () => {
-  it("exports LOGIN_MAX_ATTEMPTS = 5 and LOGIN_LOCK_MINUTES = 15", () => {
+  it("exports LOGIN_MAX_ATTEMPTS = 5, LOGIN_LOCK_MINUTES = 15, and MAX_USERNAME_LENGTH = 64", () => {
     expect(LOGIN_MAX_ATTEMPTS).toBe(5);
     expect(LOGIN_LOCK_MINUTES).toBe(15);
     expect(STALE_ATTEMPT_HOURS).toBe(24);
+    expect(MAX_USERNAME_LENGTH).toBe(64);
   });
 
   it("exports a valid DUMMY_BCRYPT_HASH with cost 10", () => {
@@ -79,6 +82,52 @@ describe("login rate limiter constants & error", () => {
     const error = new RateLimitedError();
     expect(error.code).toBe("RateLimited");
     expect(error.message).toContain("15 minutes");
+  });
+});
+
+describe("username normalization and length hardening", () => {
+  it("normalizes valid usernames (trim + lowercase)", () => {
+    expect(normalizeUsername("  Mom  ")).toBe("mom");
+    expect(normalizeUsername("KATTE")).toBe("katte");
+  });
+
+  it("rejects empty, whitespace, and null/undefined usernames", () => {
+    expect(normalizeUsername("")).toBeNull();
+    expect(normalizeUsername("   ")).toBeNull();
+    expect(normalizeUsername(null)).toBeNull();
+    expect(normalizeUsername(undefined)).toBeNull();
+    expect(normalizeUsername(123 as any)).toBeNull();
+  });
+
+  it("rejects usernames exceeding 64 characters", () => {
+    const exact64 = "a".repeat(64);
+    expect(normalizeUsername(exact64)).toBe(exact64);
+
+    const tooLong = "a".repeat(65);
+    expect(normalizeUsername(tooLong)).toBeNull();
+
+    const paddedTooLong = `  ${"b".repeat(65)}  `;
+    expect(normalizeUsername(paddedTooLong)).toBeNull();
+  });
+
+  it("authenticateCredentials immediately returns null without creating rows for empty or >64 char usernames", async () => {
+    // 1. Empty username
+    const resEmpty = await authenticateCredentials(
+      { username: "   ", password: "some-password" },
+      { db, now: MOCK_NOW },
+    );
+    expect(resEmpty).toBeNull();
+    expect(db.select().from(loginAttempts).all()).toHaveLength(0);
+
+    // 2. Overlong username (>64 chars)
+    const longName = "x".repeat(100);
+    const resLong = await authenticateCredentials(
+      { username: longName, password: "some-password" },
+      { db, now: MOCK_NOW },
+    );
+    expect(resLong).toBeNull();
+    expect(db.select().from(loginAttempts).all()).toHaveLength(0);
+    expect(getLoginAttempt(longName, db)).toBeUndefined();
   });
 });
 
@@ -145,13 +194,13 @@ describe("login rate limiter core unit tests", () => {
     expect(status15.isLocked).toBe(false);
   });
 
-  it("checkLock unconditionally clears lockedUntil when lock is expired", () => {
+  it("checkLock unconditionally clears lockedUntil and resets failedCount to 0 when lock is expired", () => {
     // Manually insert an expired lock row with failedCount > 0
     const pastLockedUntil = new Date(MOCK_NOW.getTime() - 5 * 60 * 1000).toISOString();
     db.insert(loginAttempts)
       .values({
         usernameLower: "expired_user",
-        failedCount: 3,
+        failedCount: 4,
         lockedUntil: pastLockedUntil,
         updatedAt: MOCK_NOW.toISOString(),
       })
@@ -161,10 +210,11 @@ describe("login rate limiter core unit tests", () => {
     expect(status.isLocked).toBe(false);
     expect(status.lockedUntil).toBeNull();
 
-    // Verify row in DB now has lockedUntil cleared to null
+    // Verify row in DB now has lockedUntil cleared to null AND failedCount reset to 0
     const row = getLoginAttempt("expired_user", db);
     expect(row).toBeDefined();
     expect(row?.lockedUntil).toBeNull();
+    expect(row?.failedCount).toBe(0);
   });
 
   it("cleanStaleAttempts removes rows older than 24h that are not locked", () => {
