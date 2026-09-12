@@ -26,7 +26,7 @@ A template is provided in [`.env.example`](file:///home/penguin/projects/bokli/.
 | `PORT` | Optional | `3000` | HTTP port the Next.js standalone server listens on. Bound to `0.0.0.0` (all interfaces). |
 | `NODE_ENV` | Yes | `production` | Set to `production` in production deployment. Enables secure cookie flags and optimized runtime. |
 | `AUTH_SECRET` / `NEXTAUTH_SECRET` | **Yes** | Built-in fallback | High-entropy secret key (min 32 characters) used to sign and encrypt session tokens. Generate with `openssl rand -base64 32`. Both names are accepted interchangeably. |
-| `AUTH_URL` / `NEXTAUTH_URL` | **Yes** | `http://localhost:3000` | Canonical public base URL for NextAuth redirects, callbacks, and cookie domains. For LAN access, set to `http://<LAN_IP>:3000` (e.g. `http://192.168.0.100:3000`). For tunnels, set to `https://<subdomain>.ngrok-free.app`. |
+| `AUTH_URL` / `NEXTAUTH_URL` | **Yes** | `http://localhost:3000` | Canonical public base URL for NextAuth redirects, callbacks, and cookie domains. MUST match the URL users actually visit (cookie scoping). Current prod: `https://bokli.ktte.me` (Cloudflare tunnel + Access). Dev: see `.env.local`. |
 | `BOKLI_DB_PATH` | **Yes** | `<repo>/data/bokli.db` | Absolute filesystem path to the SQLite database file. **Critical:** Must be an absolute path (e.g. `/home/penguin/projects/bokli/data/bokli.db`) to ensure stability across working directory changes and as the coupling point for Hermes backups. |
 | `BOKLI_MOM_PASSWORD` | Recommended | `mom-bokli-default-pass` | Initial password used when executing `npm run db:seed` for the `mom` account (`Operator` role). |
 | `BOKLI_ADMIN_PASSWORD` | Recommended | `katte-bokli-default-pass` | Initial password used when executing `npm run db:seed` for the `katte` account (`Admin` role). |
@@ -65,12 +65,12 @@ chmod 600 .env
 ```
 Edit `.env`:
 ```ini
-PORT=3000
+PORT=5000
 NODE_ENV=production
 AUTH_SECRET=<output of openssl rand -base64 32>
 NEXTAUTH_SECRET=<same as AUTH_SECRET>
-AUTH_URL=http://<server-lan-ip>:3000
-NEXTAUTH_URL=http://<server-lan-ip>:3000
+AUTH_URL=https://bokli.ktte.me
+NEXTAUTH_URL=https://bokli.ktte.me
 BOKLI_DB_PATH=/home/penguin/projects/bokli/data/bokli.db
 BOKLI_MOM_PASSWORD=<secure-password-for-mom>
 BOKLI_ADMIN_PASSWORD=<secure-password-for-admin>
@@ -150,9 +150,15 @@ systemctl --user enable --now bokli.service
 ### Health Check
 Verify the server is running and responding:
 ```bash
-curl -I http://localhost:3000/
-# Should return HTTP/1.1 200 OK
+curl -I http://localhost:5000/
+# Should return HTTP/1.1 302 (redirect to /login) or 200
 ```
+
+### Cloudflare Tunnel & Access (live since 2026-09-12/13)
+- Connector: user service `cloudflared-bokli.service` running `cloudflared tunnel run bokli` (config `~/.cloudflared/config.yml`, ingress `bokli.ktte.me` → `http://localhost:5000`).
+- DNS: CNAME `bokli.ktte.me` → tunnel (created via `cloudflared tunnel route dns`).
+- Access gate: Cloudflare Zero Trust Access app on `bokli.ktte.me` — allow-listed emails with One-time PIN only. Requests without a valid Access session redirect to `<team>.cloudflareaccess.com` and never reach Bokli.
+- Firewall: host ufw is default-deny; `sudo ufw allow 5000/tcp` was required for LAN access.
 
 ---
 
