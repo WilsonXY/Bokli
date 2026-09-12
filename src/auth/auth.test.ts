@@ -9,7 +9,7 @@ import { eq } from "drizzle-orm";
 
 import { openDb, type Db } from "@/db";
 import { runMigrations } from "@/db/migrate";
-import { users } from "@/db/schema";
+import { loginAttempts, users } from "@/db/schema";
 import { seedUsers } from "@/db/seed";
 import { resetPassword, readPassword } from "@/cli/reset-password";
 import { hashPassword, verifyPassword } from "./password";
@@ -369,6 +369,67 @@ describe("end-to-end credentials login and API access", () => {
     const loginRes = await handlers.POST(postReq);
     const setCookie = loginRes.headers.get("set-cookie") ?? "";
     expect(setCookie).not.toContain("authjs.session-token");
+  });
+
+  it("locks account after 5 failed login attempts and returns RateLimited code", async () => {
+    // Clear any previous attempts
+    db.delete(loginAttempts).run();
+
+    const csrfReq = new NextRequest("http://localhost:3000/api/auth/csrf");
+    const csrfRes = await handlers.GET(csrfReq);
+    const csrfData = (await csrfRes.json()) as { csrfToken: string };
+    const csrfCookie = csrfRes.headers.get("set-cookie")?.split(";")[0] ?? "";
+
+    // Fail 4 times (total with previous wrong password test would be 4 here)
+    for (let i = 1; i <= 4; i++) {
+      const postReq = new NextRequest("http://localhost:3000/api/auth/callback/credentials", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: csrfCookie,
+        },
+        body: new URLSearchParams({
+          username: "mom",
+          password: "wrong-password",
+          csrfToken: csrfData.csrfToken,
+        }).toString(),
+      });
+      const res = await handlers.POST(postReq);
+      expect(res.headers.get("location")).not.toContain("code=RateLimited");
+    }
+
+    // 5th failure triggers lock
+    const postReq5 = new NextRequest("http://localhost:3000/api/auth/callback/credentials", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: csrfCookie,
+      },
+      body: new URLSearchParams({
+        username: "mom",
+        password: "wrong-password",
+        csrfToken: csrfData.csrfToken,
+      }).toString(),
+    });
+    const res5 = await handlers.POST(postReq5);
+    expect(res5.headers.get("location")).toContain("code=RateLimited");
+
+    // 6th attempt with CORRECT password is also rejected with code=RateLimited while locked
+    const postReq6 = new NextRequest("http://localhost:3000/api/auth/callback/credentials", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: csrfCookie,
+      },
+      body: new URLSearchParams({
+        username: "mom",
+        password: "mom-new-password",
+        csrfToken: csrfData.csrfToken,
+      }).toString(),
+    });
+    const res6 = await handlers.POST(postReq6);
+    expect(res6.headers.get("location")).toContain("code=RateLimited");
+    expect(res6.headers.get("set-cookie") ?? "").not.toContain("authjs.session-token");
   });
 });
 

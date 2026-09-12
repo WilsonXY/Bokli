@@ -10,6 +10,8 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl");
+  const urlError = searchParams.get("error");
+  const urlCode = searchParams.get("code");
   const targetUrl =
     !callbackUrl || callbackUrl === "/" || callbackUrl.startsWith("/login")
       ? "/dashboard"
@@ -21,6 +23,17 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  React.useEffect(() => {
+    if (
+      urlCode === "RateLimited" ||
+      (typeof urlError === "string" && urlError.includes("RateLimited"))
+    ) {
+      setError(t.loginRateLimited);
+    } else if (urlError) {
+      setError(t.loginError);
+    }
+  }, [urlError, urlCode, t.loginRateLimited, t.loginError]);
 
   // Tactile wave / ripple effect on all .btn-wave interactive elements on the login page
   React.useEffect(() => {
@@ -65,7 +78,14 @@ function LoginForm() {
       });
 
       if (!res || res.error) {
-        setError(t.loginError);
+        if (
+          res?.code === "RateLimited" ||
+          (typeof res?.error === "string" && res.error.includes("RateLimited"))
+        ) {
+          setError(t.loginRateLimited);
+        } else {
+          setError(t.loginError);
+        }
         setLoading(false);
         return;
       }

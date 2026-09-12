@@ -7,6 +7,7 @@ import { openDb, getDb, closeDb, type Db } from "./index";
 import {
   costLines,
   dailySheets,
+  loginAttempts,
   monthCloses,
   operatingExpenses,
   users,
@@ -44,6 +45,7 @@ describe("schema sanity", () => {
       "cost_lines",
       "operating_expenses",
       "month_closes",
+      "login_attempts",
     ]) {
       expect(names).toContain(t);
     }

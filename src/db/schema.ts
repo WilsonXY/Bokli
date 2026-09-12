@@ -133,3 +133,13 @@ export const monthCloses = sqliteTable(
 
 export type MonthClose = typeof monthCloses.$inferSelect;
 export type NewMonthClose = typeof monthCloses.$inferInsert;
+
+export const loginAttempts = sqliteTable("login_attempts", {
+  usernameLower: text("username_lower").primaryKey(),
+  failedCount: integer("failed_count").notNull().default(0),
+  lockedUntil: text("locked_until"),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export type LoginAttempt = typeof loginAttempts.$inferSelect;
+export type NewLoginAttempt = typeof loginAttempts.$inferInsert;

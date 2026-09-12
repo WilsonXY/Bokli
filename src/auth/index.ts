@@ -1,13 +1,14 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { sql } from "drizzle-orm";
 
 import { getDb } from "@/db";
-import { users } from "@/db/schema";
 import { authConfig, SESSION_MAX_AGE } from "./config";
-import { verifyPassword } from "./password";
+import {
+  authenticateCredentials,
+  RateLimitedError,
+} from "@/services/login-rate-limit";
 
-export { SESSION_MAX_AGE, authConfig };
+export { SESSION_MAX_AGE, authConfig, RateLimitedError };
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -24,32 +25,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        const username = String(credentials.username).trim().toLowerCase();
-        const password = String(credentials.password);
-
         try {
           const { db } = getDb();
-          const user = db
-            .select()
-            .from(users)
-            .where(sql`lower(${users.username}) = ${username}`)
-            .get();
-
-          if (!user) {
-            return null;
-          }
-
-          const isValid = await verifyPassword(password, user.passwordHash);
-          if (!isValid) {
-            return null;
-          }
-
-          return {
-            id: String(user.id),
-            name: user.username,
-            role: user.role,
-          };
+          return await authenticateCredentials(
+            {
+              username: String(credentials.username),
+              password: String(credentials.password),
+            },
+            { db, now: new Date() },
+          );
         } catch (err) {
+          if (
+            err instanceof CredentialsSignin ||
+            (err && typeof err === "object" && "code" in err && (err as any).code === "RateLimited")
+          ) {
+            throw err;
+          }
           console.error("Auth authorize error:", err);
           return null;
         }
