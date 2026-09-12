@@ -10,12 +10,15 @@ import { hashPassword } from "@/auth/password";
 import {
   authenticateCredentials,
   checkLock,
+  cleanStaleAttempts,
+  DUMMY_BCRYPT_HASH,
   getLoginAttempt,
   LOGIN_LOCK_MINUTES,
   LOGIN_MAX_ATTEMPTS,
   RateLimitedError,
   recordFailure,
   recordSuccess,
+  STALE_ATTEMPT_HOURS,
 } from "./login-rate-limit";
 
 let tmpDir: string;
@@ -65,6 +68,11 @@ describe("login rate limiter constants & error", () => {
   it("exports LOGIN_MAX_ATTEMPTS = 5 and LOGIN_LOCK_MINUTES = 15", () => {
     expect(LOGIN_MAX_ATTEMPTS).toBe(5);
     expect(LOGIN_LOCK_MINUTES).toBe(15);
+    expect(STALE_ATTEMPT_HOURS).toBe(24);
+  });
+
+  it("exports a valid DUMMY_BCRYPT_HASH with cost 10", () => {
+    expect(DUMMY_BCRYPT_HASH).toMatch(/^\$2[aby]\$10\$/);
   });
 
   it("RateLimitedError has code RateLimited", () => {
@@ -135,6 +143,70 @@ describe("login rate limiter core unit tests", () => {
     const plus15Min = new Date(MOCK_NOW.getTime() + 15 * 60 * 1000);
     const status15 = checkLock("mom", plus15Min, db);
     expect(status15.isLocked).toBe(false);
+  });
+
+  it("checkLock unconditionally clears lockedUntil when lock is expired", () => {
+    // Manually insert an expired lock row with failedCount > 0
+    const pastLockedUntil = new Date(MOCK_NOW.getTime() - 5 * 60 * 1000).toISOString();
+    db.insert(loginAttempts)
+      .values({
+        usernameLower: "expired_user",
+        failedCount: 3,
+        lockedUntil: pastLockedUntil,
+        updatedAt: MOCK_NOW.toISOString(),
+      })
+      .run();
+
+    const status = checkLock("expired_user", MOCK_NOW, db);
+    expect(status.isLocked).toBe(false);
+    expect(status.lockedUntil).toBeNull();
+
+    // Verify row in DB now has lockedUntil cleared to null
+    const row = getLoginAttempt("expired_user", db);
+    expect(row).toBeDefined();
+    expect(row?.lockedUntil).toBeNull();
+  });
+
+  it("cleanStaleAttempts removes rows older than 24h that are not locked", () => {
+    const staleTime = new Date(MOCK_NOW.getTime() - 25 * 60 * 60 * 1000).toISOString();
+    const recentTime = new Date(MOCK_NOW.getTime() - 2 * 60 * 60 * 1000).toISOString();
+
+    // 1. Stale unlocked row (>24h old) -> should be deleted
+    db.insert(loginAttempts)
+      .values({
+        usernameLower: "stale_unlocked",
+        failedCount: 2,
+        lockedUntil: null,
+        updatedAt: staleTime,
+      })
+      .run();
+
+    // 2. Recent unlocked row (<24h old) -> should be kept
+    db.insert(loginAttempts)
+      .values({
+        usernameLower: "recent_unlocked",
+        failedCount: 1,
+        lockedUntil: null,
+        updatedAt: recentTime,
+      })
+      .run();
+
+    // 3. Stale row but actively locked in future -> should NOT be deleted
+    const futureLock = new Date(MOCK_NOW.getTime() + 10 * 60 * 1000).toISOString();
+    db.insert(loginAttempts)
+      .values({
+        usernameLower: "stale_but_locked",
+        failedCount: 0,
+        lockedUntil: futureLock,
+        updatedAt: staleTime,
+      })
+      .run();
+
+    cleanStaleAttempts(db, MOCK_NOW);
+
+    expect(getLoginAttempt("stale_unlocked", db)).toBeUndefined();
+    expect(getLoginAttempt("recent_unlocked", db)).toBeDefined();
+    expect(getLoginAttempt("stale_but_locked", db)).toBeDefined();
   });
 });
 
@@ -225,21 +297,42 @@ describe("login rate limiter required spec scenarios", () => {
     expect(row).toBeUndefined();
   });
 
-  // Scenario 4
-  it("4. Invalid user -> no counter row created, correct-password login for that user unaffected", async () => {
+  // Scenario 4 (Updated for review item 1 & 2: oracle defenses)
+  it("4. Unknown username records failures, locks after 5 attempts, and does NOT affect other users", async () => {
     const nonexistent = "ghostuser";
-    for (let i = 1; i <= 6; i++) {
+
+    // 4 failed attempts for unknown username
+    for (let i = 1; i <= 4; i++) {
       const res = await authenticateCredentials(
         { username: nonexistent, password: "some-password" },
         { db, now: MOCK_NOW },
       );
       expect(res).toBeNull();
+      const row = getLoginAttempt(nonexistent, db);
+      expect(row?.failedCount).toBe(i);
     }
 
-    const row = getLoginAttempt(nonexistent, db);
-    expect(row).toBeUndefined();
+    // 5th failed attempt locks ghostuser and throws RateLimitedError
+    await expect(
+      authenticateCredentials(
+        { username: nonexistent, password: "some-password" },
+        { db, now: MOCK_NOW },
+      ),
+    ).rejects.toThrow(RateLimitedError);
 
-    // Valid user mom is completely unaffected
+    const ghostRow = getLoginAttempt(nonexistent, db);
+    expect(ghostRow?.failedCount).toBe(0);
+    expect(ghostRow?.lockedUntil).toBeDefined();
+
+    // 6th attempt on locked ghostuser throws RateLimitedError immediately
+    await expect(
+      authenticateCredentials(
+        { username: nonexistent, password: "some-password" },
+        { db, now: MOCK_NOW },
+      ),
+    ).rejects.toThrow(RateLimitedError);
+
+    // Valid user mom is completely unaffected by ghostuser's attempts and lock
     const momRes = await authenticateCredentials(
       { username: "mom", password: MOM_PASSWORD },
       { db, now: MOCK_NOW },

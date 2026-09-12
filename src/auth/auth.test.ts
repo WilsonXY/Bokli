@@ -372,64 +372,89 @@ describe("end-to-end credentials login and API access", () => {
   });
 
   it("locks account after 5 failed login attempts and returns RateLimited code", async () => {
-    // Clear any previous attempts
-    db.delete(loginAttempts).run();
+    // Isolated dedicated test user specifically for rate limiting
+    const isolatedUsername = "ratelimit_isolated_user";
+    const isolatedPassword = "isolated-secret-pass-987";
+    const isolatedHash = await hashPassword(isolatedPassword);
 
-    const csrfReq = new NextRequest("http://localhost:3000/api/auth/csrf");
-    const csrfRes = await handlers.GET(csrfReq);
-    const csrfData = (await csrfRes.json()) as { csrfToken: string };
-    const csrfCookie = csrfRes.headers.get("set-cookie")?.split(";")[0] ?? "";
+    db.insert(users)
+      .values({
+        username: isolatedUsername,
+        passwordHash: isolatedHash,
+        role: "Operator",
+      })
+      .run();
 
-    // Fail 4 times (total with previous wrong password test would be 4 here)
-    for (let i = 1; i <= 4; i++) {
-      const postReq = new NextRequest("http://localhost:3000/api/auth/callback/credentials", {
+    // Clear any previous attempts for isolated user
+    db.delete(loginAttempts)
+      .where(eq(loginAttempts.usernameLower, isolatedUsername))
+      .run();
+
+    try {
+      const csrfReq = new NextRequest("http://localhost:3000/api/auth/csrf");
+      const csrfRes = await handlers.GET(csrfReq);
+      const csrfData = (await csrfRes.json()) as { csrfToken: string };
+      const csrfCookie = csrfRes.headers.get("set-cookie")?.split(";")[0] ?? "";
+
+      // Fail 4 times
+      for (let i = 1; i <= 4; i++) {
+        const postReq = new NextRequest("http://localhost:3000/api/auth/callback/credentials", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Cookie: csrfCookie,
+          },
+          body: new URLSearchParams({
+            username: isolatedUsername,
+            password: "wrong-password",
+            csrfToken: csrfData.csrfToken,
+          }).toString(),
+        });
+        const res = await handlers.POST(postReq);
+        expect(res.headers.get("location")).not.toContain("code=RateLimited");
+      }
+
+      // 5th failure triggers lock
+      const postReq5 = new NextRequest("http://localhost:3000/api/auth/callback/credentials", {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           Cookie: csrfCookie,
         },
         body: new URLSearchParams({
-          username: "mom",
+          username: isolatedUsername,
           password: "wrong-password",
           csrfToken: csrfData.csrfToken,
         }).toString(),
       });
-      const res = await handlers.POST(postReq);
-      expect(res.headers.get("location")).not.toContain("code=RateLimited");
+      const res5 = await handlers.POST(postReq5);
+      expect(res5.headers.get("location")).toContain("code=RateLimited");
+
+      // 6th attempt with CORRECT password is also rejected with code=RateLimited while locked
+      const postReq6 = new NextRequest("http://localhost:3000/api/auth/callback/credentials", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Cookie: csrfCookie,
+        },
+        body: new URLSearchParams({
+          username: isolatedUsername,
+          password: isolatedPassword,
+          csrfToken: csrfData.csrfToken,
+        }).toString(),
+      });
+      const res6 = await handlers.POST(postReq6);
+      expect(res6.headers.get("location")).toContain("code=RateLimited");
+      expect(res6.headers.get("set-cookie") ?? "").not.toContain("authjs.session-token");
+    } finally {
+      // Clean up isolated user
+      db.delete(loginAttempts)
+        .where(eq(loginAttempts.usernameLower, isolatedUsername))
+        .run();
+      db.delete(users)
+        .where(eq(users.username, isolatedUsername))
+        .run();
     }
-
-    // 5th failure triggers lock
-    const postReq5 = new NextRequest("http://localhost:3000/api/auth/callback/credentials", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Cookie: csrfCookie,
-      },
-      body: new URLSearchParams({
-        username: "mom",
-        password: "wrong-password",
-        csrfToken: csrfData.csrfToken,
-      }).toString(),
-    });
-    const res5 = await handlers.POST(postReq5);
-    expect(res5.headers.get("location")).toContain("code=RateLimited");
-
-    // 6th attempt with CORRECT password is also rejected with code=RateLimited while locked
-    const postReq6 = new NextRequest("http://localhost:3000/api/auth/callback/credentials", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Cookie: csrfCookie,
-      },
-      body: new URLSearchParams({
-        username: "mom",
-        password: "mom-new-password",
-        csrfToken: csrfData.csrfToken,
-      }).toString(),
-    });
-    const res6 = await handlers.POST(postReq6);
-    expect(res6.headers.get("location")).toContain("code=RateLimited");
-    expect(res6.headers.get("set-cookie") ?? "").not.toContain("authjs.session-token");
   });
 });
 

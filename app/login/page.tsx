@@ -5,6 +5,7 @@ import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
 import { sanitizeCallbackUrl } from "@/lib/url";
+import { resolveLoginErrorMessage } from "@/lib/login-error";
 
 function LoginForm() {
   const router = useRouter();
@@ -25,15 +26,11 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   React.useEffect(() => {
-    if (
-      urlCode === "RateLimited" ||
-      (typeof urlError === "string" && urlError.includes("RateLimited"))
-    ) {
-      setError(t.loginRateLimited);
-    } else if (urlError) {
-      setError(t.loginError);
+    const resolved = resolveLoginErrorMessage(urlCode, urlError, t);
+    if (resolved) {
+      setError(resolved);
     }
-  }, [urlError, urlCode, t.loginRateLimited, t.loginError]);
+  }, [urlError, urlCode, t]);
 
   // Tactile wave / ripple effect on all .btn-wave interactive elements on the login page
   React.useEffect(() => {
@@ -78,14 +75,20 @@ function LoginForm() {
       });
 
       if (!res || res.error) {
-        if (
-          res?.code === "RateLimited" ||
-          (typeof res?.error === "string" && res.error.includes("RateLimited"))
-        ) {
-          setError(t.loginRateLimited);
-        } else {
-          setError(t.loginError);
-        }
+        const parsedUrlCode = res?.url
+          ? (() => {
+              try {
+                return new URL(res.url, "http://localhost").searchParams.get("code");
+              } catch {
+                return null;
+              }
+            })()
+          : null;
+
+        const resolved =
+          resolveLoginErrorMessage(res?.code || parsedUrlCode, res?.error, t) ||
+          t.loginError;
+        setError(resolved);
         setLoading(false);
         return;
       }
