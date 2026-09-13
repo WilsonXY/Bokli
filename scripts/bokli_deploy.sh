@@ -9,20 +9,22 @@
 #
 # Safety & Refusal Gates:
 #   1. Argument required: must supply a release tag name.
-#   2. Fetches origin (git fetch origin --tags --prune).
-#   3. Refuses if the tag does not exist locally after fetch.
-#   4. Tip equality or rollback ancestor check:
+#   2. Tag format validation: must match ^[A-Za-z0-9._-]+$
+#   3. Fetches origin (git fetch origin --tags --prune).
+#   4. Refuses if the tag does not exist locally after fetch.
+#   5. Tip equality or rollback ancestor check:
 #      - By default, tag commit must equal origin/main tip.
 #      - If --allow-rollback is specified, tag commit may differ from origin/main
 #        tip, but MUST be a direct ancestor of origin/main (git merge-base --is-ancestor).
-#   5. Refuses if tracked files are modified (git status --porcelain --untracked-files=no).
+#   6. Refuses if tracked files are modified (git status --porcelain --untracked-files=no).
 #
 # Deploy Actions:
 #   - Check out tag (git checkout <tag>)
 #   - Run database migrations: BOKLI_DB_PATH=<repo>/data/bokli.db npx tsx src/db/migrate.ts
 #     (skippable via BOKLI_DEPLOY_SKIP_MIGRATE=1)
 #   - Build production artifacts: BOKLI_BUILD_DIR=.next-prod npm run build
-#     (skippable via BOKLI_DEPLOY_SKIP_BUILD=1)
+#     (skippable via BOKLI_DEPLOY_SKIP_BUILD=1, custom command via BOKLI_DEPLOY_BUILD_CMD)
+#   - Stamp the build manifest: .next-prod/BUILD_MANIFEST (verified by ExecStartPre)
 #   - Restart systemd user service: systemctl --user restart bokli
 #     (skippable via BOKLI_DEPLOY_SKIP_RESTART=1)
 #   - Post-restart health check on /login with 3 retry attempts 2s apart and --max-time 5
@@ -66,6 +68,12 @@ done
 
 if [ -z "$TAG" ]; then
   echo "Usage: $0 [--allow-rollback] <tag> (e.g. $0 v1.0.0)" >&2
+  exit 1
+fi
+
+# Validate TAG against safe charset before any use
+if [[ ! "$TAG" =~ ^[A-Za-z0-9._-]+$ ]]; then
+  echo "❌ Refusing deploy: invalid tag format '$TAG'. Tags must only contain alphanumeric characters, dots, underscores, and hyphens (^[A-Za-z0-9._-]+$)." >&2
   exit 1
 fi
 
@@ -134,11 +142,54 @@ else
 fi
 
 # Build production artifacts
+BUILD_SKIPPED=0
 if [ "${BOKLI_DEPLOY_SKIP_BUILD:-0}" = "1" ]; then
   echo "ℹ️  Skipping build (BOKLI_DEPLOY_SKIP_BUILD=1)"
+  BUILD_SKIPPED=1
 else
   echo "==> Building production release..."
-  BOKLI_BUILD_DIR=.next-prod npm run build
+  if [ -n "${BOKLI_DEPLOY_BUILD_CMD:-}" ]; then
+    $BOKLI_DEPLOY_BUILD_CMD
+  else
+    BOKLI_BUILD_DIR=.next-prod npm run build
+  fi
+fi
+
+# Stamp the build manifest (systemd ExecStartPre verifies this before every start)
+echo "==> Writing build stamp (.next-prod/BUILD_MANIFEST)..."
+BUILD_DIR_ABS="$REPO_ROOT/.next-prod"
+STAMP_FILE="$BUILD_DIR_ABS/BUILD_MANIFEST"
+if [ "$BUILD_SKIPPED" -eq 1 ]; then
+  # Build skipped: the existing stamp must still match current HEAD and tag so we
+  # never restart into a build produced for a different commit.
+  if [ ! -f "$STAMP_FILE" ]; then
+    echo "❌ Refusing restart: build skipped (BOKLI_DEPLOY_SKIP_BUILD=1) but no build stamp exists at $STAMP_FILE." >&2
+    echo "    Run a full deploy: ./scripts/bokli_deploy.sh <tag>" >&2
+    exit 1
+  fi
+  if ! BOKLI_REPO_DIR="$REPO_ROOT" "$SCRIPT_DIR/verify_build_stamp.sh"; then
+    echo "❌ Refusing restart: build was skipped but the existing build stamp does not match HEAD/tag." >&2
+    echo "    Run a full deploy: ./scripts/bokli_deploy.sh <tag> (do not set BOKLI_DEPLOY_SKIP_BUILD=1)" >&2
+    exit 1
+  fi
+else
+  STAMP_COMMIT="$(git rev-parse HEAD)"
+  STAMP_BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  if [ -z "$TAG" ] || [ -z "$STAMP_COMMIT" ] || [ -z "$STAMP_BUILT_AT" ]; then
+    echo "❌ Refusing restart: build stamp fields must not be empty (TAG='$TAG' COMMIT='$STAMP_COMMIT' BUILT_AT='$STAMP_BUILT_AT')." >&2
+    exit 1
+  fi
+  if [ ! -d "$BUILD_DIR_ABS" ]; then
+    echo "❌ Refusing restart: build output directory $BUILD_DIR_ABS does not exist." >&2
+    exit 1
+  fi
+  cat > "$STAMP_FILE" <<EOF
+TAG=$TAG
+COMMIT=$STAMP_COMMIT
+BUILT_AT=$STAMP_BUILT_AT
+DEPLOYED_BY=bokli_deploy.sh
+EOF
+  echo "==> Stamped: TAG=$TAG COMMIT=$STAMP_COMMIT BUILT_AT=$STAMP_BUILT_AT"
 fi
 
 # Restart systemd user service
