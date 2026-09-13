@@ -171,3 +171,42 @@ curl -I http://localhost:5000/
   sqlite3 /home/penguin/projects/bokli/data/bokli.db ".backup /path/to/backup/bokli-$(date +%F).db"
   ```
   This creates an atomic snapshot without blocking active reads or writes by the operator.
+
+---
+
+## Deployment (release-tag flow)
+
+Bokli follows a release-tag-gated deployment flow to ensure that production always matches an audited, immutable release tag pointing to the current tip of `origin/main`.
+
+### Workflow
+1. **Merge PR**: Merge the approved pull request into `main` on GitHub.
+2. **Tag & Push**: Create an annotated release tag pointing to the tip of `main` and push it to GitHub:
+   ```bash
+   ./scripts/bokli_release.sh v1.2.0 "Release v1.2.0"
+   # Or manually:
+   # git tag -a v1.2.0 origin/main -m "Release v1.2.0"
+   # git push origin v1.2.0
+   # gh release create v1.2.0 --generate-notes
+   ```
+3. **Deploy via Script**: On the deployment host, execute the release deploy script:
+   ```bash
+   ./scripts/bokli_deploy.sh v1.2.0
+   ```
+   The script enforces safety gates before touching anything:
+   - Fetches origin (`git fetch origin --tags --prune`).
+   - Verifies the specified tag exists locally.
+   - Verifies `git rev-parse $TAG^{commit}` equals `git rev-parse origin/main` (or ancestor if `--allow-rollback` is specified).
+   - Verifies tracked files are clean (`git status --porcelain --untracked-files=no` is empty; prints dirty tracked files).
+   - Checks out the validated tag (`git checkout $TAG`).
+   - Runs database schema migrations (`BOKLI_DB_PATH="$REPO_ROOT/data/bokli.db" npx tsx src/db/migrate.ts`).
+   - Builds production artifacts (`BOKLI_BUILD_DIR=.next-prod npm run build`).
+   - Restarts the user service (`systemctl --user restart bokli`).
+   - Performs post-restart health check against `http://localhost:5000/login` (verifying HTTP 200 with retries and timeout).
+
+### Rollbacks
+- **Redeploy Previous Tag**: To roll back an application release, deploy the previously known-good release tag using the `--allow-rollback` flag:
+  ```bash
+  ./scripts/bokli_deploy.sh --allow-rollback v1.1.0
+  ```
+  The `--allow-rollback` flag is required whenever deploying a tag whose commit does not match the current tip of `origin/main`. The script verifies that the tag commit is a valid ancestor of `origin/main` via `git merge-base --is-ancestor` before allowing the checkout.
+- **Database Migrations Only Move Forward**: SQLite schema migrations (`drizzle-kit migrate` / `npx tsx src/db/migrate.ts`) run automatically against `data/bokli.db` before the service restart and are strictly forward-only. Always design database schema evolutions using the expand-and-contract pattern to ensure backwards compatibility with previous application releases.

@@ -2,6 +2,7 @@ node_modules/
 .next/
 .next-prod/
 data/
+data-dev/
 *.db
 *.db-wal
 *.db-shm
