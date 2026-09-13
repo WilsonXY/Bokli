@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 import { openDb, type Db } from "@/db";
 import { runMigrations } from "@/db/migrate";
@@ -960,7 +960,7 @@ describe("8. Regression tests: duplicate lines & non-string note validation", ()
     return req;
   }
 
-  it("REGRESSION: two same-category same-note lines survive save as 2 rows", async () => {
+  it("REGRESSION: duplicate same-category same-note lines merge into 1 row on save", async () => {
     const savePayload = {
       date: "2026-09-08",
       cashSen: 5000,
@@ -981,27 +981,22 @@ describe("8. Regression tests: duplicate lines & non-string note validation", ()
 
     expect(res.status).toBe(201);
     const data = await res.json();
-    expect(data.costLines).toHaveLength(2);
+    expect(data.costLines).toHaveLength(1);
     expect(data.costLines[0].category).toBe("restock");
     expect(data.costLines[0].note).toBe("rice");
-    expect(data.costLines[0].amountSen).toBe(1000);
-    expect(data.costLines[1].category).toBe("restock");
-    expect(data.costLines[1].note).toBe("rice");
-    expect(data.costLines[1].amountSen).toBe(1000);
+    expect(data.costLines[0].amountSen).toBe(2000);
 
     const dbRows = db
       .select()
       .from(costLines)
       .where(eq(costLines.dailySheetId, data.sheet.id))
       .all();
-    expect(dbRows).toHaveLength(2);
-    expect(dbRows[0].id).not.toBe(dbRows[1].id);
+    expect(dbRows).toHaveLength(1);
     expect(dbRows[0].category).toBe("restock");
     expect(dbRows[0].note).toBe("rice");
-    expect(dbRows[1].category).toBe("restock");
-    expect(dbRows[1].note).toBe("rice");
+    expect(dbRows[0].amountSen).toBe(2000);
 
-    // Also verify replaceCostLines directly retains 2 distinct rows
+    // Also verify replaceCostLines directly merges duplicate rows
     const replaced = replaceCostLines(
       data.sheet.id,
       [
@@ -1010,13 +1005,140 @@ describe("8. Regression tests: duplicate lines & non-string note validation", ()
       ],
       { db },
     );
-    expect(replaced).toHaveLength(2);
+    expect(replaced).toHaveLength(1);
+    expect(replaced[0].category).toBe("gas");
+    expect(replaced[0].note).toBe("shell");
+    expect(replaced[0].amountSen).toBe(3000);
+
     const dbReplaced = db
       .select()
       .from(costLines)
       .where(eq(costLines.dailySheetId, data.sheet.id))
       .all();
-    expect(dbReplaced).toHaveLength(2);
+    expect(dbReplaced).toHaveLength(1);
+    expect(dbReplaced[0].amountSen).toBe(3000);
+  });
+
+  it("REGRESSION: replaceCostLines merges same category+note rows, treating null and empty/whitespace notes as equivalent", () => {
+    const sheet = getOrCreateSheet("2026-09-09", { db });
+
+    const lines = [
+      // 3 restock lines with same note (with surrounding whitespace) -> merges to 1 row: 5000 sen
+      { amountSen: 2000, category: "restock", note: "chicken" },
+      { amountSen: 1500, category: "restock", note: " chicken " },
+      { amountSen: 1500, category: "restock", note: "chicken" },
+
+      // 3 gas lines with null, empty string, and whitespace note -> merges to 1 row with null note: 2000 sen
+      { amountSen: 500, category: "gas", note: null },
+      { amountSen: 700, category: "gas", note: "" },
+      { amountSen: 800, category: "gas", note: "   " },
+
+      // Distinct notes or categories remain separate
+      { amountSen: 1200, category: "transport", note: "lalamove" },
+      { amountSen: 300, category: "restock", note: "vegetables" },
+    ];
+
+    const replaced = replaceCostLines(sheet.id, lines, { db });
+
+    expect(replaced).toHaveLength(4);
+
+    const chickenRow = replaced.find((r) => r.category === "restock" && r.note === "chicken");
+    expect(chickenRow).toBeDefined();
+    expect(chickenRow?.amountSen).toBe(5000);
+
+    const gasRow = replaced.find((r) => r.category === "gas" && r.note === null);
+    expect(gasRow).toBeDefined();
+    expect(gasRow?.amountSen).toBe(2000);
+
+    const transportRow = replaced.find((r) => r.category === "transport" && r.note === "lalamove");
+    expect(transportRow).toBeDefined();
+    expect(transportRow?.amountSen).toBe(1200);
+
+    const vegRow = replaced.find((r) => r.category === "restock" && r.note === "vegetables");
+    expect(vegRow).toBeDefined();
+    expect(vegRow?.amountSen).toBe(300);
+
+    // Verify directly in DB
+    const dbRows = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.dailySheetId, sheet.id))
+      .all();
+    expect(dbRows).toHaveLength(4);
+
+    // Total in sheet should match sum of all lines (8500 sen)
+    const withCosts = getSheetWithCosts("2026-09-09", { db });
+    expect(withCosts?.totalCostSen).toBe(8500n);
+  });
+
+  it("REGRESSION: replaceCostLines throws ValidationError if merged total exceeds Number.MAX_SAFE_INTEGER", () => {
+    const sheet = getOrCreateSheet("2026-09-09", { db });
+    const huge = BigInt(Number.MAX_SAFE_INTEGER) - 50n;
+    expect(() =>
+      replaceCostLines(
+        sheet.id,
+        [
+          { amountSen: huge, category: "restock", note: "bulk" },
+          { amountSen: 100n, category: "restock", note: "bulk" },
+        ],
+        { db },
+      ),
+    ).toThrow(ValidationError);
+  });
+
+  it("REGRESSION: replaceCostLines re-validates category and requires note for other on merged rows", () => {
+    const sheet = getOrCreateSheet("2026-09-09", { db });
+    expect(() =>
+      replaceCostLines(
+        sheet.id,
+        [{ amountSen: 1000, category: "invalid_cat", note: "bad" }],
+        { db },
+      ),
+    ).toThrow(ValidationError);
+
+    expect(() =>
+      replaceCostLines(
+        sheet.id,
+        [{ amountSen: 1000, category: "other", note: "" }],
+        { db },
+      ),
+    ).toThrow(ValidationError);
+  });
+
+  it("REGRESSION: deleting a merged row drops the whole group of underlying records in DB", () => {
+    const sheet = getOrCreateSheet("2026-09-09", { db });
+
+    // Save with 2 restock rice rows and 1 gas row
+    replaceCostLines(
+      sheet.id,
+      [
+        { amountSen: 2000, category: "restock", note: "rice" },
+        { amountSen: 3000, category: "restock", note: "rice" },
+        { amountSen: 1500, category: "gas", note: null },
+      ],
+      { db },
+    );
+
+    let current = getSheetWithCosts("2026-09-09", { db });
+    expect(current?.costLines).toHaveLength(2);
+
+    // Delete the merged restock row by saving only the remaining gas row
+    replaceCostLines(
+      sheet.id,
+      [{ amountSen: 1500, category: "gas", note: null }],
+      { db },
+    );
+
+    current = getSheetWithCosts("2026-09-09", { db });
+    expect(current?.costLines).toHaveLength(1);
+    expect(current?.costLines[0].category).toBe("gas");
+
+    const riceInDb = db
+      .select()
+      .from(costLines)
+      .where(and(eq(costLines.dailySheetId, sheet.id), eq(costLines.category, "restock")))
+      .all();
+    expect(riceInDb).toHaveLength(0);
   });
 
   it("REGRESSION: POST with note:123 returns 400", async () => {

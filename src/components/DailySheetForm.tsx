@@ -10,6 +10,7 @@ import type { CostLine } from "@/db/schema";
 
 export interface CostLineItem {
   id?: number;
+  ids?: number[];
   category: CostCategory;
   amountSen: number;
   note?: string | null;
@@ -26,10 +27,109 @@ export interface DailySheetFormProps {
   initialTngInput?: string;
 }
 
-function normalizeCostLine(line: CostLineItem): CostLineItem {
+const MAX_SAFE_SEN = Number.MAX_SAFE_INTEGER; // 9007199254740991
+
+export function normalizeNote(note?: unknown): string {
+  if (typeof note !== "string") {
+    return "";
+  }
+  return note.trim();
+}
+
+export function areIdsEqual(a?: number[], b?: number[]): boolean {
+  const listA = a ?? [];
+  const listB = b ?? [];
+  if (listA.length !== listB.length) return false;
+  const sortedA = [...listA].sort((x, y) => x - y);
+  const sortedB = [...listB].sort((x, y) => x - y);
+  return sortedA.every((val, idx) => val === sortedB[idx]);
+}
+
+export function mergeCostLines(lines: CostLineItem[]): CostLineItem[] {
+  const merged: CostLineItem[] = [];
+  for (const line of lines) {
+    const normNote = normalizeNote(line.note);
+    const existingIndex = merged.findIndex(
+      (m) => m.category === line.category && normalizeNote(m.note) === normNote
+    );
+    const lineIds: number[] = [
+      ...(line.ids ?? []),
+      ...(line.id !== undefined && (!line.ids || !line.ids.includes(line.id)) ? [line.id] : []),
+    ];
+
+    if (existingIndex !== -1) {
+      const existing = merged[existingIndex];
+      const combinedIds = [...(existing.ids ?? []), ...lineIds];
+      const mergedTotal = existing.amountSen + line.amountSen;
+      const safeAmount =
+        Number.isSafeInteger(mergedTotal) && mergedTotal >= 0 && mergedTotal <= MAX_SAFE_SEN
+          ? mergedTotal
+          : MAX_SAFE_SEN;
+      merged[existingIndex] = {
+        category: existing.category,
+        note: existing.note,
+        amountSen: safeAmount,
+        ids: combinedIds,
+      };
+    } else {
+      const safeAmount =
+        Number.isSafeInteger(line.amountSen) && line.amountSen >= 0 && line.amountSen <= MAX_SAFE_SEN
+          ? line.amountSen
+          : Math.min(Math.max(0, line.amountSen), MAX_SAFE_SEN);
+      merged.push({
+        category: line.category,
+        note: normNote || null,
+        amountSen: safeAmount,
+        ids: lineIds,
+      });
+    }
+  }
+  return merged;
+}
+
+export function appendOrMergeCostLine(
+  prev: CostLineItem[],
+  newCat: CostCategory,
+  amountVal: number,
+  normNote: string | null,
+): { lines: CostLineItem[]; error?: string } {
+  const existingIndex = prev.findIndex(
+    (l) => l.category === newCat && normalizeNote(l.note) === normalizeNote(normNote)
+  );
+
+  if (existingIndex !== -1) {
+    const existing = prev[existingIndex];
+    const mergedTotal = existing.amountSen + amountVal;
+    if (mergedTotal > MAX_SAFE_SEN) {
+      return { lines: prev, error: "invalidAmount" };
+    }
+    const safeAmount =
+      Number.isSafeInteger(mergedTotal) && mergedTotal >= 0 && mergedTotal <= MAX_SAFE_SEN
+        ? mergedTotal
+        : MAX_SAFE_SEN;
+    const updated = prev.map((line, idx) =>
+      idx === existingIndex
+        ? {
+            category: line.category,
+            note: line.note,
+            amountSen: safeAmount,
+            ids: line.ids ?? (line.id !== undefined ? [line.id] : []),
+          }
+        : line
+    );
+    return { lines: updated };
+  }
+
   return {
-    ...line,
-    note: line.note?.trim() || null,
+    lines: [
+      ...prev,
+      {
+        category: newCat,
+        amountSen: amountVal,
+        note: normNote,
+        ids: [],
+      },
+    ],
   };
 }
 
@@ -87,9 +187,9 @@ export function DailySheetForm({
   const [cashInput, setCashInput] = useState(initCashStr);
   const [tngInput, setTngInput] = useState(initTngStr);
 
-  // Cost lines state - distinct same-category+same-note rows remain representable
+  // Cost lines state - merged on frontend if same category and same note
   const [costLines, setCostLines] = useState<CostLineItem[]>(() =>
-    initialCostLines.map(normalizeCostLine)
+    mergeCostLines(initialCostLines)
   );
 
   // New cost line draft
@@ -122,7 +222,7 @@ export function DailySheetForm({
   const [baseline, setBaseline] = useState(() => ({
     cashInput: initCashStr,
     tngInput: initTngStr,
-    costLines: initialCostLines.map(normalizeCostLine),
+    costLines: mergeCostLines(initialCostLines),
   }));
 
   // Check if current form inputs differ from baseline
@@ -137,10 +237,10 @@ export function DailySheetForm({
       const base = baseline.costLines[i];
       if (
         !base ||
-        curr.id !== base.id ||
         curr.category !== base.category ||
         curr.amountSen !== base.amountSen ||
-        (curr.note || null) !== (base.note || null)
+        normalizeNote(curr.note) !== normalizeNote(base.note) ||
+        !areIdsEqual(curr.ids, base.ids)
       ) {
         return true;
       }
@@ -152,13 +252,14 @@ export function DailySheetForm({
   useEffect(() => {
     const cashStr = initialCashInput !== undefined ? initialCashInput : senToDecimalStr(initialCashSen);
     const tngStr = initialTngInput !== undefined ? initialTngInput : senToDecimalStr(initialTngSen);
+    const mergedInitial = mergeCostLines(initialCostLines);
     setCashInput(cashStr);
     setTngInput(tngStr);
-    setCostLines(initialCostLines.map(normalizeCostLine));
+    setCostLines(mergedInitial);
     setBaseline({
       cashInput: cashStr,
       tngInput: tngStr,
-      costLines: initialCostLines.map(normalizeCostLine),
+      costLines: mergedInitial,
     });
     setNewAmount("");
     setNewNote("");
@@ -197,7 +298,7 @@ export function DailySheetForm({
   const grossProfitSen =
     totalRevenueSen !== null ? totalRevenueSen - totalCostSen : null;
 
-  // Add Cost Line (preserves distinct rows without silent collapsing)
+  // Add Cost Line (merges duplicate category+note instantly)
   function handleAddCostLine() {
     setCostLineError(null);
     const amountVal = toSen(newAmount);
@@ -212,17 +313,20 @@ export function DailySheetForm({
       return;
     }
 
-    const trimmedNote = newNote.trim() || null;
+    const normNote = normalizeNote(newNote) || null;
+    const result = appendOrMergeCostLine(
+      costLines,
+      newCat,
+      Number(amountVal),
+      normNote,
+    );
 
-    setCostLines((prev) => [
-      ...prev,
-      {
-        category: newCat,
-        amountSen: Number(amountVal),
-        note: trimmedNote,
-      },
-    ]);
+    if (result.error) {
+      setCostLineError(t.invalidAmount);
+      return;
+    }
 
+    setCostLines(result.lines);
     setNewAmount("");
     setNewNote("");
     setCostLineError(null);
@@ -270,13 +374,13 @@ export function DailySheetForm({
       }
 
       if (data.sheet && Array.isArray(data.costLines)) {
-        const savedCostLines: CostLineItem[] = data.costLines.map((l: CostLine) =>
-          normalizeCostLine({
+        const savedCostLines: CostLineItem[] = mergeCostLines(
+          data.costLines.map((l: CostLine) => ({
             id: l.id,
             category: l.category as CostCategory,
             amountSen: Number(l.amountSen),
             note: l.note || undefined,
-          })
+          }))
         );
         const savedCash = senToDecimalStr(Number(data.sheet.cashSen));
         const savedTng = senToDecimalStr(Number(data.sheet.tngSen));
@@ -628,7 +732,7 @@ export function DailySheetForm({
             <div className="divide-y divide-surface-border">
               {costLines.map((line, idx) => (
                 <div
-                  key={`${line.id ?? "new"}-${line.category}-${line.note || ""}-${idx}`}
+                  key={`${line.category}-${line.note || ""}-${(line.ids && line.ids.length > 0 ? line.ids.join("_") : "new")}-${idx}`}
                   className="py-2 flex items-center justify-between gap-2"
                 >
                   <div className="flex items-center gap-2 min-w-0">
