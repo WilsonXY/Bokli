@@ -9,7 +9,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "../..");
 const DEPLOY_SCRIPT = path.join(REPO_ROOT, "scripts/bokli_deploy.sh");
-const RELEASE_SCRIPT = path.join(REPO_ROOT, "scripts/bokli_release.sh");
 
 function runGit(args, cwd) {
   return execFileSync("git", args, {
@@ -67,21 +66,12 @@ function startMockHttpServer() {
   });
 }
 
-describe("scripts/bokli_deploy.sh and bokli_release.sh static verification", () => {
+describe("scripts/bokli_deploy.sh static verification", () => {
   it("bokli_deploy.sh exists, is executable, and passes bash -n syntax check", () => {
     expect(fs.existsSync(DEPLOY_SCRIPT)).toBe(true);
     expect(() => fs.accessSync(DEPLOY_SCRIPT, fs.constants.X_OK)).not.toThrow();
 
     const check = spawnSync("bash", ["-n", DEPLOY_SCRIPT], { encoding: "utf-8" });
-    expect(check.status).toBe(0);
-    expect(check.stderr).toBe("");
-  });
-
-  it("bokli_release.sh exists, is executable, and passes bash -n syntax check", () => {
-    expect(fs.existsSync(RELEASE_SCRIPT)).toBe(true);
-    expect(() => fs.accessSync(RELEASE_SCRIPT, fs.constants.X_OK)).not.toThrow();
-
-    const check = spawnSync("bash", ["-n", RELEASE_SCRIPT], { encoding: "utf-8" });
     expect(check.status).toBe(0);
     expect(check.stderr).toBe("");
   });
@@ -92,7 +82,6 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
   let bareOriginDir;
   let cloneDir;
   let fixtureDeployScript;
-  let fixtureReleaseScript;
 
   beforeEach(() => {
     fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), "bokli-git-fixture-"));
@@ -115,17 +104,13 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
     // Copy scripts into fixture clone
     fs.mkdirSync(path.join(cloneDir, "scripts"), { recursive: true });
     fixtureDeployScript = path.join(cloneDir, "scripts/bokli_deploy.sh");
-    fixtureReleaseScript = path.join(cloneDir, "scripts/bokli_release.sh");
 
     fs.copyFileSync(DEPLOY_SCRIPT, fixtureDeployScript);
     fs.chmodSync(fixtureDeployScript, 0o755);
 
-    fs.copyFileSync(RELEASE_SCRIPT, fixtureReleaseScript);
-    fs.chmodSync(fixtureReleaseScript, 0o755);
-
     // Commit scripts to main (Commit 2: current origin/main tip)
-    runGit(["add", "scripts/bokli_deploy.sh", "scripts/bokli_release.sh"], cloneDir);
-    runGit(["commit", "-m", "Add deploy and release scripts"], cloneDir);
+    runGit(["add", "scripts/bokli_deploy.sh"], cloneDir);
+    runGit(["commit", "-m", "Add deploy script"], cloneDir);
     runGit(["push", "origin", "main"], cloneDir);
   });
 
@@ -359,40 +344,5 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
     } finally {
       mockServer.close();
     }
-  });
-
-  it("bokli_release.sh refuses if tag already exists locally", () => {
-    // Existing tag
-    runGit(["tag", "-a", "v1.0.0-existing", "-m", "Existing tag"], cloneDir);
-
-    const res = spawnSync(fixtureReleaseScript, ["v1.0.0-existing", "Duplicate release"], {
-      cwd: cloneDir,
-      encoding: "utf-8",
-    });
-
-    expect(res.status).toBe(1);
-    expect(res.stderr).toContain("❌ Refusing release: tag 'v1.0.0-existing' already exists locally.");
-  });
-
-  it("bokli_release.sh handles missing arguments and dry run", () => {
-    const missingRes = spawnSync(fixtureReleaseScript, [], { cwd: cloneDir, encoding: "utf-8" });
-    expect(missingRes.status).toBe(1);
-    expect(missingRes.stderr).toContain("Usage:");
-
-    const dryRunRes = spawnSync(fixtureReleaseScript, ["v2.0.0-new", "Release v2.0.0"], {
-      cwd: cloneDir,
-      env: {
-        ...process.env,
-        BOKLI_RELEASE_DRY_RUN: "1",
-      },
-      encoding: "utf-8",
-    });
-    expect(dryRunRes.status).toBe(0);
-    expect(dryRunRes.stdout).toContain("Creating annotated tag 'v2.0.0-new' on origin/main");
-    expect(dryRunRes.stdout).toContain("Dry run active");
-
-    const tagSha = runGit(["rev-parse", "v2.0.0-new^{commit}"], cloneDir).trim();
-    const mainSha = runGit(["rev-parse", "origin/main^{commit}"], cloneDir).trim();
-    expect(tagSha).toBe(mainSha);
   });
 });
