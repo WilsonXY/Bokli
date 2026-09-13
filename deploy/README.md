@@ -180,14 +180,9 @@ Bokli follows a release-tag-gated deployment flow to ensure that production alwa
 
 ### Workflow
 1. **Merge PR**: Merge the approved pull request into `main` on GitHub.
-2. **Tag & Push**: Create an annotated release tag pointing to the tip of `main` and push it to GitHub:
-   ```bash
-   ./scripts/bokli_release.sh v1.2.0 "Release v1.2.0"
-   # Or manually:
-   # git tag -a v1.2.0 origin/main -m "Release v1.2.0"
-   # git push origin v1.2.0
-   # gh release create v1.2.0 --generate-notes
-   ```
+2. **Tag (owner-only)**: A tag ruleset restricts `v*` tag creation to the repo owner, so the owner creates the release tag via the GitHub Releases web UI:
+   1. Go to https://github.com/WilsonXY/Bokli/releases → **Draft a new release**.
+   2. Create a new tag `vX.Y.Z` on publish (target: `main`), add release notes, and publish.
 3. **Deploy via Script**: On the deployment host, execute the release deploy script:
    ```bash
    ./scripts/bokli_deploy.sh v1.2.0
