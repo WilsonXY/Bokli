@@ -7,18 +7,19 @@
 #   e.g. ./scripts/bokli_release.sh v1.2.0 "Release v1.2.0"
 #
 # Steps:
-#   1. Fetches origin.
-#   2. Resolves current tip of origin/main.
-#   3. Creates an annotated tag on origin/main.
-#   4. Pushes the tag to origin. If push fails, outputs the manual command.
-#   5. Creates GitHub release via gh CLI (gh release create <tag> --generate-notes).
+#   1. Validates tag does not already exist locally.
+#   2. Fetches origin (--tags --prune).
+#   3. Resolves current tip of origin/main.
+#   4. Creates an annotated tag on origin/main.
+#   5. Pushes the tag to origin. If push fails, outputs the manual command.
+#   6. Creates GitHub release via gh CLI (gh release create <tag> --generate-notes).
 #
 # Release-Tag Deployment Flow:
 #   Merge PR -> Tag & Push Release -> Deploy via scripts/bokli_deploy.sh <tag>
-#   Rollback = redeploy previous tag (SQLite migrations only move forward).
+#   Rollback = redeploy previous tag with --allow-rollback (DB migrations only move forward).
 # ==============================================================================
 
-set -eo pipefail
+set -euo pipefail
 
 if [ $# -lt 2 ] || [ -z "${1:-}" ] || [ -z "${2:-}" ]; then
   echo "Usage: $0 <tag> <message> (e.g. $0 v1.2.0 \"Release v1.2.0\")" >&2
@@ -33,12 +34,24 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${BOKLI_REPO_DIR:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 cd "$REPO_ROOT"
 
-# Fetch latest origin refs
+# Pre-check: Refuse if tag already exists locally
+if git rev-parse --verify "refs/tags/${TAG}" >/dev/null 2>&1; then
+  echo "❌ Refusing release: tag '$TAG' already exists locally." >&2
+  exit 1
+fi
+
+# Fetch latest origin refs and tags
 if [ "${BOKLI_RELEASE_SKIP_FETCH:-0}" = "1" ]; then
   echo "ℹ️  Skipping git fetch (BOKLI_RELEASE_SKIP_FETCH=1)"
 else
-  echo "==> Fetching origin..."
-  git fetch origin
+  echo "==> Fetching origin (--tags --prune)..."
+  git fetch origin --tags --prune
+fi
+
+# Re-check tag after fetch in case remote had it
+if git rev-parse --verify "refs/tags/${TAG}" >/dev/null 2>&1; then
+  echo "❌ Refusing release: tag '$TAG' already exists locally after fetch." >&2
+  exit 1
 fi
 
 # Resolve current tip of origin/main

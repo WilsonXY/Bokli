@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -27,6 +27,43 @@ function runDeploy(scriptPath, args, env = {}, cwd) {
       ...env,
     },
     encoding: "utf-8",
+  });
+}
+
+function startMockHttpServer() {
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      "node",
+      [
+        "-e",
+        `
+      const http = require("node:http");
+      const server = http.createServer((req, res) => {
+        if (req.url === "/login") {
+          res.writeHead(200, { "Content-Type": "text/plain" });
+          res.end("OK");
+        } else {
+          res.writeHead(500, { "Content-Type": "text/plain" });
+          res.end("ERR");
+        }
+      });
+      server.listen(0, "127.0.0.1", () => {
+        console.log(server.address().port);
+      });
+    `,
+      ],
+      { stdio: ["ignore", "pipe", "pipe"] }
+    );
+
+    child.stdout.once("data", (data) => {
+      const port = data.toString().trim();
+      resolve({
+        port,
+        close: () => child.kill(),
+      });
+    });
+
+    child.on("error", reject);
   });
 }
 
@@ -69,7 +106,7 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
     runGit(["config", "user.name", "Deploy Test"], cloneDir);
     runGit(["checkout", "-b", "main"], cloneDir);
 
-    // Initial commit
+    // Initial commit (Commit 1: ancestor)
     fs.writeFileSync(path.join(cloneDir, "README.md"), "# Test Repo\n");
     runGit(["add", "README.md"], cloneDir);
     runGit(["commit", "-m", "Initial commit on main"], cloneDir);
@@ -86,7 +123,7 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
     fs.copyFileSync(RELEASE_SCRIPT, fixtureReleaseScript);
     fs.chmodSync(fixtureReleaseScript, 0o755);
 
-    // Commit scripts to main and push so clone is clean and origin/main matches
+    // Commit scripts to main (Commit 2: current origin/main tip)
     runGit(["add", "scripts/bokli_deploy.sh", "scripts/bokli_release.sh"], cloneDir);
     runGit(["commit", "-m", "Add deploy and release scripts"], cloneDir);
     runGit(["push", "origin", "main"], cloneDir);
@@ -98,10 +135,14 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
     }
   });
 
-  it("refuses if tag argument is missing", () => {
-    const res = runDeploy(fixtureDeployScript, [], {}, cloneDir);
-    expect(res.status).toBe(1);
-    expect(res.stderr).toContain("Usage:");
+  it("refuses if tag argument is missing or unknown option given", () => {
+    const resNoArg = runDeploy(fixtureDeployScript, [], {}, cloneDir);
+    expect(resNoArg.status).toBe(1);
+    expect(resNoArg.stderr).toContain("Usage:");
+
+    const resUnknown = runDeploy(fixtureDeployScript, ["--invalid-flag", "v1.0.0"], {}, cloneDir);
+    expect(resUnknown.status).toBe(1);
+    expect(resUnknown.stderr).toContain("Unknown option: --invalid-flag");
   });
 
   it("refuses if tag does not exist locally after fetch", () => {
@@ -111,6 +152,8 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
       {
         BOKLI_DEPLOY_SKIP_BUILD: "1",
         BOKLI_DEPLOY_SKIP_RESTART: "1",
+        BOKLI_DEPLOY_SKIP_MIGRATE: "1",
+        BOKLI_DEPLOY_SKIP_HEALTHCHECK: "1",
         BOKLI_DEPLOY_SKIP_SLEEP: "1",
       },
       cloneDir
@@ -119,114 +162,224 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
     expect(res.stderr).toContain("❌ Refusing deploy: tag 'v9.9.9' does not exist locally after fetch.");
   });
 
-  it("refuses if tag diverges from origin/main", () => {
+  it("refuses ancestor tag if --allow-rollback is NOT provided", () => {
     // Tag the earlier commit (HEAD~1)
     const initialCommitSha = runGit(["rev-parse", "HEAD~1"], cloneDir).trim();
-    runGit(["tag", "-a", "v0.9.0-diverged", initialCommitSha, "-m", "Divergent tag"], cloneDir);
-    runGit(["push", "origin", "v0.9.0-diverged"], cloneDir);
+    runGit(["tag", "-a", "v0.9.0-ancestor", initialCommitSha, "-m", "Earlier release"], cloneDir);
+    runGit(["push", "origin", "v0.9.0-ancestor"], cloneDir);
 
     const res = runDeploy(
       fixtureDeployScript,
-      ["v0.9.0-diverged"],
+      ["v0.9.0-ancestor"],
       {
         BOKLI_DEPLOY_SKIP_BUILD: "1",
         BOKLI_DEPLOY_SKIP_RESTART: "1",
+        BOKLI_DEPLOY_SKIP_MIGRATE: "1",
+        BOKLI_DEPLOY_SKIP_HEALTHCHECK: "1",
         BOKLI_DEPLOY_SKIP_SLEEP: "1",
       },
       cloneDir
     );
 
     expect(res.status).toBe(1);
-    expect(res.stderr).toContain("❌ Refusing deploy: tag 'v0.9.0-diverged'");
-    expect(res.stderr).toContain("does not match origin/main");
-    expect(res.stderr).toContain("requires the release tag to point to the current tip of origin/main");
+    expect(res.stderr).toContain("❌ Refusing deploy: tag 'v0.9.0-ancestor'");
+    expect(res.stderr).toContain("does not match origin/main tip");
+    expect(res.stderr).toContain("To roll back to a previously released ancestor tag, re-run with: --allow-rollback");
   });
 
-  it("refuses if working tree is dirty, printing what is dirty", () => {
-    // Tag current tip of origin/main
-    runGit(["tag", "-a", "v1.0.0", "-m", "Release v1.0.0"], cloneDir);
-    runGit(["push", "origin", "v1.0.0"], cloneDir);
-
-    // Create uncommitted dirty changes
-    fs.writeFileSync(path.join(cloneDir, "uncommitted_file.txt"), "dirty state\n");
+  it("allows rollback when tag is an ancestor of origin/main tip and --allow-rollback is given", () => {
+    // Tag the earlier commit (HEAD~1)
+    const initialCommitSha = runGit(["rev-parse", "HEAD~1"], cloneDir).trim();
+    runGit(["tag", "-a", "v0.9.0-rollback", initialCommitSha, "-m", "Earlier release"], cloneDir);
+    runGit(["push", "origin", "v0.9.0-rollback"], cloneDir);
 
     const res = runDeploy(
       fixtureDeployScript,
-      ["v1.0.0"],
+      ["--allow-rollback", "v0.9.0-rollback"],
       {
         BOKLI_DEPLOY_SKIP_BUILD: "1",
         BOKLI_DEPLOY_SKIP_RESTART: "1",
+        BOKLI_DEPLOY_SKIP_MIGRATE: "1",
+        BOKLI_DEPLOY_SKIP_HEALTHCHECK: "1",
         BOKLI_DEPLOY_SKIP_SLEEP: "1",
-      },
-      cloneDir
-    );
-
-    expect(res.status).toBe(1);
-    expect(res.stderr).toContain("❌ Refusing deploy: working tree is dirty.");
-    expect(res.stderr).toContain("Dirty files:");
-    expect(res.stderr).toContain("uncommitted_file.txt");
-  });
-
-  it("succeeds when clean tree and tag == origin/main tip (with test seams / skip guards)", () => {
-    // Tag current tip of origin/main
-    runGit(["tag", "-a", "v1.0.0", "-m", "Release v1.0.0"], cloneDir);
-    runGit(["push", "origin", "v1.0.0"], cloneDir);
-
-    const res = runDeploy(
-      fixtureDeployScript,
-      ["v1.0.0"],
-      {
-        BOKLI_DEPLOY_SKIP_BUILD: "1",
-        BOKLI_DEPLOY_SKIP_RESTART: "1",
-        BOKLI_DEPLOY_SKIP_SLEEP: "1",
-        BOKLI_DEPLOY_HEALTHCHECK_CMD: "echo 200",
       },
       cloneDir
     );
 
     expect(res.status).toBe(0);
-    expect(res.stdout).toContain("==> Fetching origin...");
-    expect(res.stdout).toContain("==> Checking out v1.0.0...");
-    expect(res.stdout).toContain("Skipping build (BOKLI_DEPLOY_SKIP_BUILD=1)");
-    expect(res.stdout).toContain("Skipping restart (BOKLI_DEPLOY_SKIP_RESTART=1)");
-    expect(res.stdout).toContain("✅ deployed v1.0.0, /login returns 200");
+    expect(res.stdout).toContain("⚠️  Rollback allowed: tag 'v0.9.0-rollback'");
+    expect(res.stdout).toContain("is a valid ancestor of origin/main");
+    expect(res.stdout).toContain("==> Checking out v0.9.0-rollback...");
 
-    // Verify checked out commit matches tag commit
+    // Verify checked out commit matches ancestor commit
     const currentSha = runGit(["rev-parse", "HEAD"], cloneDir).trim();
-    const tagSha = runGit(["rev-parse", "v1.0.0^{commit}"], cloneDir).trim();
-    expect(currentSha).toBe(tagSha);
+    expect(currentSha).toBe(initialCommitSha);
   });
 
-  it("fails health check when /login returns non-200, giving hint to check journalctl", () => {
-    // Tag current tip of origin/main
-    runGit(["tag", "-a", "v1.0.0", "-m", "Release v1.0.0"], cloneDir);
-    runGit(["push", "origin", "v1.0.0"], cloneDir);
+  it("refuses rollback even with --allow-rollback if tag is NOT an ancestor of origin/main", () => {
+    // Create a divergent branch with a commit not in main
+    runGit(["checkout", "-b", "divergent-branch"], cloneDir);
+    fs.writeFileSync(path.join(cloneDir, "divergent.txt"), "divergent content\n");
+    runGit(["add", "divergent.txt"], cloneDir);
+    runGit(["commit", "-m", "Divergent branch commit"], cloneDir);
+    runGit(["tag", "-a", "v0.9.0-unrelated", "-m", "Divergent tag"], cloneDir);
+    runGit(["push", "origin", "v0.9.0-unrelated"], cloneDir);
+
+    // Switch back to main
+    runGit(["checkout", "main"], cloneDir);
 
     const res = runDeploy(
       fixtureDeployScript,
-      ["v1.0.0"],
+      ["--allow-rollback", "v0.9.0-unrelated"],
       {
         BOKLI_DEPLOY_SKIP_BUILD: "1",
         BOKLI_DEPLOY_SKIP_RESTART: "1",
+        BOKLI_DEPLOY_SKIP_MIGRATE: "1",
+        BOKLI_DEPLOY_SKIP_HEALTHCHECK: "1",
         BOKLI_DEPLOY_SKIP_SLEEP: "1",
-        BOKLI_DEPLOY_HEALTHCHECK_CMD: "echo 500",
       },
       cloneDir
     );
 
     expect(res.status).toBe(1);
-    expect(res.stderr).toContain("❌ FAIL: deployed v1.0.0, but /login returned HTTP 500 (expected 200).");
-    expect(res.stderr).toContain("journalctl --user -u bokli");
+    expect(res.stderr).toContain("❌ Refusing rollback: tag 'v0.9.0-unrelated'");
+    expect(res.stderr).toContain("is not an ancestor of origin/main");
+    expect(res.stderr).toContain("Rollback is only allowed for commits that exist in origin/main's history.");
+  });
+
+  it("untracked files do NOT block deploy, but modified tracked files DO block deploy", () => {
+    // Tag current tip of origin/main
+    runGit(["tag", "-a", "v1.0.0", "-m", "Release v1.0.0"], cloneDir);
+    runGit(["push", "origin", "v1.0.0"], cloneDir);
+
+    // Create untracked file (simulating .next-prod or build artifacts)
+    fs.writeFileSync(path.join(cloneDir, "untracked_artifact.tmp"), "temporary artifact\n");
+
+    const resUntracked = runDeploy(
+      fixtureDeployScript,
+      ["v1.0.0"],
+      {
+        BOKLI_DEPLOY_SKIP_BUILD: "1",
+        BOKLI_DEPLOY_SKIP_RESTART: "1",
+        BOKLI_DEPLOY_SKIP_MIGRATE: "1",
+        BOKLI_DEPLOY_SKIP_HEALTHCHECK: "1",
+        BOKLI_DEPLOY_SKIP_SLEEP: "1",
+      },
+      cloneDir
+    );
+
+    expect(resUntracked.status).toBe(0);
+    expect(resUntracked.stdout).toContain("==> Checking out v1.0.0...");
+
+    // Now modify a tracked file
+    fs.appendFileSync(path.join(cloneDir, "README.md"), "\nlocal modification\n");
+
+    const resTracked = runDeploy(
+      fixtureDeployScript,
+      ["v1.0.0"],
+      {
+        BOKLI_DEPLOY_SKIP_BUILD: "1",
+        BOKLI_DEPLOY_SKIP_RESTART: "1",
+        BOKLI_DEPLOY_SKIP_MIGRATE: "1",
+        BOKLI_DEPLOY_SKIP_HEALTHCHECK: "1",
+        BOKLI_DEPLOY_SKIP_SLEEP: "1",
+      },
+      cloneDir
+    );
+
+    expect(resTracked.status).toBe(1);
+    expect(resTracked.stderr).toContain("❌ Refusing deploy: working tree has modified tracked files.");
+    expect(resTracked.stderr).toContain("Dirty tracked files:");
+    expect(resTracked.stderr).toContain("README.md");
+  });
+
+  it("skips migrate, build, restart, and healthcheck when SKIP seams are set", () => {
+    runGit(["tag", "-a", "v1.0.0-skip", "-m", "Release v1.0.0-skip"], cloneDir);
+    runGit(["push", "origin", "v1.0.0-skip"], cloneDir);
+
+    const res = runDeploy(
+      fixtureDeployScript,
+      ["v1.0.0-skip"],
+      {
+        BOKLI_DEPLOY_SKIP_MIGRATE: "1",
+        BOKLI_DEPLOY_SKIP_BUILD: "1",
+        BOKLI_DEPLOY_SKIP_RESTART: "1",
+        BOKLI_DEPLOY_SKIP_HEALTHCHECK: "1",
+        BOKLI_DEPLOY_SKIP_SLEEP: "1",
+      },
+      cloneDir
+    );
+
+    expect(res.status).toBe(0);
+    expect(res.stdout).toContain("Skipping database migrations (BOKLI_DEPLOY_SKIP_MIGRATE=1)");
+    expect(res.stdout).toContain("Skipping build (BOKLI_DEPLOY_SKIP_BUILD=1)");
+    expect(res.stdout).toContain("Skipping restart (BOKLI_DEPLOY_SKIP_RESTART=1)");
+    expect(res.stdout).toContain("Health check skipped (BOKLI_DEPLOY_SKIP_HEALTHCHECK=1)");
+  });
+
+  it("performs health check curl with BOKLI_DEPLOY_HEALTHCHECK_URL against a local server", async () => {
+    runGit(["tag", "-a", "v1.0.0-health", "-m", "Release v1.0.0-health"], cloneDir);
+    runGit(["push", "origin", "v1.0.0-health"], cloneDir);
+
+    const mockServer = await startMockHttpServer();
+    try {
+      const resSuccess = runDeploy(
+        fixtureDeployScript,
+        ["v1.0.0-health"],
+        {
+          BOKLI_DEPLOY_SKIP_MIGRATE: "1",
+          BOKLI_DEPLOY_SKIP_BUILD: "1",
+          BOKLI_DEPLOY_SKIP_RESTART: "1",
+          BOKLI_DEPLOY_SKIP_SLEEP: "1",
+          BOKLI_DEPLOY_HEALTHCHECK_URL: `http://127.0.0.1:${mockServer.port}/login`,
+        },
+        cloneDir
+      );
+
+      expect(resSuccess.status).toBe(0);
+      expect(resSuccess.stdout).toContain("✅ deployed v1.0.0-health, /login returns 200");
+
+      const resFail = runDeploy(
+        fixtureDeployScript,
+        ["v1.0.0-health"],
+        {
+          BOKLI_DEPLOY_SKIP_MIGRATE: "1",
+          BOKLI_DEPLOY_SKIP_BUILD: "1",
+          BOKLI_DEPLOY_SKIP_RESTART: "1",
+          BOKLI_DEPLOY_SKIP_SLEEP: "1",
+          BOKLI_DEPLOY_HEALTHCHECK_URL: `http://127.0.0.1:${mockServer.port}/broken-endpoint`,
+        },
+        cloneDir
+      );
+
+      expect(resFail.status).toBe(1);
+      expect(resFail.stderr).toContain("❌ FAIL: deployed v1.0.0-health, but http://127.0.0.1");
+      expect(resFail.stderr).toContain("returned HTTP 500 (expected 200 after 3 attempts).");
+      expect(resFail.stderr).toContain("journalctl --user -u bokli");
+    } finally {
+      mockServer.close();
+    }
+  });
+
+  it("bokli_release.sh refuses if tag already exists locally", () => {
+    // Existing tag
+    runGit(["tag", "-a", "v1.0.0-existing", "-m", "Existing tag"], cloneDir);
+
+    const res = spawnSync(fixtureReleaseScript, ["v1.0.0-existing", "Duplicate release"], {
+      cwd: cloneDir,
+      encoding: "utf-8",
+    });
+
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain("❌ Refusing release: tag 'v1.0.0-existing' already exists locally.");
   });
 
   it("bokli_release.sh handles missing arguments and dry run", () => {
-    // Missing arguments
     const missingRes = spawnSync(fixtureReleaseScript, [], { cwd: cloneDir, encoding: "utf-8" });
     expect(missingRes.status).toBe(1);
     expect(missingRes.stderr).toContain("Usage:");
 
-    // Dry run
-    const dryRunRes = spawnSync(fixtureReleaseScript, ["v2.0.0", "Release v2.0.0"], {
+    const dryRunRes = spawnSync(fixtureReleaseScript, ["v2.0.0-new", "Release v2.0.0"], {
       cwd: cloneDir,
       env: {
         ...process.env,
@@ -235,11 +388,10 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
       encoding: "utf-8",
     });
     expect(dryRunRes.status).toBe(0);
-    expect(dryRunRes.stdout).toContain("Creating annotated tag 'v2.0.0' on origin/main");
+    expect(dryRunRes.stdout).toContain("Creating annotated tag 'v2.0.0-new' on origin/main");
     expect(dryRunRes.stdout).toContain("Dry run active");
 
-    // Verify tag was created locally on origin/main tip
-    const tagSha = runGit(["rev-parse", "v2.0.0^{commit}"], cloneDir).trim();
+    const tagSha = runGit(["rev-parse", "v2.0.0-new^{commit}"], cloneDir).trim();
     const mainSha = runGit(["rev-parse", "origin/main^{commit}"], cloneDir).trim();
     expect(tagSha).toBe(mainSha);
   });

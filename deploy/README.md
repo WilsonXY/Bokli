@@ -193,18 +193,20 @@ Bokli follows a release-tag-gated deployment flow to ensure that production alwa
    ./scripts/bokli_deploy.sh v1.2.0
    ```
    The script enforces safety gates before touching anything:
-   - Fetches origin (`git fetch origin`).
-   - Refuses if the specified tag does not exist locally.
-   - Refuses if `git rev-parse $TAG^{commit}` does not equal `git rev-parse origin/main`.
-   - Refuses if the working tree is dirty (`git status --porcelain` is non-empty; prints dirty files).
+   - Fetches origin (`git fetch origin --tags --prune`).
+   - Verifies the specified tag exists locally.
+   - Verifies `git rev-parse $TAG^{commit}` equals `git rev-parse origin/main` (or ancestor if `--allow-rollback` is specified).
+   - Verifies tracked files are clean (`git status --porcelain --untracked-files=no` is empty; prints dirty tracked files).
    - Checks out the validated tag (`git checkout $TAG`).
+   - Runs database schema migrations (`BOKLI_DB_PATH="$REPO_ROOT/data/bokli.db" npx tsx src/db/migrate.ts`).
    - Builds production artifacts (`BOKLI_BUILD_DIR=.next-prod npm run build`).
    - Restarts the user service (`systemctl --user restart bokli`).
-   - Performs a post-restart health check against `http://localhost:5000/login` (verifying HTTP 200).
+   - Performs post-restart health check against `http://localhost:5000/login` (verifying HTTP 200 with retries and timeout).
 
 ### Rollbacks
-- **Redeploy Previous Tag**: Roll back by deploying the previous known-good tag:
+- **Redeploy Previous Tag**: To roll back an application release, deploy the previously known-good release tag using the `--allow-rollback` flag:
   ```bash
-  ./scripts/bokli_deploy.sh v1.1.0
+  ./scripts/bokli_deploy.sh --allow-rollback v1.1.0
   ```
-- **Database Migrations Only Move Forward**: SQLite schema migrations (`drizzle-kit migrate`) are strictly forward-only. Always design database schema evolutions using the expand-and-contract pattern to ensure backwards compatibility with previous application releases.
+  The `--allow-rollback` flag is required whenever deploying a tag whose commit does not match the current tip of `origin/main`. The script verifies that the tag commit is a valid ancestor of `origin/main` via `git merge-base --is-ancestor` before allowing the checkout.
+- **Database Migrations Only Move Forward**: SQLite schema migrations (`drizzle-kit migrate` / `npx tsx src/db/migrate.ts`) run automatically against `data/bokli.db` before the service restart and are strictly forward-only. Always design database schema evolutions using the expand-and-contract pattern to ensure backwards compatibility with previous application releases.
