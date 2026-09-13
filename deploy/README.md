@@ -171,3 +171,40 @@ curl -I http://localhost:5000/
   sqlite3 /home/penguin/projects/bokli/data/bokli.db ".backup /path/to/backup/bokli-$(date +%F).db"
   ```
   This creates an atomic snapshot without blocking active reads or writes by the operator.
+
+---
+
+## Deployment (release-tag flow)
+
+Bokli follows a release-tag-gated deployment flow to ensure that production always matches an audited, immutable release tag pointing to the current tip of `origin/main`.
+
+### Workflow
+1. **Merge PR**: Merge the approved pull request into `main` on GitHub.
+2. **Tag & Push**: Create an annotated release tag pointing to the tip of `main` and push it to GitHub:
+   ```bash
+   ./scripts/bokli_release.sh v1.2.0 "Release v1.2.0"
+   # Or manually:
+   # git tag -a v1.2.0 origin/main -m "Release v1.2.0"
+   # git push origin v1.2.0
+   # gh release create v1.2.0 --generate-notes
+   ```
+3. **Deploy via Script**: On the deployment host, execute the release deploy script:
+   ```bash
+   ./scripts/bokli_deploy.sh v1.2.0
+   ```
+   The script enforces safety gates before touching anything:
+   - Fetches origin (`git fetch origin`).
+   - Refuses if the specified tag does not exist locally.
+   - Refuses if `git rev-parse $TAG^{commit}` does not equal `git rev-parse origin/main`.
+   - Refuses if the working tree is dirty (`git status --porcelain` is non-empty; prints dirty files).
+   - Checks out the validated tag (`git checkout $TAG`).
+   - Builds production artifacts (`BOKLI_BUILD_DIR=.next-prod npm run build`).
+   - Restarts the user service (`systemctl --user restart bokli`).
+   - Performs a post-restart health check against `http://localhost:5000/login` (verifying HTTP 200).
+
+### Rollbacks
+- **Redeploy Previous Tag**: Roll back by deploying the previous known-good tag:
+  ```bash
+  ./scripts/bokli_deploy.sh v1.1.0
+  ```
+- **Database Migrations Only Move Forward**: SQLite schema migrations (`drizzle-kit migrate`) are strictly forward-only. Always design database schema evolutions using the expand-and-contract pattern to ensure backwards compatibility with previous application releases.
