@@ -441,21 +441,63 @@ export function replaceCostLines(
   const month = sheet.date.slice(0, 7);
   assertMonthNotClosed(month, db);
 
-  const validatedLines = lines.map((line) => {
+  // Merge cost lines with same category + same (trimmed) note.
+  // Treat null note and empty/whitespace note as equivalent (both are 'no note').
+  // Sum amountSen and validate merged totals.
+  const merged: Array<{
+    category: CostCategory;
+    note: string | null;
+    amountSen: bigint;
+  }> = [];
+
+  for (const line of lines) {
+    if (!isValidCostCategory(line.category)) {
+      throw new ValidationError(
+        `Invalid Cost Category: "${String(line.category)}". Must be one of: ${COST_CATEGORIES.join(", ")}`,
+      );
+    }
+    const category = line.category;
     const validAmount = assertValidSen(
       line.amountSen,
       "Daily Cost amount (amountSen)",
     );
-
     const trimmedNote = assertValidNote(line.note);
 
-    return {
-      dailySheetId: sheetId,
-      amountSen: Number(validAmount),
-      category: line.category as CostCategory,
-      note: trimmedNote,
-    };
-  });
+    const existing = merged.find(
+      (m) => m.category === category && m.note === trimmedNote,
+    );
+
+    if (existing) {
+      const mergedTotal = existing.amountSen + validAmount;
+      assertValidSen(mergedTotal, "Daily Cost amount (amountSen)");
+      existing.amountSen = mergedTotal;
+    } else {
+      merged.push({
+        category,
+        note: trimmedNote,
+        amountSen: validAmount,
+      });
+    }
+  }
+
+  // Validate merged rows: re-check category and required note for "other"
+  for (const item of merged) {
+    if (!isValidCostCategory(item.category)) {
+      throw new ValidationError(
+        `Invalid Cost Category: "${String(item.category)}". Must be one of: ${COST_CATEGORIES.join(", ")}`,
+      );
+    }
+    if (item.category === "other" && !item.note) {
+      throw new ValidationError("Note is required when Cost Category is 'other'");
+    }
+  }
+
+  const validatedLines = merged.map((item) => ({
+    dailySheetId: sheetId,
+    amountSen: Number(item.amountSen),
+    category: item.category,
+    note: item.note,
+  }));
 
   return db.transaction((tx) => {
     // Delete all existing cost lines for this sheet
