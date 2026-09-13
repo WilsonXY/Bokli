@@ -15,6 +15,9 @@ Environment=BOKLI_DB_PATH=%h/projects/bokli/data/bokli.db
 # Load custom secrets, passwords, and URLs from .env if present
 EnvironmentFile=-%h/projects/bokli/.env
 
+# Verify the build stamp before starting (refuses un-stamped or stale builds)
+ExecStartPre=%h/projects/bokli/scripts/verify_build_stamp.sh
+
 # Node v22 standalone server execution
 ExecStart=/usr/bin/node .next-prod/standalone/server.js
 

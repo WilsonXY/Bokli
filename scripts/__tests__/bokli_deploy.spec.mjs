@@ -9,6 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, "../..");
 const DEPLOY_SCRIPT = path.join(REPO_ROOT, "scripts/bokli_deploy.sh");
+const VERIFY_SCRIPT = path.join(REPO_ROOT, "scripts/verify_build_stamp.sh");
 
 function runGit(args, cwd) {
   return execFileSync("git", args, {
@@ -66,6 +67,15 @@ function startMockHttpServer() {
   });
 }
 
+function writeBuildStamp(cloneDir, tag, commitOverride) {
+  const commit = commitOverride || runGit(["rev-parse", "HEAD"], cloneDir).trim();
+  fs.mkdirSync(path.join(cloneDir, ".next-prod"), { recursive: true });
+  fs.writeFileSync(
+    path.join(cloneDir, ".next-prod/BUILD_MANIFEST"),
+    `TAG=${tag}\nCOMMIT=${commit}\nBUILT_AT=2026-01-01T00:00:00Z\nDEPLOYED_BY=bokli_deploy.sh\n`
+  );
+}
+
 describe("scripts/bokli_deploy.sh static verification", () => {
   it("bokli_deploy.sh exists, is executable, and passes bash -n syntax check", () => {
     expect(fs.existsSync(DEPLOY_SCRIPT)).toBe(true);
@@ -107,6 +117,9 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
 
     fs.copyFileSync(DEPLOY_SCRIPT, fixtureDeployScript);
     fs.chmodSync(fixtureDeployScript, 0o755);
+    const fixtureVerifyScript = path.join(cloneDir, "scripts/verify_build_stamp.sh");
+    fs.copyFileSync(VERIFY_SCRIPT, fixtureVerifyScript);
+    fs.chmodSync(fixtureVerifyScript, 0o755);
 
     // Commit scripts to main (Commit 2: current origin/main tip)
     runGit(["add", "scripts/bokli_deploy.sh"], cloneDir);
@@ -178,6 +191,7 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
     runGit(["tag", "-a", "v0.9.0-rollback", initialCommitSha, "-m", "Earlier release"], cloneDir);
     runGit(["push", "origin", "v0.9.0-rollback"], cloneDir);
 
+    writeBuildStamp(cloneDir, "v0.9.0-rollback", initialCommitSha);
     const res = runDeploy(
       fixtureDeployScript,
       ["--allow-rollback", "v0.9.0-rollback"],
@@ -236,6 +250,7 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
     // Tag current tip of origin/main
     runGit(["tag", "-a", "v1.0.0", "-m", "Release v1.0.0"], cloneDir);
     runGit(["push", "origin", "v1.0.0"], cloneDir);
+    writeBuildStamp(cloneDir, "v1.0.0");
 
     // Create untracked file (simulating .next-prod or build artifacts)
     fs.writeFileSync(path.join(cloneDir, "untracked_artifact.tmp"), "temporary artifact\n");
@@ -281,6 +296,7 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
   it("skips migrate, build, restart, and healthcheck when SKIP seams are set", () => {
     runGit(["tag", "-a", "v1.0.0-skip", "-m", "Release v1.0.0-skip"], cloneDir);
     runGit(["push", "origin", "v1.0.0-skip"], cloneDir);
+    writeBuildStamp(cloneDir, "v1.0.0-skip");
 
     const res = runDeploy(
       fixtureDeployScript,
@@ -305,6 +321,7 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
   it("performs health check curl with BOKLI_DEPLOY_HEALTHCHECK_URL against a local server", async () => {
     runGit(["tag", "-a", "v1.0.0-health", "-m", "Release v1.0.0-health"], cloneDir);
     runGit(["push", "origin", "v1.0.0-health"], cloneDir);
+    writeBuildStamp(cloneDir, "v1.0.0-health");
 
     const mockServer = await startMockHttpServer();
     try {

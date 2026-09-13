@@ -134,11 +134,50 @@ else
 fi
 
 # Build production artifacts
+BUILD_SKIPPED=0
 if [ "${BOKLI_DEPLOY_SKIP_BUILD:-0}" = "1" ]; then
   echo "ℹ️  Skipping build (BOKLI_DEPLOY_SKIP_BUILD=1)"
+  BUILD_SKIPPED=1
 else
   echo "==> Building production release..."
   BOKLI_BUILD_DIR=.next-prod npm run build
+fi
+
+# Stamp the build manifest (systemd ExecStartPre verifies this before every start)
+echo "==> Writing build stamp (.next-prod/BUILD_MANIFEST)..."
+BUILD_DIR_ABS="$REPO_ROOT/.next-prod"
+STAMP_FILE="$BUILD_DIR_ABS/BUILD_MANIFEST"
+if [ "$BUILD_SKIPPED" -eq 1 ]; then
+  # Build skipped: the existing stamp must still match current HEAD and tag so we
+  # never restart into a build produced for a different commit.
+  if [ ! -f "$STAMP_FILE" ]; then
+    echo "❌ Refusing restart: build skipped (BOKLI_DEPLOY_SKIP_BUILD=1) but no build stamp exists at $STAMP_FILE." >&2
+    echo "    Run a full deploy: ./scripts/bokli_deploy.sh <tag>" >&2
+    exit 1
+  fi
+  if ! "$SCRIPT_DIR/verify_build_stamp.sh"; then
+    echo "❌ Refusing restart: build was skipped but the existing build stamp does not match HEAD/tag." >&2
+    echo "    Run a full deploy: ./scripts/bokli_deploy.sh <tag> (do not set BOKLI_DEPLOY_SKIP_BUILD=1)" >&2
+    exit 1
+  fi
+else
+  STAMP_COMMIT="$(git rev-parse HEAD)"
+  STAMP_BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  if [ -z "$TAG" ] || [ -z "$STAMP_COMMIT" ] || [ -z "$STAMP_BUILT_AT" ]; then
+    echo "❌ Refusing restart: build stamp fields must not be empty (TAG='$TAG' COMMIT='$STAMP_COMMIT' BUILT_AT='$STAMP_BUILT_AT')." >&2
+    exit 1
+  fi
+  if [ ! -d "$BUILD_DIR_ABS" ]; then
+    echo "❌ Refusing restart: build output directory $BUILD_DIR_ABS does not exist." >&2
+    exit 1
+  fi
+  cat > "$STAMP_FILE" <<EOF
+TAG=$TAG
+COMMIT=$STAMP_COMMIT
+BUILT_AT=$STAMP_BUILT_AT
+DEPLOYED_BY=bokli_deploy.sh
+EOF
+  echo "==> Stamped: TAG=$TAG COMMIT=$STAMP_COMMIT BUILT_AT=$STAMP_BUILT_AT"
 fi
 
 # Restart systemd user service

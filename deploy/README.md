@@ -174,6 +174,29 @@ curl -I http://localhost:5000/
 
 ---
 
+## Build Stamp Verification (systemd-enforced)
+
+Production may only run builds produced by `scripts/bokli_deploy.sh`. The service refuses to start otherwise.
+
+**How it works:**
+- At the end of a deploy (after build, before restart), `scripts/bokli_deploy.sh` writes `.next-prod/BUILD_MANIFEST` containing:
+  ```
+  TAG=<release tag>
+  COMMIT=<full sha of checked-out HEAD>
+  BUILT_AT=<UTC ISO8601>
+  DEPLOYED_BY=bokli_deploy.sh
+  ```
+  The deploy script refuses to restart if any field would be empty.
+- `deploy/bokli.service` declares `ExecStartPre=%h/projects/bokli/scripts/verify_build_stamp.sh` before `ExecStart`. On every start (or crash-restart), systemd first runs `scripts/verify_build_stamp.sh`, which fails (non-zero, with a clear stderr message) if the stamp file is missing, any field is empty/missing, `DEPLOYED_BY` is not `bokli_deploy.sh`, `COMMIT` does not match the currently checked-out `git rev-parse HEAD`, or `TAG` does not exist as a tag in the repo. systemd then never runs the server.
+
+**If the service refuses to start** (`systemctl --user status bokli` shows the ExecStartPre failure):
+1. Read the failure reason: `journalctl --user -u bokli -n 20 --no-pager`.
+2. Re-run a full deploy for the release tag you want: `./scripts/bokli_deploy.sh <tag>` — this rebuilds and re-stamps so the stamp matches the checked-out commit/tag.
+3. Then start again: `systemctl --user start bokli`.
+Do NOT hand-edit or forge the stamp file; it is the audit trail that prod runs script-produced builds only.
+
+---
+
 ## Deployment (release-tag flow)
 
 Bokli follows a release-tag-gated deployment flow to ensure that production always matches an audited, immutable release tag pointing to the current tip of `origin/main`.
