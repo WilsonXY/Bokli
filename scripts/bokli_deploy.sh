@@ -9,20 +9,22 @@
 #
 # Safety & Refusal Gates:
 #   1. Argument required: must supply a release tag name.
-#   2. Fetches origin (git fetch origin --tags --prune).
-#   3. Refuses if the tag does not exist locally after fetch.
-#   4. Tip equality or rollback ancestor check:
+#   2. Tag format validation: must match ^[A-Za-z0-9._-]+$
+#   3. Fetches origin (git fetch origin --tags --prune).
+#   4. Refuses if the tag does not exist locally after fetch.
+#   5. Tip equality or rollback ancestor check:
 #      - By default, tag commit must equal origin/main tip.
 #      - If --allow-rollback is specified, tag commit may differ from origin/main
 #        tip, but MUST be a direct ancestor of origin/main (git merge-base --is-ancestor).
-#   5. Refuses if tracked files are modified (git status --porcelain --untracked-files=no).
+#   6. Refuses if tracked files are modified (git status --porcelain --untracked-files=no).
 #
 # Deploy Actions:
 #   - Check out tag (git checkout <tag>)
 #   - Run database migrations: BOKLI_DB_PATH=<repo>/data/bokli.db npx tsx src/db/migrate.ts
 #     (skippable via BOKLI_DEPLOY_SKIP_MIGRATE=1)
 #   - Build production artifacts: BOKLI_BUILD_DIR=.next-prod npm run build
-#     (skippable via BOKLI_DEPLOY_SKIP_BUILD=1)
+#     (skippable via BOKLI_DEPLOY_SKIP_BUILD=1, custom command via BOKLI_DEPLOY_BUILD_CMD)
+#   - Stamp the build manifest: .next-prod/BUILD_MANIFEST (verified by ExecStartPre)
 #   - Restart systemd user service: systemctl --user restart bokli
 #     (skippable via BOKLI_DEPLOY_SKIP_RESTART=1)
 #   - Post-restart health check on /login with 3 retry attempts 2s apart and --max-time 5
@@ -66,6 +68,12 @@ done
 
 if [ -z "$TAG" ]; then
   echo "Usage: $0 [--allow-rollback] <tag> (e.g. $0 v1.0.0)" >&2
+  exit 1
+fi
+
+# Validate TAG against safe charset before any use
+if [[ ! "$TAG" =~ ^[A-Za-z0-9._-]+$ ]]; then
+  echo "❌ Refusing deploy: invalid tag format '$TAG'. Tags must only contain alphanumeric characters, dots, underscores, and hyphens (^[A-Za-z0-9._-]+$)." >&2
   exit 1
 fi
 
@@ -140,7 +148,11 @@ if [ "${BOKLI_DEPLOY_SKIP_BUILD:-0}" = "1" ]; then
   BUILD_SKIPPED=1
 else
   echo "==> Building production release..."
-  BOKLI_BUILD_DIR=.next-prod npm run build
+  if [ -n "${BOKLI_DEPLOY_BUILD_CMD:-}" ]; then
+    $BOKLI_DEPLOY_BUILD_CMD
+  else
+    BOKLI_BUILD_DIR=.next-prod npm run build
+  fi
 fi
 
 # Stamp the build manifest (systemd ExecStartPre verifies this before every start)
@@ -155,7 +167,7 @@ if [ "$BUILD_SKIPPED" -eq 1 ]; then
     echo "    Run a full deploy: ./scripts/bokli_deploy.sh <tag>" >&2
     exit 1
   fi
-  if ! "$SCRIPT_DIR/verify_build_stamp.sh"; then
+  if ! BOKLI_REPO_DIR="$REPO_ROOT" "$SCRIPT_DIR/verify_build_stamp.sh"; then
     echo "❌ Refusing restart: build was skipped but the existing build stamp does not match HEAD/tag." >&2
     echo "    Run a full deploy: ./scripts/bokli_deploy.sh <tag> (do not set BOKLI_DEPLOY_SKIP_BUILD=1)" >&2
     exit 1

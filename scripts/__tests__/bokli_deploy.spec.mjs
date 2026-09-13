@@ -105,25 +105,24 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
     runGit(["config", "user.name", "Deploy Test"], cloneDir);
     runGit(["checkout", "-b", "main"], cloneDir);
 
-    // Initial commit (Commit 1: ancestor)
+    // Initial commit (Commit 1: ancestor with scripts)
     fs.writeFileSync(path.join(cloneDir, "README.md"), "# Test Repo\n");
-    runGit(["add", "README.md"], cloneDir);
-    runGit(["commit", "-m", "Initial commit on main"], cloneDir);
-    runGit(["push", "-u", "origin", "main"], cloneDir);
-
-    // Copy scripts into fixture clone
     fs.mkdirSync(path.join(cloneDir, "scripts"), { recursive: true });
     fixtureDeployScript = path.join(cloneDir, "scripts/bokli_deploy.sh");
-
     fs.copyFileSync(DEPLOY_SCRIPT, fixtureDeployScript);
     fs.chmodSync(fixtureDeployScript, 0o755);
     const fixtureVerifyScript = path.join(cloneDir, "scripts/verify_build_stamp.sh");
     fs.copyFileSync(VERIFY_SCRIPT, fixtureVerifyScript);
     fs.chmodSync(fixtureVerifyScript, 0o755);
 
-    // Commit scripts to main (Commit 2: current origin/main tip)
-    runGit(["add", "scripts/bokli_deploy.sh"], cloneDir);
-    runGit(["commit", "-m", "Add deploy script"], cloneDir);
+    runGit(["add", "README.md", "scripts/bokli_deploy.sh", "scripts/verify_build_stamp.sh"], cloneDir);
+    runGit(["commit", "-m", "Initial commit on main with scripts"], cloneDir);
+    runGit(["push", "-u", "origin", "main"], cloneDir);
+
+    // Second commit on main (Commit 2: current origin/main tip)
+    fs.appendFileSync(path.join(cloneDir, "README.md"), "More updates\n");
+    runGit(["add", "README.md"], cloneDir);
+    runGit(["commit", "-m", "Update README on main"], cloneDir);
     runGit(["push", "origin", "main"], cloneDir);
   });
 
@@ -141,6 +140,16 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
     const resUnknown = runDeploy(fixtureDeployScript, ["--invalid-flag", "v1.0.0"], {}, cloneDir);
     expect(resUnknown.status).toBe(1);
     expect(resUnknown.stderr).toContain("Unknown option: --invalid-flag");
+  });
+
+  it("refuses if tag contains invalid characters (injection defense)", () => {
+    const res = runDeploy(fixtureDeployScript, ["v1.0.0;malicious"], {}, cloneDir);
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain("❌ Refusing deploy: invalid tag format 'v1.0.0;malicious'");
+
+    const resNewline = runDeploy(fixtureDeployScript, ["v1.0.0\ninjected=1"], {}, cloneDir);
+    expect(resNewline.status).toBe(1);
+    expect(resNewline.stderr).toContain("❌ Refusing deploy: invalid tag format");
   });
 
   it("refuses if tag does not exist locally after fetch", () => {
@@ -316,6 +325,114 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
     expect(res.stdout).toContain("Skipping build (BOKLI_DEPLOY_SKIP_BUILD=1)");
     expect(res.stdout).toContain("Skipping restart (BOKLI_DEPLOY_SKIP_RESTART=1)");
     expect(res.stdout).toContain("Health check skipped (BOKLI_DEPLOY_SKIP_HEALTHCHECK=1)");
+  });
+
+  it("full deploy flow writes valid .next-prod/BUILD_MANIFEST with expected fields", () => {
+    runGit(["tag", "-a", "v1.0.0-manifest", "-m", "Release v1.0.0-manifest"], cloneDir);
+    runGit(["push", "origin", "v1.0.0-manifest"], cloneDir);
+    fs.mkdirSync(path.join(cloneDir, ".next-prod"), { recursive: true });
+
+    const res = runDeploy(
+      fixtureDeployScript,
+      ["v1.0.0-manifest"],
+      {
+        BOKLI_DEPLOY_SKIP_MIGRATE: "1",
+        BOKLI_DEPLOY_BUILD_CMD: "true",
+        BOKLI_DEPLOY_SKIP_RESTART: "1",
+        BOKLI_DEPLOY_SKIP_HEALTHCHECK: "1",
+        BOKLI_DEPLOY_SKIP_SLEEP: "1",
+      },
+      cloneDir
+    );
+
+    expect(res.status).toBe(0);
+    const manifestPath = path.join(cloneDir, ".next-prod/BUILD_MANIFEST");
+    expect(fs.existsSync(manifestPath)).toBe(true);
+    const manifestContent = fs.readFileSync(manifestPath, "utf-8");
+    expect(manifestContent).toContain("TAG=v1.0.0-manifest\n");
+    const headSha = runGit(["rev-parse", "HEAD"], cloneDir).trim();
+    expect(manifestContent).toContain(`COMMIT=${headSha}\n`);
+    expect(manifestContent).toMatch(/BUILT_AT=\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\n/);
+    expect(manifestContent).toContain("DEPLOYED_BY=bokli_deploy.sh\n");
+
+    // Also verify verify_build_stamp.sh succeeds on this manifest
+    const verifyRes = spawnSync(path.join(cloneDir, "scripts/verify_build_stamp.sh"), [], {
+      cwd: cloneDir,
+      encoding: "utf-8",
+    });
+    expect(verifyRes.status).toBe(0);
+    expect(verifyRes.stdout).toContain("Build stamp OK");
+  });
+
+  it("refuses deploy when SKIP_BUILD is set but no build stamp exists", () => {
+    runGit(["tag", "-a", "v1.0.0-nostamp", "-m", "Release v1.0.0-nostamp"], cloneDir);
+    runGit(["push", "origin", "v1.0.0-nostamp"], cloneDir);
+
+    const res = runDeploy(
+      fixtureDeployScript,
+      ["v1.0.0-nostamp"],
+      {
+        BOKLI_DEPLOY_SKIP_MIGRATE: "1",
+        BOKLI_DEPLOY_SKIP_BUILD: "1",
+        BOKLI_DEPLOY_SKIP_RESTART: "1",
+        BOKLI_DEPLOY_SKIP_HEALTHCHECK: "1",
+        BOKLI_DEPLOY_SKIP_SLEEP: "1",
+      },
+      cloneDir
+    );
+
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain("Refusing restart: build skipped (BOKLI_DEPLOY_SKIP_BUILD=1) but no build stamp exists");
+  });
+
+  it("refuses deploy when SKIP_BUILD is set but build stamp is stale or points to different commit", () => {
+    runGit(["tag", "-a", "v1.0.0-stale", "-m", "Release v1.0.0-stale"], cloneDir);
+    runGit(["push", "origin", "v1.0.0-stale"], cloneDir);
+    // Write stamp with a mismatched commit
+    writeBuildStamp(cloneDir, "v1.0.0-stale", "0123456789abcdef0123456789abcdef01234567");
+
+    const res = runDeploy(
+      fixtureDeployScript,
+      ["v1.0.0-stale"],
+      {
+        BOKLI_DEPLOY_SKIP_MIGRATE: "1",
+        BOKLI_DEPLOY_SKIP_BUILD: "1",
+        BOKLI_DEPLOY_SKIP_RESTART: "1",
+        BOKLI_DEPLOY_SKIP_HEALTHCHECK: "1",
+        BOKLI_DEPLOY_SKIP_SLEEP: "1",
+      },
+      cloneDir
+    );
+
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain("Refusing restart: build was skipped but the existing build stamp does not match HEAD/tag");
+  });
+
+  it("refuses deploy when SKIP_BUILD is set and build stamp has an empty required field", () => {
+    runGit(["tag", "-a", "v1.0.0-emptyfield", "-m", "Release v1.0.0-emptyfield"], cloneDir);
+    runGit(["push", "origin", "v1.0.0-emptyfield"], cloneDir);
+    fs.mkdirSync(path.join(cloneDir, ".next-prod"), { recursive: true });
+    // Write stamp with empty TAG=
+    fs.writeFileSync(
+      path.join(cloneDir, ".next-prod/BUILD_MANIFEST"),
+      `TAG=\nCOMMIT=${runGit(["rev-parse", "HEAD"], cloneDir).trim()}\nBUILT_AT=2026-01-01T00:00:00Z\nDEPLOYED_BY=bokli_deploy.sh\n`
+    );
+
+    const res = runDeploy(
+      fixtureDeployScript,
+      ["v1.0.0-emptyfield"],
+      {
+        BOKLI_DEPLOY_SKIP_MIGRATE: "1",
+        BOKLI_DEPLOY_SKIP_BUILD: "1",
+        BOKLI_DEPLOY_SKIP_RESTART: "1",
+        BOKLI_DEPLOY_SKIP_HEALTHCHECK: "1",
+        BOKLI_DEPLOY_SKIP_SLEEP: "1",
+      },
+      cloneDir
+    );
+
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain("Refusing restart: build was skipped but the existing build stamp does not match HEAD/tag");
   });
 
   it("performs health check curl with BOKLI_DEPLOY_HEALTHCHECK_URL against a local server", async () => {
