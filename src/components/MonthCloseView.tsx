@@ -273,10 +273,10 @@ export function MonthCloseView({
   return (
     <div className="space-y-4">
       {/* Month Selector Strip */}
-      <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs flex items-center justify-between">
-        <span className="text-base font-bold text-ink-primary whitespace-nowrap">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-ink-primary tracking-tight">
           {t.closeTitle}
-        </span>
+        </h1>
 
         {/* Month Dropdown */}
         <MonthSelectorDropdown
@@ -321,51 +321,52 @@ export function MonthCloseView({
         <>
           {/* Success Notification */}
           {successMessage && (
-            <div className="py-2 px-3 rounded-lg bg-finance-profit-light border border-finance-profit-border text-sm text-brand-broccoli font-semibold flex items-center gap-1.5">
-              <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <div className="py-2.5 px-3.5 rounded-xl bg-finance-profit-light border border-finance-profit-border text-sm text-brand-broccoli font-semibold flex items-center gap-2">
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
               <span>{successMessage}</span>
             </div>
           )}
 
-          {/* Financial Snapshot Summary Strip */}
+          {/* Financial Snapshot Summary Strip (Single Unified Ledger Container) */}
           {financials && (
-            <section aria-label="Month Financial Snapshot" className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              <div className="bg-white border border-surface-border rounded-xl p-2.5 shadow-xs">
-                <div className="text-[13px] font-medium text-ink-muted mb-0.5">
+
+            <section aria-label="Month Financial Snapshot" className="bg-white border border-surface-border rounded-xl shadow-xs grid grid-cols-3 overflow-hidden">
+              <div className="p-3 text-center sm:text-left border-b border-surface-border">
+                <div className="text-sm font-medium text-ink-muted mb-0.5">
                   {t.totalRevenue}
                 </div>
-                <div className="text-base font-bold text-ink-primary">
+                <div className="text-base sm:text-xl font-bold text-ink-primary tabular-nums">
                   {formatMyr(BigInt(financials.revenueSen))}
                 </div>
               </div>
 
-              <div className="bg-white border border-surface-border rounded-xl p-2.5 shadow-xs">
-                <div className="text-[13px] font-medium text-ink-muted mb-0.5">
+              <div className="p-3 text-center sm:text-left border-x border-b border-surface-border">
+                <div className="text-sm font-medium text-ink-muted mb-0.5">
                   {t.costsTitle}
                 </div>
-                <div className="text-base font-bold text-finance-loss">
+                <div className="text-base sm:text-xl font-bold text-slate-700 tabular-nums">
                   {formatMyr(BigInt(financials.dailyCostSen))}
                 </div>
               </div>
 
-              <div className="bg-white border border-surface-border rounded-xl p-2.5 shadow-xs">
-                <div className="text-[13px] font-medium text-ink-muted mb-0.5">
+              <div className="p-3 text-center sm:text-left border-b border-surface-border">
+                <div className="text-sm font-medium text-ink-muted mb-0.5">
                   {t.operatingExpenses}
                 </div>
-                <div className="text-base font-bold text-finance-loss">
+                <div className="text-base sm:text-xl font-bold text-slate-700 tabular-nums">
                   {formatMyr(BigInt(financials.operatingSen))}
                 </div>
               </div>
 
-              <div className="bg-white border border-surface-border rounded-xl p-2.5 shadow-xs">
-                <div className="text-[13px] font-medium text-ink-muted mb-0.5">
+              <div className="col-span-3 p-3.5 sm:px-5 bg-surface-subtle/40 flex items-center justify-between">
+                <div className="text-base font-bold text-ink-secondary">
                   {t.expectedNet}
                 </div>
                 <div
-                  className={`text-base font-bold ${
-                    expectedNetSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
+                  className={`text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums ${
+                    expectedNetSen >= 0n ? "text-emerald-700" : "text-rose-600"
                   }`}
                 >
                   {formatMyr(expectedNetSen)}
@@ -386,27 +387,27 @@ export function MonthCloseView({
 
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <span className="text-ink-muted block text-[13px] mb-0.5 font-medium">{t.cashOnHand}</span>
-                  <span className="font-bold text-ink-primary text-base">
+                  <span className="text-ink-muted block text-xs mb-0.5 font-medium">{t.cashOnHand}</span>
+                  <span className="font-bold text-ink-primary text-base tabular-nums">
                     {formatMyr(BigInt(closeRecord?.cashOnHandSen ?? 0))}
                   </span>
                 </div>
                 <div>
-                  <span className="text-ink-muted block text-[13px] mb-0.5 font-medium">{t.tngOnHand}</span>
-                  <span className="font-bold text-ink-primary text-base">
+                  <span className="text-ink-muted block text-xs mb-0.5 font-medium">{t.tngOnHand}</span>
+                  <span className="font-bold text-ink-primary text-base tabular-nums">
                     {formatMyr(BigInt(closeRecord?.tngOnHandSen ?? 0))}
                   </span>
                 </div>
                 <div>
-                  <span className="text-ink-muted block text-[13px] mb-0.5 font-medium">{t.actualTotal}</span>
-                  <span className="font-bold text-ink-primary text-base">
+                  <span className="text-ink-muted block text-xs mb-0.5 font-medium">{t.actualTotal}</span>
+                  <span className="font-bold text-ink-primary text-base tabular-nums">
                     {formatMyr(BigInt(closeRecord?.actualSen ?? 0))}
                   </span>
                 </div>
                 <div>
-                  <span className="text-ink-muted block text-[13px] mb-0.5 font-medium">{t.reconciliationDiff}</span>
+                  <span className="text-ink-muted block text-xs mb-0.5 font-medium">{t.reconciliationDiff}</span>
                   <span
-                    className={`font-bold text-base ${
+                    className={`font-bold text-base tabular-nums ${
                       closeRecord?.balanced ? "text-brand-broccoli" : "text-finance-loss"
                     }`}
                   >
@@ -416,14 +417,14 @@ export function MonthCloseView({
               </div>
 
               {closeRecord?.note && (
-                <div className="text-sm bg-surface-subtle p-2.5 rounded-lg border border-surface-border">
+                <div className="text-sm bg-surface-subtle p-3 rounded-lg border border-surface-border">
                   <span className="font-semibold text-ink-secondary block mb-0.5">{t.closeNote}:</span>
                   <span className="text-ink-primary">{closeRecord.note}</span>
                 </div>
               )}
 
               {closeRecord?.closedAt && (
-                <div className="text-[13px] text-ink-muted">
+                <div className="text-xs text-ink-muted tabular-nums">
                   {t.closedAtLabel}: {closeRecord.closedAt}
                 </div>
               )}
@@ -449,7 +450,7 @@ export function MonthCloseView({
                         value={reopenReasonInput}
                         onChange={(e) => setReopenReasonInput(e.target.value)}
                         placeholder={t.reopenPlaceholder}
-                        className="w-full h-11 px-2.5 rounded-lg bg-white border border-surface-border text-sm text-ink-primary focus:outline-none focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
+                        className="w-full h-11 px-3 rounded-lg bg-white border border-surface-border text-sm text-ink-primary focus:outline-none focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
                       />
                       <div className="flex items-center gap-2">
                         <button
@@ -476,7 +477,7 @@ export function MonthCloseView({
 
           {/* Case 2: Month is OPEN (or REOPENED) — Entry Form */}
           {!isClosed && (
-            <form onSubmit={handlePerformClose} className="bg-white border border-surface-border rounded-xl p-3.5 shadow-xs space-y-3.5">
+            <form onSubmit={handlePerformClose} className="bg-white border border-surface-border rounded-xl p-4 shadow-xs space-y-3.5">
               {isReopened && closeRecord?.reopenReason && (
                 <div className="p-2.5 rounded-lg bg-status-reopened-bg/40 border border-status-reopened/20 text-sm">
                   <span className="font-semibold text-status-reopened block mb-0.5">
@@ -489,7 +490,7 @@ export function MonthCloseView({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {/* Physical Cash Counted */}
                 <div>
-                  <label className="block text-sm font-semibold text-ink-primary mb-1">
+                  <label className="block text-sm font-semibold text-ink-secondary mb-1.5">
                     {t.cashOnHand}
                   </label>
                   <div className="relative flex items-center">
@@ -510,7 +511,7 @@ export function MonthCloseView({
                       placeholder="0.00"
                       className={`w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
                         cashError ? "border-finance-loss" : "border-surface-border"
-                      } text-lg font-bold text-ink-primary focus:outline-none focus:bg-white ${
+                      } text-lg font-bold text-ink-primary tabular-nums focus:outline-none focus:bg-white ${
                         cashError
                           ? "focus:border-finance-loss focus-visible:ring-finance-loss/50"
                           : "focus:border-channel-cash focus-visible:ring-channel-cash/50"
@@ -526,7 +527,7 @@ export function MonthCloseView({
 
                 {/* TnG Balance */}
                 <div>
-                  <label className="block text-sm font-semibold text-ink-primary mb-1">
+                  <label className="block text-sm font-semibold text-ink-secondary mb-1.5">
                     {t.tngOnHand}
                   </label>
                   <div className="relative flex items-center">
@@ -547,7 +548,7 @@ export function MonthCloseView({
                       placeholder="0.00"
                       className={`w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
                         tngError ? "border-finance-loss" : "border-surface-border"
-                      } text-lg font-bold text-ink-primary focus:outline-none focus:bg-white ${
+                      } text-lg font-bold text-ink-primary tabular-nums focus:outline-none focus:bg-white ${
                         tngError
                           ? "focus:border-finance-loss focus-visible:ring-finance-loss/50"
                           : "focus:border-channel-tng focus-visible:ring-channel-tng/50"
@@ -566,20 +567,20 @@ export function MonthCloseView({
               <div className="p-3 rounded-lg bg-surface-subtle border border-surface-border space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-ink-muted font-medium">{t.actualTotal}:</span>
-                  <span className="font-bold text-ink-primary text-base">
+                  <span className="font-bold text-ink-primary text-base tabular-nums">
                     {actualCountedSen !== null ? formatMyr(actualCountedSen) : "—"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-ink-muted font-medium">{t.expectedNet}:</span>
-                  <span className="font-bold text-ink-primary text-base">{formatMyr(expectedNetSen)}</span>
+                  <span className="font-bold text-ink-primary text-base tabular-nums">{formatMyr(expectedNetSen)}</span>
                 </div>
                 <div className="pt-2 border-t border-surface-border flex items-center justify-between text-sm">
                   <span className="font-semibold text-ink-secondary">{t.reconciliationDiff}:</span>
                   <div className="flex items-center gap-1.5">
                     {hasInputs && !hasParseError && (
                       <span
-                        className={`text-[13px] px-2 py-0.5 rounded font-semibold ${
+                        className={`text-xs px-2 py-0.5 rounded font-semibold ${
                           isBalanced
                             ? "bg-finance-profit-light text-brand-broccoli"
                             : "bg-finance-loss-light text-finance-loss"
@@ -589,7 +590,7 @@ export function MonthCloseView({
                       </span>
                     )}
                     <span
-                      className={`font-bold text-base ${
+                      className={`font-bold text-base tabular-nums ${
                         hasParseError
                           ? "text-ink-muted"
                           : isBalanced
@@ -605,7 +606,7 @@ export function MonthCloseView({
 
               {/* Note input */}
               <div>
-                <label className="block text-sm font-semibold text-ink-primary mb-1">
+                <label className="block text-xs font-semibold text-ink-secondary mb-1">
                   {t.closeNote}{" "}
                   {!isBalanced && hasInputs && !hasParseError && (
                     <span className="text-finance-loss">({t.noteRequiredBadge})</span>
@@ -623,7 +624,7 @@ export function MonthCloseView({
                       ? t.closeNotePlaceholder
                       : t.closeNoteOptional
                   }
-                  className="w-full h-11 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
+                  className="w-full h-11 px-3 rounded-lg bg-surface-canvas border border-surface-border text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
                 />
               </div>
 
@@ -652,14 +653,17 @@ export function MonthCloseView({
 
               {/* Contextual Error Message */}
               {errorMessage && (
-                <div className="py-2 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
+                <div className="py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between">
                   <span>{errorMessage}</span>
                   <button
                     type="button"
                     onClick={() => setErrorMessage(null)}
-                    className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss"
+                    className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss w-5 h-5 flex items-center justify-center rounded"
+                    aria-label="Close"
                   >
-                    ✕
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                   </button>
                 </div>
               )}

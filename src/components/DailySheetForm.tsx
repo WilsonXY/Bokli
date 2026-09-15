@@ -201,6 +201,11 @@ export function DailySheetForm({
   const [costLineError, setCostLineError] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(() => {
+    const merged = mergeCostLines(initialCostLines);
+    const zeroIdx = merged.findIndex((l) => l.amountSen === 0);
+    return zeroIdx !== -1 ? zeroIdx : (merged.length === 1 ? 0 : null);
+  });
 
   // Close modals on Escape key
   useEffect(() => {
@@ -261,6 +266,8 @@ export function DailySheetForm({
       tngInput: tngStr,
       costLines: mergedInitial,
     });
+    const zeroIdx = mergedInitial.findIndex((l) => l.amountSen === 0);
+    setExpandedIndex(zeroIdx !== -1 ? zeroIdx : (mergedInitial.length === 1 ? 0 : null));
     setNewAmount("");
     setNewNote("");
     setCostLineError(null);
@@ -294,9 +301,34 @@ export function DailySheetForm({
     (acc, line) => acc + BigInt(line.amountSen),
     0n,
   );
+  const hasZeroCostLine = costLines.some((line) => line.amountSen <= 0);
 
   const grossProfitSen =
     totalRevenueSen !== null ? totalRevenueSen - totalCostSen : null;
+
+  // Create and expand a new empty cost line
+  function handleCreateNewCostLine() {
+    if (isClosed) return;
+    const newLine: CostLineItem = {
+      category: "restock",
+      amountSen: 0,
+      note: null,
+      ids: [],
+    };
+    setCostLines((prev) => [...prev, newLine]);
+    setExpandedIndex(costLines.length);
+  }
+
+  // Update a specific cost line in place
+  function handleUpdateCostLine(
+    index: number,
+    patch: Partial<CostLineItem>
+  ) {
+    setExpandedIndex(index);
+    setCostLines((prev) =>
+      prev.map((line, i) => (i === index ? { ...line, ...patch } : line))
+    );
+  }
 
   // Add Cost Line (merges duplicate category+note instantly)
   function handleAddCostLine() {
@@ -360,11 +392,13 @@ export function DailySheetForm({
           date,
           cashSen: Number(cashSen),
           tngSen: Number(tngSen),
-          costLines: costLines.map((l) => ({
-            category: l.category,
-            amountSen: l.amountSen,
-            note: l.note || undefined,
-          })),
+          costLines: costLines
+            .filter((l) => l.amountSen > 0)
+            .map((l) => ({
+              category: l.category,
+              amountSen: l.amountSen,
+              note: l.note || undefined,
+            })),
         }),
       });
 
@@ -509,7 +543,7 @@ export function DailySheetForm({
       {/* Section 1: Revenue Entry */}
       <section aria-label="Revenue Entry" className="space-y-2">
         <div className="flex items-center justify-between px-0.5">
-          <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
+          <h2 className="text-base font-bold text-ink-secondary uppercase tracking-wider">
             {t.revenueTitle}
           </h2>
           <span className="text-sm font-medium text-ink-muted">
@@ -613,162 +647,211 @@ export function DailySheetForm({
       </section>
 
       {/* Section 2: Itemized Daily Costs */}
-      <section aria-label="Daily Costs Entry" className="space-y-2">
+      <section aria-label="Daily Costs Entry" className="space-y-2.5">
+        <div className="pt-2 pb-0.5" aria-hidden="true">
+          <hr className="border-t border-surface-border" />
+        </div>
         <div className="flex items-center justify-between px-0.5">
-          <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
+          <h2 className="text-base font-bold text-ink-secondary uppercase tracking-wider">
             {t.costsTitle}
           </h2>
+          <span className="sr-only">{t.costCategory}</span>
           <span className="text-sm font-medium text-ink-muted">
             {t.totalCosts}: <span className="font-semibold text-finance-loss">{formatMyr(totalCostSen)}</span>
           </span>
         </div>
 
-        {/* Cost Line Entry Box */}
-        {!isClosed && (
-          <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs space-y-2.5">
-            <div>
-              <span className="block text-sm font-medium text-ink-muted mb-1.5">
-                {t.costCategory ?? t.selectCategory}
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {categories.map((cat) => {
-                  const isSelected = newCat === cat.key;
-                  return (
-                    <button
-                      key={cat.key}
-                      type="button"
-                      onClick={() => {
-                        setNewCat(cat.key);
-                        if (costLineError) setCostLineError(null);
-                      }}
-                      className={`min-h-[44px] px-3.5 py-2.5 rounded-lg text-sm font-semibold border btn-wave transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
-                        isSelected
-                          ? "bg-brand-broccoli text-white border-brand-broccoli shadow-xs hover:bg-brand-broccoli-dark"
-                          : "bg-surface-subtle text-ink-secondary border-surface-border hover:border-brand-broccoli hover:text-brand-broccoli hover:bg-brand-broccoli-light/30"
+        {/* Dynamic Cost Lines (Each line has its own summary + form) */}
+        {costLines.length > 0 && (
+          <div className="space-y-2">
+            {costLines.map((line, idx) => {
+              const isZero = line.amountSen === 0;
+              const isExpanded = expandedIndex === idx || isZero;
+              return (
+                <div
+                  key={`cost-line-card-${idx}`}
+                  className={`bg-white border rounded-xl shadow-xs transition-all overflow-hidden ${
+                        isExpanded
+                          ? "border-brand-broccoli ring-2 ring-brand-broccoli/20"
+                          : "border-surface-border hover:border-slate-300"
                       }`}
                     >
-                      {cat.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                  {/* Summary Row */}
+                      <div
+                        onClick={() => {
+                          if (isClosed) return;
+                          if (isZero) return;
+                          setExpandedIndex(isExpanded ? null : idx);
+                        }}
+                        role="button"
+                        tabIndex={isZero ? -1 : 0}
+                        aria-disabled={isZero}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            if (!isClosed && !isZero) setExpandedIndex(isExpanded ? null : idx);
+                          }
+                        }}
+                        className={`w-full px-4 py-3 flex items-center justify-between gap-2 select-none bg-white transition-colors ${
+                          isZero ? "cursor-default" : "cursor-pointer hover:bg-surface-subtle/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-5 h-5 flex items-center justify-center text-slate-400 shrink-0">
+                            <svg
+                              className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-surface-subtle border border-surface-border text-ink-secondary whitespace-nowrap">
+                            {getCategoryLabel(line.category)}
+                          </span>
+                          {line.note && (
+                            <span className="text-sm text-ink-primary font-medium truncate">
+                              {line.note}
+                            </span>
+                          )}
+                        </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div>
-                <label className="block text-sm font-medium text-ink-muted mb-1">
-                  {t.amount}
-                </label>
-                <div className="relative flex items-center">
-                  <span className="absolute left-2.5 text-sm font-semibold text-ink-muted select-none">
-                    RM
-                  </span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={newAmount}
-                    onChange={(e) => {
-                      const sanitized = sanitizeMoneyInput(e.target.value);
-                      if (sanitized !== null) {
-                        setNewAmount(sanitized);
-                        if (costLineError) setCostLineError(null);
-                      }
-                    }}
-                    placeholder="0.00"
-                    className="w-full h-11 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
-                  />
-                </div>
-              </div>
+                        <div className="flex items-center gap-2.5 shrink-0">
+                          <span className="text-base font-bold text-slate-700 tabular-nums whitespace-nowrap">
+                            {formatMyr(BigInt(line.amountSen))}
+                          </span>
 
-              <div>
-                <label className="block text-sm font-medium text-ink-muted mb-1">
-                  {t.note} {newCat === "other" && <span className="text-finance-loss">({t.noteRequiredBadge})</span>}
-                </label>
-                <input
-                  type="text"
-                  value={newNote}
-                  onChange={(e) => {
-                    setNewNote(e.target.value);
-                    if (costLineError) setCostLineError(null);
-                  }}
-                  placeholder={newCat === "other" ? t.noteRequired : t.noteOptional}
-                  className="w-full h-11 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
-                />
-              </div>
-            </div>
+                          {!isClosed && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPendingDeleteIndex(idx);
+                              }}
+                              aria-label={t.delete}
+                              title={t.delete}
+                              className="w-9 h-9 rounded-lg hover:bg-finance-loss-light text-ink-muted hover:text-finance-loss flex items-center justify-center text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
 
-            {/* Solid "Add Cost" / "添加开销" button */}
-            <button
-              type="button"
-              onClick={handleAddCostLine}
-              className="w-full h-11 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm flex items-center justify-center transition-colors shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
-            >
-              {t.addCostLine}
-            </button>
+                  {/* Expanded Form Body */}
+                      {isExpanded && !isClosed && (
+                        <div className="p-4 border-t border-surface-border bg-surface-canvas/30 space-y-3">
+                          {/* Category Selection */}
+                          <div>
+                            <span className="block text-xs font-semibold text-ink-secondary mb-2">
+                              1. {t.costCategory ?? t.selectCategory}
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {categories.map((cat) => {
+                                const isSelected = line.category === cat.key;
+                                return (
+                                  <button
+                                    key={cat.key}
+                                    type="button"
+                                    onClick={() => handleUpdateCostLine(idx, { category: cat.key })}
+                                    className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold border btn-wave transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
+                                      isSelected
+                                        ? "bg-brand-broccoli text-white border-brand-broccoli shadow-xs"
+                                        : "bg-surface-canvas border-surface-border text-ink-secondary hover:border-ink-muted hover:text-ink-primary"
+                                    }`}
+                                  >
+                                    {cat.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
 
-            {/* Contextual Error Message Directly Below the Cost Card Button */}
-            {costLineError && (
-              <div className="py-2 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-medium flex items-center justify-between">
-                <span>{costLineError}</span>
-                <button
-                  type="button"
-                  onClick={() => setCostLineError(null)}
-                  className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
+                          {/* Amount & Note Inputs */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div>
+                              <label className="block text-xs font-semibold text-ink-secondary mb-1">
+                                2. {t.amount}
+                              </label>
+                              <div className="relative flex items-center">
+                                <span className="absolute left-3 text-sm font-bold text-ink-muted select-none">
+                                  RM
+                                </span>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  defaultValue={line.amountSen > 0 ? (line.amountSen / 100).toFixed(2) : ""}
+                                  onChange={(e) => {
+                                    const sanitized = sanitizeMoneyInput(e.target.value);
+                                    if (sanitized !== null) {
+                                      const sen = toSen(sanitized);
+                                      handleUpdateCostLine(idx, { amountSen: Number(sen ?? 0n) });
+                                    }
+                                  }}
+                                  onFocus={() => setExpandedIndex(idx)}
+                                  placeholder="0.00"
+                                  className="w-full h-11 pl-10 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary tabular-nums focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50 transition-colors"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-ink-secondary mb-1">
+                                3. {t.note} {line.category === "other" && <span className="text-finance-loss">*</span>}
+                              </label>
+                              <input
+                                type="text"
+                                defaultValue={line.note || ""}
+                                onChange={(e) => {
+                                  const val = e.target.value.trim() || null;
+                                  handleUpdateCostLine(idx, { note: val });
+                                }}
+                                onFocus={() => setExpandedIndex(idx)}
+                                placeholder={line.category === "other" ? t.noteRequired : t.noteOptional}
+                                className="w-full h-11 px-3 rounded-lg bg-surface-canvas border border-surface-border text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50 transition-colors"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+              );
+            })}
           </div>
         )}
 
-        {/* Existing Cost Lines List */}
-        <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs">
-          {costLines.length === 0 ? (
-            <div className="text-center py-5 text-sm text-ink-muted">
-              {t.noCostsRecorded}
-            </div>
-          ) : (
-            <div className="divide-y divide-surface-border">
-              {costLines.map((line, idx) => (
-                <div
-                  key={`${line.category}-${line.note || ""}-${(line.ids && line.ids.length > 0 ? line.ids.join("_") : "new")}-${idx}`}
-                  className="py-2 flex items-center justify-between gap-2"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-[13px] font-semibold px-2 py-0.5 rounded bg-surface-subtle border border-surface-border text-ink-secondary whitespace-nowrap">
-                      {getCategoryLabel(line.category)}
-                    </span>
-                    {line.note && (
-                      <span className="text-sm text-ink-muted truncate">
-                        {line.note}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-base font-bold text-finance-loss whitespace-nowrap">
-                      {formatMyr(BigInt(line.amountSen))}
-                    </span>
-                    {!isClosed && (
-                      <button
-                        type="button"
-                        onClick={() => setPendingDeleteIndex(idx)}
-                        aria-label={t.delete}
-                        className="w-11 h-11 rounded-lg hover:bg-finance-loss-light text-ink-muted hover:text-finance-loss flex items-center justify-center text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
-                        title={t.delete}
-                      >
-                        <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Standalone Clickable "+ Add Cost" Button at bottom: hidden if any item has RM 0 */}
+        {!isClosed && !hasZeroCostLine && (
+          <button
+            type="button"
+            onClick={handleCreateNewCostLine}
+            className="relative w-full py-3 px-4 rounded-xl bg-emerald-50/40 hover:bg-emerald-50/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden"
+          >
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none rounded-xl"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect
+                x="1"
+                y="1"
+                width="calc(100% - 2px)"
+                height="calc(100% - 2px)"
+                rx="11"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeDasharray="8 5"
+                className="text-emerald-400/90 group-hover:text-brand-broccoli transition-colors"
+              />
+            </svg>
+            <span className="text-lg leading-none relative z-10">+</span>
+            <span className="relative z-10">{t.addCostLine}</span>
+          </button>
+        )}
       </section>
 
       {/* Sticky Bottom Action Bar & Notifications */}
@@ -811,6 +894,9 @@ export function DailySheetForm({
           </div>
         )}
 
+        <div className="pt-2 pb-0.5" aria-hidden="true">
+          <hr className="border-t border-surface-border" />
+        </div>
         <div className="bg-white/95 backdrop-blur-md border border-surface-border rounded-xl p-3 shadow-sm flex items-center justify-between gap-3">
           <div>
             <div className="text-[13px] text-ink-muted font-medium">
@@ -860,6 +946,9 @@ export function DailySheetForm({
                     setErrorMessage(t.invalidAmount);
                     return;
                   }
+                  // Auto-remove any daily cost form/item that has RM 0
+                  setCostLines((prev) => prev.filter((l) => l.amountSen > 0));
+                  setExpandedIndex(null);
                   setShowConfirmModal(true);
                 }}
                 className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
