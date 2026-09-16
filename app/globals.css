@@ -118,3 +118,95 @@
     display: none !important;
   }
 }
+
+/* Distilled Frameless & Flush Layout for Home Page Daily Sheet */
+.daily-sheet-canvas {
+  padding: 1rem 1rem 6rem;
+}
+.daily-sheet-canvas .space-y-4 > .bg-white.border.border-surface-border:not(.cost-entry-card) {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  padding: 0.5rem 0 !important;
+}
+.daily-sheet-canvas section {
+  border-bottom: 1px solid var(--surface-border, #e2e8f0);
+  padding-bottom: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+.daily-sheet-canvas input {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+}
+
+/* Modals and dialog overlays must always retain crisp solid surface and elevation */
+.daily-sheet-canvas [role="dialog"] .bg-white,
+.daily-sheet-canvas .fixed .bg-white {
+  background-color: #ffffff !important;
+  border: 1px solid var(--surface-border, #e2e8f0) !important;
+  border-radius: 1rem !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* High-Density Compact Quick-Entry for Fixed Expenses Page */
+.expenses-canvas {
+  padding: 0.75rem 0.75rem 5rem;
+}
+.expenses-canvas .space-y-4 {
+  gap: 0.75rem !important;
+}
+.expenses-canvas .space-y-3 {
+  gap: 0.5rem !important;
+}
+.expenses-canvas .space-y-4 > .bg-white.border.border-surface-border:not([aria-label="Month Financial Summary"]),
+.expenses-canvas section > .bg-white.border.border-surface-border,
+.expenses-canvas section.bg-white.border.border-surface-border:not([aria-label="Month Financial Summary"]) {
+  padding: 0.625rem 0.875rem !important;
+  border-radius: 10px !important;
+}
+.expenses-canvas section[aria-label="Month Financial Summary"],
+.expenses-canvas .space-y-4 > section[aria-label="Month Financial Summary"] {
+  padding: 0 !important;
+  border-radius: 0.75rem !important;
+}
+.expenses-canvas section[aria-label="Month Financial Summary"] .p-3 {
+  padding: 0.75rem 1rem !important;
+}
+.expenses-canvas input {
+  height: 2.5rem !important;
+  font-size: 0.9375rem !important;
+}
+.expenses-canvas button.min-h-\[44px\] {
+  min-height: 2.25rem !important;
+  height: 2.25rem !important;
+  padding: 0 0.75rem !important;
+  font-size: 0.8125rem !important;
+}
+
+/* Daily Trend Interactive Chart Points */
+.chart-point-interactive {
+  cursor: pointer;
+  outline: none;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (hover: hover) and (pointer: fine) {
+  .chart-point-interactive:hover .point-circle {
+    r: 6 !important;
+    fill: #1d4ed8 !important;
+  }
+  .chart-point-interactive:hover .point-guide {
+    opacity: 1 !important;
+  }
+}
+.chart-point-interactive:focus .point-circle,
+.chart-point-interactive:focus-visible .point-circle {
+  r: 6 !important;
+  fill: #1d4ed8 !important;
+}
+.chart-point-interactive:focus .point-guide,
+.chart-point-interactive:focus-visible .point-guide {
+  opacity: 1 !important;
+}

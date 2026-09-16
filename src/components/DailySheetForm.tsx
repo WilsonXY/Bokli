@@ -14,6 +14,8 @@ export interface CostLineItem {
   category: CostCategory;
   amountSen: number;
   note?: string | null;
+  clientId?: string;
+  amountInput?: string;
 }
 
 export interface DailySheetFormProps {
@@ -45,6 +47,15 @@ export function areIdsEqual(a?: number[], b?: number[]): boolean {
   return sortedA.every((val, idx) => val === sortedB[idx]);
 }
 
+export function getCostLineKey(line: CostLineItem, fallbackIndex?: number): string {
+  if (line.id !== undefined) return `cost-line-${line.id}`;
+  if (line.ids && line.ids.length > 0) return `cost-line-${line.ids.slice().sort((a, b) => a - b).join("-")}`;
+  if (line.clientId) return `cost-line-${line.clientId}`;
+  const norm = normalizeNote(line.note);
+  if (norm) return `cost-line-${line.category}-${norm}`;
+  return `cost-line-${line.category}-${fallbackIndex ?? "new"}`;
+}
+
 export function mergeCostLines(lines: CostLineItem[]): CostLineItem[] {
   const merged: CostLineItem[] = [];
   for (const line of lines) {
@@ -69,7 +80,9 @@ export function mergeCostLines(lines: CostLineItem[]): CostLineItem[] {
         category: existing.category,
         note: existing.note,
         amountSen: safeAmount,
+        amountInput: safeAmount > 0 ? senToDecimalStr(safeAmount) : "",
         ids: combinedIds,
+        clientId: existing.clientId,
       };
     } else {
       const safeAmount =
@@ -80,7 +93,9 @@ export function mergeCostLines(lines: CostLineItem[]): CostLineItem[] {
         category: line.category,
         note: normNote || null,
         amountSen: safeAmount,
+        amountInput: line.amountInput ?? (safeAmount > 0 ? senToDecimalStr(safeAmount) : ""),
         ids: lineIds,
+        clientId: line.clientId,
       });
     }
   }
@@ -113,7 +128,9 @@ export function appendOrMergeCostLine(
             category: line.category,
             note: line.note,
             amountSen: safeAmount,
+            amountInput: safeAmount > 0 ? senToDecimalStr(safeAmount) : "",
             ids: line.ids ?? (line.id !== undefined ? [line.id] : []),
+            clientId: line.clientId,
           }
         : line
     );
@@ -126,6 +143,7 @@ export function appendOrMergeCostLine(
       {
         category: newCat,
         amountSen: amountVal,
+        amountInput: amountVal > 0 ? senToDecimalStr(amountVal) : "",
         note: normNote,
         ids: [],
       },
@@ -192,15 +210,14 @@ export function DailySheetForm({
     mergeCostLines(initialCostLines)
   );
 
-  // New cost line draft
-  const [newCat, setNewCat] = useState<CostLineItem["category"]>("restock");
-  const [newAmount, setNewAmount] = useState("");
-  const [newNote, setNewNote] = useState("");
-
   // Feedback states
-  const [costLineError, setCostLineError] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
+  const [expandedIndex, setExpandedIndex] = useState<number | null>(() => {
+    const merged = mergeCostLines(initialCostLines);
+    const zeroIdx = merged.findIndex((l) => l.amountSen === 0);
+    return zeroIdx !== -1 ? zeroIdx : (merged.length === 1 ? 0 : null);
+  });
 
   // Close modals on Escape key
   useEffect(() => {
@@ -229,7 +246,6 @@ export function DailySheetForm({
   const isModified = useMemo(() => {
     if (cashInput.trim() !== baseline.cashInput.trim()) return true;
     if (tngInput.trim() !== baseline.tngInput.trim()) return true;
-    if (newAmount.trim() !== "" || newNote.trim() !== "") return true;
     if (costLines.length !== baseline.costLines.length) return true;
 
     for (let i = 0; i < costLines.length; i++) {
@@ -246,7 +262,7 @@ export function DailySheetForm({
       }
     }
     return false;
-  }, [cashInput, tngInput, newAmount, newNote, costLines, baseline]);
+  }, [cashInput, tngInput, costLines, baseline]);
 
   // Update form inputs when selected date or initial data changes
   useEffect(() => {
@@ -261,9 +277,8 @@ export function DailySheetForm({
       tngInput: tngStr,
       costLines: mergedInitial,
     });
-    setNewAmount("");
-    setNewNote("");
-    setCostLineError(null);
+    const zeroIdx = mergedInitial.findIndex((l) => l.amountSen === 0);
+    setExpandedIndex(zeroIdx !== -1 ? zeroIdx : (mergedInitial.length === 1 ? 0 : null));
     setErrorMessage(null);
   }, [date, initialCashSen, initialTngSen, initialCashInput, initialTngInput, initialCostLines]);
 
@@ -272,10 +287,6 @@ export function DailySheetForm({
     setCashInput(baseline.cashInput);
     setTngInput(baseline.tngInput);
     setCostLines(baseline.costLines);
-    setNewAmount("");
-    setNewNote("");
-    setNewCat("restock");
-    setCostLineError(null);
     setErrorMessage(null);
   }
 
@@ -294,42 +305,35 @@ export function DailySheetForm({
     (acc, line) => acc + BigInt(line.amountSen),
     0n,
   );
+  const hasZeroCostLine = costLines.some((line) => line.amountSen <= 0);
 
   const grossProfitSen =
     totalRevenueSen !== null ? totalRevenueSen - totalCostSen : null;
 
-  // Add Cost Line (merges duplicate category+note instantly)
-  function handleAddCostLine() {
-    setCostLineError(null);
-    const amountVal = toSen(newAmount);
+  // Create and expand a new empty cost line with stable clientId
+  function handleCreateNewCostLine() {
+    if (isClosed) return;
+    const newLine: CostLineItem = {
+      clientId: `line-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      category: "restock",
+      amountSen: 0,
+      amountInput: "",
+      note: "",
+      ids: [],
+    };
+    setCostLines((prev) => [...prev, newLine]);
+    setExpandedIndex(costLines.length);
+  }
 
-    if (amountVal === null || amountVal <= 0n) {
-      setCostLineError(t.invalidAmount);
-      return;
-    }
-
-    if (newCat === "other" && !newNote.trim()) {
-      setCostLineError(t.otherNoteRequired);
-      return;
-    }
-
-    const normNote = normalizeNote(newNote) || null;
-    const result = appendOrMergeCostLine(
-      costLines,
-      newCat,
-      Number(amountVal),
-      normNote,
+  // Update a specific cost line in place
+  function handleUpdateCostLine(
+    index: number,
+    patch: Partial<CostLineItem>
+  ) {
+    setExpandedIndex(index);
+    setCostLines((prev) =>
+      prev.map((line, i) => (i === index ? { ...line, ...patch } : line))
     );
-
-    if (result.error) {
-      setCostLineError(t.invalidAmount);
-      return;
-    }
-
-    setCostLines(result.lines);
-    setNewAmount("");
-    setNewNote("");
-    setCostLineError(null);
   }
 
   // Remove Cost Line
@@ -346,8 +350,11 @@ export function DailySheetForm({
       setErrorMessage(t.invalidAmount);
       return;
     }
+    if (hasZeroCostLine) {
+      setErrorMessage(t.invalidAmount);
+      return;
+    }
     setErrorMessage(null);
-    setCostLineError(null);
     setSuccessMessage(null);
 
     setSaving(true);
@@ -360,11 +367,13 @@ export function DailySheetForm({
           date,
           cashSen: Number(cashSen),
           tngSen: Number(tngSen),
-          costLines: costLines.map((l) => ({
-            category: l.category,
-            amountSen: l.amountSen,
-            note: l.note || undefined,
-          })),
+          costLines: costLines
+            .filter((l) => l.amountSen > 0)
+            .map((l) => ({
+              category: l.category,
+              amountSen: l.amountSen,
+              note: (l.note || "").trim() || undefined,
+            })),
         }),
       });
 
@@ -411,9 +420,8 @@ export function DailySheetForm({
   function navigateDate(offsetDays: number) {
     const current = new Date(`${date}T00:00:00Z`);
     current.setUTCDate(current.getUTCDate() + offsetDays);
-    const targetStr = current.toISOString().slice(0, 10);
-    if (targetStr > todayKl) return; // Block future
-    router.push(`/?date=${targetStr}`);
+    const targetDate = current.toISOString().slice(0, 10);
+    router.push(`/?date=${targetDate}`);
   }
 
   const isToday = date === todayKl;
@@ -509,7 +517,7 @@ export function DailySheetForm({
       {/* Section 1: Revenue Entry */}
       <section aria-label="Revenue Entry" className="space-y-2">
         <div className="flex items-center justify-between px-0.5">
-          <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
+          <h2 className="text-base font-bold text-ink-secondary uppercase tracking-wider">
             {t.revenueTitle}
           </h2>
           <span className="text-sm font-medium text-ink-muted">
@@ -564,7 +572,7 @@ export function DailySheetForm({
             )}
           </div>
 
-          {/* Touch 'n Go Revenue Card */}
+          {/* TnG Revenue Card */}
           <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-tng transition-all">
             <div className="flex items-center gap-1.5 mb-1.5">
               <span className="w-2 h-2 rounded-full bg-channel-tng inline-block shrink-0" />
@@ -613,267 +621,329 @@ export function DailySheetForm({
       </section>
 
       {/* Section 2: Itemized Daily Costs */}
-      <section aria-label="Daily Costs Entry" className="space-y-2">
+      <section aria-label="Daily Costs Entry" className="space-y-2.5">
+        <div className="pt-2 pb-0.5" aria-hidden="true">
+          <hr className="border-t border-surface-border" />
+        </div>
         <div className="flex items-center justify-between px-0.5">
-          <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
+          <h2 className="text-base font-bold text-ink-secondary uppercase tracking-wider">
             {t.costsTitle}
           </h2>
+          <span className="sr-only">{t.costCategory}</span>
           <span className="text-sm font-medium text-ink-muted">
-            {t.totalCosts}: <span className="font-semibold text-finance-loss">{formatMyr(totalCostSen)}</span>
+            {t.totalCosts}: <span className="font-semibold text-ink-primary">{formatMyr(totalCostSen)}</span>
           </span>
         </div>
 
-        {/* Cost Line Entry Box */}
-        {!isClosed && (
-          <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs space-y-2.5">
-            <div>
-              <span className="block text-sm font-medium text-ink-muted mb-1.5">
-                {t.costCategory ?? t.selectCategory}
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {categories.map((cat) => {
-                  const isSelected = newCat === cat.key;
-                  return (
-                    <button
-                      key={cat.key}
-                      type="button"
-                      onClick={() => {
-                        setNewCat(cat.key);
-                        if (costLineError) setCostLineError(null);
-                      }}
-                      className={`min-h-[44px] px-3.5 py-2.5 rounded-lg text-sm font-semibold border btn-wave transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
-                        isSelected
-                          ? "bg-brand-broccoli text-white border-brand-broccoli shadow-xs hover:bg-brand-broccoli-dark"
-                          : "bg-surface-subtle text-ink-secondary border-surface-border hover:border-brand-broccoli hover:text-brand-broccoli hover:bg-brand-broccoli-light/30"
+        {/* Dynamic Cost Lines (Each line has its own summary + form) */}
+        {costLines.length > 0 && (
+          <div className="space-y-2">
+            {costLines.map((line, idx) => {
+              const isZero = line.amountSen === 0;
+              const isExpanded = expandedIndex === idx || isZero;
+              return (
+                <div
+                  key={getCostLineKey(line, idx)}
+                  className={`bg-white border rounded-xl shadow-xs transition-all overflow-hidden ${
+                        isExpanded
+                          ? "border-brand-broccoli ring-2 ring-brand-broccoli/20"
+                          : "border-surface-border hover:border-slate-300"
                       }`}
                     >
-                      {cat.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+                  {/* Summary Row */}
+                      <div
+                        onClick={() => {
+                          if (isClosed) return;
+                          if (isZero) return;
+                          setExpandedIndex(isExpanded ? null : idx);
+                        }}
+                        role="button"
+                        tabIndex={isZero ? -1 : 0}
+                        aria-disabled={isZero}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            if (!isClosed && !isZero) setExpandedIndex(isExpanded ? null : idx);
+                          }
+                        }}
+                        className={`w-full px-4 py-3 flex items-center justify-between gap-2 select-none bg-white transition-colors ${
+                          isZero ? "cursor-default" : "cursor-pointer hover:bg-surface-subtle/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-5 h-5 flex items-center justify-center text-slate-400 shrink-0">
+                            <svg
+                              className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2.5"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-surface-subtle border border-surface-border text-ink-secondary whitespace-nowrap">
+                            {getCategoryLabel(line.category)}
+                          </span>
+                          {line.note && (
+                            <span className="text-sm text-ink-primary font-medium truncate">
+                              {line.note}
+                            </span>
+                          )}
+                        </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div>
-                <label className="block text-sm font-medium text-ink-muted mb-1">
-                  {t.amount}
-                </label>
-                <div className="relative flex items-center">
-                  <span className="absolute left-2.5 text-sm font-semibold text-ink-muted select-none">
-                    RM
-                  </span>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={newAmount}
-                    onChange={(e) => {
-                      const sanitized = sanitizeMoneyInput(e.target.value);
-                      if (sanitized !== null) {
-                        setNewAmount(sanitized);
-                        if (costLineError) setCostLineError(null);
-                      }
-                    }}
-                    placeholder="0.00"
-                    className="w-full h-11 pl-9 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
-                  />
-                </div>
-              </div>
+                        <div className="flex items-center gap-2.5 shrink-0">
+                          <span className="text-base font-bold text-slate-700 tabular-nums whitespace-nowrap">
+                            {formatMyr(BigInt(line.amountSen))}
+                          </span>
 
-              <div>
-                <label className="block text-sm font-medium text-ink-muted mb-1">
-                  {t.note} {newCat === "other" && <span className="text-finance-loss">({t.noteRequiredBadge})</span>}
-                </label>
-                <input
-                  type="text"
-                  value={newNote}
-                  onChange={(e) => {
-                    setNewNote(e.target.value);
-                    if (costLineError) setCostLineError(null);
-                  }}
-                  placeholder={newCat === "other" ? t.noteRequired : t.noteOptional}
-                  className="w-full h-11 px-2.5 rounded-lg bg-surface-canvas border border-surface-border text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
-                />
-              </div>
-            </div>
+                          {!isClosed && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPendingDeleteIndex(idx);
+                              }}
+                              aria-label={t.delete}
+                              title={t.delete}
+                              className="w-9 h-9 rounded-lg hover:bg-finance-loss-light text-ink-muted hover:text-finance-loss flex items-center justify-center text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      </div>
 
-            {/* Solid "Add Cost" / "添加开销" button */}
-            <button
-              type="button"
-              onClick={handleAddCostLine}
-              className="w-full h-11 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm flex items-center justify-center transition-colors shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
-            >
-              {t.addCostLine}
-            </button>
+                  {/* Expanded Form Body */}
+                      {isExpanded && !isClosed && (
+                        <div className="p-4 border-t border-surface-border bg-surface-canvas/30 space-y-3">
+                          {/* Category Selection */}
+                          <div>
+                            <span className="block text-xs font-semibold text-ink-secondary mb-2">
+                              {t.costCategory ?? t.selectCategory}
+                            </span>
+                            <div className="flex flex-wrap gap-1.5">
+                              {categories.map((cat) => {
+                                const isSelected = line.category === cat.key;
+                                return (
+                                  <button
+                                    key={cat.key}
+                                    type="button"
+                                    onClick={() => handleUpdateCostLine(idx, { category: cat.key })}
+                                    className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold border btn-wave transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
+                                      isSelected
+                                        ? "bg-brand-broccoli text-white border-brand-broccoli shadow-xs"
+                                        : "bg-surface-canvas border-surface-border text-ink-secondary hover:border-ink-muted hover:text-ink-primary"
+                                    }`}
+                                  >
+                                    {cat.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
 
-            {/* Contextual Error Message Directly Below the Cost Card Button */}
-            {costLineError && (
-              <div className="py-2 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-medium flex items-center justify-between">
-                <span>{costLineError}</span>
-                <button
-                  type="button"
-                  onClick={() => setCostLineError(null)}
-                  className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
+                          {/* Amount & Note Inputs */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                            <div>
+                              <label className="block text-xs font-semibold text-ink-secondary mb-1">
+                                {t.amount}
+                              </label>
+                              <div className="relative flex items-center">
+                                <span className="absolute left-3 text-sm font-bold text-ink-muted select-none">
+                                  RM
+                                </span>
+                                <input
+                                  type="text"
+                                  inputMode="decimal"
+                                  value={line.amountInput ?? (line.amountSen > 0 ? senToDecimalStr(line.amountSen) : "")}
+                                  onChange={(e) => {
+                                    const sanitized = sanitizeMoneyInput(e.target.value);
+                                    if (sanitized !== null) {
+                                      const sen = toSen(sanitized);
+                                      handleUpdateCostLine(idx, {
+                                        amountInput: sanitized,
+                                        amountSen: Number(sen ?? 0n),
+                                      });
+                                    }
+                                  }}
+                                  onFocus={() => setExpandedIndex(idx)}
+                                  placeholder="0.00"
+                                  className="w-full h-11 pl-10 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary tabular-nums focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50 transition-colors"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-semibold text-ink-secondary mb-1">
+                                {t.note} {line.category === "other" && <span className="text-finance-loss">*</span>}
+                              </label>
+                              <input
+                                type="text"
+                                value={line.note ?? ""}
+                                onChange={(e) => {
+                                  handleUpdateCostLine(idx, { note: e.target.value });
+                                }}
+                                onFocus={() => setExpandedIndex(idx)}
+                                placeholder={line.category === "other" ? t.noteRequired : t.noteOptional}
+                                className="w-full h-11 px-3 rounded-lg bg-surface-canvas border border-surface-border text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50 transition-colors"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+              );
+            })}
           </div>
         )}
 
-        {/* Existing Cost Lines List */}
-        <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs">
-          {costLines.length === 0 ? (
-            <div className="text-center py-5 text-sm text-ink-muted">
-              {t.noCostsRecorded}
-            </div>
-          ) : (
-            <div className="divide-y divide-surface-border">
-              {costLines.map((line, idx) => (
-                <div
-                  key={`${line.category}-${line.note || ""}-${(line.ids && line.ids.length > 0 ? line.ids.join("_") : "new")}-${idx}`}
-                  className="py-2 flex items-center justify-between gap-2"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-[13px] font-semibold px-2 py-0.5 rounded bg-surface-subtle border border-surface-border text-ink-secondary whitespace-nowrap">
-                      {getCategoryLabel(line.category)}
-                    </span>
-                    {line.note && (
-                      <span className="text-sm text-ink-muted truncate">
-                        {line.note}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2.5">
-                    <span className="text-base font-bold text-finance-loss whitespace-nowrap">
-                      {formatMyr(BigInt(line.amountSen))}
-                    </span>
-                    {!isClosed && (
-                      <button
-                        type="button"
-                        onClick={() => setPendingDeleteIndex(idx)}
-                        aria-label={t.delete}
-                        className="w-11 h-11 rounded-lg hover:bg-finance-loss-light text-ink-muted hover:text-finance-loss flex items-center justify-center text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
-                        title={t.delete}
-                      >
-                        <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+        {/* Standalone Clickable "+ Add Cost" Button at bottom: hidden if any item has RM 0 */}
+        {!isClosed && !hasZeroCostLine && (
+          <button
+            type="button"
+            onClick={handleCreateNewCostLine}
+            className="relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-emerald-50/40 hover:bg-emerald-50/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden"
+          >
+            <svg
+              className="absolute inset-0 w-full h-full pointer-events-none rounded-xl"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <rect
+                x="1"
+                y="1"
+                width="calc(100% - 2px)"
+                height="calc(100% - 2px)"
+                rx="11"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeDasharray="8 5"
+                className="text-emerald-400/90 group-hover:text-brand-broccoli transition-colors"
+              />
+            </svg>
+            <span className="text-lg leading-none relative z-10">+</span>
+            <span className="relative z-10">{t.addCostLine}</span>
+          </button>
+        )}
+        <div className="pt-2 pb-0.5" aria-hidden="true">
+          <hr className="border-t border-surface-border" />
         </div>
       </section>
 
       {/* Sticky Bottom Action Bar & Notifications */}
       <div className="sticky bottom-16 z-30 space-y-2">
-        {errorMessage && (
-          <div className="py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-md animate-slide-down">
-            <div className="flex items-center gap-2 min-w-0">
-              <svg className="w-4 h-4 shrink-0 text-finance-loss" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <span className="truncate">{errorMessage}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setErrorMessage(null)}
-              className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss w-7 h-7 flex items-center justify-center rounded-md shrink-0"
-              aria-label="Close"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
-        {successMessage && (
-          <div className="py-2.5 px-3.5 rounded-xl bg-brand-broccoli-light border border-brand-broccoli/30 text-sm text-brand-broccoli font-bold flex items-center justify-between shadow-md animate-slide-down">
-            <div className="flex items-center gap-2 min-w-0">
-              <svg className="w-4 h-4 shrink-0 text-brand-broccoli" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              <span className="truncate">{successMessage}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSuccessMessage(null)}
-              className="text-xs font-bold ml-2 text-ink-muted hover:text-brand-broccoli w-7 h-7 flex items-center justify-center rounded-md shrink-0"
-              aria-label="Close"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
-        <div className="bg-white/95 backdrop-blur-md border border-surface-border rounded-xl p-3 shadow-sm flex items-center justify-between gap-3">
-          <div>
-            <div className="text-[13px] text-ink-muted font-medium">
-              {t.grossProfit}
-            </div>
-            <div
-              className={`text-xl font-bold ${
-                grossProfitSen !== null && grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
-              }`}
-            >
-              {grossProfitSen !== null ? formatMyr(grossProfitSen) : "—"}
-            </div>
-          </div>
-
-          {!isClosed && (
-            <div className="flex items-center gap-2">
-              {isModified && (
+            {errorMessage && (
+              <div className="py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-md animate-slide-down">
+                <div className="flex items-center gap-2 min-w-0">
+                  <svg className="w-4 h-4 shrink-0 text-finance-loss" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span className="truncate">{errorMessage}</span>
+                </div>
                 <button
                   type="button"
-                  onClick={handleRevert}
-                  disabled={saving}
-                  title={t.undoChanges}
-                  aria-label={t.undoChanges}
-                  className="h-12 w-12 shrink-0 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary hover:text-ink-primary shadow-xs flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 active:scale-95 cursor-pointer disabled:opacity-50 animate-in fade-in zoom-in-95 duration-150"
+                  onClick={() => setErrorMessage(null)}
+                  className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss w-7 h-7 flex items-center justify-center rounded-md shrink-0"
+                  aria-label="Close"
                 >
-                  <svg
-                    className="w-5 h-5 text-ink-secondary"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"
-                    />
-                  </svg>
+                  ✕
                 </button>
-              )}
+              </div>
+            )}
 
-              <button
-                type="button"
-                disabled={saving || hasParseError}
-                onClick={() => {
-                  if (hasParseError || cashSen === null || tngSen === null) {
-                    setErrorMessage(t.invalidAmount);
-                    return;
-                  }
-                  setShowConfirmModal(true);
-                }}
-                className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
-              >
-                {saving ? (
-                  <span>{t.saving}</span>
-                ) : (
-                  <span>{t.saveSheet}</span>
-                )}
-              </button>
+            {successMessage && (
+              <div className="py-2.5 px-3.5 rounded-xl bg-brand-broccoli-light border border-brand-broccoli/30 text-sm text-brand-broccoli font-bold flex items-center justify-between shadow-md animate-slide-down">
+                <div className="flex items-center gap-2 min-w-0">
+                  <svg className="w-4 h-4 shrink-0 text-brand-broccoli" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="truncate">{successMessage}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSuccessMessage(null)}
+                  className="text-xs font-bold ml-2 text-ink-muted hover:text-brand-broccoli w-7 h-7 flex items-center justify-center rounded-md shrink-0"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            <div className="bg-white/95 backdrop-blur-md border border-surface-border rounded-xl p-3 shadow-sm flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[13px] text-ink-muted font-medium">
+                  {t.grossProfit}
+                </div>
+                <div
+                  className={`text-xl font-bold ${
+                    grossProfitSen !== null && grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
+                  }`}
+                >
+                  {grossProfitSen !== null ? formatMyr(grossProfitSen) : "—"}
+                </div>
+              </div>
+
+              {!isClosed && (
+                <div className="flex items-center gap-2">
+                  {isModified && (
+                    <button
+                      type="button"
+                      onClick={handleRevert}
+                      disabled={saving}
+                      title={t.undoChanges}
+                      aria-label={t.undoChanges}
+                      className="h-12 w-12 shrink-0 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary hover:text-ink-primary shadow-xs flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 active:scale-95 cursor-pointer disabled:opacity-50 animate-in fade-in zoom-in-95 duration-150"
+                    >
+                      <svg
+                        className="w-5 h-5 text-ink-secondary"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"
+                        />
+                      </svg>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={saving || hasParseError}
+                    onClick={() => {
+                      if (hasParseError || cashSen === null || tngSen === null) {
+                        setErrorMessage(t.invalidAmount);
+                        return;
+                      }
+                      if (hasZeroCostLine) {
+                        const zeroIdx = costLines.findIndex((l) => l.amountSen <= 0);
+                        if (zeroIdx !== -1) setExpandedIndex(zeroIdx);
+                        setErrorMessage(t.invalidAmount);
+                        return;
+                      }
+                      setExpandedIndex(null);
+                      setShowConfirmModal(true);
+                    }}
+                    className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
+                  >
+                    {saving ? (
+                      <span>{t.saving}</span>
+                    ) : (
+                      <span>{t.saveSheet}</span>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+
       {/* Delete Cost Line Confirmation Modal */}
       {pendingDeleteIndex !== null && costLines[pendingDeleteIndex] && (
         <div
@@ -949,40 +1019,40 @@ export function DailySheetForm({
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-modal-title"
+          aria-describedby="confirm-modal-desc"
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-slide-down"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setShowConfirmModal(false);
+            if (e.target === e.currentTarget && !saving) setShowConfirmModal(false);
           }}
         >
           <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-brand-broccoli-light flex items-center justify-center text-xl shrink-0 select-none">
-                🥦
-              </div>
-              <div className="min-w-0">
-                <h3 id="confirm-modal-title" className="text-base font-bold text-ink-primary">
-                  {t.confirmSaveTitle}
-                </h3>
-                <p className="text-xs text-ink-muted mt-0.5">
-                  {date} ({t.klTime})
-                </p>
-              </div>
+            <div className="space-y-1">
+              <h3 id="confirm-modal-title" className="text-lg font-bold text-ink-primary">
+                {t.confirmSaveTitle}
+              </h3>
+              <p id="confirm-modal-desc" className="text-xs text-ink-muted leading-relaxed">
+                {t.confirmSaveDesc}
+              </p>
             </div>
 
-            {/* Financial Summary of Today's Sheet */}
-            <div className="p-3 rounded-xl bg-surface-subtle border border-surface-border space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-ink-secondary">{t.totalRevenue}</span>
-                <span className="font-bold text-ink-primary text-base">{totalRevenueSen !== null ? formatMyr(totalRevenueSen) : "—"}</span>
+            {/* Modal Summary Info */}
+            <div className="p-3.5 rounded-xl bg-surface-subtle border border-surface-border space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-ink-secondary font-medium">{t.totalRevenue}</span>
+                <span className="font-bold text-ink-primary tabular-nums">
+                  {totalRevenueSen !== null ? formatMyr(totalRevenueSen) : "—"}
+                </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-ink-secondary">{t.totalCosts}</span>
-                <span className="font-bold text-finance-loss text-base">{formatMyr(totalCostSen)}</span>
+              <div className="flex justify-between text-sm">
+                <span className="text-ink-secondary font-medium">{t.totalCosts}</span>
+                <span className="font-bold text-ink-primary tabular-nums">
+                  {formatMyr(totalCostSen)}
+                </span>
               </div>
-              <div className="pt-2 border-t border-surface-border flex items-center justify-between">
-                <span className="font-semibold text-ink-primary">{t.grossProfit}</span>
+              <div className="pt-2 border-t border-surface-border flex justify-between text-base">
+                <span className="font-bold text-ink-primary">{t.grossProfit}</span>
                 <span
-                  className={`font-bold text-lg ${
+                  className={`font-black tabular-nums ${
                     grossProfitSen !== null && grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
                   }`}
                 >
@@ -991,33 +1061,25 @@ export function DailySheetForm({
               </div>
             </div>
 
-            <p className="text-xs text-ink-muted">
-              {t.confirmSaveDesc}
-            </p>
-
-            {/* Modal Actions */}
             <div className="flex items-center gap-2.5 pt-1">
               <button
                 type="button"
+                disabled={saving}
                 onClick={() => setShowConfirmModal(false)}
-                className="flex-1 h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary font-semibold text-sm transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+                className="flex-1 h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary font-semibold text-sm transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer disabled:opacity-50"
               >
                 {t.cancel}
               </button>
               <button
                 type="button"
-                disabled={saving || hasParseError}
-                onClick={() => {
+                disabled={saving}
+                onClick={async () => {
                   setShowConfirmModal(false);
-                  handleSave();
+                  await handleSave();
                 }}
-                className="flex-1 h-11 rounded-xl bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+                className="flex-1 h-11 rounded-xl bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer disabled:opacity-50"
               >
-                {saving ? (
-                  <span>{t.saving}</span>
-                ) : (
-                  <span>{t.confirmSaveBtn}</span>
-                )}
+                {saving ? t.saving : t.confirmSaveBtn}
               </button>
             </div>
           </div>

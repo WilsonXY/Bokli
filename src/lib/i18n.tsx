@@ -58,6 +58,8 @@ export const DICTIONARY = {
     confirmSaveBtn: "确认保存",
     confirmDeleteItemTitle: "确认删除该记录？",
     confirmDeleteItemDesc: "删除后此项金额将不再计入总计。",
+    removesRecordSingle: "删除 1 条记录",
+    removesRecordPlural: "删除 {count} 条记录",
     confirmDeleteBtn: "确认删除",
     saving: "保存中...",
     saveSuccess: "今日账单保存成功",
@@ -68,10 +70,10 @@ export const DICTIONARY = {
     forbiddenError: "没有操作权限",
     monthClosedError: "该月份已结账锁定，无法修改",
     networkError: "网络连接失败，请稍后重试",
-    invalidAmount: "请输入有效的手动金额",
+    invalidAmount: "请输入有效金额",
     otherNoteRequired: "类别为'其他'时，必须填写备注说明",
     // Dashboard
-    overviewTitle: "经营概览",
+    overviewTitle: "本月经营概览",
     monthTiles: "月份卡片",
     currentViewing: "当前查看",
     noMonthsRecorded: "暂无历史月份记录",
@@ -87,7 +89,7 @@ export const DICTIONARY = {
     noRevenueData: "本月暂无收入数据",
     costDistribution: "日常开销分布",
     noCostData: "本月暂无开销数据",
-    dailyTrend: "每日收支趋势",
+    dailyTrend: "每日收入趋势",
     noDailyEntries: "本月暂无每日账单记录",
     dateCol: "日期",
     sheetRevCol: "总收入",
@@ -201,11 +203,13 @@ export const DICTIONARY = {
     monthGrossProfit: "Month's Gross Profit",
     undoChanges: "Undo changes",
     saveSheet: "Save Sheet",
-    confirmSaveTitle: "Confirm Save Daily Sheet?",
+    confirmSaveTitle: "Confirm Save Daily Sheet? ",
     confirmSaveDesc: "Please review today's figures before saving.",
     confirmSaveBtn: "Confirm & Save",
     confirmDeleteItemTitle: "Remove this item?",
     confirmDeleteItemDesc: "This item will be removed from the total.",
+    removesRecordSingle: "removes 1 record",
+    removesRecordPlural: "removes {count} records",
     confirmDeleteBtn: "Delete",
     saving: "Saving...",
     saveSuccess: "Daily sheet saved successfully",
@@ -219,7 +223,7 @@ export const DICTIONARY = {
     invalidAmount: "Please enter a valid amount",
     otherNoteRequired: "Note is required when category is 'Other'",
     // Dashboard
-    overviewTitle: "Business Overview",
+    overviewTitle: "This Month's Overview",
     monthTiles: "Month Tiles",
     currentViewing: "Viewing",
     noMonthsRecorded: "No recorded months yet",
@@ -370,25 +374,26 @@ export function translateApiError(
   ) {
     return t.unauthorizedError;
   }
-  if (
-    lower.includes("forbidden") ||
-    lower.includes("permission") ||
-    lower.includes("role required")
-  ) {
+  if (lower.includes("forbidden") || lower.includes("permission")) {
     return t.forbiddenError;
-  }
-  if (lower.includes("note is required") || lower.includes("a note is required")) {
-    return t.varianceNoteRequired;
   }
   if (lower.includes("closed") || lower.includes("locked")) {
     return t.monthClosedError;
   }
-  if (
-    lower.includes("failed to fetch") ||
-    lower.includes("network") ||
-    lower.includes("load failed")
-  ) {
+  if (lower.includes("network") || lower.includes("fetch")) {
     return t.networkError;
   }
-  return error;
+  if (lower.includes("rate") || lower.includes("limit") || lower.includes("too many")) {
+    return t.loginRateLimited;
+  }
+  if (lower.includes("note is required") || lower.includes("variance")) {
+    return t.varianceNoteRequired;
+  }
+  if (lower.includes("reopen")) {
+    return t.reopenReasonRequired;
+  }
+  if (lower.includes("invalid amount") || lower.includes("amount")) {
+    return t.invalidAmount;
+  }
+  return t.saveError;
 }
