@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import React from "react";
 import ReactDOMServer from "react-dom/server";
+import { findMissingOtherNoteIndex } from "@/components/DailySheetForm";
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
@@ -18,7 +19,7 @@ import {
   getCostLineKey,
   type CostLineItem,
 } from "./DailySheetForm";
-import { DICTIONARY } from "@/lib/i18n";
+import { DICTIONARY, translateApiError } from "@/lib/i18n";
 
 const t = DICTIONARY.zh;
 
@@ -396,5 +397,43 @@ describe("mergeCostLines, appendOrMergeCostLine, getCostLineKey, and deletion lo
     expect(reloaded[1].note).toBe("Shell");
     expect(reloaded[2].amountInput).toBe("40");
     expect(reloaded[2].note).toBe("Stove");
+  });
+});
+
+describe("findMissingOtherNoteIndex (save gate)", () => {
+  const zh = DICTIONARY.zh;
+
+  it("returns the index of the first other-category line missing a note", () => {
+    const lines = [
+      { category: "restock" as const, note: "" },
+      { category: "other" as const, note: "   " },
+      { category: "other" as const, note: "" },
+    ];
+    expect(findMissingOtherNoteIndex(lines)).toBe(1);
+  });
+
+  it("returns -1 when every other-category line has a note (trimmed counts)", () => {
+    const lines = [
+      { category: "other" as const, note: " Petrol " },
+      { category: "restock" as const, note: "" },
+    ];
+    expect(findMissingOtherNoteIndex(lines)).toBe(-1);
+  });
+
+  it("returns -1 for non-other lines with empty notes", () => {
+    const lines = [{ category: "restock" as const, note: "" }];
+    expect(findMissingOtherNoteIndex(lines)).toBe(-1);
+  });
+
+  it("translateApiError maps the daily-sheet other-note 400 to otherNoteRequired, not varianceNoteRequired", () => {
+    const err =
+      "Note is required when Cost Category is 'other'";
+    expect(translateApiError(err, zh)).toBe(zh.otherNoteRequired);
+    expect(translateApiError(err, zh)).not.toBe(zh.varianceNoteRequired);
+  });
+
+  it("translateApiError keeps month-close variance messages on varianceNoteRequired", () => {
+    const err = "Variance detected. A note is required.";
+    expect(translateApiError(err, zh)).toBe(zh.varianceNoteRequired);
   });
 });

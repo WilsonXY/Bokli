@@ -38,6 +38,16 @@ export function normalizeNote(note?: unknown): string {
   return note.trim();
 }
 
+// Save-gate helper: index of the first "other"-category line missing its
+// required note, or -1. Used by handleSave to block the request client-side.
+export function findMissingOtherNoteIndex(
+  lines: Pick<CostLineItem, "category" | "note">[]
+): number {
+  return lines.findIndex(
+    (line) => line.category === "other" && !normalizeNote(line.note)
+  );
+}
+
 export function areIdsEqual(a?: number[], b?: number[]): boolean {
   const listA = a ?? [];
   const listB = b ?? [];
@@ -233,6 +243,15 @@ export function DailySheetForm({
   }, [showConfirmModal, pendingDeleteIndex]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [noteErrorIndex, setNoteErrorIndex] = useState<number | null>(null);
+  const noteErrorRef = useRef<HTMLInputElement | null>(null);
+
+  // Focus the offending note input when the save gate flags a missing note
+  useEffect(() => {
+    if (noteErrorIndex !== null) {
+      noteErrorRef.current?.focus();
+    }
+  }, [noteErrorIndex]);
   const [saving, setSaving] = useState(false);
 
   // Baseline state representing the saved/initial state for the selected date
@@ -330,6 +349,12 @@ export function DailySheetForm({
     index: number,
     patch: Partial<CostLineItem>
   ) {
+    if (
+      (patch.note !== undefined && index === noteErrorIndex) ||
+      (patch.category !== undefined && patch.category !== "other")
+    ) {
+      setNoteErrorIndex(null);
+    }
     setExpandedIndex(index);
     setCostLines((prev) =>
       prev.map((line, i) => (i === index ? { ...line, ...patch } : line))
@@ -339,6 +364,7 @@ export function DailySheetForm({
   // Remove Cost Line
   function handleRemoveCostLine(index: number) {
     if (isClosed) return;
+    setNoteErrorIndex(null);
     setCostLines((prev) => prev.filter((_, i) => i !== index));
   }
 
@@ -354,6 +380,16 @@ export function DailySheetForm({
       setErrorMessage(t.invalidAmount);
       return;
     }
+    const missingNoteIdx = findMissingOtherNoteIndex(costLines);
+    if (missingNoteIdx !== -1) {
+      setExpandedIndex(missingNoteIdx);
+      setNoteErrorIndex(missingNoteIdx);
+      setErrorMessage(null);
+      // Re-focus even if the same line was already flagged (effect won't refire)
+      requestAnimationFrame(() => noteErrorRef.current?.focus());
+      return;
+    }
+    setNoteErrorIndex(null);
     setErrorMessage(null);
     setSuccessMessage(null);
 
@@ -783,13 +819,29 @@ export function DailySheetForm({
                               <input
                                 type="text"
                                 value={line.note ?? ""}
+                                ref={idx === noteErrorIndex ? noteErrorRef : undefined}
+                                aria-invalid={idx === noteErrorIndex || undefined}
+                                aria-describedby={idx === noteErrorIndex ? `other-note-error-${idx}` : undefined}
                                 onChange={(e) => {
                                   handleUpdateCostLine(idx, { note: e.target.value });
                                 }}
                                 onFocus={() => setExpandedIndex(idx)}
                                 placeholder={line.category === "other" ? t.noteRequired : t.noteOptional}
-                                className="w-full h-11 px-3 rounded-lg bg-surface-canvas border border-surface-border text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50 transition-colors"
+                                className={`w-full h-11 px-3 rounded-lg bg-surface-canvas border text-sm text-ink-primary focus:outline-none focus:bg-white focus-visible:ring-2 focus-visible:ring-brand-broccoli/50 transition-colors ${
+                                  idx === noteErrorIndex
+                                    ? "border-finance-loss focus:border-finance-loss"
+                                    : "border-surface-border focus:border-ink-primary"
+                                }`}
                               />
+                              {idx === noteErrorIndex && (
+                                <p
+                                  id={`other-note-error-${idx}`}
+                                  className="text-xs text-finance-loss mt-1"
+                                  role="alert"
+                                >
+                                  {t.otherNoteRequired}
+                                </p>
+                              )}
                             </div>
                           </div>
                         </div>
