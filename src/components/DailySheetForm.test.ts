@@ -15,6 +15,8 @@ import {
   toSen,
   mergeCostLines,
   appendOrMergeCostLine,
+  validateDailySheetCostLines,
+  submitDailySheet,
   getCostLineKey,
   type CostLineItem,
 } from "./DailySheetForm";
@@ -396,5 +398,115 @@ describe("mergeCostLines, appendOrMergeCostLine, getCostLineKey, and deletion lo
     expect(reloaded[1].note).toBe("Shell");
     expect(reloaded[2].amountInput).toBe("40");
     expect(reloaded[2].note).toBe("Stove");
+  });
+});
+
+describe("Client-side pre-submit validation for 'other' category cost lines (Layer A)", () => {
+  it("validateDailySheetCostLines flags lines where category is 'other' with empty or whitespace note", () => {
+    const invalidEmpty: CostLineItem[] = [
+      { category: "restock", amountSen: 2000, note: null },
+      { category: "other", amountSen: 1500, note: "" },
+    ];
+    const res1 = validateDailySheetCostLines(invalidEmpty);
+    expect(res1.isValid).toBe(false);
+    expect(res1.invalidIndex).toBe(1);
+    expect(res1.error).toBe("otherNoteRequired");
+
+    const invalidWhitespace: CostLineItem[] = [
+      { category: "other", amountSen: 3000, note: "    " },
+    ];
+    const res2 = validateDailySheetCostLines(invalidWhitespace);
+    expect(res2.isValid).toBe(false);
+    expect(res2.invalidIndex).toBe(0);
+
+    const validLines: CostLineItem[] = [
+      { category: "other", amountSen: 1500, note: "Plastic spoons" },
+      { category: "gas", amountSen: 2000, note: null },
+    ];
+    const res3 = validateDailySheetCostLines(validLines);
+    expect(res3.isValid).toBe(true);
+    expect(res3.invalidIndex).toBeNull();
+  });
+
+  it("appendOrMergeCostLine returns error 'otherNoteRequired' when adding 'other' category without note", () => {
+    const prev: CostLineItem[] = [{ category: "gas", amountSen: 2000, note: null }];
+    const res = appendOrMergeCostLine(prev, "other", 1500, "");
+    expect(res.error).toBe("otherNoteRequired");
+    expect(res.lines).toHaveLength(1); // Not appended
+  });
+
+  it("submitDailySheet blocks network call client-side when an other-category line has an empty note", async () => {
+    const mockFetch = vi.fn();
+
+    const costLines: CostLineItem[] = [
+      { category: "restock", amountSen: 3000, note: "Flour" },
+      { category: "other", amountSen: 1200, note: "" }, // Invalid!
+    ];
+
+    const result = await submitDailySheet({
+      date: "2026-05-15",
+      cashSen: 5000n,
+      tngSen: 5000n,
+      costLines,
+      fetchFn: mockFetch as any,
+    });
+
+    // Network request must NOT be sent
+    expect(mockFetch).not.toHaveBeenCalled();
+
+    // Blocked client-side
+    expect(result.success).toBe(false);
+    expect(result.blockedClientSide).toBe(true);
+    expect(result.invalidOtherIndex).toBe(1);
+    expect(result.error).toBe("otherNoteRequired");
+  });
+
+  it("submitDailySheet permits network call when other-category line has a valid note", async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ sheet: { id: 1, cashSen: 5000, tngSen: 5000 }, costLines: [] }),
+    });
+
+    const costLines: CostLineItem[] = [
+      { category: "other", amountSen: 1200, note: "Cleaning sponge" },
+    ];
+
+    const result = await submitDailySheet({
+      date: "2026-05-15",
+      cashSen: 5000n,
+      tngSen: 5000n,
+      costLines,
+      fetchFn: mockFetch as any,
+    });
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(result.success).toBe(true);
+  });
+
+  it("DailySheetForm renders inline error, highlighted border, and never displays generic red saveError or variance message", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: [
+          { category: "other", amountSen: 2500, note: "" },
+        ],
+        isClosed: false,
+        todayKl: "2026-05-15",
+        initialNoteErrorIndex: 0,
+      })
+    );
+
+    // Shows dedicated inline error
+    expect(html).toContain(t.otherNoteRequired);
+
+    // Note input and card highlighted with error border
+    expect(html).toContain("border-finance-loss");
+    expect(html).toContain('aria-invalid="true"');
+
+    // Crucial: The scary generic save error bar and variance message must NOT appear
+    expect(html).not.toContain(t.saveError);
+    expect(html).not.toContain(t.varianceNoteRequired);
   });
 });
