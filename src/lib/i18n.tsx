@@ -71,7 +71,7 @@ export const DICTIONARY = {
     monthClosedError: "该月份已结账锁定，无法修改",
     networkError: "网络连接失败，请稍后重试",
     invalidAmount: "请输入有效金额",
-    otherNoteRequired: "「其他」分类必须填写备注",
+    otherNoteRequired: "类别为'其他'时，必须填写备注说明",
     // Dashboard
     overviewTitle: "本月经营概览",
     monthTiles: "月份卡片",
@@ -221,7 +221,7 @@ export const DICTIONARY = {
     monthClosedError: "This month is closed and locked from changes.",
     networkError: "Network connection error. Please try again later.",
     invalidAmount: "Please enter a valid amount",
-    otherNoteRequired: "A note is required for the 'Other' category",
+    otherNoteRequired: "Note is required when category is 'Other'",
     // Dashboard
     overviewTitle: "This Month's Overview",
     monthTiles: "Month Tiles",
@@ -298,22 +298,22 @@ export const DICTIONARY = {
     loginError: "Invalid username or password",
     loginRateLimited: "Too many failed attempts. Try again in 15 minutes.",
     loginNetworkError: "Sign-in failed, please retry",
-    signOut: "Sign out",
+    signOut: "Sign Out",
     showPassword: "Show password",
     hidePassword: "Hide password",
-    confirmSignOutTitle: "Confirm Sign Out?",
+    confirmSignOutTitle: "Sign out of Bokli?",
     confirmSignOutBtn: "Sign Out",
     signingOut: "Signing out...",
   },
 };
 
-export type TranslationMap = (typeof DICTIONARY)["zh"];
+export type TranslationMap = Record<keyof (typeof DICTIONARY)["zh"], string>;
 
-interface I18nContextType {
+type I18nContextType = {
   lang: Language;
   setLang: (lang: Language) => void;
   t: TranslationMap;
-}
+};
 
 const I18nContext = createContext<I18nContextType>({
   lang: "zh",
@@ -321,28 +321,26 @@ const I18nContext = createContext<I18nContextType>({
   t: DICTIONARY.zh,
 });
 
-const STORAGE_KEY = "bokli_lang";
-
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Language>("zh");
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY) as Language | null;
-      if (stored && (stored === "zh" || stored === "en")) {
+      const stored = localStorage.getItem("bokli_lang");
+      if (stored === "zh" || stored === "en") {
         setLangState(stored);
       }
     } catch {
-      // Ignore localStorage read errors (e.g. Incognito / disabled storage)
+      // localStorage unavailable (SSR/incognito)
     }
   }, []);
 
-  const setLang = (newLang: Language) => {
-    setLangState(newLang);
+  const setLang = (nextLang: Language) => {
+    setLangState(nextLang);
     try {
-      localStorage.setItem(STORAGE_KEY, newLang);
+      localStorage.setItem("bokli_lang", nextLang);
     } catch {
-      // Ignore localStorage write errors
+      // Ignore
     }
   };
 
@@ -368,14 +366,6 @@ export function translateApiError(
   t: TranslationMap
 ): string {
   if (!error) return t.saveError;
-
-  // Preserve already localized messages
-  for (const val of Object.values(t)) {
-    if (typeof val === "string" && val === error) {
-      return val;
-    }
-  }
-
   const lower = error.toLowerCase();
   if (
     lower.includes("unauthorized") ||
@@ -396,18 +386,11 @@ export function translateApiError(
   if (lower.includes("rate") || lower.includes("limit") || lower.includes("too many")) {
     return t.loginRateLimited;
   }
-  if (
-    lower.includes("reconciliation") ||
-    lower.includes("variance") ||
-    lower.includes("mismatch")
-  ) {
-    return t.varianceNoteRequired;
-  }
-  if (
-    lower.includes("note is required") ||
-    /\bother\b[^.]*note|note[^.]*\bother\b/i.test(error)
-  ) {
+  if (lower.includes("category is 'other'")) {
     return t.otherNoteRequired;
+  }
+  if (lower.includes("note is required") || lower.includes("variance")) {
+    return t.varianceNoteRequired;
   }
   if (lower.includes("reopen")) {
     return t.reopenReasonRequired;

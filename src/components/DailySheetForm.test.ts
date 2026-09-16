@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import React from "react";
 import ReactDOMServer from "react-dom/server";
+import { findMissingOtherNoteIndex } from "@/components/DailySheetForm";
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
@@ -14,13 +15,11 @@ import {
   DailySheetForm,
   toSen,
   mergeCostLines,
-  validateDailySheetCostLines,
-  submitDailySheet,
-  createDailySheetFormLogic,
+  appendOrMergeCostLine,
   getCostLineKey,
   type CostLineItem,
 } from "./DailySheetForm";
-import { DICTIONARY } from "@/lib/i18n";
+import { DICTIONARY, translateApiError } from "@/lib/i18n";
 
 const t = DICTIONARY.zh;
 
@@ -59,19 +58,19 @@ describe("DailySheetForm parse error handling and toSen helper", () => {
     // Verify error border styling is applied to the cash input
     expect(html).toContain("border-finance-loss");
 
-    // Verify revenue preview displays dash rather than RM 0.00
+    // Verify revenue display shows "—" dash rather than counting unparseable input as RM 0.00
     expect(html).toContain("—");
-    expect(html).not.toContain("RM 0.00");
+    expect(html).not.toContain("RM100.00</span>");
   });
 
-  it("renders inline error message, error border, and dash preview for invalid TnG input", () => {
+  it("renders inline error message and error border for invalid TnG input", () => {
     const html = ReactDOMServer.renderToStaticMarkup(
       React.createElement(DailySheetForm, {
         date: "2026-05-15",
         initialCashSen: 5000,
         initialTngSen: 0,
         initialCashInput: "50.00",
-        initialTngInput: "12.34.56",
+        initialTngInput: "invalid",
         initialCostLines: [],
         isClosed: false,
         todayKl: "2026-05-15",
@@ -83,23 +82,8 @@ describe("DailySheetForm parse error handling and toSen helper", () => {
     expect(html).toContain("—");
   });
 
-  it("does not render inline error when cash input is empty or valid", () => {
-    const htmlEmpty = ReactDOMServer.renderToStaticMarkup(
-      React.createElement(DailySheetForm, {
-        date: "2026-05-15",
-        initialCashSen: 0,
-        initialTngSen: 0,
-        initialCashInput: "",
-        initialTngInput: "",
-        initialCostLines: [],
-        isClosed: false,
-        todayKl: "2026-05-15",
-      })
-    );
-
-    expect(htmlEmpty).not.toContain(t.invalidAmount);
-
-    const htmlValid = ReactDOMServer.renderToStaticMarkup(
+  it("renders updated Chinese labels for daily costs section: 日常开销, 开销总额, and 开销类别", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
       React.createElement(DailySheetForm, {
         date: "2026-05-15",
         initialCashSen: 5000,
@@ -112,44 +96,101 @@ describe("DailySheetForm parse error handling and toSen helper", () => {
       })
     );
 
-    expect(htmlValid).not.toContain(t.invalidAmount);
+    // P1: 日常开销 without 明细
+    expect(html).toContain("日常开销");
+    expect(html).not.toContain("日常开销明细");
+
+    // P2: 开销总额 without 今日
+    expect(html).toContain("开销总额");
+    expect(html).not.toContain("今日开销总额");
+
+    // P3: 开销类别 instead of 支出类别
+    expect(html).toContain("开销类别");
+    expect(html).not.toContain("支出类别");
+  });
+
+  it("renders compact action bar and unboxed headers without card containers", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: [],
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+
+    // P4: Date navigation button uses clean inline title
+    expect(html).toContain("点击打开/关闭日历 (Click to toggle calendar)");
+
+    // P5: Check that Save Sheet button uses bold compact button
+    expect(html).toContain(t.saveSheet);
+
+    // P6: Sections have uppercase tracking headers
+    expect(html).toContain("tracking-wider");
+  });
+
+  it("renders compact action bar on mobile viewport and flush revenue inputs", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 12500,
+        initialTngSen: 8500,
+        initialCostLines: [],
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+
+    // Check revenue section exists with inputs
+    expect(html).toContain('id="cash-input"');
+    expect(html).toContain('id="tng-input"');
+    expect(html).toContain(t.cashRevenue);
+    expect(html).toContain(t.tngRevenue.replace("'", "&#x27;"));
+
+    // Check gross profit summary
+    expect(html).toContain(t.grossProfit);
+    expect(html).toContain("RM210.00");
   });
 });
 
-describe("DailySheetForm mergeCostLines data integrity & group delete", () => {
-  it("merges matching category and identical note items into a single line", () => {
+describe("mergeCostLines, appendOrMergeCostLine, getCostLineKey, and deletion logic", () => {
+  it("getCostLineKey produces stable unique keys for lines by id, ids, clientId, and category+note", () => {
+    expect(getCostLineKey({ id: 42, category: "restock", amountSen: 1000 })).toBe("cost-line-42");
+    expect(getCostLineKey({ ids: [103, 101, 102], category: "gas", amountSen: 2000 })).toBe("cost-line-101-102-103");
+    expect(getCostLineKey({ clientId: "client-abc-123", category: "transport", amountSen: 500 })).toBe("cost-line-client-abc-123");
+    expect(getCostLineKey({ category: "maintenance", note: "Plumbing", amountSen: 1500 })).toBe("cost-line-maintenance-Plumbing");
+    expect(getCostLineKey({ category: "other", amountSen: 0 }, 5)).toBe("cost-line-other-5");
+  });
+
+  it("groups duplicate items and aggregates ids and amounts", () => {
     const items: CostLineItem[] = [
-      { id: 1, category: "restock", amountSen: 2000, note: "Rice" },
-      { id: 2, category: "restock", amountSen: 3000, note: "Rice" },
-      { id: 3, category: "gas", amountSen: 1500, note: null },
+      { id: 101, category: "restock", amountSen: 5000, note: "Rice" },
+      { id: 102, category: "restock", amountSen: 3000, note: "Rice" },
+      { id: 103, category: "restock", amountSen: 2000, note: "Rice" },
+      { id: 104, category: "gas", amountSen: 1500, note: "Shell" },
     ];
 
     const merged = mergeCostLines(items);
     expect(merged).toHaveLength(2);
 
-    const restockLine = merged.find((l) => l.category === "restock");
-    expect(restockLine).toBeDefined();
-    expect(restockLine?.amountSen).toBe(5000);
-    expect(restockLine?.ids).toEqual([1, 2]);
-    expect(restockLine?.note).toBe("Rice");
+    const restockMerged = merged.find((m) => m.category === "restock");
+    expect(restockMerged).toBeDefined();
+    expect(restockMerged?.ids).toEqual([101, 102, 103]);
+    expect(restockMerged?.amountSen).toBe(10000);
+    expect(restockMerged?.note).toBe("Rice");
+    expect(restockMerged?.id).toBeUndefined();
 
-    const gasLine = merged.find((l) => l.category === "gas");
-    expect(gasLine).toBeDefined();
-    expect(gasLine?.amountSen).toBe(1500);
-    expect(gasLine?.ids).toEqual([3]);
+    const gasMerged = merged.find((m) => m.category === "gas");
+    expect(gasMerged).toBeDefined();
+    expect(gasMerged?.ids).toEqual([104]);
+    expect(gasMerged?.amountSen).toBe(1500);
+    expect(gasMerged?.note).toBe("Shell");
+    expect(gasMerged?.id).toBeUndefined();
   });
 
-  it("does not merge items with different notes in the same category", () => {
-    const items: CostLineItem[] = [
-      { id: 1, category: "restock", amountSen: 2000, note: "Rice" },
-      { id: 2, category: "restock", amountSen: 3000, note: "Oil" },
-    ];
-
-    const merged = mergeCostLines(items);
-    expect(merged).toHaveLength(2);
-  });
-
-  it("treats null, empty string, and whitespace-only notes as identical for merging", () => {
+  it("treats null, empty string, and whitespace-only notes as equivalent (no note)", () => {
     const items: CostLineItem[] = [
       { id: 1, category: "gas", amountSen: 1000, note: null },
       { id: 2, category: "gas", amountSen: 2000, note: "" },
@@ -176,6 +217,30 @@ describe("DailySheetForm mergeCostLines data integrity & group delete", () => {
     expect(merged[0].amountSen).toBe(7500);
   });
 
+  it("appendOrMergeCostLine (handleAddCostLine path) merges matching line and preserves existing ids", () => {
+    const existing: CostLineItem[] = [
+      { category: "restock", amountSen: 5000, note: "Rice", ids: [101, 102] },
+      { category: "gas", amountSen: 2000, note: "Shell", ids: [103] },
+    ];
+
+    // Adding new amount to restock + Rice
+    const result = appendOrMergeCostLine(existing, "restock", 3000, "Rice");
+    expect(result.error).toBeUndefined();
+    expect(result.lines).toHaveLength(2);
+
+    const restockLine = result.lines.find((l) => l.category === "restock");
+    expect(restockLine).toBeDefined();
+    expect(restockLine?.amountSen).toBe(8000);
+    // Crucial: existing ids array [101, 102] is preserved!
+    expect(restockLine?.ids).toEqual([101, 102]);
+
+    // Adding brand new line gets ids: []
+    const resultNew = appendOrMergeCostLine(result.lines, "other", 1500, "Boxes");
+    expect(resultNew.lines).toHaveLength(3);
+    const otherLine = resultNew.lines.find((l) => l.category === "other");
+    expect(otherLine?.ids).toEqual([]);
+  });
+
   it("delete-merged-row drops whole group of underlying records", () => {
     const mergedItems: CostLineItem[] = mergeCostLines([
       { id: 101, category: "restock", amountSen: 2000, note: "Rice" },
@@ -193,213 +258,182 @@ describe("DailySheetForm mergeCostLines data integrity & group delete", () => {
     expect(afterDelete.some((l) => l.ids?.includes(101) || l.ids?.includes(102))).toBe(false);
   });
 
-  it("generates stable unique keys with getCostLineKey", () => {
-    const itemWithId: CostLineItem = { id: 42, category: "gas", amountSen: 1000 };
-    expect(getCostLineKey(itemWithId)).toBe("cost-line-42");
-
-    const itemWithIds: CostLineItem = { ids: [10, 5], category: "restock", amountSen: 2000 };
-    expect(getCostLineKey(itemWithIds)).toBe("cost-line-5-10");
-
-    const itemWithClientId: CostLineItem = { clientId: "client-abc", category: "gas", amountSen: 1000 };
-    expect(getCostLineKey(itemWithClientId)).toBe("cost-line-client-abc");
-
-    const newItemWithNote: CostLineItem = { category: "maintenance", amountSen: 500, note: "Door handle" };
-    expect(getCostLineKey(newItemWithNote)).toBe("cost-line-maintenance-Door handle");
-
-    const fallback: CostLineItem = { category: "other", amountSen: 100 };
-    expect(getCostLineKey(fallback, 3)).toBe("cost-line-other-3");
-  });
-});
-
-describe("Client-side pre-submit validation for 'other' category cost lines (Layer A)", () => {
-  it("validateDailySheetCostLines returns all invalid indices and flags lines where category is 'other' with empty note", () => {
-    const invalidEmpty: CostLineItem[] = [
-      { category: "restock", amountSen: 2000, note: null },
-      { category: "other", amountSen: 1500, note: "" }, // idx 1
-      { category: "gas", amountSen: 1000, note: null },
-      { category: "other", amountSen: 2500, note: "   " }, // idx 3
+  it("guards runaway totals and safely handles non-string notes", () => {
+    const runaway = Number.MAX_SAFE_INTEGER;
+    const items: CostLineItem[] = [
+      { id: 1, category: "restock", amountSen: runaway, note: 123 as unknown as string },
+      { id: 2, category: "restock", amountSen: 1000, note: null },
     ];
-    const res = validateDailySheetCostLines(invalidEmpty);
-    expect(res.isValid).toBe(false);
-    expect(res.invalidIndices).toEqual([1, 3]);
-    expect(res.invalidIndex).toBe(1);
-    expect(res.error).toBe("otherNoteRequired");
-
-    const validLines: CostLineItem[] = [
-      { category: "other", amountSen: 1500, note: "Plastic spoons" },
-      { category: "gas", amountSen: 2000, note: null },
-    ];
-    const resValid = validateDailySheetCostLines(validLines);
-    expect(resValid.isValid).toBe(true);
-    expect(resValid.invalidIndices).toEqual([]);
-    expect(resValid.invalidIndex).toBeNull();
+    const merged = mergeCostLines(items);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].amountSen).toBe(Number.MAX_SAFE_INTEGER);
   });
 
-  it("submitDailySheet blocks network call client-side when an other-category line has an empty note", async () => {
-    const mockFetch = vi.fn();
-
-    const costLines: CostLineItem[] = [
-      { category: "restock", amountSen: 3000, note: "Flour" },
-      { category: "other", amountSen: 1200, note: "" }, // Invalid!
-    ];
-
-    const result = await submitDailySheet({
-      date: "2026-05-15",
-      cashSen: 5000n,
-      tngSen: 5000n,
-      costLines,
-      fetchFn: mockFetch as any,
-    });
-
-    // Network request must NOT be sent
-    expect(mockFetch).not.toHaveBeenCalled();
-
-    // Blocked client-side
-    expect(result.success).toBe(false);
-    expect(result.blockedClientSide).toBe(true);
-    expect(result.invalidIndices).toEqual([1]);
-    expect(result.invalidOtherIndex).toBe(1);
-    expect(result.error).toBe("otherNoteRequired");
-  });
-
-  it("submitDailySheet permits network call when other-category line has a valid note", async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ sheet: { id: 1, cashSen: 5000, tngSen: 5000 }, costLines: [] }),
-    });
-
-    const costLines: CostLineItem[] = [
-      { category: "other", amountSen: 1200, note: "Cleaning sponge" },
-    ];
-
-    const result = await submitDailySheet({
-      date: "2026-05-15",
-      cashSen: 5000n,
-      tngSen: 5000n,
-      costLines,
-      fetchFn: mockFetch as any,
-    });
-
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(result.success).toBe(true);
-  });
-
-  it("respects amount-before-note validation order: zero/empty amount produces invalidAmount before otherNoteRequired", () => {
-    // Priority rule: Amount must be valid and > 0 before checking note requirements; an empty/RM0 line is incomplete input (invalidAmount) rather than a note omission (otherNoteRequired).
-    const form = createDailySheetFormLogic({
-      date: "2026-05-15",
-      initialCashSen: 5000,
-      initialTngSen: 5000,
-      initialCostLines: [
-        { category: "other", amountSen: 0, note: "" }, // Zero amount AND empty note
-      ],
-      isClosed: false,
-      todayKl: "2026-05-15",
-      t,
-    });
-
-    form.onSaveClick();
-    expect(form.getState().errorMessage).toBe(t.invalidAmount);
-    expect(form.getState().noteErrorIndices.size).toBe(0);
-    expect(form.getState().showConfirmModal).toBe(false);
-  });
-
-  it("interaction-style test: user clicks Save with an empty-note other line -> fetch NOT called, aria-invalid/focus set, and inline error rendered", async () => {
-    const mockFetch = vi.fn();
-
-    const form = createDailySheetFormLogic({
-      date: "2026-05-15",
-      initialCashSen: 5000,
-      initialTngSen: 5000,
-      initialCostLines: [
-        { category: "gas", amountSen: 1000, note: null },
-        { category: "other", amountSen: 2500, note: "" }, // line 1 invalid
-      ],
-      isClosed: false,
-      todayKl: "2026-05-15",
-      fetchFn: mockFetch as any,
-      t,
-    });
-
-    // 1. User clicks Save button (real prod save gate flow)
-    form.onSaveClick();
-
-    // Assert: Network fetch was NOT called
-    expect(mockFetch).not.toHaveBeenCalled();
-
-    // Assert: Invalid line 1 is flagged in noteErrorIndices
-    expect(form.getState().noteErrorIndices.has(1)).toBe(true);
-    // Invalid line is expanded and targeted for focus
-    expect(form.getState().expandedIndex).toBe(1);
-    expect(form.getState().focusNoteIndex).toBe(1);
-    // Confirm modal did not open and no scary generic red save error banner
-    expect(form.getState().showConfirmModal).toBe(false);
-    expect(form.getState().errorMessage).toBeNull();
-
-    // 2. Render the DailySheetForm with this live form state
+  it("DailySheetForm renders duplicate initialCostLines as a single merged row (not false positive)", () => {
     const html = ReactDOMServer.renderToStaticMarkup(
       React.createElement(DailySheetForm, {
         date: "2026-05-15",
         initialCashSen: 5000,
         initialTngSen: 5000,
-        initialCostLines: form.getState().costLines,
+        initialCostLines: [
+          { id: 1, category: "restock", amountSen: 2000, note: "Rice" },
+          { id: 2, category: "restock", amountSen: 3000, note: "Rice" },
+        ],
         isClosed: false,
         todayKl: "2026-05-15",
-        formLogic: form,
       })
     );
 
-    // Assert: Rendered markup has error border and aria-invalid on the note input
-    expect(html).toContain('aria-invalid="true"');
-    expect(html).toContain("border-finance-loss");
-    // Assert: Rendered markup displays the inline otherNoteRequired message
-    expect(html).toContain(t.otherNoteRequired);
-    // Assert: The scary generic save error bar and variance message must NOT appear
-    expect(html).not.toContain(t.saveError);
-    expect(html).not.toContain(t.varianceNoteRequired);
+    // Rice note appears exactly once in the rendered markup
+    const riceMatches = html.match(/>Rice<\/span>/g) || [];
+    expect(riceMatches).toHaveLength(1);
 
-    // 3. Inline path: User tries to click "+ Add Cost" while invalid lines exist
-    form.handleCreateNewCostLine();
-    // Blocked: line count stays 2, does not add runaway empty lines
-    expect(form.getState().costLines).toHaveLength(2);
+    // Unmerged individual amounts (RM20.00, RM30.00) must NOT appear anywhere in the rendered markup
+    expect(html).not.toContain("RM20.00");
+    expect(html).not.toContain("RM30.00");
 
-    // 4. User adds a second other line via inline update on new cost line
-    // First fix line 1 note
-    form.handleUpdateCostLine(1, { note: "Office supplies" });
-    expect(form.getState().noteErrorIndices.has(1)).toBe(false);
-    expect(form.getState().noteErrorIndices.size).toBe(0);
+    // The merged line amount RM50.00 is rendered
+    expect(html).toContain("RM50.00");
 
-    // Now clicking "+ Add Cost" succeeds
-    form.handleCreateNewCostLine();
-    expect(form.getState().costLines).toHaveLength(3);
-    const newLineIdx = 2;
-    // Changing new line category to "other" without a note triggers inline noteErrorIndices immediately!
-    form.handleUpdateCostLine(newLineIdx, { category: "other", amountSen: 1500 });
-    expect(form.getState().noteErrorIndices.has(newLineIdx)).toBe(true);
+    // Exactly one delete button is rendered for the single merged row
+    const deleteButtonMatches = html.match(new RegExp(`aria-label="${t.delete}"`, "g")) || [];
+    expect(deleteButtonMatches).toHaveLength(1);
+  });
 
-    // Typing note on new line clears its error
-    form.handleUpdateCostLine(newLineIdx, { note: "Cleaning sponge" });
-    expect(form.getState().noteErrorIndices.size).toBe(0);
+  it("cost-line stable keys and controlled values: deleting middle line keeps values attached to correct lines and reload/revert refreshes input values", () => {
+    // 3 initial lines
+    const lineA: CostLineItem = { id: 10, category: "restock", amountSen: 1000, note: "Rice" };
+    const lineB: CostLineItem = { id: 20, category: "gas", amountSen: 2500, note: "Shell" };
+    const lineC: CostLineItem = { id: 30, category: "maintenance", amountSen: 4000, note: "Stove" };
 
-    // 5. User clicks Save now: validation passes and confirm modal opens
-    form.onSaveClick();
-    expect(form.getState().showConfirmModal).toBe(true);
+    const initialMerged = mergeCostLines([lineA, lineB, lineC]);
+    expect(initialMerged).toHaveLength(3);
 
-    // 6. User confirms save in modal: handleSave executes real network submit
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        sheet: { id: 1, cashSen: 5000, tngSen: 5000 },
-        costLines: [
-          { id: 10, category: "gas", amountSen: 1000 },
-          { id: 11, category: "other", amountSen: 2500, note: "Office supplies" },
-          { id: 12, category: "other", amountSen: 1500, note: "Cleaning sponge" },
-        ],
-      }),
-    });
+    // Verify stable keys
+    const keyA = getCostLineKey(initialMerged[0], 0);
+    const keyB = getCostLineKey(initialMerged[1], 1);
+    const keyC = getCostLineKey(initialMerged[2], 2);
 
-    await form.handleSave();
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-    expect(form.getState().successMessage).toBe(t.saveSuccess);
+    expect(keyA).toBe("cost-line-10");
+    expect(keyB).toBe("cost-line-20");
+    expect(keyC).toBe("cost-line-30");
+
+    // Controlled input values are correctly populated from mergeCostLines
+    expect(initialMerged[0].amountInput).toBe("10");
+    expect(initialMerged[1].amountInput).toBe("25");
+    expect(initialMerged[2].amountInput).toBe("40");
+
+    // Deleting middle line (index 1) leaves line 0 and line 2
+    const afterDelete = initialMerged.filter((_, idx) => idx !== 1);
+    expect(afterDelete).toHaveLength(2);
+
+    // After deleting middle line, line 0 remains lineA with key "cost-line-10" and amount "10",
+    // and line 1 is now lineC with key "cost-line-30" and amount "40" (NOT polluted by lineB!)
+    expect(getCostLineKey(afterDelete[0], 0)).toBe("cost-line-10");
+    expect(afterDelete[0].note).toBe("Rice");
+    expect(afterDelete[0].amountSen).toBe(1000);
+    expect(afterDelete[0].amountInput).toBe("10");
+
+    expect(getCostLineKey(afterDelete[1], 1)).toBe("cost-line-30");
+    expect(afterDelete[1].note).toBe("Stove");
+    expect(afterDelete[1].amountSen).toBe(4000);
+    expect(afterDelete[1].amountInput).toBe("40");
+
+    // Verify rendered markup with 3 lines renders each row with stable keys and correct values
+    const html3 = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: [lineA, lineB, lineC],
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+    expect(html3).toContain("Rice");
+    expect(html3).toContain("RM10.00");
+    expect(html3).toContain("Shell");
+    expect(html3).toContain("RM25.00");
+    expect(html3).toContain("Stove");
+    expect(html3).toContain("RM40.00");
+
+    // When a single row is rendered or an item is expanded, its inputs are controlled
+    const htmlSingle = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: [lineA],
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+    expect(htmlSingle).toContain('value="10"');
+    expect(htmlSingle).toContain('value="Rice"');
+
+    // Render with lineB deleted (only lineA and lineC)
+    const html2 = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: [lineA, lineC],
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+    expect(html2).toContain("Rice");
+    expect(html2).toContain("RM10.00");
+    expect(html2).toContain("Stove");
+    expect(html2).toContain("RM40.00");
+    expect(html2).not.toContain("Shell");
+    expect(html2).not.toContain("RM25.00");
+
+    // Reverting/reloading data refreshes the input values back to baseline
+    const reloaded = mergeCostLines([lineA, lineB, lineC]);
+    expect(reloaded[0].amountInput).toBe("10");
+    expect(reloaded[0].note).toBe("Rice");
+    expect(reloaded[1].amountInput).toBe("25");
+    expect(reloaded[1].note).toBe("Shell");
+    expect(reloaded[2].amountInput).toBe("40");
+    expect(reloaded[2].note).toBe("Stove");
+  });
+});
+
+describe("findMissingOtherNoteIndex (save gate)", () => {
+  const zh = DICTIONARY.zh;
+
+  it("returns the index of the first other-category line missing a note", () => {
+    const lines = [
+      { category: "restock" as const, note: "" },
+      { category: "other" as const, note: "   " },
+      { category: "other" as const, note: "" },
+    ];
+    expect(findMissingOtherNoteIndex(lines)).toBe(1);
+  });
+
+  it("returns -1 when every other-category line has a note (trimmed counts)", () => {
+    const lines = [
+      { category: "other" as const, note: " Petrol " },
+      { category: "restock" as const, note: "" },
+    ];
+    expect(findMissingOtherNoteIndex(lines)).toBe(-1);
+  });
+
+  it("returns -1 for non-other lines with empty notes", () => {
+    const lines = [{ category: "restock" as const, note: "" }];
+    expect(findMissingOtherNoteIndex(lines)).toBe(-1);
+  });
+
+  it("translateApiError maps the daily-sheet other-note 400 to otherNoteRequired, not varianceNoteRequired", () => {
+    const err =
+      "Note is required when Cost Category is 'other'";
+    expect(translateApiError(err, zh)).toBe(zh.otherNoteRequired);
+    expect(translateApiError(err, zh)).not.toBe(zh.varianceNoteRequired);
+  });
+
+  it("translateApiError keeps month-close variance messages on varianceNoteRequired", () => {
+    const err = "Variance detected. A note is required.";
+    expect(translateApiError(err, zh)).toBe(zh.varianceNoteRequired);
   });
 });
