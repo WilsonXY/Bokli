@@ -483,183 +483,196 @@ export function DashboardView({
                 {/* SVG Line Chart */}
                 <div className="w-full overflow-x-auto pb-2">
                   <svg
-                    viewBox={`0 0 ${chartW} ${chartH + 20}`}
-                    className="w-full h-auto overflow-visible min-w-[340px]"
-                    onPointerLeave={(e) => {
-                      if (e.pointerType === "mouse") {
-                        setActiveDate(null);
-                      }
-                    }}
-                    onClick={(e) => {
-                      if (e.target === e.currentTarget) {
-                        setActiveDate(null);
-                      }
-                    }}
-                  >
-                    <defs>
-                      <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#2563eb" stopOpacity="0.25" />
-                        <stop offset="100%" stopColor="#2563eb" stopOpacity="0.0" />
-                      </linearGradient>
-                      <filter id="shadowP1" x="-10%" y="-10%" width="130%" height="130%">
-                        <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.1" />
-                      </filter>
-                    </defs>
+                        viewBox={`0 0 ${chartW} ${chartH + 20}`}
+                        className="w-full h-auto overflow-visible min-w-[340px]"
+                        onPointerLeave={(e) => {
+                          if (e.pointerType === "mouse") {
+                            setActiveDate(null);
+                          }
+                        }}
+                        onClick={(e) => {
+                          if (e.target === e.currentTarget) {
+                            setActiveDate(null);
+                          }
+                        }}
+                      >
+                        <defs>
+                          <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#2563eb" stopOpacity="0.25" />
+                            <stop offset="100%" stopColor="#2563eb" stopOpacity="0.0" />
+                          </linearGradient>
+                          <filter id="shadowP1" x="-10%" y="-10%" width="130%" height="130%">
+                            <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.1" />
+                          </filter>
+                        </defs>
 
-                    {/* Area fill */}
-                    {trendAreaPath && (
-                      <path d={trendAreaPath} fill="url(#trendGradient)" />
-                    )}
+                        {/* Area fill */}
+                        {trendAreaPath && (
+                          <path d={trendAreaPath} fill="url(#trendGradient)" />
+                        )}
 
-                    {/* Baseline */}
-                    <line
-                      x1={padX}
-                      y1={chartH - padBot}
-                      x2={chartW - padX}
-                      y2={chartH - padBot}
-                      stroke="#e2e8f0"
-                      strokeWidth="1"
-                    />
+                        {/* Baseline */}
+                        <line
+                          x1={padX}
+                          y1={chartH - padBot}
+                          x2={chartW - padX}
+                          y2={chartH - padBot}
+                          stroke="#e2e8f0"
+                          strokeWidth="1"
+                        />
 
-                    {/* Line stroke */}
-                    {trendLinePath && (
-                      <path
-                        d={trendLinePath}
-                        fill="none"
-                        stroke="#2563eb"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    )}
-
-                    {/* Base Data Points Layer */}
-                    {trendCoords.map((pt) => {
-                      const isActive = activeDate === pt.date;
-                      return (
-                        <g
-                          key={pt.date}
-                          role="button"
-                          aria-label={`${pt.date}: RM${(pt.totalSen / 100).toFixed(2)}`}
-                          aria-pressed={isActive}
-                          tabIndex={0}
-                          className="chart-point-interactive"
-                          style={{ touchAction: "manipulation" }}
-                          onPointerEnter={(e) => {
-                            if (e.pointerType === "mouse") {
-                              setActiveDate(pt.date);
-                            }
-                          }}
-                          onTouchStart={(e) => {
-                            const t = e.touches[0];
-                            (e.currentTarget as unknown as { _touchStart: { x: number; y: number } })._touchStart = {
-                              x: t.clientX,
-                              y: t.clientY,
-                            };
-                          }}
-                          onTouchEnd={(e) => {
-                            const target = e.currentTarget as unknown as { _touchStart?: { x: number; y: number } };
-                            const start = target._touchStart;
-                            const t = e.changedTouches[0];
-                            const dist = start ? Math.hypot(t.clientX - start.x, t.clientY - start.y) : 0;
-                            if (dist < 12) {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setActiveDate((prev) => (prev === pt.date ? null : pt.date));
-                            }
-                          }}
-                          onFocus={() => setActiveDate(pt.date)}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveDate((prev) => (prev === pt.date ? null : pt.date));
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === " ") {
-                              e.preventDefault();
-                              setActiveDate((prev) => (prev === pt.date ? null : pt.date));
-                            }
-                          }}
-                        >
-                          <circle cx={pt.x} cy={pt.y} r="24" fill="transparent" />
-                          <circle
-                            cx={pt.x}
-                            cy={pt.y}
-                            r="10"
-                            fill="#bfdbfe"
-                            opacity={isActive ? "0.8" : "0.6"}
-                            className={`point-guide ${isActive ? "opacity-100" : "opacity-0"} transition-opacity duration-150`}
+                        {/* Line stroke */}
+                        {trendLinePath && (
+                          <path
+                            d={trendLinePath}
+                            fill="none"
+                            stroke="#2563eb"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
                           />
-                          <line x1={pt.x} y1={chartH - 14} x2={pt.x} y2={chartH - 10} stroke="#cbd5e1" strokeWidth="1" />
-                          <circle
-                            cx={pt.x}
-                            cy={pt.y}
-                            r={isActive ? "5.5" : "3.5"}
-                            fill={isActive ? "#1d4ed8" : "#2563eb"}
-                            stroke="#ffffff"
-                            strokeWidth="1.5"
-                            className="point-circle drop-shadow-xs transition-all duration-150"
-                          />
-                          <text
-                            transform={`rotate(-45 ${pt.x} ${chartH + 2})`}
-                            x={pt.x}
-                            y={chartH + 2}
-                            textAnchor="end"
-                            fontSize="8.5"
-                            fontWeight={isActive ? "700" : "600"}
-                            fill={isActive ? "#0f172a" : "#64748b"}
-                            className="select-none transition-colors"
-                          >
-                            {pt.shortDate}
-                          </text>
-                        </g>
-                      );
-                    })}
+                        )}
 
-                    {/* Dedicated Top-Level Tooltip Overlay (Never Obscured by Subsequent Circles) */}
-                    {highlightedPoint && (() => {
-                      const tipW = 144;
-                      const tipH = 54;
-                      const tipX = Math.max(4, Math.min(chartW - tipW - 4, highlightedPoint.x - tipW / 2));
-                      const tipY = highlightedPoint.y - tipH - 10 >= 2 ? highlightedPoint.y - tipH - 10 : highlightedPoint.y + 12;
+                        {/* Base Data Points Layer */}
+                        {trendCoords.map((pt, idx) => {
+                          const isActive = activeDate === pt.date;
+                          const isFirst = idx === 0;
+                          const isLast = idx === trendCoords.length - 1;
+                          const dayNum = parseInt(pt.date.slice(8), 10);
+                          const showDate = isFirst || isLast || idx % 3 === 0 || isActive;
+                          return (
+                            <g
+                              key={pt.date}
+                              role="button"
+                              aria-label={`${pt.date}: RM${(pt.totalSen / 100).toFixed(2)}`}
+                              aria-pressed={isActive}
+                              tabIndex={0}
+                              className="chart-point-interactive"
+                              style={{ touchAction: "manipulation" }}
+                              onPointerEnter={(e) => {
+                                if (e.pointerType === "mouse") {
+                                  setActiveDate(pt.date);
+                                }
+                              }}
+                              onTouchStart={(e) => {
+                                const t = e.touches[0];
+                                (e.currentTarget as unknown as { _touchStart: { x: number; y: number } })._touchStart = {
+                                  x: t.clientX,
+                                  y: t.clientY,
+                                };
+                              }}
+                              onTouchEnd={(e) => {
+                                const target = e.currentTarget as unknown as { _touchStart?: { x: number; y: number } };
+                                const start = target._touchStart;
+                                const t = e.changedTouches[0];
+                                const dist = start ? Math.hypot(t.clientX - start.x, t.clientY - start.y) : 0;
+                                if (dist < 12) {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setActiveDate((prev) => (prev === pt.date ? null : pt.date));
+                                }
+                              }}
+                              onFocus={() => setActiveDate(pt.date)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setActiveDate((prev) => (prev === pt.date ? null : pt.date));
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  setActiveDate((prev) => (prev === pt.date ? null : pt.date));
+                                }
+                              }}
+                            >
+                              <circle cx={pt.x} cy={pt.y} r="24" fill="transparent" />
+                              <circle
+                                cx={pt.x}
+                                cy={pt.y}
+                                r="10"
+                                fill="#bfdbfe"
+                                opacity={isActive ? "0.8" : "0.6"}
+                                className={`point-guide ${isActive ? "opacity-100" : "opacity-0"} transition-opacity duration-150`}
+                              />
+                              <line
+                                x1={pt.x}
+                                y1={showDate ? chartH - 14 : chartH - 12}
+                                x2={pt.x}
+                                y2={chartH - 10}
+                                stroke={isActive ? "#2563eb" : showDate ? "#cbd5e1" : "#e2e8f0"}
+                                strokeWidth="1"
+                              />
+                              <circle
+                                cx={pt.x}
+                                cy={pt.y}
+                                r={isActive ? "5.5" : "3.5"}
+                                fill={isActive ? "#1d4ed8" : "#2563eb"}
+                                stroke="#ffffff"
+                                strokeWidth="1.5"
+                                className="point-circle drop-shadow-xs transition-all duration-150"
+                              />
+                              {showDate && (
+                                <text
+                                  transform={`rotate(-45 ${pt.x} ${chartH + 2})`}
+                                  x={pt.x}
+                                  y={chartH + 2}
+                                  textAnchor="end"
+                                  fontSize="8.5"
+                                  fontWeight={isActive ? "700" : "600"}
+                                  fill={isActive ? "#0f172a" : "#64748b"}
+                                  className="select-none transition-colors"
+                                >
+                                  {pt.shortDate}
+                                </text>
+                              )}
+                            </g>
+                          );
+                        })}
 
-                      return (
-                        <g className="pointer-events-none transition-all duration-150">
-                          <rect
-                            x={tipX}
-                            y={tipY}
-                            width={tipW}
-                            height={tipH}
-                            rx="10"
-                            fill="#ffffff"
-                            stroke="#cbd5e1"
-                            strokeWidth="1.2"
-                            filter="url(#shadowP1)"
-                          />
-                          <text
-                            x={tipX + 14}
-                            y={tipY + 19}
-                            textAnchor="start"
-                            fontSize="12"
-                            fontWeight="600"
-                            fill="#64748b"
-                            className="select-none"
-                          >
-                            {highlightedPoint.date}
-                          </text>
-                          <text
-                            x={tipX + 14}
-                            y={tipY + 42}
-                            textAnchor="start"
-                            fontSize="17"
-                            fontWeight="800"
-                            fill="#0f172a"
-                            className="select-none tabular-nums"
-                          >
-                            RM{(highlightedPoint.totalSen / 100).toFixed(2)}
-                          </text>
-                        </g>
-                      );
-                    })()}
+                        {/* Dedicated Top-Level Tooltip Overlay (Never Obscured by Subsequent Circles) */}
+                        {highlightedPoint && (() => {
+                          const tipW = 144;
+                          const tipH = 54;
+                          const tipX = Math.max(4, Math.min(chartW - tipW - 4, highlightedPoint.x - tipW / 2));
+                          const tipY = highlightedPoint.y - tipH - 10 >= 2 ? highlightedPoint.y - tipH - 10 : highlightedPoint.y + 12;
+
+                          return (
+                            <g className="pointer-events-none transition-all duration-150">
+                              <rect
+                                x={tipX}
+                                y={tipY}
+                                width={tipW}
+                                height={tipH}
+                                rx="10"
+                                fill="#ffffff"
+                                stroke="#cbd5e1"
+                                strokeWidth="1.2"
+                                filter="url(#shadowP1)"
+                              />
+                              <text
+                                x={tipX + 14}
+                                y={tipY + 19}
+                                textAnchor="start"
+                                fontSize="12"
+                                fontWeight="600"
+                                fill="#64748b"
+                                className="select-none"
+                              >
+                                {highlightedPoint.date}
+                              </text>
+                              <text
+                                x={tipX + 14}
+                                y={tipY + 42}
+                                textAnchor="start"
+                                fontSize="17"
+                                fontWeight="800"
+                                fill="#0f172a"
+                                className="select-none tabular-nums"
+                              >
+                                RM{(highlightedPoint.totalSen / 100).toFixed(2)}
+                              </text>
+                            </g>
+                          );
+                        })()}
                   </svg>
 
 

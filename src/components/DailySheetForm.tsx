@@ -378,6 +378,10 @@ export function DailySheetForm({
       setErrorMessage(t.invalidAmount);
       return;
     }
+    if (hasZeroCostLine) {
+      setErrorMessage(t.invalidAmount);
+      return;
+    }
     setErrorMessage(null);
     setCostLineError(null);
     setSuccessMessage(null);
@@ -657,7 +661,7 @@ export function DailySheetForm({
           </h2>
           <span className="sr-only">{t.costCategory}</span>
           <span className="text-sm font-medium text-ink-muted">
-            {t.totalCosts}: <span className="font-semibold text-finance-loss">{formatMyr(totalCostSen)}</span>
+            {t.totalCosts}: <span className="font-semibold text-ink-primary">{formatMyr(totalCostSen)}</span>
           </span>
         </div>
 
@@ -829,7 +833,7 @@ export function DailySheetForm({
           <button
             type="button"
             onClick={handleCreateNewCostLine}
-            className="relative w-full py-3 px-4 rounded-xl bg-emerald-50/40 hover:bg-emerald-50/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden"
+            className="relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-emerald-50/40 hover:bg-emerald-50/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden"
           >
             <svg
               className="absolute inset-0 w-full h-full pointer-events-none rounded-xl"
@@ -852,117 +856,123 @@ export function DailySheetForm({
             <span className="relative z-10">{t.addCostLine}</span>
           </button>
         )}
-      </section>
-
-      {/* Sticky Bottom Action Bar & Notifications */}
-      <div className="sticky bottom-16 z-30 space-y-2">
-        {errorMessage && (
-          <div className="py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-md animate-slide-down">
-            <div className="flex items-center gap-2 min-w-0">
-              <svg className="w-4 h-4 shrink-0 text-finance-loss" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <span className="truncate">{errorMessage}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setErrorMessage(null)}
-              className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss w-7 h-7 flex items-center justify-center rounded-md shrink-0"
-              aria-label="Close"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
-        {successMessage && (
-          <div className="py-2.5 px-3.5 rounded-xl bg-brand-broccoli-light border border-brand-broccoli/30 text-sm text-brand-broccoli font-bold flex items-center justify-between shadow-md animate-slide-down">
-            <div className="flex items-center gap-2 min-w-0">
-              <svg className="w-4 h-4 shrink-0 text-brand-broccoli" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              <span className="truncate">{successMessage}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSuccessMessage(null)}
-              className="text-xs font-bold ml-2 text-ink-muted hover:text-brand-broccoli w-7 h-7 flex items-center justify-center rounded-md shrink-0"
-              aria-label="Close"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
         <div className="pt-2 pb-0.5" aria-hidden="true">
           <hr className="border-t border-surface-border" />
         </div>
-        <div className="bg-white/95 backdrop-blur-md border border-surface-border rounded-xl p-3 shadow-sm flex items-center justify-between gap-3">
-          <div>
-            <div className="text-[13px] text-ink-muted font-medium">
-              {t.grossProfit}
-            </div>
-            <div
-              className={`text-xl font-bold ${
-                grossProfitSen !== null && grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
-              }`}
-            >
-              {grossProfitSen !== null ? formatMyr(grossProfitSen) : "—"}
+      </section>
+
+      {/* Sticky Bottom Action Bar & Notifications */}
+
+      <div className="sticky bottom-16 z-30 space-y-2">
+            {errorMessage && (
+              <div className="py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-md animate-slide-down">
+                <div className="flex items-center gap-2 min-w-0">
+                  <svg className="w-4 h-4 shrink-0 text-finance-loss" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <span className="truncate">{errorMessage}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setErrorMessage(null)}
+                  className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss w-7 h-7 flex items-center justify-center rounded-md shrink-0"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {successMessage && (
+              <div className="py-2.5 px-3.5 rounded-xl bg-brand-broccoli-light border border-brand-broccoli/30 text-sm text-brand-broccoli font-bold flex items-center justify-between shadow-md animate-slide-down">
+                <div className="flex items-center gap-2 min-w-0">
+                  <svg className="w-4 h-4 shrink-0 text-brand-broccoli" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="truncate">{successMessage}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSuccessMessage(null)}
+                  className="text-xs font-bold ml-2 text-ink-muted hover:text-brand-broccoli w-7 h-7 flex items-center justify-center rounded-md shrink-0"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            <div className="bg-white/95 backdrop-blur-md border border-surface-border rounded-xl p-3 shadow-sm flex items-center justify-between gap-3">
+              <div>
+                <div className="text-[13px] text-ink-muted font-medium">
+                  {t.grossProfit}
+                </div>
+                <div
+                  className={`text-xl font-bold ${
+                    grossProfitSen !== null && grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
+                  }`}
+                >
+                  {grossProfitSen !== null ? formatMyr(grossProfitSen) : "—"}
+                </div>
+              </div>
+
+              {!isClosed && (
+                <div className="flex items-center gap-2">
+                  {isModified && (
+                    <button
+                      type="button"
+                      onClick={handleRevert}
+                      disabled={saving}
+                      title={t.undoChanges}
+                      aria-label={t.undoChanges}
+                      className="h-12 w-12 shrink-0 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary hover:text-ink-primary shadow-xs flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 active:scale-95 cursor-pointer disabled:opacity-50 animate-in fade-in zoom-in-95 duration-150"
+                    >
+                      <svg
+                        className="w-5 h-5 text-ink-secondary"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"
+                        />
+                      </svg>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={saving || hasParseError}
+                    onClick={() => {
+                      if (hasParseError || cashSen === null || tngSen === null) {
+                        setErrorMessage(t.invalidAmount);
+                        return;
+                      }
+                      if (hasZeroCostLine) {
+                        const zeroIdx = costLines.findIndex((l) => l.amountSen <= 0);
+                        if (zeroIdx !== -1) setExpandedIndex(zeroIdx);
+                        setErrorMessage(t.invalidAmount);
+                        return;
+                      }
+                      setExpandedIndex(null);
+                      setShowConfirmModal(true);
+                    }}
+                    className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
+                  >
+                    {saving ? (
+                      <span>{t.saving}</span>
+                    ) : (
+                      <span>{t.saveSheet}</span>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
-          {!isClosed && (
-            <div className="flex items-center gap-2">
-              {isModified && (
-                <button
-                  type="button"
-                  onClick={handleRevert}
-                  disabled={saving}
-                  title={t.undoChanges}
-                  aria-label={t.undoChanges}
-                  className="h-12 w-12 shrink-0 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary hover:text-ink-primary shadow-xs flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 active:scale-95 cursor-pointer disabled:opacity-50 animate-in fade-in zoom-in-95 duration-150"
-                >
-                  <svg
-                    className="w-5 h-5 text-ink-secondary"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"
-                    />
-                  </svg>
-                </button>
-              )}
-
-              <button
-                type="button"
-                disabled={saving || hasParseError}
-                onClick={() => {
-                  if (hasParseError || cashSen === null || tngSen === null) {
-                    setErrorMessage(t.invalidAmount);
-                    return;
-                  }
-                  // Auto-remove any daily cost form/item that has RM 0
-                  setCostLines((prev) => prev.filter((l) => l.amountSen > 0));
-                  setExpandedIndex(null);
-                  setShowConfirmModal(true);
-                }}
-                className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
-              >
-                {saving ? (
-                  <span>{t.saving}</span>
-                ) : (
-                  <span>{t.saveSheet}</span>
-                )}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
       {/* Delete Cost Line Confirmation Modal */}
       {pendingDeleteIndex !== null && costLines[pendingDeleteIndex] && (
         <div

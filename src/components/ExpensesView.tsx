@@ -504,7 +504,7 @@ export function ExpensesView({
                                     />
                                   </div>
                                   {amountError && (
-                                    <div className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
+                                    <div className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-medium flex items-center justify-between">
                                       <span>{t.invalidAmount}</span>
                                     </div>
                                   )}
@@ -560,7 +560,7 @@ export function ExpensesView({
                           <button
                             type="button"
                             onClick={() => setIsDraftOpen(true)}
-                            className="relative w-full py-3 px-4 rounded-xl bg-emerald-50/40 hover:bg-emerald-50/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden"
+                            className="relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-emerald-50/40 hover:bg-emerald-50/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden"
                           >
                             <svg
                               className="absolute inset-0 w-full h-full pointer-events-none rounded-xl"

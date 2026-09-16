@@ -68,7 +68,7 @@ export const DICTIONARY = {
     forbiddenError: "没有操作权限",
     monthClosedError: "该月份已结账锁定，无法修改",
     networkError: "网络连接失败，请稍后重试",
-    invalidAmount: "请输入有效的手动金额",
+    invalidAmount: "请输入有效金额",
     otherNoteRequired: "类别为'其他'时，必须填写备注说明",
     // Dashboard
     overviewTitle: "经营概览",
@@ -87,7 +87,7 @@ export const DICTIONARY = {
     noRevenueData: "本月暂无收入数据",
     costDistribution: "日常开销分布",
     noCostData: "本月暂无开销数据",
-    dailyTrend: "每日收支趋势",
+    dailyTrend: "每日收入趋势",
     noDailyEntries: "本月暂无每日账单记录",
     dateCol: "日期",
     sheetRevCol: "总收入",
