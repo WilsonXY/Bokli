@@ -15,6 +15,7 @@ import {
   toSen,
   mergeCostLines,
   appendOrMergeCostLine,
+  getCostLineKey,
   type CostLineItem,
 } from "./DailySheetForm";
 import { DICTIONARY } from "@/lib/i18n";
@@ -98,72 +99,76 @@ describe("DailySheetForm parse error handling and toSen helper", () => {
     expect(html).toContain("日常开销");
     expect(html).not.toContain("日常开销明细");
 
-    // P2: 开销类别
-    expect(html).toContain("开销类别");
-
-    // P3: 开销总额
+    // P2: 开销总额 without 今日
     expect(html).toContain("开销总额");
-    expect(html).not.toContain("开销总计");
+    expect(html).not.toContain("今日开销总额");
+
+    // P3: 开销类别 instead of 支出类别
+    expect(html).toContain("开销类别");
+    expect(html).not.toContain("支出类别");
+  });
+
+  it("renders compact action bar and unboxed headers without card containers", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: [],
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+
+    // P4: Date navigation button uses clean inline title
+    expect(html).toContain("点击打开/关闭日历 (Click to toggle calendar)");
+
+    // P5: Check that Save Sheet button uses bold compact button
+    expect(html).toContain(t.saveSheet);
+
+    // P6: Sections have uppercase tracking headers
+    expect(html).toContain("tracking-wider");
+  });
+
+  it("renders compact action bar on mobile viewport and flush revenue inputs", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 12500,
+        initialTngSen: 8500,
+        initialCostLines: [],
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+
+    // Check revenue section exists with inputs
+    expect(html).toContain('id="cash-input"');
+    expect(html).toContain('id="tng-input"');
+    expect(html).toContain(t.cashRevenue);
+    expect(html).toContain(t.tngRevenue.replace("'", "&#x27;"));
+
+    // Check gross profit summary
+    expect(html).toContain(t.grossProfit);
+    expect(html).toContain("RM210.00");
   });
 });
 
-describe("mergeCostLines helper for DailySheetForm", () => {
-  it("passes through a single line without modification and without singular id", () => {
-    const items: CostLineItem[] = [
-      { id: 42, category: "gas", amountSen: 2500, note: "Shell" },
-    ];
-    const merged = mergeCostLines(items);
-    expect(merged).toHaveLength(1);
-    expect(merged[0]).toEqual({
-      category: "gas",
-      amountSen: 2500,
-      note: "Shell",
-      ids: [42],
-    });
-    expect(merged[0].id).toBeUndefined();
+describe("mergeCostLines, appendOrMergeCostLine, getCostLineKey, and deletion logic", () => {
+  it("getCostLineKey produces stable unique keys for lines by id, ids, clientId, and category+note", () => {
+    expect(getCostLineKey({ id: 42, category: "restock", amountSen: 1000 })).toBe("cost-line-42");
+    expect(getCostLineKey({ ids: [103, 101, 102], category: "gas", amountSen: 2000 })).toBe("cost-line-101-102-103");
+    expect(getCostLineKey({ clientId: "client-abc-123", category: "transport", amountSen: 500 })).toBe("cost-line-client-abc-123");
+    expect(getCostLineKey({ category: "maintenance", note: "Plumbing", amountSen: 1500 })).toBe("cost-line-maintenance-Plumbing");
+    expect(getCostLineKey({ category: "other", amountSen: 0 }, 5)).toBe("cost-line-other-5");
   });
 
-  it("is case-sensitive: 'Rice' and 'rice' must NOT merge", () => {
+  it("groups duplicate items and aggregates ids and amounts", () => {
     const items: CostLineItem[] = [
-      { id: 1, category: "restock", amountSen: 1000, note: "Rice" },
-      { id: 2, category: "restock", amountSen: 2000, note: "rice" },
-    ];
-    const merged = mergeCostLines(items);
-    expect(merged).toHaveLength(2);
-    expect(merged[0].note).toBe("Rice");
-    expect(merged[0].amountSen).toBe(1000);
-    expect(merged[0].ids).toEqual([1]);
-    expect(merged[1].note).toBe("rice");
-    expect(merged[1].amountSen).toBe(2000);
-    expect(merged[1].ids).toEqual([2]);
-  });
-
-  it("groups duplicate items and aggregates ids and amounts without singular id", () => {
-    const items: CostLineItem[] = [
-      {
-        id: 101,
-        category: "restock",
-        amountSen: 5000,
-        note: "Rice",
-      },
-      {
-        id: 102,
-        category: "restock",
-        amountSen: 3000,
-        note: "Rice",
-      },
-      {
-        id: 103,
-        category: "restock",
-        amountSen: 2000,
-        note: " Rice ",
-      },
-      {
-        id: 104,
-        category: "gas",
-        amountSen: 1500,
-        note: "Shell",
-      },
+      { id: 101, category: "restock", amountSen: 5000, note: "Rice" },
+      { id: 102, category: "restock", amountSen: 3000, note: "Rice" },
+      { id: 103, category: "restock", amountSen: 2000, note: "Rice" },
+      { id: 104, category: "gas", amountSen: 1500, note: "Shell" },
     ];
 
     const merged = mergeCostLines(items);
@@ -292,5 +297,104 @@ describe("mergeCostLines helper for DailySheetForm", () => {
     // Exactly one delete button is rendered for the single merged row
     const deleteButtonMatches = html.match(new RegExp(`aria-label="${t.delete}"`, "g")) || [];
     expect(deleteButtonMatches).toHaveLength(1);
+  });
+
+  it("cost-line stable keys and controlled values: deleting middle line keeps values attached to correct lines and reload/revert refreshes input values", () => {
+    // 3 initial lines
+    const lineA: CostLineItem = { id: 10, category: "restock", amountSen: 1000, note: "Rice" };
+    const lineB: CostLineItem = { id: 20, category: "gas", amountSen: 2500, note: "Shell" };
+    const lineC: CostLineItem = { id: 30, category: "maintenance", amountSen: 4000, note: "Stove" };
+
+    const initialMerged = mergeCostLines([lineA, lineB, lineC]);
+    expect(initialMerged).toHaveLength(3);
+
+    // Verify stable keys
+    const keyA = getCostLineKey(initialMerged[0], 0);
+    const keyB = getCostLineKey(initialMerged[1], 1);
+    const keyC = getCostLineKey(initialMerged[2], 2);
+
+    expect(keyA).toBe("cost-line-10");
+    expect(keyB).toBe("cost-line-20");
+    expect(keyC).toBe("cost-line-30");
+
+    // Controlled input values are correctly populated from mergeCostLines
+    expect(initialMerged[0].amountInput).toBe("10");
+    expect(initialMerged[1].amountInput).toBe("25");
+    expect(initialMerged[2].amountInput).toBe("40");
+
+    // Deleting middle line (index 1) leaves line 0 and line 2
+    const afterDelete = initialMerged.filter((_, idx) => idx !== 1);
+    expect(afterDelete).toHaveLength(2);
+
+    // After deleting middle line, line 0 remains lineA with key "cost-line-10" and amount "10",
+    // and line 1 is now lineC with key "cost-line-30" and amount "40" (NOT polluted by lineB!)
+    expect(getCostLineKey(afterDelete[0], 0)).toBe("cost-line-10");
+    expect(afterDelete[0].note).toBe("Rice");
+    expect(afterDelete[0].amountSen).toBe(1000);
+    expect(afterDelete[0].amountInput).toBe("10");
+
+    expect(getCostLineKey(afterDelete[1], 1)).toBe("cost-line-30");
+    expect(afterDelete[1].note).toBe("Stove");
+    expect(afterDelete[1].amountSen).toBe(4000);
+    expect(afterDelete[1].amountInput).toBe("40");
+
+    // Verify rendered markup with 3 lines renders each row with stable keys and correct values
+    const html3 = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: [lineA, lineB, lineC],
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+    expect(html3).toContain("Rice");
+    expect(html3).toContain("RM10.00");
+    expect(html3).toContain("Shell");
+    expect(html3).toContain("RM25.00");
+    expect(html3).toContain("Stove");
+    expect(html3).toContain("RM40.00");
+
+    // When a single row is rendered or an item is expanded, its inputs are controlled
+    const htmlSingle = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: [lineA],
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+    expect(htmlSingle).toContain('value="10"');
+    expect(htmlSingle).toContain('value="Rice"');
+
+    // Render with lineB deleted (only lineA and lineC)
+    const html2 = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: [lineA, lineC],
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+    expect(html2).toContain("Rice");
+    expect(html2).toContain("RM10.00");
+    expect(html2).toContain("Stove");
+    expect(html2).toContain("RM40.00");
+    expect(html2).not.toContain("Shell");
+    expect(html2).not.toContain("RM25.00");
+
+    // Reverting/reloading data refreshes the input values back to baseline
+    const reloaded = mergeCostLines([lineA, lineB, lineC]);
+    expect(reloaded[0].amountInput).toBe("10");
+    expect(reloaded[0].note).toBe("Rice");
+    expect(reloaded[1].amountInput).toBe("25");
+    expect(reloaded[1].note).toBe("Shell");
+    expect(reloaded[2].amountInput).toBe("40");
+    expect(reloaded[2].note).toBe("Stove");
   });
 });

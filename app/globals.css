@@ -106,7 +106,9 @@
 
 /* Reduced Motion Safety */
 @media (prefers-reduced-motion: reduce) {
-  *,\n  ::before,\n  ::after {
+  *,
+  ::before,
+  ::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -140,7 +142,8 @@
 }
 
 /* Modals and dialog overlays must always retain crisp solid surface and elevation */
-.daily-sheet-canvas [role="dialog"] .bg-white,\n.daily-sheet-canvas .fixed .bg-white {
+.daily-sheet-canvas [role="dialog"] .bg-white,
+.daily-sheet-canvas .fixed .bg-white {
   background-color: #ffffff !important;
   border: 1px solid var(--surface-border, #e2e8f0) !important;
   border-radius: 1rem !important;
@@ -157,11 +160,14 @@
 .expenses-canvas .space-y-3 {
   gap: 0.5rem !important;
 }
-.expenses-canvas .space-y-4 > .bg-white.border.border-surface-border:not([aria-label="Month Financial Summary"]),\n.expenses-canvas section > .bg-white.border.border-surface-border,\n.expenses-canvas section.bg-white.border.border-surface-border:not([aria-label="Month Financial Summary"]) {
+.expenses-canvas .space-y-4 > .bg-white.border.border-surface-border:not([aria-label="Month Financial Summary"]),
+.expenses-canvas section > .bg-white.border.border-surface-border,
+.expenses-canvas section.bg-white.border.border-surface-border:not([aria-label="Month Financial Summary"]) {
   padding: 0.625rem 0.875rem !important;
   border-radius: 10px !important;
 }
-.expenses-canvas section[aria-label="Month Financial Summary"],\n.expenses-canvas .space-y-4 > section[aria-label="Month Financial Summary"] {
+.expenses-canvas section[aria-label="Month Financial Summary"],
+.expenses-canvas .space-y-4 > section[aria-label="Month Financial Summary"] {
   padding: 0 !important;
   border-radius: 0.75rem !important;
 }
@@ -179,24 +185,14 @@
   font-size: 0.8125rem !important;
 }
 
-/* Daily Trend Interactive Chart Points & Popouts */
+/* Daily Trend Interactive Chart Points */
 .chart-point-interactive {
   cursor: pointer;
   outline: none;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
-.chart-point-interactive .point-tooltip {
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease-in-out, transform 0.15s ease-in-out;
-  transform-origin: center bottom;
-}
 @media (hover: hover) and (pointer: fine) {
-  .chart-point-interactive:hover .point-tooltip {
-    opacity: 1 !important;
-    pointer-events: auto;
-  }
   .chart-point-interactive:hover .point-circle {
     r: 6 !important;
     fill: #1d4ed8 !important;
@@ -213,24 +209,4 @@
 .chart-point-interactive:focus .point-guide,
 .chart-point-interactive:focus-visible .point-guide {
   opacity: 1 !important;
-}
-
-/* Daily Costs Addable Block */
-details.cost-add-drawer[open] > summary {
-  border-color: #059669;
-  background-color: #ecfdf5;
-}
-
-/* Swapped Cost Drawer Layout when Open */
-details.cost-add-drawer[open] {
-  display: flex !important;
-  flex-direction: column !important;
-}
-details.cost-add-drawer[open] > summary {
-  order: 2 !important;
-  margin-top: 0.5rem !important;
-}
-details.cost-add-drawer[open] > .cost-entry-card {
-  order: 1 !important;
-  margin-top: 0 !important;
 }

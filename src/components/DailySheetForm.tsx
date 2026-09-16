@@ -14,6 +14,8 @@ export interface CostLineItem {
   category: CostCategory;
   amountSen: number;
   note?: string | null;
+  clientId?: string;
+  amountInput?: string;
 }
 
 export interface DailySheetFormProps {
@@ -45,6 +47,15 @@ export function areIdsEqual(a?: number[], b?: number[]): boolean {
   return sortedA.every((val, idx) => val === sortedB[idx]);
 }
 
+export function getCostLineKey(line: CostLineItem, fallbackIndex?: number): string {
+  if (line.id !== undefined) return `cost-line-${line.id}`;
+  if (line.ids && line.ids.length > 0) return `cost-line-${line.ids.slice().sort((a, b) => a - b).join("-")}`;
+  if (line.clientId) return `cost-line-${line.clientId}`;
+  const norm = normalizeNote(line.note);
+  if (norm) return `cost-line-${line.category}-${norm}`;
+  return `cost-line-${line.category}-${fallbackIndex ?? "new"}`;
+}
+
 export function mergeCostLines(lines: CostLineItem[]): CostLineItem[] {
   const merged: CostLineItem[] = [];
   for (const line of lines) {
@@ -69,7 +80,9 @@ export function mergeCostLines(lines: CostLineItem[]): CostLineItem[] {
         category: existing.category,
         note: existing.note,
         amountSen: safeAmount,
+        amountInput: safeAmount > 0 ? senToDecimalStr(safeAmount) : "",
         ids: combinedIds,
+        clientId: existing.clientId,
       };
     } else {
       const safeAmount =
@@ -80,7 +93,9 @@ export function mergeCostLines(lines: CostLineItem[]): CostLineItem[] {
         category: line.category,
         note: normNote || null,
         amountSen: safeAmount,
+        amountInput: line.amountInput ?? (safeAmount > 0 ? senToDecimalStr(safeAmount) : ""),
         ids: lineIds,
+        clientId: line.clientId,
       });
     }
   }
@@ -113,7 +128,9 @@ export function appendOrMergeCostLine(
             category: line.category,
             note: line.note,
             amountSen: safeAmount,
+            amountInput: safeAmount > 0 ? senToDecimalStr(safeAmount) : "",
             ids: line.ids ?? (line.id !== undefined ? [line.id] : []),
+            clientId: line.clientId,
           }
         : line
     );
@@ -126,6 +143,7 @@ export function appendOrMergeCostLine(
       {
         category: newCat,
         amountSen: amountVal,
+        amountInput: amountVal > 0 ? senToDecimalStr(amountVal) : "",
         note: normNote,
         ids: [],
       },
@@ -192,13 +210,7 @@ export function DailySheetForm({
     mergeCostLines(initialCostLines)
   );
 
-  // New cost line draft
-  const [newCat, setNewCat] = useState<CostLineItem["category"]>("restock");
-  const [newAmount, setNewAmount] = useState("");
-  const [newNote, setNewNote] = useState("");
-
   // Feedback states
-  const [costLineError, setCostLineError] = useState<string | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(() => {
@@ -234,7 +246,6 @@ export function DailySheetForm({
   const isModified = useMemo(() => {
     if (cashInput.trim() !== baseline.cashInput.trim()) return true;
     if (tngInput.trim() !== baseline.tngInput.trim()) return true;
-    if (newAmount.trim() !== "" || newNote.trim() !== "") return true;
     if (costLines.length !== baseline.costLines.length) return true;
 
     for (let i = 0; i < costLines.length; i++) {
@@ -251,7 +262,7 @@ export function DailySheetForm({
       }
     }
     return false;
-  }, [cashInput, tngInput, newAmount, newNote, costLines, baseline]);
+  }, [cashInput, tngInput, costLines, baseline]);
 
   // Update form inputs when selected date or initial data changes
   useEffect(() => {
@@ -268,9 +279,6 @@ export function DailySheetForm({
     });
     const zeroIdx = mergedInitial.findIndex((l) => l.amountSen === 0);
     setExpandedIndex(zeroIdx !== -1 ? zeroIdx : (mergedInitial.length === 1 ? 0 : null));
-    setNewAmount("");
-    setNewNote("");
-    setCostLineError(null);
     setErrorMessage(null);
   }, [date, initialCashSen, initialTngSen, initialCashInput, initialTngInput, initialCostLines]);
 
@@ -279,10 +287,6 @@ export function DailySheetForm({
     setCashInput(baseline.cashInput);
     setTngInput(baseline.tngInput);
     setCostLines(baseline.costLines);
-    setNewAmount("");
-    setNewNote("");
-    setNewCat("restock");
-    setCostLineError(null);
     setErrorMessage(null);
   }
 
@@ -306,13 +310,15 @@ export function DailySheetForm({
   const grossProfitSen =
     totalRevenueSen !== null ? totalRevenueSen - totalCostSen : null;
 
-  // Create and expand a new empty cost line
+  // Create and expand a new empty cost line with stable clientId
   function handleCreateNewCostLine() {
     if (isClosed) return;
     const newLine: CostLineItem = {
+      clientId: `line-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       category: "restock",
       amountSen: 0,
-      note: null,
+      amountInput: "",
+      note: "",
       ids: [],
     };
     setCostLines((prev) => [...prev, newLine]);
@@ -328,40 +334,6 @@ export function DailySheetForm({
     setCostLines((prev) =>
       prev.map((line, i) => (i === index ? { ...line, ...patch } : line))
     );
-  }
-
-  // Add Cost Line (merges duplicate category+note instantly)
-  function handleAddCostLine() {
-    setCostLineError(null);
-    const amountVal = toSen(newAmount);
-
-    if (amountVal === null || amountVal <= 0n) {
-      setCostLineError(t.invalidAmount);
-      return;
-    }
-
-    if (newCat === "other" && !newNote.trim()) {
-      setCostLineError(t.otherNoteRequired);
-      return;
-    }
-
-    const normNote = normalizeNote(newNote) || null;
-    const result = appendOrMergeCostLine(
-      costLines,
-      newCat,
-      Number(amountVal),
-      normNote,
-    );
-
-    if (result.error) {
-      setCostLineError(t.invalidAmount);
-      return;
-    }
-
-    setCostLines(result.lines);
-    setNewAmount("");
-    setNewNote("");
-    setCostLineError(null);
   }
 
   // Remove Cost Line
@@ -383,7 +355,6 @@ export function DailySheetForm({
       return;
     }
     setErrorMessage(null);
-    setCostLineError(null);
     setSuccessMessage(null);
 
     setSaving(true);
@@ -401,7 +372,7 @@ export function DailySheetForm({
             .map((l) => ({
               category: l.category,
               amountSen: l.amountSen,
-              note: l.note || undefined,
+              note: (l.note || "").trim() || undefined,
             })),
         }),
       });
@@ -449,9 +420,8 @@ export function DailySheetForm({
   function navigateDate(offsetDays: number) {
     const current = new Date(`${date}T00:00:00Z`);
     current.setUTCDate(current.getUTCDate() + offsetDays);
-    const targetStr = current.toISOString().slice(0, 10);
-    if (targetStr > todayKl) return; // Block future
-    router.push(`/?date=${targetStr}`);
+    const targetDate = current.toISOString().slice(0, 10);
+    router.push(`/?date=${targetDate}`);
   }
 
   const isToday = date === todayKl;
@@ -602,7 +572,7 @@ export function DailySheetForm({
             )}
           </div>
 
-          {/* Touch 'n Go Revenue Card */}
+          {/* TnG Revenue Card */}
           <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-tng transition-all">
             <div className="flex items-center gap-1.5 mb-1.5">
               <span className="w-2 h-2 rounded-full bg-channel-tng inline-block shrink-0" />
@@ -673,7 +643,7 @@ export function DailySheetForm({
               const isExpanded = expandedIndex === idx || isZero;
               return (
                 <div
-                  key={`cost-line-card-${idx}`}
+                  key={getCostLineKey(line, idx)}
                   className={`bg-white border rounded-xl shadow-xs transition-all overflow-hidden ${
                         isExpanded
                           ? "border-brand-broccoli ring-2 ring-brand-broccoli/20"
@@ -752,7 +722,7 @@ export function DailySheetForm({
                           {/* Category Selection */}
                           <div>
                             <span className="block text-xs font-semibold text-ink-secondary mb-2">
-                              1. {t.costCategory ?? t.selectCategory}
+                              {t.costCategory ?? t.selectCategory}
                             </span>
                             <div className="flex flex-wrap gap-1.5">
                               {categories.map((cat) => {
@@ -779,7 +749,7 @@ export function DailySheetForm({
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                             <div>
                               <label className="block text-xs font-semibold text-ink-secondary mb-1">
-                                2. {t.amount}
+                                {t.amount}
                               </label>
                               <div className="relative flex items-center">
                                 <span className="absolute left-3 text-sm font-bold text-ink-muted select-none">
@@ -788,12 +758,15 @@ export function DailySheetForm({
                                 <input
                                   type="text"
                                   inputMode="decimal"
-                                  defaultValue={line.amountSen > 0 ? (line.amountSen / 100).toFixed(2) : ""}
+                                  value={line.amountInput ?? (line.amountSen > 0 ? senToDecimalStr(line.amountSen) : "")}
                                   onChange={(e) => {
                                     const sanitized = sanitizeMoneyInput(e.target.value);
                                     if (sanitized !== null) {
                                       const sen = toSen(sanitized);
-                                      handleUpdateCostLine(idx, { amountSen: Number(sen ?? 0n) });
+                                      handleUpdateCostLine(idx, {
+                                        amountInput: sanitized,
+                                        amountSen: Number(sen ?? 0n),
+                                      });
                                     }
                                   }}
                                   onFocus={() => setExpandedIndex(idx)}
@@ -805,14 +778,13 @@ export function DailySheetForm({
 
                             <div>
                               <label className="block text-xs font-semibold text-ink-secondary mb-1">
-                                3. {t.note} {line.category === "other" && <span className="text-finance-loss">*</span>}
+                                {t.note} {line.category === "other" && <span className="text-finance-loss">*</span>}
                               </label>
                               <input
                                 type="text"
-                                defaultValue={line.note || ""}
+                                value={line.note ?? ""}
                                 onChange={(e) => {
-                                  const val = e.target.value.trim() || null;
-                                  handleUpdateCostLine(idx, { note: val });
+                                  handleUpdateCostLine(idx, { note: e.target.value });
                                 }}
                                 onFocus={() => setExpandedIndex(idx)}
                                 placeholder={line.category === "other" ? t.noteRequired : t.noteOptional}
@@ -862,7 +834,6 @@ export function DailySheetForm({
       </section>
 
       {/* Sticky Bottom Action Bar & Notifications */}
-
       <div className="sticky bottom-16 z-30 space-y-2">
             {errorMessage && (
               <div className="py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-md animate-slide-down">
@@ -1048,40 +1019,40 @@ export function DailySheetForm({
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-modal-title"
+          aria-describedby="confirm-modal-desc"
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-slide-down"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setShowConfirmModal(false);
+            if (e.target === e.currentTarget && !saving) setShowConfirmModal(false);
           }}
         >
           <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-brand-broccoli-light flex items-center justify-center text-xl shrink-0 select-none">
-                🥦
-              </div>
-              <div className="min-w-0">
-                <h3 id="confirm-modal-title" className="text-base font-bold text-ink-primary">
-                  {t.confirmSaveTitle}
-                </h3>
-                <p className="text-xs text-ink-muted mt-0.5">
-                  {date} ({t.klTime})
-                </p>
-              </div>
+            <div className="space-y-1">
+              <h3 id="confirm-modal-title" className="text-lg font-bold text-ink-primary">
+                {t.confirmSaveTitle}
+              </h3>
+              <p id="confirm-modal-desc" className="text-xs text-ink-muted leading-relaxed">
+                {t.confirmSaveDesc}
+              </p>
             </div>
 
-            {/* Financial Summary of Today's Sheet */}
-            <div className="p-3 rounded-xl bg-surface-subtle border border-surface-border space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-ink-secondary">{t.totalRevenue}</span>
-                <span className="font-bold text-ink-primary text-base">{totalRevenueSen !== null ? formatMyr(totalRevenueSen) : "—"}</span>
+            {/* Modal Summary Info */}
+            <div className="p-3.5 rounded-xl bg-surface-subtle border border-surface-border space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-ink-secondary font-medium">{t.totalRevenue}</span>
+                <span className="font-bold text-ink-primary tabular-nums">
+                  {totalRevenueSen !== null ? formatMyr(totalRevenueSen) : "—"}
+                </span>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-ink-secondary">{t.totalCosts}</span>
-                <span className="font-bold text-finance-loss text-base">{formatMyr(totalCostSen)}</span>
+              <div className="flex justify-between text-sm">
+                <span className="text-ink-secondary font-medium">{t.totalCosts}</span>
+                <span className="font-bold text-ink-primary tabular-nums">
+                  {formatMyr(totalCostSen)}
+                </span>
               </div>
-              <div className="pt-2 border-t border-surface-border flex items-center justify-between">
-                <span className="font-semibold text-ink-primary">{t.grossProfit}</span>
+              <div className="pt-2 border-t border-surface-border flex justify-between text-base">
+                <span className="font-bold text-ink-primary">{t.grossProfit}</span>
                 <span
-                  className={`font-bold text-lg ${
+                  className={`font-black tabular-nums ${
                     grossProfitSen !== null && grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
                   }`}
                 >
@@ -1090,33 +1061,25 @@ export function DailySheetForm({
               </div>
             </div>
 
-            <p className="text-xs text-ink-muted">
-              {t.confirmSaveDesc}
-            </p>
-
-            {/* Modal Actions */}
             <div className="flex items-center gap-2.5 pt-1">
               <button
                 type="button"
+                disabled={saving}
                 onClick={() => setShowConfirmModal(false)}
-                className="flex-1 h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary font-semibold text-sm transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+                className="flex-1 h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary font-semibold text-sm transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer disabled:opacity-50"
               >
                 {t.cancel}
               </button>
               <button
                 type="button"
-                disabled={saving || hasParseError}
-                onClick={() => {
+                disabled={saving}
+                onClick={async () => {
                   setShowConfirmModal(false);
-                  handleSave();
+                  await handleSave();
                 }}
-                className="flex-1 h-11 rounded-xl bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+                className="flex-1 h-11 rounded-xl bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer disabled:opacity-50"
               >
-                {saving ? (
-                  <span>{t.saving}</span>
-                ) : (
-                  <span>{t.confirmSaveBtn}</span>
-                )}
+                {saving ? t.saving : t.confirmSaveBtn}
               </button>
             </div>
           </div>

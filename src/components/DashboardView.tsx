@@ -57,23 +57,11 @@ export function DashboardView({
   costByCategory,
   loadError,
 }: DashboardViewProps) {
-  const { t } = useI18n();
   const router = useRouter();
+  const { t } = useI18n();
+
+  // Active trend date state for interactive tooltip
   const [activeDate, setActiveDate] = useState<string | null>(null);
-
-  const totalRev = split ? BigInt(split.totalSen) : 0n;
-  const cashPct =
-    totalRev > 0n && split ? Math.round((Number(split.cashSen) * 100) / Number(totalRev)) : 0;
-  const tngPct = totalRev > 0n ? 100 - cashPct : 0;
-
-  const totalCosts = costByCategory
-    ? costByCategory.restock +
-      costByCategory.gas +
-      costByCategory.transport +
-      costByCategory["wages-daily"] +
-      costByCategory.maintenance +
-      costByCategory.other
-    : 0;
 
   const categoryLabels: Record<keyof SerializedCostByCategory, string> = {
     restock: t.catRestock,
@@ -106,6 +94,10 @@ export function DashboardView({
     other: { bg: "bg-slate-500", hex: "#64748b" },
   };
 
+  const totalCosts = costByCategory
+    ? Object.values(costByCategory).reduce((acc, v) => acc + v, 0)
+    : 0;
+
   const costEntries = (
     Object.keys(categoryLabels) as Array<keyof SerializedCostByCategory>
   )
@@ -130,42 +122,43 @@ export function DashboardView({
     startPct: number,
     endPct: number
   ) {
-    let startAngle = startPct * 360;
-    let endAngle = endPct * 360;
-    if (endAngle - startAngle >= 360) {
-      endAngle = startAngle + 359.99;
-    }
+    const startAngle = (startPct * 360 - 90) * (Math.PI / 180);
+    const endAngle = (endPct * 360 - 90) * (Math.PI / 180);
+    const largeArc = endPct - startPct > 0.5 ? 1 : 0;
 
-    const startRad = ((startAngle - 90) * Math.PI) / 180;
-    const endRad = ((endAngle - 90) * Math.PI) / 180;
-    const midRad = (((startAngle + endAngle) / 2 - 90) * Math.PI) / 180;
+    const x1Outer = cx + rOuter * Math.cos(startAngle);
+    const y1Outer = cy + rOuter * Math.sin(startAngle);
+    const x2Outer = cx + rOuter * Math.cos(endAngle);
+    const y2Outer = cy + rOuter * Math.sin(endAngle);
 
-    const x1 = cx + rOuter * Math.cos(startRad);
-    const y1 = cy + rOuter * Math.sin(startRad);
-    const x2 = cx + rOuter * Math.cos(endRad);
-    const y2 = cy + rOuter * Math.sin(endRad);
+    const x1Inner = cx + rInner * Math.cos(endAngle);
+    const y1Inner = cy + rInner * Math.sin(endAngle);
+    const x2Inner = cx + rInner * Math.cos(startAngle);
+    const y2Inner = cy + rInner * Math.sin(startAngle);
 
-    const x2In = cx + rInner * Math.cos(endRad);
-    const y2In = cy + rInner * Math.sin(endRad);
-    const x1In = cx + rInner * Math.cos(startRad);
-    const y1In = cy + rInner * Math.sin(startRad);
+    const d = `
+      M ${x1Outer} ${y1Outer}
+      A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2Outer} ${y2Outer}
+      L ${x1Inner} ${y1Inner}
+      A ${rInner} ${rInner} 0 ${largeArc} 0 ${x2Inner} ${y2Inner}
+      Z
+    `;
 
-    const largeArc = endAngle - startAngle > 180 ? 1 : 0;
-
-    const d = `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${rOuter.toFixed(2)} ${rOuter.toFixed(2)} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L ${x2In.toFixed(2)} ${y2In.toFixed(2)} A ${rInner.toFixed(2)} ${rInner.toFixed(2)} 0 ${largeArc} 0 ${x1In.toFixed(2)} ${y1In.toFixed(2)} Z`;
-
+    // Mid-angle for embedding percentage label directly into donut slice
+    const midAngle = ((startPct + endPct) / 2 * 360 - 90) * (Math.PI / 180);
     const rMid = (rOuter + rInner) / 2;
-    const tx = cx + rMid * Math.cos(midRad);
-    const ty = cy + rMid * Math.sin(midRad);
+    const tx = cx + rMid * Math.cos(midAngle);
+    const ty = cy + rMid * Math.sin(midAngle);
 
     return { d, tx, ty };
   }
 
-  let sliceAcc = 0;
+  let runningPct = 0;
   const costSlices = costEntries.map((entry) => {
-    const start = sliceAcc;
-    sliceAcc += entry.pct / 100;
-    const end = Math.min(sliceAcc, 1);
+    const pctFraction = entry.pct / 100;
+    const start = runningPct;
+    const end = Math.min(1, runningPct + pctFraction);
+    runningPct = end;
     return {
       ...entry,
       start,
@@ -173,30 +166,30 @@ export function DashboardView({
     };
   });
 
-  // Daily Trend Line Chart calculation
-  const trendAmounts = trend.map((r) => r.totalSen);
-  const trendMax = trendAmounts.length > 0 ? Math.max(...trendAmounts) : 0;
-  const trendMin = trendAmounts.length > 0 ? Math.min(...trendAmounts) : 0;
-  const trendSpan = Math.max(trendMax - trendMin, 1);
-  const chartYMin = Math.max(0, trendMin - trendSpan * 0.15);
-  const chartYMax = trendMax + trendSpan * 0.15;
-  const chartYSpan = Math.max(chartYMax - chartYMin, 1);
+  const splitTotal = split?.totalSen ?? 0;
+  const cashPct = splitTotal > 0 ? Math.round((split!.cashSen / splitTotal) * 100) : 0;
+  const tngPct = splitTotal > 0 ? Math.max(0, 100 - cashPct) : 0;
 
-  const chartW = 460;
-  const chartH = 105;
+  // Chart coordinate geometry
+  const chartW = 600;
+  const chartH = 180;
   const padX = 24;
-  const padTop = 16;
-  const padBot = 20;
-  const usableW = chartW - 2 * padX;
-  const usableH = chartH - padTop - padBot;
+  const padTop = 20;
+  const padBot = 32;
 
-  const trendCoords = trend.map((r, i) => {
-    const x = trend.length > 1 ? padX + (i / (trend.length - 1)) * usableW : chartW / 2;
-    const y = padTop + (1 - (r.totalSen - chartYMin) / chartYSpan) * usableH;
+  const maxVal = trend.length > 0 ? Math.max(...trend.map((d) => d.totalSen), 1000) : 1000;
+
+  const trendCoords = trend.map((d, idx) => {
+    const x =
+      trend.length === 1
+        ? chartW / 2
+        : padX + (idx / (trend.length - 1)) * (chartW - padX * 2);
+    const valRatio = d.totalSen / maxVal;
+    const y = chartH - padBot - valRatio * (chartH - padTop - padBot);
     return {
-      date: r.date,
-      totalSen: r.totalSen,
-      shortDate: r.date.slice(5),
+      date: d.date,
+      shortDate: d.date.slice(5),
+      totalSen: d.totalSen,
       x,
       y,
     };
@@ -223,7 +216,7 @@ export function DashboardView({
       {/* Page Header & Month Selector */}
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-ink-primary tracking-tight">
-          月度概况
+          {t.overviewTitle}
         </h1>
 
         <MonthSelectorDropdown
@@ -266,6 +259,22 @@ export function DashboardView({
           {/* Month Financial Health Summary (Clean Ledger Architecture, No Nested Cards) */}
           {activeTile && (
             <section className="bg-white border border-surface-border rounded-xl shadow-xs overflow-hidden">
+              {/* Header with t.monthSummary and status pill */}
+              <div className="px-5 pt-4 pb-2 sm:px-6 sm:pt-5 flex items-center justify-between border-b border-surface-border">
+                <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
+                  {t.monthSummary}
+                </h2>
+                <span
+                  className={`text-[13px] font-bold px-2.5 py-0.5 rounded-md ${
+                    activeTile.status === "closed"
+                      ? "bg-status-closed-bg text-status-closed"
+                      : "bg-brand-broccoli-light text-brand-broccoli"
+                  }`}
+                >
+                  {statusLabel(activeTile.status)}
+                </span>
+              </div>
+
               {/* Net Profit Spotlight */}
               <div className="px-5 py-4 sm:px-6 sm:py-5">
                 <div className="flex items-baseline justify-between gap-2">
@@ -322,21 +331,16 @@ export function DashboardView({
               <h2 className="text-base font-bold text-ink-primary">
                 {t.revenueSplit}
               </h2>
-              {split && (
-                <span className="text-base font-bold text-ink-primary tabular-nums">
-                  {formatMyr(BigInt(split.totalSen))}
-                </span>
-              )}
             </div>
 
-            {!split || totalRev === 0n ? (
+            {!split || splitTotal === 0 ? (
               <div className="py-4 text-center text-xs text-ink-muted">
                 {t.noRevenueData}
               </div>
             ) : (
-              <div className="space-y-3">
-                {/* Visual Ratio Bar with Integrated Percentages */}
-                <div className="w-full h-7 rounded-full overflow-hidden flex bg-surface-subtle p-0.5 shadow-inner">
+              <div className="space-y-3 pt-1">
+                {/* Modern Visual Split Bar */}
+                <div className="w-full h-8 bg-surface-canvas rounded-full p-1 flex items-center gap-1 border border-surface-border shadow-xs">
                   <div
                     style={{ width: `${cashPct}%` }}
                     className="bg-emerald-600 h-full rounded-l-full flex items-center justify-center text-white text-xs font-bold tabular-nums tracking-wide transition-all duration-300 min-w-0 overflow-hidden"
@@ -361,6 +365,9 @@ export function DashboardView({
                       <span className="font-medium text-ink-secondary">
                         {t.cashRevenue}
                       </span>
+                      <span className="text-xs font-semibold text-ink-muted tabular-nums">
+                        ({cashPct}%)
+                      </span>
                     </div>
                     <span className="font-bold text-ink-primary tabular-nums">
                       {formatMyr(BigInt(split.cashSen))}
@@ -372,6 +379,9 @@ export function DashboardView({
                       <span className="w-2.5 h-2.5 rounded-full bg-blue-600 shrink-0" />
                       <span className="font-medium text-ink-secondary">
                         {t.tngRevenue}
+                      </span>
+                      <span className="text-xs font-semibold text-ink-muted tabular-nums">
+                        ({tngPct}%)
                       </span>
                     </div>
                     <span className="font-bold text-ink-primary tabular-nums">
@@ -438,7 +448,7 @@ export function DashboardView({
                   </div>
                 </div>
 
-                {/* Clean Scannable Ledger (No Redundant Percentage Next to Text) */}
+                {/* Clean Scannable Ledger */}
                 <div className="flex-1 w-full divide-y divide-surface-border border-t md:border-t-0 md:border-l border-surface-border md:pl-5">
                   {costEntries.map((entry) => (
                     <div
@@ -451,6 +461,9 @@ export function DashboardView({
                         />
                         <span className="font-medium text-ink-primary">
                           {entry.label}
+                        </span>
+                        <span className="text-xs font-semibold text-ink-muted tabular-nums">
+                          ({entry.pct}%)
                         </span>
                       </div>
                       <span className="font-bold text-ink-primary tabular-nums">
@@ -538,7 +551,6 @@ export function DashboardView({
                           const isActive = activeDate === pt.date;
                           const isFirst = idx === 0;
                           const isLast = idx === trendCoords.length - 1;
-                          const dayNum = parseInt(pt.date.slice(8), 10);
                           const showDate = isFirst || isLast || idx % 3 === 0 || isActive;
                           return (
                             <g
@@ -555,17 +567,17 @@ export function DashboardView({
                                 }
                               }}
                               onTouchStart={(e) => {
-                                const t = e.touches[0];
+                                const tr = e.touches[0];
                                 (e.currentTarget as unknown as { _touchStart: { x: number; y: number } })._touchStart = {
-                                  x: t.clientX,
-                                  y: t.clientY,
+                                  x: tr.clientX,
+                                  y: tr.clientY,
                                 };
                               }}
                               onTouchEnd={(e) => {
                                 const target = e.currentTarget as unknown as { _touchStart?: { x: number; y: number } };
                                 const start = target._touchStart;
-                                const t = e.changedTouches[0];
-                                const dist = start ? Math.hypot(t.clientX - start.x, t.clientY - start.y) : 0;
+                                const tr = e.changedTouches[0];
+                                const dist = start ? Math.hypot(tr.clientX - start.x, tr.clientY - start.y) : 0;
                                 if (dist < 12) {
                                   e.preventDefault();
                                   e.stopPropagation();
@@ -674,8 +686,6 @@ export function DashboardView({
                           );
                         })()}
                   </svg>
-
-
                 </div>
 
                 {/* Divided Ledger */}

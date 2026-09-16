@@ -30,7 +30,16 @@ export interface MergedExpenseItem {
   ids: number[];
 }
 
-export function formatDeleteModalRecordCount(count: number): string {
+export function formatDeleteModalRecordCount(
+  count: number,
+  t?: { removesRecordSingle?: string; removesRecordPlural?: string }
+): string {
+  if (t?.removesRecordSingle && count === 1) {
+    return t.removesRecordSingle;
+  }
+  if (t?.removesRecordPlural && count > 1) {
+    return t.removesRecordPlural.replace("{count}", String(count));
+  }
   return count === 1 ? "removes 1 record" : `removes ${count} records`;
 }
 
@@ -163,7 +172,7 @@ export function ExpensesView({
     }
 
     if (newType === "other" && !noteInput.trim()) {
-      setInlineError(t.noteRequired);
+      setInlineError(t.otherNoteRequired);
       return;
     }
 
@@ -186,7 +195,12 @@ export function ExpensesView({
         throw new Error(translateApiError(data.error, t));
       }
 
-      setExpenses((prev) => [...prev, data.expense]);
+      setExpenses((prev) => {
+        const exists = prev.some((item) => item.id === data.expense.id);
+        return exists
+          ? prev.map((item) => (item.id === data.expense.id ? data.expense : item))
+          : [...prev, data.expense];
+      });
       setAmountInput("");
       setNoteInput("");
       setAmountError(false);
@@ -211,6 +225,7 @@ export function ExpensesView({
     setSuccessBanner(null);
     setDeletingKey(key);
 
+    const deletedIds: number[] = [];
     try {
       for (const id of ids) {
         const res = await fetch(`/api/expenses?id=${id}`, {
@@ -220,18 +235,20 @@ export function ExpensesView({
         if (!res.ok) {
           throw new Error(translateApiError(data.error || "Failed to delete expense", t));
         }
+        deletedIds.push(id);
       }
 
-      setExpenses((prev) => prev.filter((item) => !ids.includes(item.id)));
       setSuccessBanner(t.deleteExpenseSuccess);
       setTimeout(() => setSuccessBanner(null), 3000);
-
-      startTransition(() => {
-        router.refresh();
-      });
     } catch (err: any) {
       setInlineError(translateApiError(err.message, t));
     } finally {
+      if (deletedIds.length > 0) {
+        setExpenses((prev) => prev.filter((item) => !deletedIds.includes(item.id)));
+        startTransition(() => {
+          router.refresh();
+        });
+      }
       setDeletingKey(null);
     }
   }
@@ -242,7 +259,7 @@ export function ExpensesView({
 
   return (
     <div className="space-y-4">
-      {/* Month Selector Strip */}
+      {/* Header & Month Selector */}
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-ink-primary tracking-tight">
           {t.expensesTitle}
@@ -251,10 +268,10 @@ export function ExpensesView({
         <MonthSelectorDropdown
           currentMonth={currentMonth}
           options={
-            monthOptions ||
+            monthOptions ??
             availableMonths.map((m) => ({
               month: m,
-              status: m === currentMonth && isClosed ? "closed" : "open",
+              status: isClosed ? "closed" : "open",
             }))
           }
           onSelect={(month) => router.push(`/expenses?month=${month}`)}
@@ -268,46 +285,37 @@ export function ExpensesView({
           className="p-4 rounded-xl bg-finance-loss-light border border-finance-loss-border text-finance-loss space-y-2 shadow-xs"
         >
           <div className="flex items-center gap-2">
-            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            <svg
+              className="w-5 h-5 shrink-0"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
             </svg>
-            <h3 className="text-sm font-bold text-finance-loss">
-              {t.loadError}
-            </h3>
+            <h3 className="text-sm font-bold text-finance-loss">{t.loadError}</h3>
           </div>
-          <p className="text-xs text-ink-secondary">
-            {loadError}
-          </p>
+          <p className="text-xs text-ink-secondary">{loadError}</p>
         </div>
       ) : (
         <>
-          {/* Lock Notice */}
+          {/* Read-only banner if closed */}
           {isClosed && (
-            <div className="py-2.5 px-3.5 rounded-xl bg-status-closed-bg/60 border border-status-closed/20 flex items-center gap-2 text-sm font-medium text-status-closed">
-              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
+            <div className="p-3 bg-surface-canvas border border-surface-border rounded-xl text-ink-muted text-xs font-semibold flex items-center gap-2 shadow-xs">
+              <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" />
               <span>{t.monthLocked}</span>
             </div>
           )}
 
-          {/* Success Banner */}
-          {successBanner && (
-            <div className="py-2.5 px-3.5 rounded-xl bg-finance-profit-light border border-finance-profit-border text-sm text-brand-broccoli font-semibold flex items-center gap-2">
-              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              <span>{successBanner}</span>
-            </div>
-          )}
-
-          {/* Inline Error Banner */}
+          {/* Inline Feedback Alerts */}
           {inlineError && (
-            <div
-              role="alert"
-              aria-live="assertive"
-              className="py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-xs animate-slide-down"
-            >
+            <div className="py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-xs animate-slide-down">
               <div className="flex items-center gap-2 min-w-0">
                 <svg className="w-4 h-4 shrink-0 text-finance-loss" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -317,43 +325,63 @@ export function ExpensesView({
               <button
                 type="button"
                 onClick={() => setInlineError(null)}
-                className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss w-6 h-6 flex items-center justify-center rounded shrink-0 cursor-pointer"
+                className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss w-7 h-7 flex items-center justify-center rounded-md shrink-0 cursor-pointer"
                 aria-label="Close"
               >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+                ✕
               </button>
             </div>
           )}
 
-          {/* Month Financial Impact Strip (Clean Divided Ledger Strip, No Nested Cards) */}
+          {successBanner && (
+            <div className="py-2.5 px-3.5 rounded-xl bg-brand-broccoli-light border border-brand-broccoli/30 text-sm text-brand-broccoli font-bold flex items-center justify-between shadow-xs animate-slide-down">
+              <div className="flex items-center gap-2 min-w-0">
+                <svg className="w-4 h-4 shrink-0 text-brand-broccoli" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="truncate">{successBanner}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSuccessBanner(null)}
+                className="text-xs font-bold ml-2 text-ink-muted hover:text-brand-broccoli w-7 h-7 flex items-center justify-center rounded-md shrink-0 cursor-pointer"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Month Financial Health Summary */}
           {summary && (
-            <section aria-label="Month Financial Summary" className="bg-white border border-surface-border rounded-xl shadow-xs grid grid-cols-2 overflow-hidden">
-              <div className="p-3 text-left border-b border-r border-surface-border">
-                <div className="text-sm font-medium text-ink-muted mb-0.5">
-                  {t.monthGrossProfit}
+            <section className="bg-white border border-surface-border rounded-xl shadow-xs overflow-hidden">
+              <div className="px-5 py-4 sm:px-6 sm:py-5 flex items-baseline justify-between gap-3">
+                <div>
+                  <span className="block text-sm font-bold text-ink-secondary">
+                    {t.monthGrossProfit}
+                  </span>
+                  <span className="mt-1 block text-2xl sm:text-3xl font-extrabold text-ink-primary tabular-nums">
+                    {formatMyr(BigInt(summary.grossSen))}
+                  </span>
                 </div>
-                <div className="text-base sm:text-xl font-bold text-ink-primary tabular-nums">
-                  {formatMyr(BigInt(summary.grossSen))}
+
+                <div className="text-right">
+                  <span className="block text-sm font-bold text-ink-secondary">
+                    {t.operatingExpenses}
+                  </span>
+                  <span className="mt-1 block text-2xl sm:text-3xl font-extrabold text-slate-700 tabular-nums">
+                    {formatMyr(totalExpenseSen)}
+                  </span>
                 </div>
               </div>
 
-              <div className="p-3 text-left border-b border-surface-border">
-                <div className="text-sm font-medium text-ink-muted mb-0.5">
-                  {t.operatingExpenses}
-                </div>
-                <div className="text-base sm:text-xl font-bold text-slate-700 tabular-nums">
-                  {formatMyr(totalExpenseSen)}
-                </div>
-              </div>
-
-              <div className="col-span-2 p-3.5 sm:px-5 bg-surface-subtle/40 flex items-center justify-between">
-                <div className="text-base font-bold text-ink-secondary">
+              {/* Net Profit Strip */}
+              <div className="px-5 py-3 sm:px-6 sm:py-3.5 border-t border-surface-border bg-surface-canvas/60 flex items-center justify-between">
+                <span className="text-sm font-bold text-ink-secondary">
                   {t.netProfit}
-                </div>
+                </span>
                 <div
-                  className={`text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums ${
+                  className={`text-xl sm:text-2xl font-black tabular-nums ${
                     BigInt(summary.grossSen) - totalExpenseSen >= 0n
                       ? "text-emerald-700"
                       : "text-rose-600"
@@ -365,225 +393,223 @@ export function ExpensesView({
             </section>
           )}
 
-          {/* Add Operating Expense Form */}
-                      <section aria-label="Operating Expenses" className="space-y-2.5">
-                        <div className="pt-2 pb-0.5" aria-hidden="true">
-                          <hr className="border-t border-surface-border" />
-                        </div>
-                        <div className="flex items-center justify-between px-0.5">
-                          <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
-                            每月支出
-                          </h2>
-                          <span className="text-sm font-bold text-slate-700 tabular-nums">
-                            {formatMyr(totalExpenseSen)}
+          {/* Operating Expenses Section */}
+          <section aria-label="Operating Expenses" className="space-y-2.5">
+            <div className="pt-2 pb-0.5" aria-hidden="true">
+              <hr className="border-t border-surface-border" />
+            </div>
+            <div className="flex items-center justify-between px-0.5">
+              <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
+                {t.expensesTitle}
+              </h2>
+              <span className="text-sm font-bold text-slate-700 tabular-nums">
+                {formatMyr(totalExpenseSen)}
+              </span>
+            </div>
+
+            {/* Dynamic Cost Cards */}
+            {mergedExpenses.length > 0 && (
+              <div className="space-y-2">
+                {mergedExpenses.map((item) => (
+                  <div
+                    key={item.key}
+                    className="bg-white border border-surface-border rounded-xl shadow-xs transition-all overflow-hidden hover:border-slate-300"
+                  >
+                    <div className="w-full px-4 py-3 flex items-center justify-between gap-2 select-none bg-white">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-surface-subtle border border-surface-border text-ink-secondary whitespace-nowrap">
+                          {getCategoryLabel(item.type)}
+                        </span>
+                        {item.ids.length > 1 && (
+                          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-surface-subtle text-ink-muted border border-surface-border tabular-nums">
+                            ×{item.ids.length}
                           </span>
-                        </div>
-
-                        {/* Dynamic Cost Cards */}
-                        {mergedExpenses.length > 0 && (
-                          <div className="space-y-2">
-                            {mergedExpenses.map((item) => (
-                              <div
-                                key={item.key}
-                                className="bg-white border border-surface-border rounded-xl shadow-xs transition-all overflow-hidden hover:border-slate-300"
-                              >
-                                <div className="w-full px-4 py-3 flex items-center justify-between gap-2 select-none bg-white">
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-surface-subtle border border-surface-border text-ink-secondary whitespace-nowrap">
-                                      {getCategoryLabel(item.type)}
-                                    </span>
-                                    {item.ids.length > 1 && (
-                                      <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-surface-subtle text-ink-muted border border-surface-border tabular-nums">
-                                        ×{item.ids.length}
-                                      </span>
-                                    )}
-                                    {item.note && (
-                                      <span className="text-sm text-ink-primary font-medium truncate">
-                                        {item.note}
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  <div className="flex items-center gap-2.5 shrink-0">
-                                    <span className="text-base font-bold text-slate-700 tabular-nums whitespace-nowrap">
-                                      {formatMyr(BigInt(item.amountSen))}
-                                    </span>
-
-                                    {!isClosed && (
-                                      <button
-                                        type="button"
-                                        disabled={deletingKey === item.key}
-                                        onClick={() => setPendingDeleteExpense(item)}
-                                        aria-label={t.delete}
-                                        title={t.delete}
-                                        className="w-9 h-9 rounded-lg hover:bg-finance-loss-light text-ink-muted hover:text-finance-loss flex items-center justify-center text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer disabled:opacity-50"
-                                      >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                        </svg>
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
                         )}
-
-                        {/* Empty state when no expenses recorded */}
-                        {mergedExpenses.length === 0 && !isDraftOpen && (
-                          <div className="bg-white border border-surface-border rounded-xl p-6 text-center shadow-xs">
-                            <div className="text-sm text-ink-muted">
-                              {t.noExpensesRecorded}
-                            </div>
-                          </div>
+                        {item.note && (
+                          <span className="text-sm text-ink-primary font-medium truncate">
+                            {item.note}
+                          </span>
                         )}
+                      </div>
 
-                        {/* Active Draft Form Card (Daily-sheet style) */}
-                        {isDraftOpen && !isClosed && (
-                          <div className="bg-white border-2 border-brand-broccoli ring-2 ring-brand-broccoli/20 rounded-xl shadow-xs overflow-hidden transition-all">
-                            <div className="p-4 bg-surface-canvas/30 space-y-3">
-                              {/* Category Selection */}
-                              <div>
-                                <span className="block text-xs font-semibold text-ink-secondary mb-2">
-                                  1. {t.selectCategory}
-                                </span>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {categories.map((cat) => {
-                                    const isSelected = newType === cat.key;
-                                    return (
-                                      <button
-                                        key={cat.key}
-                                        type="button"
-                                        onClick={() => {
-                                          setNewType(cat.key);
-                                          if (inlineError) setInlineError(null);
-                                        }}
-                                        className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold border btn-wave transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
-                                          isSelected
-                                            ? "bg-brand-broccoli text-white border-brand-broccoli shadow-xs"
-                                            : "bg-surface-canvas border-surface-border text-ink-secondary hover:border-ink-muted hover:text-ink-primary"
-                                        }`}
-                                      >
-                                        {cat.label}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        <span className="text-base font-bold text-slate-700 tabular-nums whitespace-nowrap">
+                          {formatMyr(BigInt(item.amountSen))}
+                        </span>
 
-                              {/* Amount & Note Inputs */}
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                                <div>
-                                  <label className="block text-xs font-semibold text-ink-secondary mb-1">
-                                    2. {t.amount} <span className="text-finance-loss">*</span>
-                                  </label>
-                                  <div className="relative flex items-center">
-                                    <span className="absolute left-3 text-sm font-bold text-ink-muted select-none">
-                                      RM
-                                    </span>
-                                    <input
-                                      type="text"
-                                      inputMode="decimal"
-                                      value={amountInput}
-                                      onChange={(e) => {
-                                        const sanitized = sanitizeMoneyInput(e.target.value);
-                                        if (sanitized !== null) {
-                                          setAmountInput(sanitized);
-                                          if (inlineError) setInlineError(null);
-                                        }
-                                      }}
-                                      placeholder="0.00"
-                                      className={`w-full h-11 pl-10 pr-2.5 rounded-lg bg-surface-canvas border ${
-                                        amountError ? "border-finance-loss" : "border-surface-border"
-                                      } text-base font-semibold text-ink-primary tabular-nums focus:outline-none focus:bg-white ${
-                                        amountError
-                                          ? "focus:border-finance-loss focus-visible:ring-finance-loss/50"
-                                          : "focus:border-ink-primary focus-visible:ring-brand-broccoli/50"
-                                      } focus-visible:ring-2 transition-colors`}
-                                    />
-                                  </div>
-                                  {amountError && (
-                                    <div className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-medium flex items-center justify-between">
-                                      <span>{t.invalidAmount}</span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                <div>
-                                  <label className="block text-xs font-semibold text-ink-secondary mb-1">
-                                    3. {t.note} {newType === "other" && <span className="text-finance-loss">*</span>}
-                                  </label>
-                                  <input
-                                    type="text"
-                                    value={noteInput}
-                                    onChange={(e) => {
-                                      setNoteInput(e.target.value);
-                                      if (inlineError) setInlineError(null);
-                                    }}
-                                    placeholder={newType === "other" ? t.noteRequired : t.noteOptional}
-                                    className="w-full h-11 px-3 rounded-lg bg-surface-canvas border border-surface-border text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50 transition-colors"
-                                  />
-                                </div>
-                              </div>
-
-                              {/* Action Buttons: Cancel and Add */}
-                              <div className="flex items-center gap-2.5 pt-1">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setIsDraftOpen(false);
-                                    setAmountInput("");
-                                    setNoteInput("");
-                                    setAmountError(false);
-                                    if (inlineError) setInlineError(null);
-                                  }}
-                                  className="flex-1 h-11 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary font-semibold text-sm transition-colors cursor-pointer"
-                                >
-                                  {t.cancel}
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={adding}
-                                  onClick={handleAddExpense}
-                                  className="flex-1 h-11 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
-                                >
-                                  {adding ? t.saving : t.addExpense}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Standalone Clickable "+ Add Cost" Button at bottom */}
-                        {!isClosed && !isDraftOpen && (
+                        {!isClosed && (
                           <button
                             type="button"
-                            onClick={() => setIsDraftOpen(true)}
-                            className="relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-emerald-50/40 hover:bg-emerald-50/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden"
+                            onClick={() => setPendingDeleteExpense(item)}
+                            aria-label={t.delete}
+                            title={t.delete}
+                            className="w-9 h-9 rounded-lg hover:bg-finance-loss-light text-ink-muted hover:text-finance-loss flex items-center justify-center text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
                           >
-                            <svg
-                              className="absolute inset-0 w-full h-full pointer-events-none rounded-xl"
-                              fill="none"
-                              xmlns="http://www.w3.org/2000/svg"
-                            >
-                              <rect
-                                x="1"
-                                y="1"
-                                width="calc(100% - 2px)"
-                                height="calc(100% - 2px)"
-                                rx="11"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeDasharray="8 5"
-                                className="text-emerald-400/90 group-hover:text-brand-broccoli transition-colors"
-                              />
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                             </svg>
-                            <span className="text-lg leading-none relative z-10">+</span>
-                            <span className="relative z-10">{t.addExpense}</span>
                           </button>
                         )}
-                      </section>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Empty state when no expenses recorded */}
+            {mergedExpenses.length === 0 && !isDraftOpen && (
+              <div className="bg-white border border-surface-border rounded-xl p-6 text-center shadow-xs">
+                <div className="text-sm text-ink-muted">
+                  {t.noExpensesRecorded}
+                </div>
+              </div>
+            )}
+
+            {/* Active Draft Form Card (Daily-sheet style) */}
+            {isDraftOpen && !isClosed && (
+              <div className="bg-white border-2 border-brand-broccoli ring-2 ring-brand-broccoli/20 rounded-xl shadow-xs overflow-hidden transition-all">
+                <form onSubmit={handleAddExpense} className="p-4 bg-surface-canvas/30 space-y-3">
+                  {/* Category Selection */}
+                  <div>
+                    <span className="block text-xs font-semibold text-ink-secondary mb-2">
+                      {t.selectCategory}
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {categories.map((cat) => {
+                        const isSelected = newType === cat.key;
+                        return (
+                          <button
+                            key={cat.key}
+                            type="button"
+                            onClick={() => {
+                              setNewType(cat.key);
+                              if (inlineError) setInlineError(null);
+                            }}
+                            className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold border btn-wave transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
+                              isSelected
+                                ? "bg-brand-broccoli text-white border-brand-broccoli shadow-xs"
+                                : "bg-surface-canvas border-surface-border text-ink-secondary hover:border-ink-muted hover:text-ink-primary"
+                            }`}
+                          >
+                            {cat.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Amount & Note Inputs */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-ink-secondary mb-1">
+                        {t.amount} <span className="text-finance-loss">*</span>
+                      </label>
+                      <div className="relative flex items-center">
+                        <span className="absolute left-3 text-sm font-bold text-ink-muted select-none">
+                          RM
+                        </span>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          value={amountInput}
+                          onChange={(e) => {
+                            const sanitized = sanitizeMoneyInput(e.target.value);
+                            if (sanitized !== null) {
+                              setAmountInput(sanitized);
+                              if (inlineError) setInlineError(null);
+                            }
+                          }}
+                          placeholder="0.00"
+                          className={`w-full h-11 pl-10 pr-2.5 rounded-lg bg-surface-canvas border ${
+                            amountError ? "border-finance-loss" : "border-surface-border"
+                          } text-base font-semibold text-ink-primary tabular-nums focus:outline-none focus:bg-white ${
+                            amountError
+                              ? "focus:border-finance-loss focus-visible:ring-finance-loss/50"
+                              : "focus:border-ink-primary focus-visible:ring-brand-broccoli/50"
+                          } focus-visible:ring-2 transition-colors`}
+                        />
+                      </div>
+                      {amountError && (
+                        <div className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-medium flex items-center justify-between">
+                          <span>{t.invalidAmount}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-ink-secondary mb-1">
+                        {t.note} {newType === "other" && <span className="text-finance-loss">*</span>}
+                      </label>
+                      <input
+                        type="text"
+                        value={noteInput}
+                        onChange={(e) => {
+                          setNoteInput(e.target.value);
+                          if (inlineError) setInlineError(null);
+                        }}
+                        placeholder={newType === "other" ? t.noteRequired : t.noteOptional}
+                        className="w-full h-11 px-3 rounded-lg bg-surface-canvas border border-surface-border text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50 transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Action Buttons: Cancel and Add */}
+                  <div className="flex items-center gap-2.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDraftOpen(false);
+                        setAmountInput("");
+                        setNoteInput("");
+                        setAmountError(false);
+                        if (inlineError) setInlineError(null);
+                      }}
+                      className="flex-1 h-11 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary font-semibold text-sm transition-colors cursor-pointer"
+                    >
+                      {t.cancel}
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={adding}
+                      className="flex-1 h-11 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {adding ? t.saving : t.addExpense}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Standalone Clickable "+ Add Cost" Button at bottom */}
+            {!isClosed && !isDraftOpen && (
+              <button
+                type="button"
+                onClick={() => setIsDraftOpen(true)}
+                className="relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-emerald-50/40 hover:bg-emerald-50/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden"
+              >
+                <svg
+                  className="absolute inset-0 w-full h-full pointer-events-none rounded-xl"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <rect
+                    x="1"
+                    y="1"
+                    width="calc(100% - 2px)"
+                    height="calc(100% - 2px)"
+                    rx="11"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeDasharray="8 5"
+                    className="text-emerald-400/90 group-hover:text-brand-broccoli transition-colors"
+                  />
+                </svg>
+                <span className="text-lg leading-none relative z-10">+</span>
+                <span className="relative z-10">{t.addExpense}</span>
+              </button>
+            )}
+          </section>
 
           {/* Delete Item Confirmation Dialog */}
           {pendingDeleteExpense && (
@@ -611,7 +637,7 @@ export function ExpensesView({
                       {t.confirmDeleteItemTitle}
                     </h3>
                     <p id="confirm-delete-expense-desc" className="text-xs text-ink-muted mt-0.5">
-                      {formatDeleteModalRecordCount(pendingDeleteExpense.ids.length)} · {t.confirmDeleteItemDesc}
+                      {formatDeleteModalRecordCount(pendingDeleteExpense.ids.length, t)} · {t.confirmDeleteItemDesc}
                     </p>
                   </div>
                 </div>
@@ -650,9 +676,9 @@ export function ExpensesView({
                       await handleDeleteExpense(pendingDeleteExpense.key, pendingDeleteExpense.ids);
                       setPendingDeleteExpense(null);
                     }}
-                    className="flex-1 h-11 rounded-lg bg-finance-loss hover:bg-finance-loss-border text-white font-semibold text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/50 disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-1 h-11 rounded-lg bg-finance-loss hover:bg-finance-loss/90 btn-wave text-white font-bold text-sm transition-colors shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {deletingKey !== null ? `${t.delete}...` : t.confirmDeleteBtn}
+                    {deletingKey !== null ? t.saving : t.confirmDeleteBtn}
                   </button>
                 </div>
               </div>
