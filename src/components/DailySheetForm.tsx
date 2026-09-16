@@ -349,7 +349,10 @@ export function DailySheetForm({
     index: number,
     patch: Partial<CostLineItem>
   ) {
-    if (patch.note !== undefined && index === noteErrorIndex) {
+    if (
+      (patch.note !== undefined && index === noteErrorIndex) ||
+      (patch.category !== undefined && patch.category !== "other")
+    ) {
       setNoteErrorIndex(null);
     }
     setExpandedIndex(index);
@@ -361,6 +364,7 @@ export function DailySheetForm({
   // Remove Cost Line
   function handleRemoveCostLine(index: number) {
     if (isClosed) return;
+    setNoteErrorIndex(null);
     setCostLines((prev) => prev.filter((_, i) => i !== index));
   }
 
@@ -381,8 +385,11 @@ export function DailySheetForm({
       setExpandedIndex(missingNoteIdx);
       setNoteErrorIndex(missingNoteIdx);
       setErrorMessage(null);
+      // Re-focus even if the same line was already flagged (effect won't refire)
+      requestAnimationFrame(() => noteErrorRef.current?.focus());
       return;
     }
+    setNoteErrorIndex(null);
     setErrorMessage(null);
     setSuccessMessage(null);
 

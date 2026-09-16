@@ -386,7 +386,7 @@ export function translateApiError(
   if (lower.includes("rate") || lower.includes("limit") || lower.includes("too many")) {
     return t.loginRateLimited;
   }
-  if (lower.includes("category is 'other'")) {
+  if (/category is .other./i.test(lower)) {
     return t.otherNoteRequired;
   }
   if (lower.includes("note is required") || lower.includes("variance")) {
