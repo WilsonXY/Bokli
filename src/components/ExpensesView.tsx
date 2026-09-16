@@ -352,36 +352,33 @@ export function ExpensesView({
             </div>
           )}
 
-          {/* Month Financial Health Summary */}
+          {/* Month Financial Snapshot Summary Strip (Unified Container matching MonthCloseView) */}
           {summary && (
-            <section className="bg-white border border-surface-border rounded-xl shadow-xs overflow-hidden">
-              <div className="px-5 py-4 sm:px-6 sm:py-5 flex items-baseline justify-between gap-3">
-                <div>
-                  <span className="block text-sm font-bold text-ink-secondary">
-                    {t.monthGrossProfit}
-                  </span>
-                  <span className="mt-1 block text-2xl sm:text-3xl font-extrabold text-ink-primary tabular-nums">
-                    {formatMyr(BigInt(summary.grossSen))}
-                  </span>
+            <section aria-label="Month Financial Snapshot" className="bg-white border border-surface-border rounded-xl shadow-xs grid grid-cols-2 overflow-hidden">
+              <div className="p-3 text-center sm:text-left border-b border-surface-border">
+                <div className="text-sm font-medium text-ink-muted mb-0.5">
+                  {t.monthGrossProfit}
                 </div>
-
-                <div className="text-right">
-                  <span className="block text-sm font-bold text-ink-secondary">
-                    {t.operatingExpenses}
-                  </span>
-                  <span className="mt-1 block text-2xl sm:text-3xl font-extrabold text-slate-700 tabular-nums">
-                    {formatMyr(totalExpenseSen)}
-                  </span>
+                <div className="text-base sm:text-xl font-bold text-ink-primary tabular-nums">
+                  {formatMyr(BigInt(summary.grossSen))}
                 </div>
               </div>
 
-              {/* Net Profit Strip */}
-              <div className="px-5 py-3 sm:px-6 sm:py-3.5 border-t border-surface-border bg-surface-canvas/60 flex items-center justify-between">
-                <span className="text-sm font-bold text-ink-secondary">
+              <div className="p-3 text-center sm:text-left border-l border-b border-surface-border">
+                <div className="text-sm font-medium text-ink-muted mb-0.5">
+                  {t.operatingExpenses}
+                </div>
+                <div className="text-base sm:text-xl font-bold text-slate-700 tabular-nums">
+                  {formatMyr(totalExpenseSen)}
+                </div>
+              </div>
+
+              <div className="col-span-2 p-3.5 sm:px-5 bg-surface-subtle/40 flex items-center justify-between">
+                <div className="text-base font-bold text-ink-secondary">
                   {t.netProfit}
-                </span>
+                </div>
                 <div
-                  className={`text-xl sm:text-2xl font-black tabular-nums ${
+                  className={`text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums ${
                     BigInt(summary.grossSen) - totalExpenseSen >= 0n
                       ? "text-emerald-700"
                       : "text-rose-600"
