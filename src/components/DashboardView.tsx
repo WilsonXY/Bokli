@@ -48,6 +48,43 @@ interface DashboardViewProps {
   loadError?: string | null;
 }
 
+export function getDonutSlice(
+  cx: number,
+  cy: number,
+  rOuter: number,
+  rInner: number,
+  rawStartPct: number,
+  rawEndPct: number
+) {
+  const startPct = Math.round(rawStartPct * 10000) / 10000;
+  const endPct = Math.round(rawEndPct * 10000) / 10000;
+  const sliceDelta = Math.round((endPct - startPct) * 10000) / 10000;
+  const largeArc = sliceDelta > 0.5 ? 1 : 0;
+
+  const startAngle = (startPct * 360 - 90) * (Math.PI / 180);
+  const endAngle = (endPct * 360 - 90) * (Math.PI / 180);
+
+  const x1Outer = (cx + rOuter * Math.cos(startAngle)).toFixed(4);
+  const y1Outer = (cy + rOuter * Math.sin(startAngle)).toFixed(4);
+  const x2Outer = (cx + rOuter * Math.cos(endAngle)).toFixed(4);
+  const y2Outer = (cy + rOuter * Math.sin(endAngle)).toFixed(4);
+
+  const x1Inner = (cx + rInner * Math.cos(endAngle)).toFixed(4);
+  const y1Inner = (cy + rInner * Math.sin(endAngle)).toFixed(4);
+  const x2Inner = (cx + rInner * Math.cos(startAngle)).toFixed(4);
+  const y2Inner = (cy + rInner * Math.sin(startAngle)).toFixed(4);
+
+  const d = `M ${x1Outer} ${y1Outer} A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2Outer} ${y2Outer} L ${x1Inner} ${y1Inner} A ${rInner} ${rInner} 0 ${largeArc} 0 ${x2Inner} ${y2Inner} Z`;
+
+  // Mid-angle for embedding percentage label directly into donut slice
+  const midAngle = (((startPct + endPct) / 2) * 360 - 90) * (Math.PI / 180);
+  const rMid = (rOuter + rInner) / 2;
+  const tx = Number((cx + rMid * Math.cos(midAngle)).toFixed(4));
+  const ty = Number((cy + rMid * Math.sin(midAngle)).toFixed(4));
+
+  return { d, tx, ty };
+}
+
 export function DashboardView({
   tiles,
   activeMonth,
@@ -103,50 +140,11 @@ export function DashboardView({
     })
     .filter((entry) => entry.amount > 0);
 
-  function getDonutSlice(
-    cx: number,
-    cy: number,
-    rOuter: number,
-    rInner: number,
-    startPct: number,
-    endPct: number
-  ) {
-    const startAngle = (startPct * 360 - 90) * (Math.PI / 180);
-    const endAngle = (endPct * 360 - 90) * (Math.PI / 180);
-    const largeArc = endPct - startPct > 0.5 ? 1 : 0;
-
-    const x1Outer = cx + rOuter * Math.cos(startAngle);
-    const y1Outer = cy + rOuter * Math.sin(startAngle);
-    const x2Outer = cx + rOuter * Math.cos(endAngle);
-    const y2Outer = cy + rOuter * Math.sin(endAngle);
-
-    const x1Inner = cx + rInner * Math.cos(endAngle);
-    const y1Inner = cy + rInner * Math.sin(endAngle);
-    const x2Inner = cx + rInner * Math.cos(startAngle);
-    const y2Inner = cy + rInner * Math.sin(startAngle);
-
-    const d = `
-      M ${x1Outer} ${y1Outer}
-      A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2Outer} ${y2Outer}
-      L ${x1Inner} ${y1Inner}
-      A ${rInner} ${rInner} 0 ${largeArc} 0 ${x2Inner} ${y2Inner}
-      Z
-    `;
-
-    // Mid-angle for embedding percentage label directly into donut slice
-    const midAngle = ((startPct + endPct) / 2 * 360 - 90) * (Math.PI / 180);
-    const rMid = (rOuter + rInner) / 2;
-    const tx = cx + rMid * Math.cos(midAngle);
-    const ty = cy + rMid * Math.sin(midAngle);
-
-    return { d, tx, ty };
-  }
-
   let runningPct = 0;
   const costSlices = costEntries.map((entry) => {
-    const pctFraction = entry.pct / 100;
-    const start = runningPct;
-    const end = Math.min(1, runningPct + pctFraction);
+    const pctFraction = Math.round((entry.pct / 100) * 10000) / 10000;
+    const start = Math.round(runningPct * 10000) / 10000;
+    const end = Math.min(1, Math.round((start + pctFraction) * 10000) / 10000);
     runningPct = end;
     return {
       ...entry,
