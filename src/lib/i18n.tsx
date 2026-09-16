@@ -403,7 +403,10 @@ export function translateApiError(
   ) {
     return t.varianceNoteRequired;
   }
-  if (lower.includes("note is required") || (lower.includes("other") && lower.includes("note"))) {
+  if (
+    lower.includes("note is required") ||
+    /\bother\b[^.]*note|note[^.]*\bother\b/i.test(error)
+  ) {
     return t.otherNoteRequired;
   }
   if (lower.includes("reopen")) {

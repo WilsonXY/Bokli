@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
-import { useI18n, translateApiError } from "@/lib/i18n";
+import { useI18n, translateApiError, DICTIONARY, type TranslationMap } from "@/lib/i18n";
 import { CalendarPopover } from "@/components/CalendarPopover";
 import type { CostCategory } from "@/services/daily-sheet";
 import type { CostLine } from "@/db/schema";
@@ -27,9 +27,11 @@ export interface DailySheetFormProps {
   todayKl: string;
   initialCashInput?: string;
   initialTngInput?: string;
-  initialNoteErrorIndex?: number | null;
+  initialNoteErrorIndices?: number[];
   initialExpandedIndex?: number | null;
   initialErrorMessage?: string | null;
+  fetchFn?: typeof fetch;
+  formLogic?: DailySheetFormLogic;
 }
 
 const MAX_SAFE_SEN = Number.MAX_SAFE_INTEGER; // 9007199254740991
@@ -108,69 +110,27 @@ export function mergeCostLines(lines: CostLineItem[]): CostLineItem[] {
   return merged;
 }
 
-export function appendOrMergeCostLine(
-  prev: CostLineItem[],
-  newCat: CostCategory,
-  amountVal: number,
-  normNote: string | null,
-): { lines: CostLineItem[]; error?: string } {
-  if (newCat === "other" && !normalizeNote(normNote)) {
-    return { lines: prev, error: "otherNoteRequired" };
-  }
-
-  const existingIndex = prev.findIndex(
-    (l) => l.category === newCat && normalizeNote(l.note) === normalizeNote(normNote)
-  );
-
-  if (existingIndex !== -1) {
-    const existing = prev[existingIndex];
-    const mergedTotal = existing.amountSen + amountVal;
-    if (mergedTotal > MAX_SAFE_SEN) {
-      return { lines: prev, error: "invalidAmount" };
-    }
-    const safeAmount =
-      Number.isSafeInteger(mergedTotal) && mergedTotal >= 0 && mergedTotal <= MAX_SAFE_SEN
-        ? mergedTotal
-        : MAX_SAFE_SEN;
-    const updated = prev.map((line, idx) =>
-      idx === existingIndex
-        ? {
-            category: line.category,
-            note: line.note,
-            amountSen: safeAmount,
-            amountInput: safeAmount > 0 ? senToDecimalStr(safeAmount) : "",
-            ids: line.ids ?? (line.id !== undefined ? [line.id] : []),
-            clientId: line.clientId,
-          }
-        : line
-    );
-    return { lines: updated };
-  }
-
-  return {
-    lines: [
-      ...prev,
-      {
-        category: newCat,
-        amountSen: amountVal,
-        amountInput: amountVal > 0 ? senToDecimalStr(amountVal) : "",
-        note: normNote,
-        ids: [],
-      },
-    ],
-  };
-}
-
 export function validateDailySheetCostLines(
   lines: CostLineItem[]
-): { isValid: boolean; invalidIndex: number | null; error?: string } {
+): {
+  isValid: boolean;
+  invalidIndices: number[];
+  invalidIndex: number | null;
+  error?: string;
+} {
+  const invalidIndices: number[] = [];
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (line.category === "other" && !normalizeNote(line.note)) {
-      return { isValid: false, invalidIndex: i, error: "otherNoteRequired" };
+      invalidIndices.push(i);
     }
   }
-  return { isValid: true, invalidIndex: null };
+  return {
+    isValid: invalidIndices.length === 0,
+    invalidIndices,
+    invalidIndex: invalidIndices[0] ?? null,
+    error: invalidIndices.length > 0 ? "otherNoteRequired" : undefined,
+  };
 }
 
 export async function submitDailySheet({
@@ -178,7 +138,7 @@ export async function submitDailySheet({
   cashSen,
   tngSen,
   costLines,
-  fetchFn = fetch,
+  fetchFn,
 }: {
   date: string;
   cashSen: bigint | null;
@@ -188,6 +148,7 @@ export async function submitDailySheet({
 }): Promise<{
   success: boolean;
   blockedClientSide?: boolean;
+  invalidIndices?: number[];
   invalidOtherIndex?: number | null;
   error?: string;
   data?: any;
@@ -195,20 +156,23 @@ export async function submitDailySheet({
   if (cashSen === null || tngSen === null) {
     return { success: false, blockedClientSide: true, error: "invalidAmount" };
   }
+  // Priority rule: Amount must be valid and > 0 before checking note requirements; an empty/RM0 line is incomplete input (invalidAmount) rather than a note omission (otherNoteRequired).
   if (costLines.some((l) => l.amountSen <= 0)) {
     return { success: false, blockedClientSide: true, error: "invalidAmount" };
   }
   const validation = validateDailySheetCostLines(costLines);
-  if (!validation.isValid && validation.invalidIndex !== null) {
+  if (!validation.isValid) {
     return {
       success: false,
       blockedClientSide: true,
+      invalidIndices: validation.invalidIndices,
       invalidOtherIndex: validation.invalidIndex,
       error: "otherNoteRequired",
     };
   }
 
-  const res = await fetchFn("/api/sheets", {
+  const endpoint = "/api/sheets";
+  const requestInit = {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -223,7 +187,9 @@ export async function submitDailySheet({
           note: (l.note || "").trim() || undefined,
         })),
     }),
-  });
+  };
+
+  const res = fetchFn ? await fetchFn(endpoint, requestInit) : await fetch(endpoint, requestInit);
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -255,175 +221,156 @@ export function toSen(input: string): bigint | null {
   }
 }
 
-export function DailySheetForm({
-  date,
-  initialCashSen,
-  initialTngSen,
-  initialCostLines,
-  isClosed,
-  todayKl,
-  initialCashInput,
-  initialTngInput,
-  initialNoteErrorIndex,
-  initialExpandedIndex,
-  initialErrorMessage,
-}: DailySheetFormProps) {
-  const router = useRouter();
-  const { t } = useI18n();
-  const [, startTransition] = useTransition();
+export interface DailySheetFormState {
+  date: string;
+  cashInput: string;
+  tngInput: string;
+  costLines: CostLineItem[];
+  noteErrorIndices: Set<number>;
+  expandedIndex: number | null;
+  focusNoteIndex: number | null;
+  errorMessage: string | null;
+  successMessage: string | null;
+  saving: boolean;
+  showConfirmModal: boolean;
+  pendingDeleteIndex: number | null;
+  isCalendarOpen: boolean;
+  baseline: {
+    cashInput: string;
+    tngInput: string;
+    costLines: CostLineItem[];
+  };
+}
 
-  // Calendar popover state
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
-  const dateBtnRef = useRef<HTMLButtonElement>(null);
+export interface DailySheetFormLogicOptions {
+  date: string;
+  initialCashSen: number;
+  initialTngSen: number;
+  initialCostLines: CostLineItem[];
+  isClosed: boolean;
+  todayKl: string;
+  initialCashInput?: string;
+  initialTngInput?: string;
+  initialNoteErrorIndices?: number[];
+  initialExpandedIndex?: number | null;
+  initialErrorMessage?: string | null;
+  fetchFn?: typeof fetch;
+  router?: { push: (url: string) => void; refresh: () => void };
+  t?: TranslationMap;
+  startTransition?: (callback: () => void) => void;
+}
 
-  // Revenue inputs state
-  const initCashStr = initialCashInput !== undefined ? initialCashInput : (initialCashSen > 0 ? senToDecimalStr(initialCashSen) : "");
-  const initTngStr = initialTngInput !== undefined ? initialTngInput : (initialTngSen > 0 ? senToDecimalStr(initialTngSen) : "");
-  const [cashInput, setCashInput] = useState(initCashStr);
-  const [tngInput, setTngInput] = useState(initTngStr);
+export class DailySheetFormLogic {
+  private state: DailySheetFormState;
+  private options: DailySheetFormLogicOptions;
+  private listeners: Set<(state: DailySheetFormState) => void> = new Set();
 
-  // Cost lines state - merged on frontend if same category and same note
-  const [costLines, setCostLines] = useState<CostLineItem[]>(() =>
-    mergeCostLines(initialCostLines)
-  );
-
-  // Feedback states
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(() => {
-    if (initialExpandedIndex !== undefined) return initialExpandedIndex;
-    if (initialNoteErrorIndex !== undefined && initialNoteErrorIndex !== null) return initialNoteErrorIndex;
-    const merged = mergeCostLines(initialCostLines);
+  constructor(options: DailySheetFormLogicOptions) {
+    this.options = options;
+    const initCash = options.initialCashInput !== undefined
+      ? options.initialCashInput
+      : (options.initialCashSen > 0 ? senToDecimalStr(options.initialCashSen) : "");
+    const initTng = options.initialTngInput !== undefined
+      ? options.initialTngInput
+      : (options.initialTngSen > 0 ? senToDecimalStr(options.initialTngSen) : "");
+    const merged = mergeCostLines(options.initialCostLines);
     const zeroIdx = merged.findIndex((l) => l.amountSen === 0);
-    return zeroIdx !== -1 ? zeroIdx : (merged.length === 1 ? 0 : null);
-  });
+    const defaultExpanded = options.initialExpandedIndex !== undefined
+      ? options.initialExpandedIndex
+      : (zeroIdx !== -1 ? zeroIdx : (merged.length === 1 ? 0 : null));
 
-  const [noteErrorIndices, setNoteErrorIndices] = useState<Set<number>>(() => {
-    if (initialNoteErrorIndex !== undefined && initialNoteErrorIndex !== null) {
-      return new Set([initialNoteErrorIndex]);
-    }
-    return new Set();
-  });
-  const [focusNoteIndex, setFocusNoteIndex] = useState<number | null>(null);
-  const noteInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
-
-  // Focus note input when requested
-  useEffect(() => {
-    if (focusNoteIndex !== null) {
-      const el = noteInputRefs.current.get(focusNoteIndex);
-      if (el) {
-        el.focus();
-        setFocusNoteIndex(null);
-      }
-    }
-  }, [focusNoteIndex, expandedIndex]);
-
-  // Close modals on Escape key
-  useEffect(() => {
-    if (!showConfirmModal && pendingDeleteIndex === null) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setShowConfirmModal(false);
-        setPendingDeleteIndex(null);
-      }
+    this.state = {
+      date: options.date,
+      cashInput: initCash,
+      tngInput: initTng,
+      costLines: merged,
+      noteErrorIndices: new Set(options.initialNoteErrorIndices ?? []),
+      expandedIndex: defaultExpanded,
+      focusNoteIndex: null,
+      errorMessage: options.initialErrorMessage ?? null,
+      successMessage: null,
+      saving: false,
+      showConfirmModal: false,
+      pendingDeleteIndex: null,
+      isCalendarOpen: false,
+      baseline: {
+        cashInput: initCash,
+        tngInput: initTng,
+        costLines: merged,
+      },
     };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [showConfirmModal, pendingDeleteIndex]);
-
-  const [errorMessage, setErrorMessage] = useState<string | null>(initialErrorMessage ?? null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  // Baseline state representing the saved/initial state for the selected date
-  const [baseline, setBaseline] = useState(() => ({
-    cashInput: initCashStr,
-    tngInput: initTngStr,
-    costLines: mergeCostLines(initialCostLines),
-  }));
-
-  // Check if current form inputs differ from baseline
-  const isModified = useMemo(() => {
-    if (cashInput.trim() !== baseline.cashInput.trim()) return true;
-    if (tngInput.trim() !== baseline.tngInput.trim()) return true;
-    if (costLines.length !== baseline.costLines.length) return true;
-
-    for (let i = 0; i < costLines.length; i++) {
-      const curr = costLines[i];
-      const base = baseline.costLines[i];
-      if (
-        !base ||
-        curr.category !== base.category ||
-        curr.amountSen !== base.amountSen ||
-        normalizeNote(curr.note) !== normalizeNote(base.note) ||
-        !areIdsEqual(curr.ids, base.ids)
-      ) {
-        return true;
-      }
-    }
-    return false;
-  }, [cashInput, tngInput, costLines, baseline]);
-
-  // Update form inputs when selected date or initial data changes
-  useEffect(() => {
-    const cashStr = initialCashInput !== undefined ? initialCashInput : (initialCashSen > 0 ? senToDecimalStr(initialCashSen) : "");
-    const tngStr = initialTngInput !== undefined ? initialTngInput : (initialTngSen > 0 ? senToDecimalStr(initialTngSen) : "");
-    const mergedInitial = mergeCostLines(initialCostLines);
-    setCashInput(cashStr);
-    setTngInput(tngStr);
-    setCostLines(mergedInitial);
-    setBaseline({
-      cashInput: cashStr,
-      tngInput: tngStr,
-      costLines: mergedInitial,
-    });
-    const zeroIdx = mergedInitial.findIndex((l) => l.amountSen === 0);
-    setExpandedIndex(zeroIdx !== -1 ? zeroIdx : (mergedInitial.length === 1 ? 0 : null));
-    setNoteErrorIndices(
-      initialNoteErrorIndex !== undefined && initialNoteErrorIndex !== null
-        ? new Set([initialNoteErrorIndex])
-        : new Set()
-    );
-    setErrorMessage(null);
-  }, [date, initialCashSen, initialTngSen, initialCashInput, initialTngInput, initialCostLines, initialNoteErrorIndex]);
-
-  // Revert modifications back to baseline
-  function handleRevert() {
-    setCashInput(baseline.cashInput);
-    setTngInput(baseline.tngInput);
-    setCostLines(baseline.costLines);
-    setNoteErrorIndices(new Set());
-    setErrorMessage(null);
   }
 
-  const cashSen = toSen(cashInput);
-  const tngSen = toSen(tngInput);
-  const cashError = cashInput.trim() !== "" && cashSen === null;
-  const tngError = tngInput.trim() !== "" && tngSen === null;
-  const hasParseError = cashError || tngError;
+  public getState(): DailySheetFormState {
+    return this.state;
+  }
 
-  const totalRevenueSen =
-    hasParseError || cashSen === null || tngSen === null
-      ? null
-      : cashSen + tngSen;
+  public subscribe(listener: (state: DailySheetFormState) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
 
-  const totalCostSen = costLines.reduce(
-    (acc, line) => acc + BigInt(line.amountSen),
-    0n,
-  );
-  const hasZeroCostLine = costLines.some((line) => line.amountSen <= 0);
+  private update(patch: Partial<DailySheetFormState>): void {
+    this.state = { ...this.state, ...patch };
+    this.listeners.forEach((fn) => fn(this.state));
+  }
 
-  const grossProfitSen =
-    totalRevenueSen !== null ? totalRevenueSen - totalCostSen : null;
+  public setCashInput(val: string): void {
+    this.update({ cashInput: val, errorMessage: null });
+  }
 
-  // Create and expand a new empty cost line with stable clientId
-  function handleCreateNewCostLine() {
-    if (isClosed) return;
-    const validation = validateDailySheetCostLines(costLines);
-    if (!validation.isValid && validation.invalidIndex !== null) {
-      setExpandedIndex(validation.invalidIndex);
-      setNoteErrorIndices(new Set([validation.invalidIndex]));
-      setFocusNoteIndex(validation.invalidIndex);
+  public setTngInput(val: string): void {
+    this.update({ tngInput: val, errorMessage: null });
+  }
+
+  public setExpandedIndex(idx: number | null): void {
+    this.update({ expandedIndex: idx });
+  }
+
+  public clearFocusNoteIndex(): void {
+    this.update({ focusNoteIndex: null });
+  }
+
+  public setErrorMessage(msg: string | null): void {
+    this.update({ errorMessage: msg });
+  }
+
+  public setSuccessMessage(msg: string | null): void {
+    this.update({ successMessage: msg });
+  }
+
+  public setShowConfirmModal(show: boolean): void {
+    this.update({ showConfirmModal: show });
+  }
+
+  public setPendingDeleteIndex(idx: number | null): void {
+    this.update({ pendingDeleteIndex: idx });
+  }
+
+  public setIsCalendarOpen(open: boolean | ((prev: boolean) => boolean)): void {
+    const next = typeof open === "function" ? open(this.state.isCalendarOpen) : open;
+    this.update({ isCalendarOpen: next });
+  }
+
+  public handleRevert(): void {
+    this.update({
+      cashInput: this.state.baseline.cashInput,
+      tngInput: this.state.baseline.tngInput,
+      costLines: this.state.baseline.costLines,
+      noteErrorIndices: new Set(),
+      errorMessage: null,
+    });
+  }
+
+  public handleCreateNewCostLine(): void {
+    if (this.options.isClosed) return;
+    const validation = validateDailySheetCostLines(this.state.costLines);
+    if (!validation.isValid) {
+      this.update({
+        expandedIndex: validation.invalidIndices[0],
+        noteErrorIndices: new Set(validation.invalidIndices),
+        focusNoteIndex: validation.invalidIndices[0],
+      });
       return;
     }
     const newLine: CostLineItem = {
@@ -434,95 +381,147 @@ export function DailySheetForm({
       note: "",
       ids: [],
     };
-    setCostLines((prev) => [...prev, newLine]);
-    setExpandedIndex(costLines.length);
-  }
-
-  // Update a specific cost line in place
-  function handleUpdateCostLine(
-    index: number,
-    patch: Partial<CostLineItem>
-  ) {
-    setExpandedIndex(index);
-    if (noteErrorIndices.has(index)) {
-      const currentLine = costLines[index];
-      const updatedCat = patch.category !== undefined ? patch.category : currentLine?.category;
-      const updatedNote = patch.note !== undefined ? patch.note : currentLine?.note;
-      if (updatedCat !== "other" || normalizeNote(updatedNote)) {
-        setNoteErrorIndices((prev) => {
-          const next = new Set(prev);
-          next.delete(index);
-          return next;
-        });
-      }
-    }
-    setCostLines((prev) =>
-      prev.map((line, i) => (i === index ? { ...line, ...patch } : line))
-    );
-  }
-
-  // Remove Cost Line
-  function handleRemoveCostLine(index: number) {
-    if (isClosed) return;
-    setNoteErrorIndices((prev) => {
-      const next = new Set<number>();
-      for (const idx of prev) {
-        if (idx < index) next.add(idx);
-        else if (idx > index) next.add(idx - 1);
-      }
-      return next;
+    const nextLines = [...this.state.costLines, newLine];
+    this.update({
+      costLines: nextLines,
+      expandedIndex: this.state.costLines.length,
     });
-    setCostLines((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // Save full sheet
-  async function handleSave() {
-    if (saving) return;
-    if (isClosed) return;
-    if (hasParseError || cashSen === null || tngSen === null) {
-      setErrorMessage(t.invalidAmount);
-      return;
-    }
-    if (hasZeroCostLine) {
-      setErrorMessage(t.invalidAmount);
-      return;
-    }
-    const validation = validateDailySheetCostLines(costLines);
-    if (!validation.isValid && validation.invalidIndex !== null) {
-      setExpandedIndex(validation.invalidIndex);
-      setNoteErrorIndices(new Set([validation.invalidIndex]));
-      setFocusNoteIndex(validation.invalidIndex);
-      return;
-    }
-    setErrorMessage(null);
-    setSuccessMessage(null);
+  public handleUpdateCostLine(index: number, patch: Partial<CostLineItem>): void {
+    const currentLine = this.state.costLines[index];
+    const updatedCat = patch.category !== undefined ? patch.category : currentLine?.category;
+    const updatedNote = patch.note !== undefined ? patch.note : currentLine?.note;
 
-    setSaving(true);
+    let nextNoteErrors = new Set(this.state.noteErrorIndices);
+    if (updatedCat === "other" && !normalizeNote(updatedNote)) {
+      nextNoteErrors.add(index);
+    } else if (nextNoteErrors.has(index)) {
+      nextNoteErrors.delete(index);
+    }
+
+    const nextLines = this.state.costLines.map((line, i) =>
+      i === index ? { ...line, ...patch } : line
+    );
+
+    this.update({
+      costLines: nextLines,
+      expandedIndex: index,
+      noteErrorIndices: nextNoteErrors,
+    });
+  }
+
+  public handleRemoveCostLine(index: number): void {
+    if (this.options.isClosed) return;
+    const nextErrors = new Set<number>();
+    for (const idx of this.state.noteErrorIndices) {
+      if (idx < index) nextErrors.add(idx);
+      else if (idx > index) nextErrors.add(idx - 1);
+    }
+    const nextLines = this.state.costLines.filter((_, i) => i !== index);
+    this.update({
+      costLines: nextLines,
+      noteErrorIndices: nextErrors,
+    });
+  }
+
+  public onSaveClick(): void {
+    const t = this.options.t ?? DICTIONARY.zh;
+    const cashSen = toSen(this.state.cashInput);
+    const tngSen = toSen(this.state.tngInput);
+    const cashError = this.state.cashInput.trim() !== "" && cashSen === null;
+    const tngError = this.state.tngInput.trim() !== "" && tngSen === null;
+
+    if (cashError || tngError || cashSen === null || tngSen === null) {
+      this.update({ errorMessage: t.invalidAmount });
+      return;
+    }
+    // Priority rule: Amount must be valid and > 0 before checking note requirements; an empty/RM0 line is incomplete input (invalidAmount) rather than a note omission (otherNoteRequired).
+    const hasZeroCostLine = this.state.costLines.some((l) => l.amountSen <= 0);
+    if (hasZeroCostLine) {
+      const zeroIdx = this.state.costLines.findIndex((l) => l.amountSen <= 0);
+      this.update({
+        expandedIndex: zeroIdx !== -1 ? zeroIdx : this.state.expandedIndex,
+        errorMessage: t.invalidAmount,
+      });
+      return;
+    }
+
+    const validation = validateDailySheetCostLines(this.state.costLines);
+    if (!validation.isValid) {
+      this.update({
+        expandedIndex: validation.invalidIndices[0],
+        noteErrorIndices: new Set(validation.invalidIndices),
+        focusNoteIndex: validation.invalidIndices[0],
+      });
+      return;
+    }
+
+    this.update({
+      expandedIndex: null,
+      showConfirmModal: true,
+    });
+  }
+
+  public async handleSave(): Promise<void> {
+    if (this.state.saving || this.options.isClosed) return;
+    const t = this.options.t ?? DICTIONARY.zh;
+    const cashSen = toSen(this.state.cashInput);
+    const tngSen = toSen(this.state.tngInput);
+    const cashError = this.state.cashInput.trim() !== "" && cashSen === null;
+    const tngError = this.state.tngInput.trim() !== "" && tngSen === null;
+
+    if (cashError || tngError || cashSen === null || tngSen === null) {
+      this.update({ errorMessage: t.invalidAmount });
+      return;
+    }
+    // Priority rule: Amount must be valid and > 0 before checking note requirements; an empty/RM0 line is incomplete input (invalidAmount) rather than a note omission (otherNoteRequired).
+    const hasZeroCostLine = this.state.costLines.some((l) => l.amountSen <= 0);
+    if (hasZeroCostLine) {
+      const zeroIdx = this.state.costLines.findIndex((l) => l.amountSen <= 0);
+      this.update({
+        expandedIndex: zeroIdx !== -1 ? zeroIdx : this.state.expandedIndex,
+        errorMessage: t.invalidAmount,
+      });
+      return;
+    }
+
+    const validation = validateDailySheetCostLines(this.state.costLines);
+    if (!validation.isValid) {
+      this.update({
+        expandedIndex: validation.invalidIndices[0],
+        noteErrorIndices: new Set(validation.invalidIndices),
+        focusNoteIndex: validation.invalidIndices[0],
+      });
+      return;
+    }
+
+    this.update({ errorMessage: null, successMessage: null, saving: true });
 
     try {
-      const res = await fetch("/api/sheets", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          date,
-          cashSen: Number(cashSen),
-          tngSen: Number(tngSen),
-          costLines: costLines
-            .filter((l) => l.amountSen > 0)
-            .map((l) => ({
-              category: l.category,
-              amountSen: l.amountSen,
-              note: (l.note || "").trim() || undefined,
-            })),
-        }),
+      const result = await submitDailySheet({
+        date: this.state.date,
+        cashSen,
+        tngSen,
+        costLines: this.state.costLines,
+        fetchFn: this.options.fetchFn,
       });
 
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error || "Save error");
+      if (!result.success) {
+        if (result.blockedClientSide && result.invalidIndices && result.invalidIndices.length > 0) {
+          this.update({
+            expandedIndex: result.invalidIndices[0],
+            noteErrorIndices: new Set(result.invalidIndices),
+            focusNoteIndex: result.invalidIndices[0],
+          });
+          return;
+        }
+        this.update({ errorMessage: translateApiError(result.error, t) });
+        return;
       }
 
-      if (data.sheet && Array.isArray(data.costLines)) {
+      const data = result.data;
+      if (data?.sheet && Array.isArray(data.costLines)) {
         const savedCostLines: CostLineItem[] = mergeCostLines(
           data.costLines.map((l: CostLine) => ({
             id: l.id,
@@ -534,38 +533,187 @@ export function DailySheetForm({
         const savedCash = senToDecimalStr(Number(data.sheet.cashSen));
         const savedTng = senToDecimalStr(Number(data.sheet.tngSen));
 
-        setBaseline({
+        this.update({
+          baseline: {
+            cashInput: savedCash,
+            tngInput: savedTng,
+            costLines: savedCostLines,
+          },
+          costLines: savedCostLines,
           cashInput: savedCash,
           tngInput: savedTng,
-          costLines: savedCostLines,
         });
-        setCostLines(savedCostLines);
-        setCashInput(savedCash);
-        setTngInput(savedTng);
       }
 
-      setSuccessMessage(t.saveSuccess);
-      setTimeout(() => setSuccessMessage(null), 3500);
-      startTransition(() => {
-        router.refresh();
-      });
+      this.update({ successMessage: t.saveSuccess });
+      setTimeout(() => {
+        this.update({ successMessage: null });
+      }, 3500);
+
+      if (this.options.startTransition && this.options.router) {
+        this.options.startTransition(() => {
+          this.options.router?.refresh();
+        });
+      } else if (this.options.router) {
+        this.options.router.refresh();
+      }
     } catch (err: any) {
-      setErrorMessage(translateApiError(err.message, t));
+      this.update({ errorMessage: translateApiError(err?.message, t) });
     } finally {
-      setSaving(false);
+      this.update({ saving: false });
     }
   }
 
+  public resetWithProps(options: Partial<DailySheetFormLogicOptions>): void {
+    const cashStr = options.initialCashInput !== undefined
+      ? options.initialCashInput
+      : (options.initialCashSen && options.initialCashSen > 0 ? senToDecimalStr(options.initialCashSen) : "");
+    const tngStr = options.initialTngInput !== undefined
+      ? options.initialTngInput
+      : (options.initialTngSen && options.initialTngSen > 0 ? senToDecimalStr(options.initialTngSen) : "");
+    const mergedInitial = options.initialCostLines ? mergeCostLines(options.initialCostLines) : this.state.costLines;
+    const zeroIdx = mergedInitial.findIndex((l) => l.amountSen === 0);
+
+    this.update({
+      date: options.date ?? this.state.date,
+      cashInput: cashStr,
+      tngInput: tngStr,
+      costLines: mergedInitial,
+      baseline: {
+        cashInput: cashStr,
+        tngInput: tngStr,
+        costLines: mergedInitial,
+      },
+      expandedIndex: zeroIdx !== -1 ? zeroIdx : (mergedInitial.length === 1 ? 0 : null),
+      noteErrorIndices: new Set(options.initialNoteErrorIndices ?? []),
+      errorMessage: null,
+    });
+  }
+}
+
+export function createDailySheetFormLogic(options: DailySheetFormLogicOptions): DailySheetFormLogic {
+  return new DailySheetFormLogic(options);
+}
+
+export function DailySheetForm(props: DailySheetFormProps) {
+  const router = useRouter();
+  const { t } = useI18n();
+  const [, startTransition] = useTransition();
+
+  const form = useMemo(
+    () => props.formLogic ?? createDailySheetFormLogic({
+      ...props,
+      router,
+      t,
+      startTransition,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [props.formLogic, props.date]
+  );
+
+  const [state, setState] = useState<DailySheetFormState>(() => form.getState());
+
+  useEffect(() => {
+    return form.subscribe((nextState) => {
+      setState(nextState);
+    });
+  }, [form]);
+
+  // Calendar popover trigger ref
+  const dateBtnRef = useRef<HTMLButtonElement>(null);
+  const noteInputRefs = useRef<Map<number, HTMLInputElement>>(new Map());
+
+  // Focus note input when requested
+  useEffect(() => {
+    if (state.focusNoteIndex !== null) {
+      const el = noteInputRefs.current.get(state.focusNoteIndex);
+      if (el) {
+        el.focus();
+        form.clearFocusNoteIndex();
+      }
+    }
+  }, [state.focusNoteIndex, state.expandedIndex, form]);
+
+  // Close modals on Escape key
+  useEffect(() => {
+    if (!state.showConfirmModal && state.pendingDeleteIndex === null) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        form.setShowConfirmModal(false);
+        form.setPendingDeleteIndex(null);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [state.showConfirmModal, state.pendingDeleteIndex, form]);
+
+  // Check if current form inputs differ from baseline
+  const isModified = useMemo(() => {
+    if (state.cashInput.trim() !== state.baseline.cashInput.trim()) return true;
+    if (state.tngInput.trim() !== state.baseline.tngInput.trim()) return true;
+    if (state.costLines.length !== state.baseline.costLines.length) return true;
+
+    for (let i = 0; i < state.costLines.length; i++) {
+      const curr = state.costLines[i];
+      const base = state.baseline.costLines[i];
+      if (
+        !base ||
+        curr.category !== base.category ||
+        curr.amountSen !== base.amountSen ||
+        normalizeNote(curr.note) !== normalizeNote(base.note) ||
+        !areIdsEqual(curr.ids, base.ids)
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }, [state.cashInput, state.tngInput, state.costLines, state.baseline]);
+
+  // Update form inputs when selected date or initial data changes (prod flow)
+  useEffect(() => {
+    if (!props.formLogic) {
+      form.resetWithProps({
+        date: props.date,
+        initialCashSen: props.initialCashSen,
+        initialTngSen: props.initialTngSen,
+        initialCostLines: props.initialCostLines,
+        initialCashInput: props.initialCashInput,
+        initialTngInput: props.initialTngInput,
+        initialNoteErrorIndices: props.initialNoteErrorIndices,
+      });
+    }
+  }, [props.date, props.initialCashSen, props.initialTngSen, props.initialCashInput, props.initialTngInput, props.initialCostLines, props.initialNoteErrorIndices, props.formLogic, form]);
+
+  const cashSen = toSen(state.cashInput);
+  const tngSen = toSen(state.tngInput);
+  const cashError = state.cashInput.trim() !== "" && cashSen === null;
+  const tngError = state.tngInput.trim() !== "" && tngSen === null;
+  const hasParseError = cashError || tngError;
+
+  const totalRevenueSen =
+    hasParseError || cashSen === null || tngSen === null
+      ? null
+      : cashSen + tngSen;
+
+  const totalCostSen = state.costLines.reduce(
+    (acc, line) => acc + BigInt(line.amountSen),
+    0n,
+  );
+  const hasZeroCostLine = state.costLines.some((line) => line.amountSen <= 0);
+
+  const grossProfitSen =
+    totalRevenueSen !== null ? totalRevenueSen - totalCostSen : null;
+
   // Navigation between dates
   function navigateDate(offsetDays: number) {
-    const current = new Date(`${date}T00:00:00Z`);
+    const current = new Date(`${props.date}T00:00:00Z`);
     current.setUTCDate(current.getUTCDate() + offsetDays);
     const targetDate = current.toISOString().slice(0, 10);
     router.push(`/?date=${targetDate}`);
   }
 
-  const isToday = date === todayKl;
-  const canGoNext = date < todayKl;
+  const isToday = props.date === props.todayKl;
+  const canGoNext = props.date < props.todayKl;
 
   const categories: { key: CostCategory; label: string }[] = [
     { key: "restock", label: t.catRestock },
@@ -604,15 +752,15 @@ export function DailySheetForm({
             <button
               ref={dateBtnRef}
               type="button"
-              onClick={() => setIsCalendarOpen((prev) => !prev)}
-              aria-expanded={isCalendarOpen}
+              onClick={() => form.setIsCalendarOpen((prev) => !prev)}
+              aria-expanded={state.isCalendarOpen}
               aria-haspopup="dialog"
               className="relative text-center group cursor-pointer px-2 py-1 rounded-lg hover:bg-surface-subtle transition-colors focus:outline-none max-w-full"
               title="点击打开/关闭日历 (Click to toggle calendar)"
             >
               <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
                 <span className="text-base font-bold text-ink-primary group-hover:text-brand-broccoli transition-colors">
-                  {date}
+                  {props.date}
                 </span>
                 {isToday && (
                   <span className="text-[13px] px-2 py-0.5 rounded bg-brand-broccoli-light font-semibold text-brand-broccoli">
@@ -627,11 +775,11 @@ export function DailySheetForm({
 
             {/* Calendar Popover */}
             <CalendarPopover
-              date={date}
-              todayKl={todayKl}
-              isOpen={isCalendarOpen}
+              date={props.date}
+              todayKl={props.todayKl}
+              isOpen={state.isCalendarOpen}
               triggerRef={dateBtnRef}
-              onClose={() => setIsCalendarOpen(false)}
+              onClose={() => form.setIsCalendarOpen(false)}
               onSelectDate={(newDate) => {
                 router.push(`/?date=${newDate}`);
               }}
@@ -654,7 +802,7 @@ export function DailySheetForm({
         </div>
 
         {/* Locked Month Notification Notice */}
-        {isClosed && (
+        {props.isClosed && (
           <div
             role="status"
             className="p-3 bg-finance-neutral/10 border border-finance-neutral/30 rounded-lg text-ink-secondary text-sm font-medium flex items-center gap-2"
@@ -698,15 +846,14 @@ export function DailySheetForm({
                 id="cash-input"
                 type="text"
                 inputMode="decimal"
-                value={cashInput}
+                value={state.cashInput}
                 onChange={(e) => {
                   const sanitized = sanitizeMoneyInput(e.target.value);
                   if (sanitized !== null) {
-                    setCashInput(sanitized);
-                    setErrorMessage(null);
+                    form.setCashInput(sanitized);
                   }
                 }}
-                disabled={isClosed}
+                disabled={props.isClosed}
                 placeholder="0.00"
                 aria-invalid={cashError}
                 aria-describedby={cashError ? "cash-input-error" : undefined}
@@ -747,15 +894,14 @@ export function DailySheetForm({
                 id="tng-input"
                 type="text"
                 inputMode="decimal"
-                value={tngInput}
+                value={state.tngInput}
                 onChange={(e) => {
                   const sanitized = sanitizeMoneyInput(e.target.value);
                   if (sanitized !== null) {
-                    setTngInput(sanitized);
-                    setErrorMessage(null);
+                    form.setTngInput(sanitized);
                   }
                 }}
-                disabled={isClosed}
+                disabled={props.isClosed}
                 placeholder="0.00"
                 aria-invalid={tngError}
                 aria-describedby={tngError ? "tng-input-error" : undefined}
@@ -795,12 +941,12 @@ export function DailySheetForm({
         </div>
 
         {/* Dynamic Cost Lines (Each line has its own summary + form) */}
-        {costLines.length > 0 && (
+        {state.costLines.length > 0 && (
           <div className="space-y-2">
-            {costLines.map((line, idx) => {
+            {state.costLines.map((line, idx) => {
               const isZero = line.amountSen === 0;
-              const hasNoteError = noteErrorIndices.has(idx);
-              const isExpanded = expandedIndex === idx || isZero;
+              const hasNoteError = state.noteErrorIndices.has(idx);
+              const isExpanded = state.expandedIndex === idx || isZero;
               return (
                 <div
                   key={getCostLineKey(line, idx)}
@@ -815,9 +961,9 @@ export function DailySheetForm({
                   {/* Summary Row */}
                   <div
                     onClick={() => {
-                      if (isClosed) return;
+                      if (props.isClosed) return;
                       if (isZero) return;
-                      setExpandedIndex(isExpanded ? null : idx);
+                      form.setExpandedIndex(isExpanded ? null : idx);
                     }}
                     role="button"
                     tabIndex={isZero ? -1 : 0}
@@ -825,7 +971,7 @@ export function DailySheetForm({
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        if (!isClosed && !isZero) setExpandedIndex(isExpanded ? null : idx);
+                        if (!props.isClosed && !isZero) form.setExpandedIndex(isExpanded ? null : idx);
                       }
                     }}
                     className={`w-full px-4 py-3 flex items-center justify-between gap-2 select-none bg-white transition-colors ${
@@ -859,12 +1005,12 @@ export function DailySheetForm({
                         {formatMyr(BigInt(line.amountSen))}
                       </span>
 
-                      {!isClosed && (
+                      {!props.isClosed && (
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setPendingDeleteIndex(idx);
+                            form.setPendingDeleteIndex(idx);
                           }}
                           aria-label={t.delete}
                           title={t.delete}
@@ -879,7 +1025,7 @@ export function DailySheetForm({
                   </div>
 
                   {/* Expanded Form Body */}
-                  {isExpanded && !isClosed && (
+                  {isExpanded && !props.isClosed && (
                     <div className="p-4 border-t border-surface-border bg-surface-canvas/30 space-y-3">
                       {/* Category Selection */}
                       <div>
@@ -893,7 +1039,7 @@ export function DailySheetForm({
                               <button
                                 key={cat.key}
                                 type="button"
-                                onClick={() => handleUpdateCostLine(idx, { category: cat.key })}
+                                onClick={() => form.handleUpdateCostLine(idx, { category: cat.key })}
                                 className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold border btn-wave transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                                   isSelected
                                     ? "bg-brand-broccoli text-white border-brand-broccoli shadow-xs"
@@ -925,13 +1071,13 @@ export function DailySheetForm({
                                 const sanitized = sanitizeMoneyInput(e.target.value);
                                 if (sanitized !== null) {
                                   const sen = toSen(sanitized);
-                                  handleUpdateCostLine(idx, {
+                                  form.handleUpdateCostLine(idx, {
                                     amountInput: sanitized,
                                     amountSen: Number(sen ?? 0n),
                                   });
                                 }
                               }}
-                              onFocus={() => setExpandedIndex(idx)}
+                              onFocus={() => form.setExpandedIndex(idx)}
                               placeholder="0.00"
                               className="w-full h-11 pl-10 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary tabular-nums focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50 transition-colors"
                             />
@@ -957,9 +1103,9 @@ export function DailySheetForm({
                             type="text"
                             value={line.note ?? ""}
                             onChange={(e) => {
-                              handleUpdateCostLine(idx, { note: e.target.value });
+                              form.handleUpdateCostLine(idx, { note: e.target.value });
                             }}
-                            onFocus={() => setExpandedIndex(idx)}
+                            onFocus={() => form.setExpandedIndex(idx)}
                             placeholder={line.category === "other" ? t.noteRequired : t.noteOptional}
                             aria-invalid={hasNoteError}
                             aria-describedby={hasNoteError ? `cost-note-error-${idx}` : undefined}
@@ -988,10 +1134,10 @@ export function DailySheetForm({
         )}
 
         {/* Standalone Clickable "+ Add Cost" Button at bottom: hidden if any item has RM 0 */}
-        {!isClosed && !hasZeroCostLine && (
+        {!props.isClosed && !hasZeroCostLine && (
           <button
             type="button"
-            onClick={handleCreateNewCostLine}
+            onClick={() => form.handleCreateNewCostLine()}
             className="relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-emerald-50/40 hover:bg-emerald-50/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden"
           >
             <svg
@@ -1022,17 +1168,17 @@ export function DailySheetForm({
 
       {/* Sticky Bottom Action Bar & Notifications */}
       <div className="sticky bottom-16 z-30 space-y-2">
-        {errorMessage && (
+        {state.errorMessage && (
           <div className="py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-md animate-slide-down">
             <div className="flex items-center gap-2 min-w-0">
               <svg className="w-4 h-4 shrink-0 text-finance-loss" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <span className="truncate">{errorMessage}</span>
+              <span className="truncate">{state.errorMessage}</span>
             </div>
             <button
               type="button"
-              onClick={() => setErrorMessage(null)}
+              onClick={() => form.setErrorMessage(null)}
               className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss w-7 h-7 flex items-center justify-center rounded-md shrink-0"
               aria-label="Close"
             >
@@ -1041,17 +1187,17 @@ export function DailySheetForm({
           </div>
         )}
 
-        {successMessage && (
+        {state.successMessage && (
           <div className="py-2.5 px-3.5 rounded-xl bg-brand-broccoli-light border border-brand-broccoli/30 text-sm text-brand-broccoli font-bold flex items-center justify-between shadow-md animate-slide-down">
             <div className="flex items-center gap-2 min-w-0">
               <svg className="w-4 h-4 shrink-0 text-brand-broccoli" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
-              <span className="truncate">{successMessage}</span>
+              <span className="truncate">{state.successMessage}</span>
             </div>
             <button
               type="button"
-              onClick={() => setSuccessMessage(null)}
+              onClick={() => form.setSuccessMessage(null)}
               className="text-xs font-bold ml-2 text-ink-muted hover:text-brand-broccoli w-7 h-7 flex items-center justify-center rounded-md shrink-0"
               aria-label="Close"
             >
@@ -1074,13 +1220,13 @@ export function DailySheetForm({
             </div>
           </div>
 
-          {!isClosed && (
+          {!props.isClosed && (
             <div className="flex items-center gap-2">
               {isModified && (
                 <button
                   type="button"
-                  onClick={handleRevert}
-                  disabled={saving}
+                  onClick={() => form.handleRevert()}
+                  disabled={state.saving}
                   title={t.undoChanges}
                   aria-label={t.undoChanges}
                   className="h-12 w-12 shrink-0 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary hover:text-ink-primary shadow-xs flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 active:scale-95 cursor-pointer disabled:opacity-50 animate-in fade-in zoom-in-95 duration-150"
@@ -1103,31 +1249,12 @@ export function DailySheetForm({
 
               <button
                 type="button"
-                disabled={saving || hasParseError}
-                onClick={() => {
-                  if (hasParseError || cashSen === null || tngSen === null) {
-                    setErrorMessage(t.invalidAmount);
-                    return;
-                  }
-                  if (hasZeroCostLine) {
-                    const zeroIdx = costLines.findIndex((l) => l.amountSen <= 0);
-                    if (zeroIdx !== -1) setExpandedIndex(zeroIdx);
-                    setErrorMessage(t.invalidAmount);
-                    return;
-                  }
-                  const validation = validateDailySheetCostLines(costLines);
-                  if (!validation.isValid && validation.invalidIndex !== null) {
-                    setExpandedIndex(validation.invalidIndex);
-                    setNoteErrorIndices(new Set([validation.invalidIndex]));
-                    setFocusNoteIndex(validation.invalidIndex);
-                    return;
-                  }
-                  setExpandedIndex(null);
-                  setShowConfirmModal(true);
-                }}
+                data-testid="save-button"
+                disabled={state.saving || hasParseError}
+                onClick={() => form.onSaveClick()}
                 className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
               >
-                {saving ? (
+                {state.saving ? (
                   <span>{t.saving}</span>
                 ) : (
                   <span>{t.saveSheet}</span>
@@ -1139,14 +1266,14 @@ export function DailySheetForm({
       </div>
 
       {/* Delete Cost Line Confirmation Modal */}
-      {pendingDeleteIndex !== null && costLines[pendingDeleteIndex] && (
+      {state.pendingDeleteIndex !== null && state.costLines[state.pendingDeleteIndex] && (
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-delete-cost-title"
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-slide-down"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setPendingDeleteIndex(null);
+            if (e.target === e.currentTarget) form.setPendingDeleteIndex(null);
           }}
         >
           <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
@@ -1170,16 +1297,16 @@ export function DailySheetForm({
             <div className="p-3 rounded-xl bg-surface-subtle border border-surface-border flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white border border-surface-border text-ink-secondary whitespace-nowrap">
-                  {getCategoryLabel(costLines[pendingDeleteIndex].category)}
+                  {getCategoryLabel(state.costLines[state.pendingDeleteIndex].category)}
                 </span>
-                {costLines[pendingDeleteIndex].note && (
+                {state.costLines[state.pendingDeleteIndex].note && (
                   <span className="text-xs text-ink-muted truncate">
-                    {costLines[pendingDeleteIndex].note}
+                    {state.costLines[state.pendingDeleteIndex].note}
                   </span>
                 )}
               </div>
               <span className="text-base font-bold text-finance-loss whitespace-nowrap">
-                {formatMyr(BigInt(costLines[pendingDeleteIndex].amountSen))}
+                {formatMyr(BigInt(state.costLines[state.pendingDeleteIndex].amountSen))}
               </span>
             </div>
 
@@ -1187,7 +1314,7 @@ export function DailySheetForm({
             <div className="flex items-center gap-2.5 pt-1">
               <button
                 type="button"
-                onClick={() => setPendingDeleteIndex(null)}
+                onClick={() => form.setPendingDeleteIndex(null)}
                 className="flex-1 h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary font-semibold text-sm transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer"
               >
                 {t.cancel}
@@ -1195,8 +1322,10 @@ export function DailySheetForm({
               <button
                 type="button"
                 onClick={() => {
-                  handleRemoveCostLine(pendingDeleteIndex);
-                  setPendingDeleteIndex(null);
+                  if (state.pendingDeleteIndex !== null) {
+                    form.handleRemoveCostLine(state.pendingDeleteIndex);
+                    form.setPendingDeleteIndex(null);
+                  }
                 }}
                 className="flex-1 h-11 rounded-xl bg-finance-loss hover:bg-finance-loss/90 btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
               >
@@ -1208,7 +1337,7 @@ export function DailySheetForm({
       )}
 
       {/* Confirmation Popout Modal */}
-      {showConfirmModal && (
+      {state.showConfirmModal && (
         <div
           role="dialog"
           aria-modal="true"
@@ -1216,7 +1345,7 @@ export function DailySheetForm({
           aria-describedby="confirm-modal-desc"
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-slide-down"
           onClick={(e) => {
-            if (e.target === e.currentTarget && !saving) setShowConfirmModal(false);
+            if (e.target === e.currentTarget && !state.saving) form.setShowConfirmModal(false);
           }}
         >
           <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
@@ -1258,22 +1387,23 @@ export function DailySheetForm({
             <div className="flex items-center gap-2.5 pt-1">
               <button
                 type="button"
-                disabled={saving}
-                onClick={() => setShowConfirmModal(false)}
+                disabled={state.saving}
+                onClick={() => form.setShowConfirmModal(false)}
                 className="flex-1 h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary font-semibold text-sm transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer disabled:opacity-50"
               >
                 {t.cancel}
               </button>
               <button
                 type="button"
-                disabled={saving}
+                data-testid="confirm-save-button"
+                disabled={state.saving}
                 onClick={async () => {
-                  setShowConfirmModal(false);
-                  await handleSave();
+                  form.setShowConfirmModal(false);
+                  await form.handleSave();
                 }}
                 className="flex-1 h-11 rounded-xl bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer disabled:opacity-50"
               >
-                {saving ? t.saving : t.confirmSaveBtn}
+                {state.saving ? t.saving : t.confirmSaveBtn}
               </button>
             </div>
           </div>

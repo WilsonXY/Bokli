@@ -23,6 +23,12 @@ describe("i18n translateApiError mapping and idempotency", () => {
     expect(translateApiError(errorMsg, zh)).not.toBe(zh.varianceNoteRequired);
   });
 
+  it("prevents false positives with word-boundary matching on 'another' and 'mother'", () => {
+    // "another note" or "mother's note" should NOT trigger otherNoteRequired
+    expect(translateApiError("another note was rejected", zh)).not.toBe(zh.otherNoteRequired);
+    expect(translateApiError("mother sent a note", zh)).not.toBe(zh.otherNoteRequired);
+  });
+
   it("maps month-close reconciliation mismatch to varianceNoteRequired exclusively", () => {
     const mismatchMsg =
       "A note is required when Reconciliation has a mismatch (expected: 5000 sen, actual: 4000 sen, difference: -1000 sen)";
