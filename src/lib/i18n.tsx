@@ -73,7 +73,7 @@ export const DICTIONARY = {
     invalidAmount: "请输入有效金额",
     otherNoteRequired: "类别为'其他'时，必须填写备注说明",
     // Dashboard
-    overviewTitle: "经营概览",
+    overviewTitle: "本月经营概览",
     monthTiles: "月份卡片",
     currentViewing: "当前查看",
     noMonthsRecorded: "暂无历史月份记录",
@@ -223,7 +223,7 @@ export const DICTIONARY = {
     invalidAmount: "Please enter a valid amount",
     otherNoteRequired: "Note is required when category is 'Other'",
     // Dashboard
-    overviewTitle: "Business Overview",
+    overviewTitle: "This Month's Overview",
     monthTiles: "Month Tiles",
     currentViewing: "Viewing",
     noMonthsRecorded: "No recorded months yet",

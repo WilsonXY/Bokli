@@ -72,17 +72,6 @@ export function DashboardView({
     other: t.catOther,
   };
 
-  const statusLabel = (status?: "open" | "closed" | "reopened") => {
-    switch (status) {
-      case "closed":
-        return t.closedStatus;
-      case "reopened":
-        return t.reopenedStatus;
-      default:
-        return t.openStatus;
-    }
-  };
-
   const isProfitPositive = activeTile ? BigInt(activeTile.netSen) >= 0n : true;
 
   const categoryPalette: Record<keyof SerializedCostByCategory, { bg: string; hex: string }> = {
@@ -259,22 +248,6 @@ export function DashboardView({
           {/* Month Financial Health Summary (Clean Ledger Architecture, No Nested Cards) */}
           {activeTile && (
             <section className="bg-white border border-surface-border rounded-xl shadow-xs overflow-hidden">
-              {/* Header with t.monthSummary and status pill */}
-              <div className="px-5 pt-4 pb-2 sm:px-6 sm:pt-5 flex items-center justify-between border-b border-surface-border">
-                <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
-                  {t.monthSummary}
-                </h2>
-                <span
-                  className={`text-[13px] font-bold px-2.5 py-0.5 rounded-md ${
-                    activeTile.status === "closed"
-                      ? "bg-status-closed-bg text-status-closed"
-                      : "bg-brand-broccoli-light text-brand-broccoli"
-                  }`}
-                >
-                  {statusLabel(activeTile.status)}
-                </span>
-              </div>
-
               {/* Net Profit Spotlight */}
               <div className="px-5 py-4 sm:px-6 sm:py-5">
                 <div className="flex items-baseline justify-between gap-2">
