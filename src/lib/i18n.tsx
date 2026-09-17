@@ -23,9 +23,7 @@ export const DICTIONARY = {
     // Revenue
     revenueTitle: "营业收入",
     cashRevenue: "现金收入",
-    cashSub: "纸币与硬币",
     tngRevenue: "Touch 'n Go 收入",
-    tngSub: "电子钱包",
     totalRevenue: "营业总额",
     // Daily Costs
     costsTitle: "日常开销",
@@ -173,9 +171,7 @@ export const DICTIONARY = {
     // Revenue
     revenueTitle: "Revenue",
     cashRevenue: "Cash Revenue",
-    cashSub: "Cash & Coins",
     tngRevenue: "Touch 'n Go Revenue",
-    tngSub: "E-Wallet",
     totalRevenue: "Total Revenue",
     // Daily Costs
     costsTitle: "Daily Costs",
