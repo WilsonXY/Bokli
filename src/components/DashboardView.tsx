@@ -280,9 +280,11 @@ export function DashboardView({
                     {t.totalRevenue}
                   </span>
                   <span
-                    className={`mt-1 block text-sm sm:text-xl font-bold text-ink-primary tabular-nums ${amountSizeClass(
-                      stripRevenue
-                    )}`.trimEnd()}
+                    className={`mt-1 block ${amountSizeClass(
+                      stripRevenue,
+                      "text-xs",
+                      "text-sm"
+                    )} sm:text-xl font-bold text-ink-primary tabular-nums`}
                   >
                     {stripRevenue}
                   </span>
@@ -293,9 +295,11 @@ export function DashboardView({
                     {t.costsTitle}
                   </span>
                   <span
-                    className={`mt-1 block text-sm sm:text-xl font-bold text-slate-700 tabular-nums ${amountSizeClass(
-                      stripDailyCost
-                    )}`.trimEnd()}
+                    className={`mt-1 block ${amountSizeClass(
+                      stripDailyCost,
+                      "text-xs",
+                      "text-sm"
+                    )} sm:text-xl font-bold text-slate-700 tabular-nums`}
                   >
                     {stripDailyCost}
                   </span>
@@ -306,9 +310,11 @@ export function DashboardView({
                     {t.operatingExpenses}
                   </span>
                   <span
-                    className={`mt-1 block text-sm sm:text-xl font-bold text-slate-700 tabular-nums ${amountSizeClass(
-                      stripOperating
-                    )}`.trimEnd()}
+                    className={`mt-1 block ${amountSizeClass(
+                      stripOperating,
+                      "text-xs",
+                      "text-sm"
+                    )} sm:text-xl font-bold text-slate-700 tabular-nums`}
                   >
                     {stripOperating}
                   </span>

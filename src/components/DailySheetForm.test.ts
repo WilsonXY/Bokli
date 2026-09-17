@@ -1045,9 +1045,10 @@ describe("DailySheetForm long money amount dynamic sizing", () => {
       })
     );
 
-    // Cost line summary amount: RM1200000.00 (12 chars) -> text-xs
+    // Cost line summary amount: RM1200000.00 (12 chars) -> replaces text-base with text-xs (no coexistence)
     expect(html).toContain("RM1200000.00");
-    expect(html).toMatch(/class="[^"]*text-base font-bold text-slate-700[^"]*text-xs"[^>]*>RM1200000\.00/);
+    expect(html).toMatch(/class="[^"]*text-xs font-bold text-slate-700 tabular-nums whitespace-nowrap"[^>]*>RM1200000\.00/);
+    expect(html).not.toMatch(/class="[^"]*text-base[^"]*"[^>]*>RM1200000\.00/);
 
     // Sticky bottom bar gross profit: 100568612 - 120000000 = -19431388 -> -RM194313.88 (13 chars) -> text-base
     expect(html).toContain("-RM194313.88");

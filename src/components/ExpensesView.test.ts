@@ -256,24 +256,28 @@ describe("ExpensesView frontend review fixes", () => {
         }),
       );
 
-      // Summary gross: RM1005686.12 (12 chars) -> text-xs
+      // Summary gross: RM1005686.12 (12 chars) -> replaces text-base with text-xs (no coexistence)
       expect(html).toContain("RM1005686.12");
-      expect(html).toMatch(/class="[^"]*text-base sm:text-xl[^"]*text-xs"[^>]*>RM1005686\.12/);
+      expect(html).toMatch(/class="[^"]*text-xs sm:text-xl font-bold text-ink-primary tabular-nums"[^>]*>RM1005686\.12/);
+      expect(html).not.toMatch(/class="[^"]*text-base[^"]*"[^>]*>RM1005686\.12/);
 
-      // Summary operating expenses: RM1200000.00 (12 chars) -> text-xs
+      // Summary operating expenses: RM1200000.00 (12 chars) -> replaces text-base with text-xs (no coexistence)
       expect(html).toContain("RM1200000.00");
-      expect(html).toMatch(/class="[^"]*text-base sm:text-xl[^"]*text-xs"[^>]*>RM1200000\.00/);
+      expect(html).toMatch(/class="[^"]*text-xs sm:text-xl font-bold text-slate-700 tabular-nums"[^>]*>RM1200000\.00/);
+      expect(html).not.toMatch(/class="[^"]*text-base[^"]*"[^>]*>RM1200000\.00/);
 
       // Summary net: -RM194313.88 (13 chars) -> text-xl instead of text-2xl
       expect(html).toContain("-RM194313.88");
-      expect(html).toMatch(/class="[^"]*text-xl sm:text-3xl[^"]*"[^>]*>-RM194313\.88/);
+      expect(html).toMatch(/class="[^"]*text-xl sm:text-3xl font-extrabold tracking-tight tabular-nums text-rose-600"[^>]*>-RM194313\.88/);
       expect(html).not.toMatch(/class="[^"]*text-2xl[^"]*"[^>]*>-RM194313\.88/);
 
-      // Merged expense item: RM1200000.00 (12 chars) -> text-xs
-      expect(html).toMatch(/class="[^"]*text-base font-bold text-slate-700[^"]*text-xs"[^>]*>RM1200000\.00/);
+      // Merged expense item: RM1200000.00 (12 chars) -> replaces text-base with text-xs (no coexistence)
+      expect(html).toMatch(/class="[^"]*text-xs font-bold text-slate-700 tabular-nums whitespace-nowrap"[^>]*>RM1200000\.00/);
+      expect(html).not.toMatch(/class="[^"]*text-base[^"]*"[^>]*>RM1200000\.00/);
 
-      // Delete modal snapshot: RM1200000.00 (12 chars) -> text-xs
-      expect(html).toMatch(/class="[^"]*text-base font-bold text-finance-loss[^"]*text-xs"[^>]*>RM1200000\.00/);
+      // Delete modal snapshot: RM1200000.00 (12 chars) -> replaces text-base with text-xs (no coexistence)
+      expect(html).toMatch(/class="[^"]*text-xs font-bold text-finance-loss whitespace-nowrap tabular-nums"[^>]*>RM1200000\.00/);
+      expect(html).not.toMatch(/class="[^"]*text-base[^"]*"[^>]*>RM1200000\.00/);
     });
 
     it("keeps standard base classes on money amounts <= 11 chars", () => {
@@ -300,13 +304,21 @@ describe("ExpensesView frontend review fixes", () => {
         }),
       );
 
-      // Summary gross: RM500000.00 (11 chars) -> no text-xs
+      // Summary gross: RM500000.00 (11 chars) -> keeps text-base sm:text-xl (no text-xs)
       expect(html).toMatch(/class="[^"]*text-base sm:text-xl font-bold text-ink-primary tabular-nums"[^>]*>RM500000\.00/);
       expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
 
+      // Summary operating: RM500000.00 (11 chars) -> keeps text-base sm:text-xl (no text-xs)
+      expect(html).toMatch(/class="[^"]*text-base sm:text-xl font-bold text-slate-700 tabular-nums"[^>]*>RM500000\.00/);
+      expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
+
       // Summary net: RM0.00 (6 chars) -> text-2xl sm:text-3xl
-      expect(html).toMatch(/class="[^"]*text-2xl sm:text-3xl[^"]*"[^>]*>RM0\.00/);
+      expect(html).toMatch(/class="[^"]*text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums text-emerald-700"[^>]*>RM0\.00/);
       expect(html).not.toMatch(/class="[^"]*text-xl[^"]*"[^>]*>RM0\.00/);
+
+      // Merged expense item: RM500000.00 (11 chars) -> keeps text-base (no text-xs)
+      expect(html).toMatch(/class="[^"]*text-base font-bold text-slate-700 tabular-nums whitespace-nowrap"[^>]*>RM500000\.00/);
+      expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
     });
   });
 });

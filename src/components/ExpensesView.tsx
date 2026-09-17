@@ -380,9 +380,11 @@ export function ExpensesView({
                   {t.monthGrossProfit}
                 </div>
                 <div
-                  className={`text-base sm:text-xl font-bold text-ink-primary tabular-nums ${amountSizeClass(
-                    formatMyr(BigInt(summary.grossSen))
-                  )}`.trimEnd()}
+                  className={`${amountSizeClass(
+                    formatMyr(BigInt(summary.grossSen)),
+                    "text-xs",
+                    "text-base"
+                  )} sm:text-xl font-bold text-ink-primary tabular-nums`}
                 >
                   {formatMyr(BigInt(summary.grossSen))}
                 </div>
@@ -393,9 +395,11 @@ export function ExpensesView({
                   {t.operatingExpenses}
                 </div>
                 <div
-                  className={`text-base sm:text-xl font-bold text-slate-700 tabular-nums ${amountSizeClass(
-                    formatMyr(totalExpenseSen)
-                  )}`.trimEnd()}
+                  className={`${amountSizeClass(
+                    formatMyr(totalExpenseSen),
+                    "text-xs",
+                    "text-base"
+                  )} sm:text-xl font-bold text-slate-700 tabular-nums`}
                 >
                   {formatMyr(totalExpenseSen)}
                 </div>
@@ -463,9 +467,11 @@ export function ExpensesView({
 
                       <div className="flex items-center gap-2.5 shrink-0">
                         <span
-                          className={`text-base font-bold text-slate-700 tabular-nums whitespace-nowrap ${amountSizeClass(
-                            formatMyr(BigInt(item.amountSen))
-                          )}`.trimEnd()}
+                          className={`${amountSizeClass(
+                            formatMyr(BigInt(item.amountSen)),
+                            "text-xs",
+                            "text-base"
+                          )} font-bold text-slate-700 tabular-nums whitespace-nowrap`}
                         >
                           {formatMyr(BigInt(item.amountSen))}
                         </span>
@@ -716,9 +722,11 @@ export function ExpensesView({
                     )}
                   </div>
                   <span
-                    className={`text-base font-bold text-finance-loss whitespace-nowrap tabular-nums ${amountSizeClass(
-                      formatMyr(BigInt(pendingDeleteExpense.amountSen))
-                    )}`.trimEnd()}
+                    className={`${amountSizeClass(
+                      formatMyr(BigInt(pendingDeleteExpense.amountSen)),
+                      "text-xs",
+                      "text-base"
+                    )} font-bold text-finance-loss whitespace-nowrap tabular-nums`}
                   >
                     {formatMyr(BigInt(pendingDeleteExpense.amountSen))}
                   </span>

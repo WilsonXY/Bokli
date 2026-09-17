@@ -998,9 +998,11 @@ export function DailySheetForm({
 
                         <div className="flex items-center gap-2.5 shrink-0">
                           <span
-                            className={`text-base font-bold text-slate-700 tabular-nums whitespace-nowrap ${amountSizeClass(
-                              formatMyr(BigInt(line.amountSen))
-                            )}`.trimEnd()}
+                            className={`${amountSizeClass(
+                              formatMyr(BigInt(line.amountSen)),
+                              "text-xs",
+                              "text-base"
+                            )} font-bold text-slate-700 tabular-nums whitespace-nowrap`}
                           >
                             {formatMyr(BigInt(line.amountSen))}
                           </span>
@@ -1335,9 +1337,11 @@ export function DailySheetForm({
                 )}
               </div>
               <span
-                className={`text-base font-bold text-finance-loss whitespace-nowrap tabular-nums ${amountSizeClass(
-                  formatMyr(BigInt(costLines[pendingDeleteIndex].amountSen))
-                )}`.trimEnd()}
+                className={`${amountSizeClass(
+                  formatMyr(BigInt(costLines[pendingDeleteIndex].amountSen)),
+                  "text-xs",
+                  "text-base"
+                )} font-bold text-finance-loss whitespace-nowrap tabular-nums`}
               >
                 {formatMyr(BigInt(costLines[pendingDeleteIndex].amountSen))}
               </span>
