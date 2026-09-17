@@ -228,6 +228,166 @@ export function consolidateCostLines(lines: CostLineItem[]): CostLineItem[] {
   return result;
 }
 
+export function createNewCostLine(
+  costLines: CostLineItem[],
+  newLineFactory?: () => CostLineItem
+): { lines: CostLineItem[]; expandedIndex: number } {
+  // (1) consolidate existing lines as today
+  const consolidated = consolidateCostLines(costLines);
+  // (2) REMOVE any cost line with amountSen <= 0 (the unfilled one)
+  const filledOnly = consolidated.filter((line) => line.amountSen > 0);
+  // (3) append one fresh empty row and expand it
+  const newLine: CostLineItem = newLineFactory
+    ? newLineFactory()
+    : {
+        clientId: `line-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        category: "restock",
+        amountSen: 0,
+        amountInput: "",
+        note: "",
+        ids: [],
+      };
+  return {
+    lines: [...filledOnly, newLine],
+    expandedIndex: filledOnly.length,
+  };
+}
+
+export function findConsolidatedLineIndex(
+  targetLine: CostLineItem,
+  consolidated: CostLineItem[]
+): number {
+  if (targetLine.clientId) {
+    const idx = consolidated.findIndex((l) => l.clientId === targetLine.clientId);
+    if (idx !== -1) return idx;
+  }
+
+  const refIdx = consolidated.indexOf(targetLine);
+  if (refIdx !== -1) return refIdx;
+
+  if (targetLine.id !== undefined) {
+    const idIdx = consolidated.findIndex((l) => l.id === targetLine.id);
+    if (idIdx !== -1) return idIdx;
+  }
+
+  if (targetLine.amountSen > 0) {
+    if (targetLine.id !== undefined) {
+      const mergedWithIdIdx = consolidated.findIndex(
+        (l) => l.ids && l.ids.includes(targetLine.id!)
+      );
+      if (mergedWithIdIdx !== -1) return mergedWithIdIdx;
+    }
+    if (targetLine.ids && targetLine.ids.length > 0) {
+      const mergedWithIdsIdx = consolidated.findIndex(
+        (l) => l.ids && l.ids.some((id) => targetLine.ids!.includes(id))
+      );
+      if (mergedWithIdsIdx !== -1) return mergedWithIdsIdx;
+    }
+
+    const norm = normalizeNote(targetLine.note);
+    const keyIdx = consolidated.findIndex(
+      (l) =>
+        l.amountSen > 0 &&
+        l.category === targetLine.category &&
+        normalizeNote(l.note) === norm
+    );
+    if (keyIdx !== -1) return keyIdx;
+  }
+
+  return consolidated.findIndex(
+    (l) =>
+      l.category === targetLine.category &&
+      l.amountSen === targetLine.amountSen &&
+      normalizeNote(l.note) === normalizeNote(targetLine.note)
+  );
+}
+
+export function toggleCostLineExpansion(
+  lines: CostLineItem[],
+  clickedIndex: number,
+  currentExpandedIndex: number | null,
+  options?: {
+    noteErrorIndex?: number | null;
+    costAmountErrorIndex?: number | null;
+  }
+): {
+  lines: CostLineItem[];
+  expandedIndex: number | null;
+  noteErrorIndex: number | null;
+  costAmountErrorIndex: number | null;
+} {
+  const clickedLine = lines[clickedIndex];
+  if (!clickedLine) {
+    return {
+      lines,
+      expandedIndex: currentExpandedIndex,
+      noteErrorIndex: options?.noteErrorIndex ?? null,
+      costAmountErrorIndex: options?.costAmountErrorIndex ?? null,
+    };
+  }
+
+  if (clickedLine.amountSen <= 0) {
+    return {
+      lines,
+      expandedIndex: currentExpandedIndex,
+      noteErrorIndex: options?.noteErrorIndex ?? null,
+      costAmountErrorIndex: options?.costAmountErrorIndex ?? null,
+    };
+  }
+
+  const consolidated = consolidateCostLines(lines);
+
+  let noteErrorIndex: number | null = null;
+  if (options?.noteErrorIndex !== undefined && options.noteErrorIndex !== null) {
+    const errLine = lines[options.noteErrorIndex];
+    if (errLine) {
+      const newIdx = findConsolidatedLineIndex(errLine, consolidated);
+      if (
+        newIdx !== -1 &&
+        consolidated[newIdx].category === "other" &&
+        !normalizeNote(consolidated[newIdx].note)
+      ) {
+        noteErrorIndex = newIdx;
+      }
+    }
+  }
+
+  let costAmountErrorIndex: number | null = null;
+  if (options?.costAmountErrorIndex !== undefined && options.costAmountErrorIndex !== null) {
+    const errLine = lines[options.costAmountErrorIndex];
+    if (errLine) {
+      const newIdx = findConsolidatedLineIndex(errLine, consolidated);
+      if (newIdx !== -1 && consolidated[newIdx].amountSen <= 0) {
+        costAmountErrorIndex = newIdx;
+      }
+    }
+  }
+
+  const wasMergedAway = lines.slice(0, clickedIndex).some(
+    (l) =>
+      l.amountSen > 0 &&
+      l.category === clickedLine.category &&
+      normalizeNote(l.note) === normalizeNote(clickedLine.note)
+  );
+
+  const targetIdx = findConsolidatedLineIndex(clickedLine, consolidated);
+
+  let nextExpandedIndex: number | null;
+  if (wasMergedAway) {
+    nextExpandedIndex = targetIdx !== -1 ? targetIdx : null;
+  } else {
+    const wasExpanded = currentExpandedIndex === clickedIndex;
+    nextExpandedIndex = wasExpanded ? null : (targetIdx !== -1 ? targetIdx : null);
+  }
+
+  return {
+    lines: consolidated,
+    expandedIndex: nextExpandedIndex,
+    noteErrorIndex,
+    costAmountErrorIndex,
+  };
+}
+
 // Safe parsing helper: returns null for unparseable non-empty inputs
 export function toSen(val: string): bigint | null {
   const s = val.trim();
@@ -414,17 +574,9 @@ export function DailySheetForm({
     if (isClosed) return;
     setNoteErrorIndex(null);
     setCostAmountErrorIndex(null);
-    const consolidated = consolidateCostLines(costLines);
-    const newLine: CostLineItem = {
-      clientId: `line-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      category: "restock",
-      amountSen: 0,
-      amountInput: "",
-      note: "",
-      ids: [],
-    };
-    setCostLines([...consolidated, newLine]);
-    setExpandedIndex(consolidated.length);
+    const result = createNewCostLine(costLines);
+    setCostLines(result.lines);
+    setExpandedIndex(result.expandedIndex);
   }
 
   // Update a specific cost line in place
@@ -457,6 +609,20 @@ export function DailySheetForm({
     setCostAmountErrorIndex(null);
     setCostLines((prev) => prev.filter((_, i) => i !== index));
   }
+
+  function handleToggleCostLine(index: number) {
+    if (isClosed) return;
+    const result = toggleCostLineExpansion(costLines, index, expandedIndex, {
+      noteErrorIndex,
+      costAmountErrorIndex,
+    });
+    setCostLines(result.lines);
+    setExpandedIndex(result.expandedIndex);
+    setNoteErrorIndex(result.noteErrorIndex);
+    setCostAmountErrorIndex(result.costAmountErrorIndex);
+  }
+
+
 
   // Save full sheet
   async function handleSave() {
@@ -791,7 +957,7 @@ export function DailySheetForm({
                         onClick={() => {
                           if (isClosed) return;
                           if (isZero) return;
-                          setExpandedIndex(isExpanded ? null : idx);
+                          handleToggleCostLine(idx);
                         }}
                         role="button"
                         tabIndex={isZero ? -1 : 0}
@@ -799,7 +965,7 @@ export function DailySheetForm({
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            if (!isClosed && !isZero) setExpandedIndex(isExpanded ? null : idx);
+                            if (!isClosed && !isZero) handleToggleCostLine(idx);
                           }
                         }}
                         className={`w-full px-4 py-3 flex items-center justify-between gap-2 select-none bg-white transition-colors ${
@@ -968,8 +1134,8 @@ export function DailySheetForm({
           </div>
         )}
 
-        {/* Standalone Clickable "+ Add Cost" Button at bottom: hidden if any item has RM 0 */}
-        {!isClosed && !hasZeroCostLine && (
+        {/* Standalone Clickable "+ Add Cost" Button at bottom */}
+        {!isClosed && (
           <button
             type="button"
             onClick={handleCreateNewCostLine}
@@ -1090,14 +1256,16 @@ export function DailySheetForm({
                         setErrorMessage(t.invalidAmount);
                         return;
                       }
-                      const zeroIdx = findZeroCostLineIndex(costLines);
-                      if (zeroIdx !== -1) {
+                      if (hasZeroCostLine) {
+                        const zeroIdx = findZeroCostLineIndex(costLines);
+                        if (zeroIdx !== -1) {
                         setExpandedIndex(zeroIdx);
                         setCostAmountErrorIndex(zeroIdx);
                         setNoteErrorIndex(null);
                         setErrorMessage(null);
                         requestAnimationFrame(() => costAmountErrorRef.current?.focus());
                         return;
+                      }
                       }
                       setCostAmountErrorIndex(null);
                       setExpandedIndex(null);
