@@ -111,6 +111,13 @@ export function DashboardView({
 
   const isProfitPositive = activeTile ? BigInt(activeTile.netSen) >= 0n : true;
 
+  const getStripAmountClass = (formatted: string) =>
+    formatted.length > 11 ? "text-xs" : "";
+
+  const stripRevenue = activeTile ? formatMyr(BigInt(activeTile.revenueSen)) : "";
+  const stripDailyCost = activeTile ? formatMyr(BigInt(activeTile.dailyCostSen)) : "";
+  const stripOperating = activeTile ? formatMyr(BigInt(activeTile.operatingSen)) : "";
+
   const categoryPalette: Record<keyof SerializedCostByCategory, { bg: string; hex: string }> = {
     restock: { bg: "bg-blue-600", hex: "#2563eb" },
     gas: { bg: "bg-amber-500", hex: "#f59e0b" },
@@ -270,8 +277,12 @@ export function DashboardView({
                   <span className="block text-sm font-bold text-ink-secondary truncate">
                     {t.totalRevenue}
                   </span>
-                  <span className="mt-1 block text-sm sm:text-xl font-bold text-ink-primary tabular-nums">
-                    {formatMyr(BigInt(activeTile.revenueSen))}
+                  <span
+                    className={`mt-1 block text-sm sm:text-xl font-bold text-ink-primary tabular-nums ${getStripAmountClass(
+                      stripRevenue
+                    )}`.trimEnd()}
+                  >
+                    {stripRevenue}
                   </span>
                 </div>
 
@@ -279,8 +290,12 @@ export function DashboardView({
                   <span className="block text-sm font-bold text-ink-secondary truncate">
                     {t.costsTitle}
                   </span>
-                  <span className="mt-1 block text-sm sm:text-xl font-bold text-slate-700 tabular-nums">
-                    {formatMyr(BigInt(activeTile.dailyCostSen))}
+                  <span
+                    className={`mt-1 block text-sm sm:text-xl font-bold text-slate-700 tabular-nums ${getStripAmountClass(
+                      stripDailyCost
+                    )}`.trimEnd()}
+                  >
+                    {stripDailyCost}
                   </span>
                 </div>
 
@@ -288,8 +303,12 @@ export function DashboardView({
                   <span className="block text-sm font-bold text-ink-secondary truncate">
                     {t.operatingExpenses}
                   </span>
-                  <span className="mt-1 block text-sm sm:text-xl font-bold text-slate-700 tabular-nums">
-                    {formatMyr(BigInt(activeTile.operatingSen))}
+                  <span
+                    className={`mt-1 block text-sm sm:text-xl font-bold text-slate-700 tabular-nums ${getStripAmountClass(
+                      stripOperating
+                    )}`.trimEnd()}
+                  >
+                    {stripOperating}
                   </span>
                 </div>
               </div>

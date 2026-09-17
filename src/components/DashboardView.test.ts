@@ -115,4 +115,42 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
       }
     });
   });
+
+  describe("3-way strip amounts dynamic sizing", () => {
+    it("applies text-xs on amounts longer than 11 characters and keeps base sizing otherwise", () => {
+      const mockTile: SerializedMonthTile = {
+        month: "2026-05",
+        status: "open",
+        revenueSen: 100568612, // RM1005686.12 -> 12 characters
+        dailyCostSen: 50000000, // RM500000.00 -> 11 characters
+        grossSen: 50568612,
+        operatingSen: 120000000, // RM1200000.00 -> 12 characters
+        netSen: -19431388,
+      };
+
+      const html = ReactDOMServer.renderToStaticMarkup(
+        React.createElement(DashboardView, {
+          tiles: [mockTile],
+          activeMonth: "2026-05",
+          activeTile: mockTile,
+          trend: [],
+          split: null,
+          costByCategory: null,
+        })
+      );
+
+      // Revenue (12 chars): includes text-xs
+      expect(html).toContain("RM1005686.12");
+      expect(html).toMatch(/class="[^"]*text-sm sm:text-xl[^"]*text-xs"[^>]*>RM1005686\.12/);
+
+      // Daily cost (11 chars): does not include text-xs, stays base text-sm sm:text-xl
+      expect(html).toContain("RM500000.00");
+      expect(html).toMatch(/class="[^"]*text-sm sm:text-xl[^"]*"[^>]*>RM500000\.00/);
+      expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
+
+      // Operating expenses (12 chars): includes text-xs
+      expect(html).toContain("RM1200000.00");
+      expect(html).toMatch(/class="[^"]*text-sm sm:text-xl[^"]*text-xs"[^>]*>RM1200000\.00/);
+    });
+  });
 });
