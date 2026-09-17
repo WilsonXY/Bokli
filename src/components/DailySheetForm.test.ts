@@ -731,10 +731,46 @@ describe("cost line consolidation on row click/expand (toggleCostLineExpansion)"
     expect(result.lines[2].amountSen).toBe(1500);
     expect(result.expandedIndex).toBe(2);
 
-    // Clicking directly on a zero-amount line does not consolidate or mutate
+    // Clicking directly on a zero-amount line consolidates filled duplicates and expands the zero line
     const clickZero = toggleCostLineExpansion(lines, 2, 0);
-    expect(clickZero.lines).toEqual(lines);
-    expect(clickZero.expandedIndex).toBe(0);
+    expect(clickZero.lines).toHaveLength(3);
+    expect(clickZero.lines[1].clientId).toBe("line-zero");
+    // Accordion: expanding zero line at index 1 collapses previously expanded line 0
+    expect(clickZero.expandedIndex).toBe(1);
+
+    // Clicking the already expanded zero-amount line collapses it
+    const collapseZero = toggleCostLineExpansion(clickZero.lines, 1, 1);
+    expect(collapseZero.expandedIndex).toBeNull();
+  });
+
+  it("allows newly added zero-amount cost item to be closed before price entered", () => {
+    const lines: CostLineItem[] = [
+      { clientId: "line-new", category: "restock", amountSen: 0, amountInput: "", note: "" },
+    ];
+
+    // Initially expanded (as newly added via \"+ Add Cost\")
+    const closeResult = toggleCostLineExpansion(lines, 0, 0);
+    expect(closeResult.expandedIndex).toBeNull();
+
+    // Clicking again re-expands it
+    const reOpenResult = toggleCostLineExpansion(closeResult.lines, 0, null);
+    expect(reOpenResult.expandedIndex).toBe(0);
+  });
+
+  it("enforces accordion behavior: expanding a second item collapses the first", () => {
+    const lines: CostLineItem[] = [
+      { clientId: "line-1", category: "restock", amountSen: 2000, amountInput: "20", note: "Rice" },
+      { clientId: "line-2", category: "gas", amountSen: 1500, amountInput: "15", note: "Shell" },
+    ];
+
+    // Initially line-1 is expanded (index 0)
+    // Expanding line-2 (index 1) collapses line-1
+    const expandSecond = toggleCostLineExpansion(lines, 1, 0);
+    expect(expandSecond.expandedIndex).toBe(1);
+
+    // Expanding line-1 (index 0) collapses line-2
+    const expandFirst = toggleCostLineExpansion(expandSecond.lines, 0, 1);
+    expect(expandFirst.expandedIndex).toBe(0);
   });
 
   it("toggles collapse when clicking an already expanded row that did not merge away", () => {
@@ -864,5 +900,127 @@ describe("add cost button always visible and unfilled row replacement (createNew
     );
 
     expect(html).not.toContain(t.addCostLine);
+  });
+});
+
+
+describe("DailySheetForm component cost item accordion and close behavior", () => {
+  it("renders newly added zero-amount cost item as closable and collapsed when closed", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: [
+          { clientId: "new-line", category: "restock", amountSen: 0, note: "" },
+        ],
+        initialExpandedIndex: null,
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+
+    const costSection = html.slice(html.indexOf('aria-label="Daily Costs Entry"'));
+
+    // The card is closed: aria-expanded="false" and cost input is NOT rendered
+    expect(costSection).toContain('aria-expanded="false"');
+    expect(costSection).not.toContain('aria-expanded="true"');
+    expect(costSection).not.toContain('placeholder="0.00"');
+    // Summary row is clickable and interactive (not disabled)
+    expect(costSection).toContain('tabindex="0"');
+    expect(costSection).toContain("cursor-pointer");
+    expect(costSection).not.toContain("aria-disabled");
+  });
+
+  it("renders newly added zero-amount cost item as expanded by default or when opened", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: [
+          { clientId: "new-line", category: "restock", amountSen: 0, note: "" },
+        ],
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+
+    const costSection = html.slice(html.indexOf('aria-label="Daily Costs Entry"'));
+
+    // Rendered expanded: aria-expanded="true" and cost amount input is rendered
+    expect(costSection).toContain('aria-expanded="true"');
+    expect(costSection).toContain('placeholder="0.00"');
+  });
+
+  it("accordion behavior: expanding a second item collapses the first (only ONE item expanded at a time)", () => {
+    const lines = [
+      { clientId: "line-1", category: "restock" as const, amountSen: 2000, note: "Rice" },
+      { clientId: "line-2", category: "gas" as const, amountSen: 1500, note: "Shell" },
+    ];
+
+    // Case 1: First item is expanded
+    const htmlItem0 = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: lines,
+        initialExpandedIndex: 0,
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+
+    const costSection0 = htmlItem0.slice(htmlItem0.indexOf('aria-label="Daily Costs Entry"'));
+    const trueCount0 = (costSection0.match(/aria-expanded="true"/g) || []).length;
+    const falseCount0 = (costSection0.match(/aria-expanded="false"/g) || []).length;
+    expect(trueCount0).toBe(1);
+    expect(falseCount0).toBe(1);
+
+    // Case 2: Second item is expanded (expanding second collapses first)
+    const htmlItem1 = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: lines,
+        initialExpandedIndex: 1,
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+
+    const costSection1 = htmlItem1.slice(htmlItem1.indexOf('aria-label="Daily Costs Entry"'));
+    const trueCount1 = (costSection1.match(/aria-expanded="true"/g) || []).length;
+    const falseCount1 = (costSection1.match(/aria-expanded="false"/g) || []).length;
+    expect(trueCount1).toBe(1);
+    expect(falseCount1).toBe(1);
+  });
+
+  it("accordion behavior: a new zero-amount item does NOT stay open when an existing item is expanded", () => {
+    const lines = [
+      { clientId: "line-1", category: "restock" as const, amountSen: 2000, note: "Rice" },
+      { clientId: "line-new", category: "other" as const, amountSen: 0, note: "" },
+    ];
+
+    // When item 0 (Rice) is expanded, the new zero item must be collapsed
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: lines,
+        initialExpandedIndex: 0,
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+
+    const costSection = html.slice(html.indexOf('aria-label="Daily Costs Entry"'));
+    const trueCount = (costSection.match(/aria-expanded="true"/g) || []).length;
+    const falseCount = (costSection.match(/aria-expanded="false"/g) || []).length;
+    expect(trueCount).toBe(1);
+    expect(falseCount).toBe(1);
   });
 });

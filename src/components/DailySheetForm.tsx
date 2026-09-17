@@ -30,6 +30,7 @@ export interface DailySheetFormProps {
   initialNoteErrorIndex?: number | null;
   initialCostAmountErrorIndex?: number | null;
   initialErrorMessage?: string | null;
+  initialExpandedIndex?: number | null;
 }
 
 const MAX_SAFE_SEN = Number.MAX_SAFE_INTEGER; // 9007199254740991
@@ -326,15 +327,6 @@ export function toggleCostLineExpansion(
     };
   }
 
-  if (clickedLine.amountSen <= 0) {
-    return {
-      lines,
-      expandedIndex: currentExpandedIndex,
-      noteErrorIndex: options?.noteErrorIndex ?? null,
-      costAmountErrorIndex: options?.costAmountErrorIndex ?? null,
-    };
-  }
-
   const consolidated = consolidateCostLines(lines);
 
   let noteErrorIndex: number | null = null;
@@ -363,12 +355,14 @@ export function toggleCostLineExpansion(
     }
   }
 
-  const wasMergedAway = lines.slice(0, clickedIndex).some(
-    (l) =>
-      l.amountSen > 0 &&
-      l.category === clickedLine.category &&
-      normalizeNote(l.note) === normalizeNote(clickedLine.note)
-  );
+  const wasMergedAway =
+    clickedLine.amountSen > 0 &&
+    lines.slice(0, clickedIndex).some(
+      (l) =>
+        l.amountSen > 0 &&
+        l.category === clickedLine.category &&
+        normalizeNote(l.note) === normalizeNote(clickedLine.note)
+    );
 
   const targetIdx = findConsolidatedLineIndex(clickedLine, consolidated);
 
@@ -411,6 +405,7 @@ export function DailySheetForm({
   initialNoteErrorIndex = null,
   initialCostAmountErrorIndex = null,
   initialErrorMessage = null,
+  initialExpandedIndex,
 }: DailySheetFormProps) {
   const router = useRouter();
   const { t } = useI18n();
@@ -447,6 +442,9 @@ export function DailySheetForm({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(() => {
+    if (initialExpandedIndex !== undefined) {
+      return initialExpandedIndex;
+    }
     if (initialCostAmountErrorIndex !== null && initialCostAmountErrorIndex !== undefined) {
       return initialCostAmountErrorIndex;
     }
@@ -608,6 +606,12 @@ export function DailySheetForm({
     setNoteErrorIndex(null);
     setCostAmountErrorIndex(null);
     setCostLines((prev) => prev.filter((_, i) => i !== index));
+    setExpandedIndex((prev) => {
+      if (prev === null) return null;
+      if (prev === index) return null;
+      if (prev > index) return prev - 1;
+      return prev;
+    });
   }
 
   function handleToggleCostLine(index: number) {
@@ -941,8 +945,7 @@ export function DailySheetForm({
         {costLines.length > 0 && (
           <div className="space-y-2">
             {costLines.map((line, idx) => {
-              const isZero = line.amountSen === 0;
-              const isExpanded = expandedIndex === idx || isZero;
+              const isExpanded = expandedIndex === idx;
               return (
                 <div
                   key={getCostLineKey(line, idx)}
@@ -956,20 +959,19 @@ export function DailySheetForm({
                       <div
                         onClick={() => {
                           if (isClosed) return;
-                          if (isZero) return;
                           handleToggleCostLine(idx);
                         }}
                         role="button"
-                        tabIndex={isZero ? -1 : 0}
-                        aria-disabled={isZero}
+                        tabIndex={isClosed ? -1 : 0}
+                        aria-expanded={isExpanded}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
-                            if (!isClosed && !isZero) handleToggleCostLine(idx);
+                            if (!isClosed) handleToggleCostLine(idx);
                           }
                         }}
                         className={`w-full px-4 py-3 flex items-center justify-between gap-2 select-none bg-white transition-colors ${
-                          isZero ? "cursor-default" : "cursor-pointer hover:bg-surface-subtle/50"
+                          isClosed ? "cursor-default" : "cursor-pointer hover:bg-surface-subtle/50"
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
