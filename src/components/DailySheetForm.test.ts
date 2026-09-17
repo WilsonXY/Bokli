@@ -1024,3 +1024,63 @@ describe("DailySheetForm component cost item accordion and close behavior", () =
     expect(falseCount).toBe(1);
   });
 });
+
+describe("DailySheetForm long money amount dynamic sizing", () => {
+  it("applies shrink classes when formatted money amounts exceed 11 characters", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 100568612, // RM1005686.12 -> 12 chars
+        initialTngSen: 0,
+        initialCostLines: [
+          {
+            clientId: "c-long",
+            category: "restock",
+            amountSen: 120000000, // RM1200000.00 -> 12 chars
+            note: "Huge order",
+          },
+        ],
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+
+    // Cost line summary amount: RM1200000.00 (12 chars) -> text-xs
+    expect(html).toContain("RM1200000.00");
+    expect(html).toMatch(/class="[^"]*text-base font-bold text-slate-700[^"]*text-xs"[^>]*>RM1200000\.00/);
+
+    // Sticky bottom bar gross profit: 100568612 - 120000000 = -19431388 -> -RM194313.88 (13 chars) -> text-base
+    expect(html).toContain("-RM194313.88");
+    expect(html).toMatch(/class="[^"]*text-base font-bold text-finance-loss"[^>]*>-RM194313\.88/);
+    expect(html).not.toMatch(/class="[^"]*text-xl font-bold text-finance-loss"[^>]*>-RM194313\.88/);
+  });
+
+  it("keeps standard base classes when formatted money amounts are <= 11 characters", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 50000000, // RM500000.00 -> 11 chars
+        initialTngSen: 0,
+        initialCostLines: [
+          {
+            clientId: "c-normal",
+            category: "restock",
+            amountSen: 50000000, // RM500000.00 -> 11 chars
+            note: "Standard order",
+          },
+        ],
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+
+    // Cost line summary amount: RM500000.00 (11 chars) -> no text-xs
+    expect(html).toMatch(/class="[^"]*text-base font-bold text-slate-700 tabular-nums whitespace-nowrap"[^>]*>RM500000\.00/);
+    expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
+
+    // Sticky bottom bar gross profit: RM0.00 (6 chars) -> text-xl
+    expect(html).toContain("RM0.00");
+    expect(html).toMatch(/class="[^"]*text-xl font-bold text-brand-broccoli"[^>]*>RM0\.00/);
+    expect(html).not.toMatch(/class="[^"]*text-base font-bold text-brand-broccoli"[^>]*>RM0\.00/);
+  });
+});

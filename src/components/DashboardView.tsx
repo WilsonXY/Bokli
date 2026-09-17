@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
-import { formatMyr } from "@/lib/money";
+import { amountSizeClass, formatMyr } from "@/lib/money";
 import { MonthSelectorDropdown } from "@/components/MonthSelectorDropdown";
 
 export interface SerializedMonthTile {
@@ -111,9 +111,7 @@ export function DashboardView({
 
   const isProfitPositive = activeTile ? BigInt(activeTile.netSen) >= 0n : true;
 
-  const getStripAmountClass = (formatted: string) =>
-    formatted.length > 11 ? "text-xs" : "";
-
+  const headlineNet = activeTile ? formatMyr(BigInt(activeTile.netSen)) : "";
   const stripRevenue = activeTile ? formatMyr(BigInt(activeTile.revenueSen)) : "";
   const stripDailyCost = activeTile ? formatMyr(BigInt(activeTile.dailyCostSen)) : "";
   const stripOperating = activeTile ? formatMyr(BigInt(activeTile.operatingSen)) : "";
@@ -262,11 +260,15 @@ export function DashboardView({
                 </div>
                 <div className="mt-1 flex items-baseline gap-2">
                   <span
-                    className={`text-3xl sm:text-4xl font-extrabold tracking-tight tabular-nums ${
+                    className={`${amountSizeClass(
+                      headlineNet,
+                      "text-2xl",
+                      "text-3xl"
+                    )} sm:text-4xl font-extrabold tracking-tight tabular-nums ${
                       isProfitPositive ? "text-emerald-700" : "text-rose-600"
                     }`}
                   >
-                    {formatMyr(BigInt(activeTile.netSen))}
+                    {headlineNet}
                   </span>
                 </div>
               </div>
@@ -278,7 +280,7 @@ export function DashboardView({
                     {t.totalRevenue}
                   </span>
                   <span
-                    className={`mt-1 block text-sm sm:text-xl font-bold text-ink-primary tabular-nums ${getStripAmountClass(
+                    className={`mt-1 block text-sm sm:text-xl font-bold text-ink-primary tabular-nums ${amountSizeClass(
                       stripRevenue
                     )}`.trimEnd()}
                   >
@@ -291,7 +293,7 @@ export function DashboardView({
                     {t.costsTitle}
                   </span>
                   <span
-                    className={`mt-1 block text-sm sm:text-xl font-bold text-slate-700 tabular-nums ${getStripAmountClass(
+                    className={`mt-1 block text-sm sm:text-xl font-bold text-slate-700 tabular-nums ${amountSizeClass(
                       stripDailyCost
                     )}`.trimEnd()}
                   >
@@ -304,7 +306,7 @@ export function DashboardView({
                     {t.operatingExpenses}
                   </span>
                   <span
-                    className={`mt-1 block text-sm sm:text-xl font-bold text-slate-700 tabular-nums ${getStripAmountClass(
+                    className={`mt-1 block text-sm sm:text-xl font-bold text-slate-700 tabular-nums ${amountSizeClass(
                       stripOperating
                     )}`.trimEnd()}
                   >

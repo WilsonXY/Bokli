@@ -223,4 +223,90 @@ describe("ExpensesView frontend review fixes", () => {
       expect(html).not.toContain('aria-label="Close"');
     });
   });
+
+  describe("long amount dynamic sizing", () => {
+    it("applies dynamic shrink classes on long money amounts > 11 chars", () => {
+      const html = ReactDOMServer.renderToStaticMarkup(
+        React.createElement(ExpensesView, {
+          currentMonth: "2026-05",
+          availableMonths: ["2026-05"],
+          initialExpenses: [
+            {
+              id: 1,
+              month: "2026-05",
+              type: "rental",
+              amountSen: 120000000, // RM1200000.00 -> 12 chars
+              note: "Warehouse",
+              createdAt: "2026-05-01 10:00:00",
+            },
+          ],
+          summary: {
+            grossSen: 100568612, // RM1005686.12 -> 12 chars
+            operatingSen: 120000000, // RM1200000.00 -> 12 chars
+            netSen: -19431388, // -RM194313.88 -> 13 chars
+          },
+          isClosed: false,
+          initialPendingDeleteExpense: {
+            key: "rental_Warehouse_1",
+            type: "rental",
+            note: "Warehouse",
+            amountSen: 120000000,
+            ids: [1],
+          },
+        }),
+      );
+
+      // Summary gross: RM1005686.12 (12 chars) -> text-xs
+      expect(html).toContain("RM1005686.12");
+      expect(html).toMatch(/class="[^"]*text-base sm:text-xl[^"]*text-xs"[^>]*>RM1005686\.12/);
+
+      // Summary operating expenses: RM1200000.00 (12 chars) -> text-xs
+      expect(html).toContain("RM1200000.00");
+      expect(html).toMatch(/class="[^"]*text-base sm:text-xl[^"]*text-xs"[^>]*>RM1200000\.00/);
+
+      // Summary net: -RM194313.88 (13 chars) -> text-xl instead of text-2xl
+      expect(html).toContain("-RM194313.88");
+      expect(html).toMatch(/class="[^"]*text-xl sm:text-3xl[^"]*"[^>]*>-RM194313\.88/);
+      expect(html).not.toMatch(/class="[^"]*text-2xl[^"]*"[^>]*>-RM194313\.88/);
+
+      // Merged expense item: RM1200000.00 (12 chars) -> text-xs
+      expect(html).toMatch(/class="[^"]*text-base font-bold text-slate-700[^"]*text-xs"[^>]*>RM1200000\.00/);
+
+      // Delete modal snapshot: RM1200000.00 (12 chars) -> text-xs
+      expect(html).toMatch(/class="[^"]*text-base font-bold text-finance-loss[^"]*text-xs"[^>]*>RM1200000\.00/);
+    });
+
+    it("keeps standard base classes on money amounts <= 11 chars", () => {
+      const html = ReactDOMServer.renderToStaticMarkup(
+        React.createElement(ExpensesView, {
+          currentMonth: "2026-05",
+          availableMonths: ["2026-05"],
+          initialExpenses: [
+            {
+              id: 1,
+              month: "2026-05",
+              type: "rental",
+              amountSen: 50000000, // RM500000.00 -> 11 chars
+              note: "Main Stall",
+              createdAt: "2026-05-01 10:00:00",
+            },
+          ],
+          summary: {
+            grossSen: 50000000, // RM500000.00 -> 11 chars
+            operatingSen: 50000000, // RM500000.00 -> 11 chars
+            netSen: 0, // RM0.00 -> 6 chars
+          },
+          isClosed: false,
+        }),
+      );
+
+      // Summary gross: RM500000.00 (11 chars) -> no text-xs
+      expect(html).toMatch(/class="[^"]*text-base sm:text-xl font-bold text-ink-primary tabular-nums"[^>]*>RM500000\.00/);
+      expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
+
+      // Summary net: RM0.00 (6 chars) -> text-2xl sm:text-3xl
+      expect(html).toMatch(/class="[^"]*text-2xl sm:text-3xl[^"]*"[^>]*>RM0\.00/);
+      expect(html).not.toMatch(/class="[^"]*text-xl[^"]*"[^>]*>RM0\.00/);
+    });
+  });
 });

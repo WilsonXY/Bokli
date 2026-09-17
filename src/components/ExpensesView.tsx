@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
+import { amountSizeClass, formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
 import { useI18n, translateApiError } from "@/lib/i18n";
 import { MonthSelectorDropdown, MonthOption } from "@/components/MonthSelectorDropdown";
 import type { OperatingExpenseType } from "@/services/operating-expense";
@@ -379,7 +379,11 @@ export function ExpensesView({
                 <div className="text-sm font-medium text-ink-muted mb-0.5">
                   {t.monthGrossProfit}
                 </div>
-                <div className="text-base sm:text-xl font-bold text-ink-primary tabular-nums">
+                <div
+                  className={`text-base sm:text-xl font-bold text-ink-primary tabular-nums ${amountSizeClass(
+                    formatMyr(BigInt(summary.grossSen))
+                  )}`.trimEnd()}
+                >
                   {formatMyr(BigInt(summary.grossSen))}
                 </div>
               </div>
@@ -388,7 +392,11 @@ export function ExpensesView({
                 <div className="text-sm font-medium text-ink-muted mb-0.5">
                   {t.operatingExpenses}
                 </div>
-                <div className="text-base sm:text-xl font-bold text-slate-700 tabular-nums">
+                <div
+                  className={`text-base sm:text-xl font-bold text-slate-700 tabular-nums ${amountSizeClass(
+                    formatMyr(totalExpenseSen)
+                  )}`.trimEnd()}
+                >
                   {formatMyr(totalExpenseSen)}
                 </div>
               </div>
@@ -398,7 +406,11 @@ export function ExpensesView({
                   {t.netProfit}
                 </div>
                 <div
-                  className={`text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums ${
+                  className={`${amountSizeClass(
+                    formatMyr(BigInt(summary.grossSen) - totalExpenseSen),
+                    "text-xl",
+                    "text-2xl"
+                  )} sm:text-3xl font-extrabold tracking-tight tabular-nums ${
                     BigInt(summary.grossSen) - totalExpenseSen >= 0n
                       ? "text-emerald-700"
                       : "text-rose-600"
@@ -450,7 +462,11 @@ export function ExpensesView({
                       </div>
 
                       <div className="flex items-center gap-2.5 shrink-0">
-                        <span className="text-base font-bold text-slate-700 tabular-nums whitespace-nowrap">
+                        <span
+                          className={`text-base font-bold text-slate-700 tabular-nums whitespace-nowrap ${amountSizeClass(
+                            formatMyr(BigInt(item.amountSen))
+                          )}`.trimEnd()}
+                        >
                           {formatMyr(BigInt(item.amountSen))}
                         </span>
 
@@ -699,7 +715,11 @@ export function ExpensesView({
                       </span>
                     )}
                   </div>
-                  <span className="text-base font-bold text-finance-loss whitespace-nowrap tabular-nums">
+                  <span
+                    className={`text-base font-bold text-finance-loss whitespace-nowrap tabular-nums ${amountSizeClass(
+                      formatMyr(BigInt(pendingDeleteExpense.amountSen))
+                    )}`.trimEnd()}
+                  >
                     {formatMyr(BigInt(pendingDeleteExpense.amountSen))}
                   </span>
                 </div>
