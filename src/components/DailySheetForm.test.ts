@@ -17,6 +17,8 @@ import {
   mergeCostLines,
   appendOrMergeCostLine,
   consolidateCostLines,
+  findConsolidatedLineIndex,
+  toggleCostLineExpansion,
   findZeroCostLineIndex,
   getCostLineKey,
   type CostLineItem,
@@ -649,5 +651,132 @@ describe("Cost line inline errors and boxed styling parity", () => {
 
     // Verify top notification banner is NOT rendered
     expect(html).not.toContain('aria-label="Close"');
+  });
+});
+
+describe("cost line consolidation on row click/expand (toggleCostLineExpansion)", () => {
+  it("(a) clicking a row after a category edit that created duplicates consolidates them (amounts summed, one row left, clicked row expanded at correct new index)", () => {
+    // 3 lines originally: line-1 (restock), line-2 (transport), line-3 (wages-daily)
+    // User edited line-2 to match line-1 (category "restock", note "Rice")
+    const lines: CostLineItem[] = [
+      { clientId: "line-1", category: "restock", amountSen: 2000, amountInput: "20", note: "Rice" },
+      { clientId: "line-2", category: "restock", amountSen: 3000, amountInput: "30", note: "Rice" },
+      { clientId: "line-3", category: "wages-daily", amountSen: 5000, amountInput: "50", note: "Chef" },
+    ];
+
+    // line-2 was active/being edited (expandedIndex = 1)
+    // User now clicks line-3 (index 2 in pre-consolidation list) to expand it
+    const result = toggleCostLineExpansion(lines, 2, 1);
+
+    // Duplicates consolidate: line-1 survives, amounts sum to 5000 (RM 50)
+    expect(result.lines).toHaveLength(2);
+    expect(result.lines[0].clientId).toBe("line-1");
+    expect(result.lines[0].category).toBe("restock");
+    expect(result.lines[0].amountSen).toBe(5000);
+    expect(result.lines[0].amountInput).toBe("50");
+
+    // Clicked row (line-3, wages) shifts from index 2 to index 1 and is expanded
+    expect(result.lines[1].clientId).toBe("line-3");
+    expect(result.lines[1].category).toBe("wages-daily");
+    expect(result.lines[1].amountSen).toBe(5000);
+    expect(result.expandedIndex).toBe(1);
+  });
+
+  it("(b) clicking a row that itself duplicates an earlier one expands the surviving merged row", () => {
+    const lines: CostLineItem[] = [
+      { clientId: "line-1", category: "restock", amountSen: 2000, amountInput: "20", note: "Rice" },
+      { clientId: "line-2", category: "restock", amountSen: 3000, amountInput: "30", note: "Rice" },
+      { clientId: "line-3", category: "gas", amountSen: 4000, amountInput: "40", note: "Shell" },
+    ];
+
+    // User clicks line-2 (index 1), which duplicates earlier line-1 (index 0)
+    // Regardless of whether line-2 was currently expanded or collapsed,
+    // the surviving merged row (index 0) must end up expanded.
+    const resultFromExpanded = toggleCostLineExpansion(lines, 1, 1);
+    expect(resultFromExpanded.lines).toHaveLength(2);
+    expect(resultFromExpanded.lines[0].clientId).toBe("line-1");
+    expect(resultFromExpanded.lines[0].category).toBe("restock");
+    expect(resultFromExpanded.lines[0].amountSen).toBe(5000);
+    expect(resultFromExpanded.expandedIndex).toBe(0);
+
+    const resultFromCollapsed = toggleCostLineExpansion(lines, 1, null);
+    expect(resultFromCollapsed.lines).toHaveLength(2);
+    expect(resultFromCollapsed.lines[0].clientId).toBe("line-1");
+    expect(resultFromCollapsed.lines[0].amountSen).toBe(5000);
+    expect(resultFromCollapsed.expandedIndex).toBe(0);
+  });
+
+  it("(c) zero lines unaffected", () => {
+    const lines: CostLineItem[] = [
+      { clientId: "line-1", category: "restock", amountSen: 2000, amountInput: "20", note: "Rice" },
+      { clientId: "line-2", category: "restock", amountSen: 3000, amountInput: "30", note: "Rice" },
+      { clientId: "line-zero", category: "restock", amountSen: 0, amountInput: "", note: "Rice" },
+      { clientId: "line-4", category: "gas", amountSen: 1500, amountInput: "15", note: "Shell" },
+    ];
+
+    // Clicking line-4 (index 3) merges line-1 and line-2, leaving line-zero unaffected at index 1
+    const result = toggleCostLineExpansion(lines, 3, null);
+
+    expect(result.lines).toHaveLength(3);
+    expect(result.lines[0].clientId).toBe("line-1");
+    expect(result.lines[0].amountSen).toBe(5000);
+
+    // Zero-amount line preserved verbatim
+    expect(result.lines[1].clientId).toBe("line-zero");
+    expect(result.lines[1].amountSen).toBe(0);
+
+    // Line 4 expanded at new index 2
+    expect(result.lines[2].clientId).toBe("line-4");
+    expect(result.lines[2].amountSen).toBe(1500);
+    expect(result.expandedIndex).toBe(2);
+
+    // Clicking directly on a zero-amount line does not consolidate or mutate
+    const clickZero = toggleCostLineExpansion(lines, 2, 0);
+    expect(clickZero.lines).toEqual(lines);
+    expect(clickZero.expandedIndex).toBe(0);
+  });
+
+  it("toggles collapse when clicking an already expanded row that did not merge away", () => {
+    const lines: CostLineItem[] = [
+      { clientId: "line-1", category: "restock", amountSen: 2000, amountInput: "20", note: "Rice" },
+      { clientId: "line-2", category: "gas", amountSen: 1500, amountInput: "15", note: "Shell" },
+    ];
+
+    // Clicking line-1 when line-1 is already expanded collapses it
+    const result = toggleCostLineExpansion(lines, 0, 0);
+    expect(result.lines).toHaveLength(2);
+    expect(result.expandedIndex).toBeNull();
+  });
+
+  it("remaps noteErrorIndex and costAmountErrorIndex when rows shift, avoiding stale phantom highlights", () => {
+    const lines: CostLineItem[] = [
+      { clientId: "line-1", category: "restock", amountSen: 2000, amountInput: "20", note: "Rice" },
+      { clientId: "line-2", category: "restock", amountSen: 3000, amountInput: "30", note: "Rice" },
+      { clientId: "line-3", category: "other", amountSen: 1500, amountInput: "15", note: "" }, // noteError at index 2
+    ];
+
+    // User clicks line-3: duplicates (line-1 and line-2) consolidate, line-3 shifts from index 2 to index 1
+    const result = toggleCostLineExpansion(lines, 2, null, {
+      noteErrorIndex: 2,
+      costAmountErrorIndex: null,
+    });
+
+    expect(result.lines).toHaveLength(2);
+    expect(result.expandedIndex).toBe(1);
+    expect(result.noteErrorIndex).toBe(1);
+    expect(result.costAmountErrorIndex).toBeNull();
+  });
+
+  it("clears noteErrorIndex when the erroneous line no longer has an error after consolidation", () => {
+    const lines: CostLineItem[] = [
+      { clientId: "line-1", category: "restock", amountSen: 2000, amountInput: "20", note: "Rice" },
+      { clientId: "line-2", category: "gas", amountSen: 1500, amountInput: "15", note: "Shell" },
+    ];
+
+    // noteErrorIndex was pointing to index 0 which is not "other"
+    const result = toggleCostLineExpansion(lines, 1, null, {
+      noteErrorIndex: 0,
+    });
+    expect(result.noteErrorIndex).toBeNull();
   });
 });
