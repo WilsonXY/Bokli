@@ -148,4 +148,44 @@ describe("ExpensesView frontend review fixes", () => {
       expect(html).not.toContain("当日毛利润");
     });
   });
+  describe("Invalid amount error inline parity", () => {
+    it("renders inline amount error under input without top banner when amountError is true", () => {
+      const html = ReactDOMServer.renderToStaticMarkup(
+        React.createElement(ExpensesView, {
+          currentMonth: "2026-05",
+          availableMonths: ["2026-05"],
+          initialExpenses: [],
+          isClosed: false,
+          initialIsDraftOpen: true,
+          initialAmountError: true,
+        }),
+      );
+
+      // Verify inline error under input is present with boxed styling
+      expect(html).toContain("请输入有效金额");
+      expect(html).toContain("bg-finance-loss-light");
+      expect(html).toContain("border-finance-loss-border");
+
+      // Verify top inlineError banner is NOT present
+      expect(html).not.toContain("animate-slide-down");
+      expect(html).not.toContain('aria-label="Close"');
+    });
+
+    it("renders top banner when inlineError is present (e.g. API error or other errors)", () => {
+      const html = ReactDOMServer.renderToStaticMarkup(
+        React.createElement(ExpensesView, {
+          currentMonth: "2026-05",
+          availableMonths: ["2026-05"],
+          initialExpenses: [],
+          isClosed: false,
+          initialIsDraftOpen: true,
+          initialInlineError: "Network connection failed",
+        }),
+      );
+
+      // Verify top banner is rendered
+      expect(html).toContain("Network connection failed");
+      expect(html).toContain('aria-label="Close"');
+    });
+  });
 });

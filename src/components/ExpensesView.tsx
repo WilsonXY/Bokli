@@ -76,6 +76,9 @@ interface ExpensesViewProps {
   monthOptions?: MonthOption[];
   loadError?: string | null;
   initialPendingDeleteExpense?: MergedExpenseItem | null;
+  initialAmountError?: boolean;
+  initialInlineError?: string | null;
+  initialIsDraftOpen?: boolean;
 }
 
 export function ExpensesView({
@@ -87,6 +90,9 @@ export function ExpensesView({
   monthOptions,
   loadError,
   initialPendingDeleteExpense = null,
+  initialAmountError = false,
+  initialInlineError = null,
+  initialIsDraftOpen = false,
 }: ExpensesViewProps) {
   const router = useRouter();
   const { t } = useI18n();
@@ -108,10 +114,10 @@ export function ExpensesView({
   const [newType, setNewType] = useState<OperatingExpenseItem["type"]>("rental");
   const [amountInput, setAmountInput] = useState("");
   const [noteInput, setNoteInput] = useState("");
-  const [isDraftOpen, setIsDraftOpen] = useState(false);
-  const [amountError, setAmountError] = useState(false);
+  const [isDraftOpen, setIsDraftOpen] = useState(initialIsDraftOpen);
+  const [amountError, setAmountError] = useState(initialAmountError);
   const [adding, setAdding] = useState(false);
-  const [inlineError, setInlineError] = useState<string | null>(null);
+  const [inlineError, setInlineError] = useState<string | null>(initialInlineError);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
 
@@ -155,19 +161,16 @@ export function ExpensesView({
     try {
       if (!amountInput.trim()) {
         setAmountError(true);
-        setInlineError(t.invalidAmount);
         return;
       }
       parsedSen = parseSen(amountInput);
       if (parsedSen <= 0n) {
         setAmountError(true);
-        setInlineError(t.invalidAmount);
         return;
       }
       setAmountError(false);
     } catch {
       setAmountError(true);
-      setInlineError(t.invalidAmount);
       return;
     }
 
@@ -514,6 +517,7 @@ export function ExpensesView({
                             const sanitized = sanitizeMoneyInput(e.target.value);
                             if (sanitized !== null) {
                               setAmountInput(sanitized);
+                              if (amountError) setAmountError(false);
                               if (inlineError) setInlineError(null);
                             }
                           }}

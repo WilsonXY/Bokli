@@ -27,6 +27,9 @@ export interface DailySheetFormProps {
   todayKl: string;
   initialCashInput?: string;
   initialTngInput?: string;
+  initialNoteErrorIndex?: number | null;
+  initialCostAmountErrorIndex?: number | null;
+  initialErrorMessage?: string | null;
 }
 
 const MAX_SAFE_SEN = Number.MAX_SAFE_INTEGER; // 9007199254740991
@@ -46,6 +49,14 @@ export function findMissingOtherNoteIndex(
   return lines.findIndex(
     (line) => line.category === "other" && !normalizeNote(line.note)
   );
+}
+
+// Save-gate helper: index of the first cost line with zero or non-positive amount,
+// or -1. Used to block save and display inline invalid-amount error under that row.
+export function findZeroCostLineIndex(
+  lines: Pick<CostLineItem, "amountSen">[]
+): number {
+  return lines.findIndex((line) => line.amountSen <= 0);
 }
 
 export function areIdsEqual(a?: number[], b?: number[]): boolean {
@@ -237,6 +248,9 @@ export function DailySheetForm({
   todayKl,
   initialCashInput,
   initialTngInput,
+  initialNoteErrorIndex = null,
+  initialCostAmountErrorIndex = null,
+  initialErrorMessage = null,
 }: DailySheetFormProps) {
   const router = useRouter();
   const { t } = useI18n();
@@ -273,6 +287,12 @@ export function DailySheetForm({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(() => {
+    if (initialCostAmountErrorIndex !== null && initialCostAmountErrorIndex !== undefined) {
+      return initialCostAmountErrorIndex;
+    }
+    if (initialNoteErrorIndex !== null && initialNoteErrorIndex !== undefined) {
+      return initialNoteErrorIndex;
+    }
     const merged = mergeCostLines(initialCostLines);
     const zeroIdx = merged.findIndex((l) => l.amountSen === 0);
     return zeroIdx !== -1 ? zeroIdx : (merged.length === 1 ? 0 : null);
@@ -290,10 +310,12 @@ export function DailySheetForm({
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [showConfirmModal, pendingDeleteIndex]);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(initialErrorMessage);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [noteErrorIndex, setNoteErrorIndex] = useState<number | null>(null);
+  const [noteErrorIndex, setNoteErrorIndex] = useState<number | null>(initialNoteErrorIndex);
+  const [costAmountErrorIndex, setCostAmountErrorIndex] = useState<number | null>(initialCostAmountErrorIndex);
   const noteErrorRef = useRef<HTMLInputElement | null>(null);
+  const costAmountErrorRef = useRef<HTMLInputElement | null>(null);
 
   // Focus the offending note input when the save gate flags a missing note
   useEffect(() => {
@@ -301,6 +323,13 @@ export function DailySheetForm({
       noteErrorRef.current?.focus();
     }
   }, [noteErrorIndex]);
+
+  // Focus the offending amount input when the save gate flags a zero cost line
+  useEffect(() => {
+    if (costAmountErrorIndex !== null) {
+      costAmountErrorRef.current?.focus();
+    }
+  }, [costAmountErrorIndex]);
   const [saving, setSaving] = useState(false);
 
   // Baseline state representing the saved/initial state for the selected date
@@ -356,6 +385,8 @@ export function DailySheetForm({
     setTngInput(baseline.tngInput);
     setCostLines(baseline.costLines);
     setErrorMessage(null);
+    setNoteErrorIndex(null);
+    setCostAmountErrorIndex(null);
   }
 
   const cashSen = toSen(cashInput);
@@ -382,6 +413,7 @@ export function DailySheetForm({
   function handleCreateNewCostLine() {
     if (isClosed) return;
     setNoteErrorIndex(null);
+    setCostAmountErrorIndex(null);
     const consolidated = consolidateCostLines(costLines);
     const newLine: CostLineItem = {
       clientId: `line-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -406,6 +438,12 @@ export function DailySheetForm({
     ) {
       setNoteErrorIndex(null);
     }
+    if (
+      (patch.amountSen !== undefined || patch.amountInput !== undefined) &&
+      index === costAmountErrorIndex
+    ) {
+      setCostAmountErrorIndex(null);
+    }
     setExpandedIndex(index);
     setCostLines((prev) =>
       prev.map((line, i) => (i === index ? { ...line, ...patch } : line))
@@ -416,6 +454,7 @@ export function DailySheetForm({
   function handleRemoveCostLine(index: number) {
     if (isClosed) return;
     setNoteErrorIndex(null);
+    setCostAmountErrorIndex(null);
     setCostLines((prev) => prev.filter((_, i) => i !== index));
   }
 
@@ -427,12 +466,19 @@ export function DailySheetForm({
       setErrorMessage(t.invalidAmount);
       return;
     }
-    if (hasZeroCostLine) {
-      setErrorMessage(t.invalidAmount);
-      return;
-    }
     const consolidated = consolidateCostLines(costLines);
     setCostLines(consolidated);
+
+    const zeroCostLineIdx = findZeroCostLineIndex(consolidated);
+    if (zeroCostLineIdx !== -1) {
+      setExpandedIndex(zeroCostLineIdx);
+      setCostAmountErrorIndex(zeroCostLineIdx);
+      setNoteErrorIndex(null);
+      setErrorMessage(null);
+      requestAnimationFrame(() => costAmountErrorRef.current?.focus());
+      return;
+    }
+    setCostAmountErrorIndex(null);
 
     const missingNoteIdx = findMissingOtherNoteIndex(consolidated);
     if (missingNoteIdx !== -1) {
@@ -849,6 +895,9 @@ export function DailySheetForm({
                                   type="text"
                                   inputMode="decimal"
                                   value={line.amountInput ?? (line.amountSen > 0 ? senToDecimalStr(line.amountSen) : "")}
+                                  ref={idx === costAmountErrorIndex ? costAmountErrorRef : undefined}
+                                  aria-invalid={idx === costAmountErrorIndex || undefined}
+                                  aria-describedby={idx === costAmountErrorIndex ? `cost-amount-error-${idx}` : undefined}
                                   onChange={(e) => {
                                     const sanitized = sanitizeMoneyInput(e.target.value);
                                     if (sanitized !== null) {
@@ -861,9 +910,22 @@ export function DailySheetForm({
                                   }}
                                   onFocus={() => setExpandedIndex(idx)}
                                   placeholder="0.00"
-                                  className="w-full h-11 pl-10 pr-2.5 rounded-lg bg-surface-canvas border border-surface-border text-base font-semibold text-ink-primary tabular-nums focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50 transition-colors"
+                                  className={`w-full h-11 pl-10 pr-2.5 rounded-lg bg-surface-canvas border text-base font-semibold text-ink-primary tabular-nums focus:outline-none focus:bg-white focus-visible:ring-2 transition-colors ${
+                                    idx === costAmountErrorIndex
+                                      ? "border-finance-loss focus:border-finance-loss focus-visible:ring-finance-loss/50"
+                                      : "border-surface-border focus:border-ink-primary focus-visible:ring-brand-broccoli/50"
+                                  }`}
                                 />
                               </div>
+                              {idx === costAmountErrorIndex && (
+                                <div
+                                  id={`cost-amount-error-${idx}`}
+                                  role="alert"
+                                  className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-medium flex items-center justify-between"
+                                >
+                                  <span>{t.invalidAmount}</span>
+                                </div>
+                              )}
                             </div>
 
                             <div>
@@ -890,10 +952,10 @@ export function DailySheetForm({
                               {idx === noteErrorIndex && (
                                 <p
                                   id={`other-note-error-${idx}`}
-                                  className="text-xs text-finance-loss mt-1"
+                                  className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-medium flex items-center justify-between"
                                   role="alert"
                                 >
-                                  {t.otherNoteRequired}
+                                  <span>{t.otherNoteRequired}</span>
                                 </p>
                               )}
                             </div>
@@ -1028,12 +1090,16 @@ export function DailySheetForm({
                         setErrorMessage(t.invalidAmount);
                         return;
                       }
-                      if (hasZeroCostLine) {
-                        const zeroIdx = costLines.findIndex((l) => l.amountSen <= 0);
-                        if (zeroIdx !== -1) setExpandedIndex(zeroIdx);
-                        setErrorMessage(t.invalidAmount);
+                      const zeroIdx = findZeroCostLineIndex(costLines);
+                      if (zeroIdx !== -1) {
+                        setExpandedIndex(zeroIdx);
+                        setCostAmountErrorIndex(zeroIdx);
+                        setNoteErrorIndex(null);
+                        setErrorMessage(null);
+                        requestAnimationFrame(() => costAmountErrorRef.current?.focus());
                         return;
                       }
+                      setCostAmountErrorIndex(null);
                       setExpandedIndex(null);
                       setShowConfirmModal(true);
                     }}

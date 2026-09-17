@@ -17,6 +17,7 @@ import {
   mergeCostLines,
   appendOrMergeCostLine,
   consolidateCostLines,
+  findZeroCostLineIndex,
   getCostLineKey,
   type CostLineItem,
 } from "./DailySheetForm";
@@ -556,5 +557,97 @@ describe("cost line consolidation on add/save only (consolidateCostLines)", () =
     const result = consolidateCostLines(lines);
     expect(result).toHaveLength(1);
     expect(result[0].ids).toEqual([101, 102, 103]);
+  });
+});
+
+describe("findZeroCostLineIndex (save gate)", () => {
+  it("returns -1 when all lines have amountSen > 0", () => {
+    expect(findZeroCostLineIndex([{ amountSen: 100 }, { amountSen: 2000 }])).toBe(-1);
+  });
+
+  it("returns index of first line with amountSen <= 0", () => {
+    expect(
+      findZeroCostLineIndex([
+        { amountSen: 1000 },
+        { amountSen: 0 },
+        { amountSen: 2000 },
+      ])
+    ).toBe(1);
+  });
+
+  it("returns 0 when first line is zero or negative", () => {
+    expect(findZeroCostLineIndex([{ amountSen: 0 }, { amountSen: 500 }])).toBe(0);
+    expect(findZeroCostLineIndex([{ amountSen: -10 }])).toBe(0);
+  });
+
+  it("returns -1 for empty lines array", () => {
+    expect(findZeroCostLineIndex([])).toBe(-1);
+  });
+});
+
+describe("Cost line inline errors and boxed styling parity", () => {
+  it("note error uses the boxed style (class assertions)", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: [
+          { category: "other", amountSen: 2000, note: "" },
+        ],
+        isClosed: false,
+        todayKl: "2026-05-15",
+        initialNoteErrorIndex: 0,
+      })
+    );
+
+    // Verify error element exists with correct id and role
+    expect(html).toContain('id="other-note-error-0"');
+    expect(html).toContain('role="alert"');
+
+    // Verify boxed red-tinted styling classes
+    expect(html).toContain("bg-finance-loss-light");
+    expect(html).toContain("border-finance-loss-border");
+    expect(html).toContain("rounded-lg");
+    expect(html).toContain("text-finance-loss");
+    expect(html).toContain("font-medium");
+    expect(html).toContain("必须填写备注说明");
+    expect(html).toContain("类别为&#x27;其他&#x27;时");
+  });
+
+  it("zero-line save shows inline error state under amount input not top banner", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: [
+          { category: "restock", amountSen: 0, note: "Rice" },
+        ],
+        isClosed: false,
+        todayKl: "2026-05-15",
+        initialCostAmountErrorIndex: 0,
+      })
+    );
+
+    // Verify inline error under amount input exists with correct id, role, and text
+    expect(html).toContain('id="cost-amount-error-0"');
+    expect(html).toContain('role="alert"');
+    expect(html).toContain(t.invalidAmount);
+
+    // Verify boxed styling classes matching expenses page
+    expect(html).toContain("bg-finance-loss-light");
+    expect(html).toContain("border-finance-loss-border");
+    expect(html).toContain("rounded-lg");
+    expect(html).toContain("text-finance-loss");
+    expect(html).toContain("font-medium");
+
+    // Verify amount input receives error border and aria-invalid
+    expect(html).toContain('aria-invalid="true"');
+    expect(html).toContain('aria-describedby="cost-amount-error-0"');
+    expect(html).toContain("border-finance-loss");
+
+    // Verify top notification banner is NOT rendered
+    expect(html).not.toContain('aria-label="Close"');
   });
 });
