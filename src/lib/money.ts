@@ -58,6 +58,19 @@ export function formatMyr(sen: bigint): string {
   return `${sign}RM${ringgit}.${cents}`;
 }
 
+/**
+ * Dynamic sizing class for formatted money strings to prevent overflow on mobile.
+ * Returns shrinkClass (default "text-xs") if formatted string exceeds 11 characters;
+ * otherwise returns baseClass (default "").
+ */
+export function amountSizeClass(
+  formatted: string,
+  shrinkClass: string = "text-xs",
+  baseClass: string = ""
+): string {
+  return formatted.length > 11 ? shrinkClass : baseClass;
+}
+
 /** Sum a list of sen amounts with range checking. */
 export function sumSen(amounts: readonly bigint[]): bigint {
   let total = 0n;
