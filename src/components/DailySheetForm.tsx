@@ -168,118 +168,53 @@ function senToDecimalStr(sen: number): string {
   return cents === "00" ? `${ringgit}` : `${ringgit}.${cents}`;
 }
 
-export function applyCostLineUpdate(
-  lines: CostLineItem[],
-  index: number,
-  patch: Partial<CostLineItem>,
-  currentNoteErrorIndex?: number | null
-): {
-  lines: CostLineItem[];
-  expandedIndex: number;
-  noteErrorIndex: number | null;
-} {
-  const updated = lines.map((line, i) =>
-    i === index ? { ...line, ...patch } : line
-  );
-  const edited = updated[index];
-
-  const resolveNoteError = (
-    merge?: { firstIndex: number; secondIndex: number; mergedLine: CostLineItem }
-  ): number | null => {
-    if (currentNoteErrorIndex === null || currentNoteErrorIndex === undefined) {
-      return null;
-    }
-    let next: number | null = currentNoteErrorIndex;
-    if (index === currentNoteErrorIndex) {
-      if (
-        patch.note !== undefined ||
-        (patch.category !== undefined && patch.category !== "other")
-      ) {
-        next = null;
-      }
-    }
-    if (!merge) {
-      return next;
-    }
-    const { firstIndex, secondIndex, mergedLine } = merge;
-    const mergedNeedsOtherNote =
-      mergedLine.category === "other" && !normalizeNote(mergedLine.note);
-
-    if (next === null) {
-      return null;
-    }
-    if (next === secondIndex || next === firstIndex) {
-      return mergedNeedsOtherNote ? firstIndex : null;
-    }
-    if (next > secondIndex) {
-      return next - 1;
-    }
-    return next;
-  };
-
-  if (!edited || edited.amountSen <= 0) {
-    return {
-      lines: updated,
-      expandedIndex: index,
-      noteErrorIndex: resolveNoteError(),
-    };
-  }
-
-  const editedNorm = normalizeNote(edited.note);
-  const matchIndex = updated.findIndex(
-    (l, i) =>
-      i !== index &&
-      l.amountSen > 0 &&
-      l.category === edited.category &&
-      normalizeNote(l.note) === editedNorm
-  );
-
-  if (matchIndex === -1) {
-    return {
-      lines: updated,
-      expandedIndex: index,
-      noteErrorIndex: resolveNoteError(),
-    };
-  }
-
-  const firstIndex = Math.min(index, matchIndex);
-  const secondIndex = Math.max(index, matchIndex);
-  const first = updated[firstIndex];
-  const second = updated[secondIndex];
-
-  const mergedTotal = first.amountSen + second.amountSen;
-  const safeAmount =
-    Number.isSafeInteger(mergedTotal) && mergedTotal >= 0 && mergedTotal <= MAX_SAFE_SEN
-      ? mergedTotal
-      : MAX_SAFE_SEN;
-
-  const lineIds = (line: CostLineItem): number[] => [
+function extractCostLineIds(line: CostLineItem): number[] {
+  return [
     ...(line.ids ?? []),
     ...(line.id !== undefined && (!line.ids || !line.ids.includes(line.id)) ? [line.id] : []),
   ];
+}
 
-  const firstIds = lineIds(first);
-  const secondIds = lineIds(second);
-  const combinedIds = [...firstIds, ...secondIds.filter((id) => !firstIds.includes(id))];
+export function consolidateCostLines(lines: CostLineItem[]): CostLineItem[] {
+  const firstSeen = new Map<string, number>();
+  const result: CostLineItem[] = [];
 
-  const mergedLine: CostLineItem = {
-    category: first.category,
-    note: first.note,
-    amountSen: safeAmount,
-    amountInput: safeAmount > 0 ? senToDecimalStr(safeAmount) : "",
-    ids: combinedIds,
-    clientId: first.clientId,
-  };
+  for (const line of lines) {
+    if (line.amountSen <= 0) {
+      result.push(line);
+      continue;
+    }
 
-  const nextLines = updated
-    .map((l, i) => (i === firstIndex ? mergedLine : l))
-    .filter((_, i) => i !== secondIndex);
+    const key = `${line.category}::${normalizeNote(line.note)}`;
+    const targetIdx = firstSeen.get(key);
 
-  return {
-    lines: nextLines,
-    expandedIndex: firstIndex,
-    noteErrorIndex: resolveNoteError({ firstIndex, secondIndex, mergedLine }),
-  };
+    if (targetIdx !== undefined) {
+      const target = result[targetIdx];
+      const mergedTotal = target.amountSen + line.amountSen;
+      const safeAmount =
+        Number.isSafeInteger(mergedTotal) && mergedTotal >= 0 && mergedTotal <= MAX_SAFE_SEN
+          ? mergedTotal
+          : MAX_SAFE_SEN;
+
+      const targetIds = extractCostLineIds(target);
+      const incomingIds = extractCostLineIds(line);
+      const combinedIds = [...targetIds, ...incomingIds.filter((id) => !targetIds.includes(id))];
+
+      result[targetIdx] = {
+        category: target.category,
+        note: target.note,
+        amountSen: safeAmount,
+        amountInput: safeAmount > 0 ? senToDecimalStr(safeAmount) : "",
+        ids: combinedIds,
+        clientId: target.clientId,
+      };
+    } else {
+      firstSeen.set(key, result.length);
+      result.push(line);
+    }
+  }
+
+  return result;
 }
 
 // Safe parsing helper: returns null for unparseable non-empty inputs
@@ -446,6 +381,8 @@ export function DailySheetForm({
   // Create and expand a new empty cost line with stable clientId
   function handleCreateNewCostLine() {
     if (isClosed) return;
+    setNoteErrorIndex(null);
+    const consolidated = consolidateCostLines(costLines);
     const newLine: CostLineItem = {
       clientId: `line-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       category: "restock",
@@ -454,8 +391,8 @@ export function DailySheetForm({
       note: "",
       ids: [],
     };
-    setCostLines((prev) => [...prev, newLine]);
-    setExpandedIndex(costLines.length);
+    setCostLines([...consolidated, newLine]);
+    setExpandedIndex(consolidated.length);
   }
 
   // Update a specific cost line in place
@@ -463,17 +400,16 @@ export function DailySheetForm({
     index: number,
     patch: Partial<CostLineItem>
   ) {
-    setCostLines((prev) => {
-      const result = applyCostLineUpdate(
-        prev,
-        index,
-        patch,
-        noteErrorIndex
-      );
-      setExpandedIndex(result.expandedIndex);
-      setNoteErrorIndex(result.noteErrorIndex);
-      return result.lines;
-    });
+    if (
+      (patch.note !== undefined && index === noteErrorIndex) ||
+      (patch.category !== undefined && patch.category !== "other" && index === noteErrorIndex)
+    ) {
+      setNoteErrorIndex(null);
+    }
+    setExpandedIndex(index);
+    setCostLines((prev) =>
+      prev.map((line, i) => (i === index ? { ...line, ...patch } : line))
+    );
   }
 
   // Remove Cost Line
@@ -495,7 +431,10 @@ export function DailySheetForm({
       setErrorMessage(t.invalidAmount);
       return;
     }
-    const missingNoteIdx = findMissingOtherNoteIndex(costLines);
+    const consolidated = consolidateCostLines(costLines);
+    setCostLines(consolidated);
+
+    const missingNoteIdx = findMissingOtherNoteIndex(consolidated);
     if (missingNoteIdx !== -1) {
       setExpandedIndex(missingNoteIdx);
       setNoteErrorIndex(missingNoteIdx);
@@ -518,7 +457,7 @@ export function DailySheetForm({
           date,
           cashSen: Number(cashSen),
           tngSen: Number(tngSen),
-          costLines: costLines
+          costLines: consolidated
             .filter((l) => l.amountSen > 0)
             .map((l) => ({
               category: l.category,
