@@ -228,6 +228,31 @@ export function consolidateCostLines(lines: CostLineItem[]): CostLineItem[] {
   return result;
 }
 
+export function createNewCostLine(
+  costLines: CostLineItem[],
+  newLineFactory?: () => CostLineItem
+): { lines: CostLineItem[]; expandedIndex: number } {
+  // (1) consolidate existing lines as today
+  const consolidated = consolidateCostLines(costLines);
+  // (2) REMOVE any cost line with amountSen <= 0 (the unfilled one)
+  const filledOnly = consolidated.filter((line) => line.amountSen > 0);
+  // (3) append one fresh empty row and expand it
+  const newLine: CostLineItem = newLineFactory
+    ? newLineFactory()
+    : {
+        clientId: `line-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        category: "restock",
+        amountSen: 0,
+        amountInput: "",
+        note: "",
+        ids: [],
+      };
+  return {
+    lines: [...filledOnly, newLine],
+    expandedIndex: filledOnly.length,
+  };
+}
+
 export function findConsolidatedLineIndex(
   targetLine: CostLineItem,
   consolidated: CostLineItem[]
@@ -549,17 +574,9 @@ export function DailySheetForm({
     if (isClosed) return;
     setNoteErrorIndex(null);
     setCostAmountErrorIndex(null);
-    const consolidated = consolidateCostLines(costLines);
-    const newLine: CostLineItem = {
-      clientId: `line-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      category: "restock",
-      amountSen: 0,
-      amountInput: "",
-      note: "",
-      ids: [],
-    };
-    setCostLines([...consolidated, newLine]);
-    setExpandedIndex(consolidated.length);
+    const result = createNewCostLine(costLines);
+    setCostLines(result.lines);
+    setExpandedIndex(result.expandedIndex);
   }
 
   // Update a specific cost line in place
@@ -1117,8 +1134,8 @@ export function DailySheetForm({
           </div>
         )}
 
-        {/* Standalone Clickable "+ Add Cost" Button at bottom: hidden if any item has RM 0 */}
-        {!isClosed && !hasZeroCostLine && (
+        {/* Standalone Clickable "+ Add Cost" Button at bottom */}
+        {!isClosed && (
           <button
             type="button"
             onClick={handleCreateNewCostLine}
@@ -1239,14 +1256,16 @@ export function DailySheetForm({
                         setErrorMessage(t.invalidAmount);
                         return;
                       }
-                      const zeroIdx = findZeroCostLineIndex(costLines);
-                      if (zeroIdx !== -1) {
+                      if (hasZeroCostLine) {
+                        const zeroIdx = findZeroCostLineIndex(costLines);
+                        if (zeroIdx !== -1) {
                         setExpandedIndex(zeroIdx);
                         setCostAmountErrorIndex(zeroIdx);
                         setNoteErrorIndex(null);
                         setErrorMessage(null);
                         requestAnimationFrame(() => costAmountErrorRef.current?.focus());
                         return;
+                      }
                       }
                       setCostAmountErrorIndex(null);
                       setExpandedIndex(null);

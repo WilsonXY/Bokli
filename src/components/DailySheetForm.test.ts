@@ -19,6 +19,7 @@ import {
   consolidateCostLines,
   findConsolidatedLineIndex,
   toggleCostLineExpansion,
+  createNewCostLine,
   findZeroCostLineIndex,
   getCostLineKey,
   type CostLineItem,
@@ -778,5 +779,90 @@ describe("cost line consolidation on row click/expand (toggleCostLineExpansion)"
       noteErrorIndex: 0,
     });
     expect(result.noteErrorIndex).toBeNull();
+  });
+});
+
+describe("add cost button always visible and unfilled row replacement (createNewCostLine)", () => {
+  it("clicking add with only filled rows appends a fresh zero row and expands it", () => {
+    const lines: CostLineItem[] = [
+      { clientId: "c-1", category: "restock", amountSen: 2000, amountInput: "20", note: "Rice" },
+      { clientId: "c-2", category: "gas", amountSen: 1500, amountInput: "15", note: "Shell" },
+    ];
+
+    const result = createNewCostLine(lines);
+
+    expect(result.lines).toHaveLength(3);
+    expect(result.lines[0].clientId).toBe("c-1");
+    expect(result.lines[1].clientId).toBe("c-2");
+    expect(result.lines[2].amountSen).toBe(0);
+    expect(result.lines[2].amountInput).toBe("");
+    expect(result.expandedIndex).toBe(2);
+  });
+
+  it("clicking add with an unfilled row present replaces it (no duplicate zero rows)", () => {
+    const lines: CostLineItem[] = [
+      { clientId: "c-1", category: "restock", amountSen: 2000, amountInput: "20", note: "Rice" },
+      { clientId: "c-unfilled", category: "restock", amountSen: 0, amountInput: "", note: "" },
+    ];
+
+    const result = createNewCostLine(lines);
+
+    // Unfilled row is replaced by a single fresh empty row; no duplicate zero rows
+    expect(result.lines).toHaveLength(2);
+    expect(result.lines[0].clientId).toBe("c-1");
+    expect(result.lines[1].amountSen).toBe(0);
+    expect(result.lines[1].clientId).not.toBe("c-unfilled");
+    expect(result.expandedIndex).toBe(1);
+  });
+
+  it("consolidates duplicate filled lines before replacing unfilled row on add", () => {
+    const lines: CostLineItem[] = [
+      { clientId: "c-1", category: "restock", amountSen: 2000, amountInput: "20", note: "Rice" },
+      { clientId: "c-2", category: "restock", amountSen: 3000, amountInput: "30", note: "Rice" },
+      { clientId: "c-zero", category: "restock", amountSen: 0, amountInput: "", note: "" },
+    ];
+
+    const result = createNewCostLine(lines);
+
+    expect(result.lines).toHaveLength(2);
+    expect(result.lines[0].clientId).toBe("c-1");
+    expect(result.lines[0].amountSen).toBe(5000);
+    expect(result.lines[1].amountSen).toBe(0);
+    expect(result.expandedIndex).toBe(1);
+  });
+
+  it("renders the add cost button even when an unfilled zero row exists", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: [
+          { category: "restock", amountSen: 0, note: "Rice" },
+        ],
+        isClosed: false,
+        todayKl: "2026-05-15",
+      })
+    );
+
+    // Button text "添加开销" is rendered despite zero-amount row
+    expect(html).toContain(t.addCostLine);
+  });
+
+  it("hides the add cost button when sheet is closed", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: [
+          { category: "restock", amountSen: 2000, note: "Rice" },
+        ],
+        isClosed: true,
+        todayKl: "2026-05-15",
+      })
+    );
+
+    expect(html).not.toContain(t.addCostLine);
   });
 });
