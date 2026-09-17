@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { amountSizeClass, formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
+import { formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
 import { useI18n, translateApiError } from "@/lib/i18n";
 import { CalendarPopover } from "@/components/CalendarPopover";
 import type { CostCategory } from "@/services/daily-sheet";
@@ -31,7 +31,6 @@ export interface DailySheetFormProps {
   initialCostAmountErrorIndex?: number | null;
   initialErrorMessage?: string | null;
   initialExpandedIndex?: number | null;
-  initialPendingDeleteIndex?: number | null;
 }
 
 const MAX_SAFE_SEN = Number.MAX_SAFE_INTEGER; // 9007199254740991
@@ -407,7 +406,6 @@ export function DailySheetForm({
   initialCostAmountErrorIndex = null,
   initialErrorMessage = null,
   initialExpandedIndex,
-  initialPendingDeleteIndex,
 }: DailySheetFormProps) {
   const router = useRouter();
   const { t } = useI18n();
@@ -442,7 +440,7 @@ export function DailySheetForm({
 
   // Feedback states
   const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(initialPendingDeleteIndex ?? null);
+  const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(() => {
     if (initialExpandedIndex !== undefined) {
       return initialExpandedIndex;
@@ -999,11 +997,7 @@ export function DailySheetForm({
                         </div>
 
                         <div className="flex items-center gap-2.5 shrink-0">
-                          <span
-                            className={`text-base font-bold text-slate-700 tabular-nums whitespace-nowrap ${amountSizeClass(
-                              formatMyr(BigInt(line.amountSen))
-                            )}`.trimEnd()}
-                          >
+                          <span className="text-base font-bold text-slate-700 tabular-nums whitespace-nowrap">
                             {formatMyr(BigInt(line.amountSen))}
                           </span>
 
@@ -1221,11 +1215,7 @@ export function DailySheetForm({
                   {t.grossProfit}
                 </div>
                 <div
-                  className={`${amountSizeClass(
-                    grossProfitSen !== null ? formatMyr(grossProfitSen) : "—",
-                    "text-base",
-                    "text-xl"
-                  )} font-bold ${
+                  className={`text-xl font-bold ${
                     grossProfitSen !== null && grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
                   }`}
                 >
@@ -1336,11 +1326,7 @@ export function DailySheetForm({
                   </span>
                 )}
               </div>
-              <span
-                className={`text-base font-bold text-finance-loss whitespace-nowrap tabular-nums ${amountSizeClass(
-                  formatMyr(BigInt(costLines[pendingDeleteIndex].amountSen))
-                )}`.trimEnd()}
-              >
+              <span className="text-base font-bold text-finance-loss whitespace-nowrap">
                 {formatMyr(BigInt(costLines[pendingDeleteIndex].amountSen))}
               </span>
             </div>

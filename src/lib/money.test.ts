@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  amountSizeClass,
   formatMyr,
   isValidDateStr,
   isValidMonthStr,
@@ -72,26 +71,6 @@ describe("formatMyr", () => {
     for (const s of ["0", "12.34", "99.99", "1000.01"]) {
       expect(formatMyr(parseSen(s))).toMatch(/^-?RM\d+\.\d\d$/);
     }
-  });
-});
-
-describe("amountSizeClass", () => {
-  it("returns empty string by default when string length <= 11", () => {
-    expect(amountSizeClass("RM500000.00")).toBe("");
-    expect(amountSizeClass("RM12.34")).toBe("");
-    expect(amountSizeClass("")).toBe("");
-  });
-
-  it("returns text-xs by default when string length > 11", () => {
-    expect(amountSizeClass("RM1005686.12")).toBe("text-xs");
-    expect(amountSizeClass("-RM100000.00")).toBe("text-xs");
-  });
-
-  it("supports custom shrinkClass and baseClass", () => {
-    expect(amountSizeClass("RM500000.00", "text-2xl", "text-3xl")).toBe("text-3xl");
-    expect(amountSizeClass("RM1005686.12", "text-2xl", "text-3xl")).toBe("text-2xl");
-    expect(amountSizeClass("RM1005686.12", "text-base", "text-xl")).toBe("text-base");
-    expect(amountSizeClass("RM500000.00", "text-base", "text-xl")).toBe("text-xl");
   });
 });
 
