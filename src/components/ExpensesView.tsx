@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useTransition } from "react";
+import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
 import { useI18n, translateApiError } from "@/lib/i18n";
@@ -77,8 +77,11 @@ interface ExpensesViewProps {
   loadError?: string | null;
   initialPendingDeleteExpense?: MergedExpenseItem | null;
   initialAmountError?: boolean;
+  initialNoteError?: boolean;
   initialInlineError?: string | null;
   initialIsDraftOpen?: boolean;
+  initialNewType?: OperatingExpenseItem["type"];
+  initialNoteInput?: string;
 }
 
 export function ExpensesView({
@@ -91,8 +94,11 @@ export function ExpensesView({
   loadError,
   initialPendingDeleteExpense = null,
   initialAmountError = false,
+  initialNoteError = false,
   initialInlineError = null,
   initialIsDraftOpen = false,
+  initialNewType = "rental",
+  initialNoteInput = "",
 }: ExpensesViewProps) {
   const router = useRouter();
   const { t } = useI18n();
@@ -111,11 +117,19 @@ export function ExpensesView({
   );
 
   // New expense draft form
-  const [newType, setNewType] = useState<OperatingExpenseItem["type"]>("rental");
+  const [newType, setNewType] = useState<OperatingExpenseItem["type"]>(initialNewType);
   const [amountInput, setAmountInput] = useState("");
-  const [noteInput, setNoteInput] = useState("");
+  const [noteInput, setNoteInput] = useState(initialNoteInput);
   const [isDraftOpen, setIsDraftOpen] = useState(initialIsDraftOpen);
   const [amountError, setAmountError] = useState(initialAmountError);
+  const [noteError, setNoteError] = useState(initialNoteError);
+  const noteInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (noteError) {
+      noteInputRef.current?.focus();
+    }
+  }, [noteError]);
   const [adding, setAdding] = useState(false);
   const [inlineError, setInlineError] = useState<string | null>(initialInlineError);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
@@ -175,9 +189,11 @@ export function ExpensesView({
     }
 
     if (newType === "other" && !noteInput.trim()) {
-      setInlineError(t.otherNoteRequired);
+      setNoteError(true);
+      requestAnimationFrame(() => noteInputRef.current?.focus());
       return;
     }
+    setNoteError(false);
 
     setAdding(true);
 
@@ -207,6 +223,7 @@ export function ExpensesView({
       setAmountInput("");
       setNoteInput("");
       setAmountError(false);
+      setNoteError(false);
       setIsDraftOpen(false);
       setSuccessBanner(t.addExpenseSuccess);
       setTimeout(() => setSuccessBanner(null), 3000);
@@ -484,6 +501,7 @@ export function ExpensesView({
                             type="button"
                             onClick={() => {
                               setNewType(cat.key);
+                              if (cat.key !== "other" && noteError) setNoteError(false);
                               if (inlineError) setInlineError(null);
                             }}
                             className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold border btn-wave transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
@@ -513,6 +531,8 @@ export function ExpensesView({
                           type="text"
                           inputMode="decimal"
                           value={amountInput}
+                          aria-invalid={amountError || undefined}
+                          aria-describedby={amountError ? "expense-amount-error" : undefined}
                           onChange={(e) => {
                             const sanitized = sanitizeMoneyInput(e.target.value);
                             if (sanitized !== null) {
@@ -532,7 +552,11 @@ export function ExpensesView({
                         />
                       </div>
                       {amountError && (
-                        <div className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-medium flex items-center justify-between">
+                        <div
+                          id="expense-amount-error"
+                          role="alert"
+                          className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-medium flex items-center justify-between"
+                        >
                           <span>{t.invalidAmount}</span>
                         </div>
                       )}
@@ -543,15 +567,34 @@ export function ExpensesView({
                         {t.note} {newType === "other" && <span className="text-finance-loss">*</span>}
                       </label>
                       <input
+                        ref={noteInputRef}
                         type="text"
                         value={noteInput}
+                        aria-invalid={noteError || undefined}
+                        aria-describedby={noteError ? "expense-note-error" : undefined}
                         onChange={(e) => {
                           setNoteInput(e.target.value);
+                          if (noteError) setNoteError(false);
                           if (inlineError) setInlineError(null);
                         }}
                         placeholder={newType === "other" ? t.noteRequired : t.noteOptional}
-                        className="w-full h-11 px-3 rounded-lg bg-surface-canvas border border-surface-border text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50 transition-colors"
+                        className={`w-full h-11 px-3 rounded-lg bg-surface-canvas border ${
+                          noteError ? "border-finance-loss" : "border-surface-border"
+                        } text-sm text-ink-primary focus:outline-none focus:bg-white ${
+                          noteError
+                            ? "focus:border-finance-loss focus-visible:ring-finance-loss/50"
+                            : "focus:border-ink-primary focus-visible:ring-brand-broccoli/50"
+                        } focus-visible:ring-2 transition-colors`}
                       />
+                      {noteError && (
+                        <div
+                          id="expense-note-error"
+                          role="alert"
+                          className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-medium flex items-center justify-between"
+                        >
+                          <span>{t.otherNoteRequired}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -564,6 +607,7 @@ export function ExpensesView({
                         setAmountInput("");
                         setNoteInput("");
                         setAmountError(false);
+                        setNoteError(false);
                         if (inlineError) setInlineError(null);
                       }}
                       className="flex-1 h-11 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary font-semibold text-sm transition-colors cursor-pointer"

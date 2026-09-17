@@ -187,5 +187,40 @@ describe("ExpensesView frontend review fixes", () => {
       expect(html).toContain("Network connection failed");
       expect(html).toContain('aria-label="Close"');
     });
+
+    it("renders inline note-required error under note input with boxed styling and no top banner when other category has empty note", () => {
+      const html = ReactDOMServer.renderToStaticMarkup(
+        React.createElement(ExpensesView, {
+          currentMonth: "2026-05",
+          availableMonths: ["2026-05"],
+          initialExpenses: [],
+          isClosed: false,
+          initialIsDraftOpen: true,
+          initialNewType: "other",
+          initialNoteInput: "",
+          initialNoteError: true,
+        }),
+      );
+
+      // Verify inline error under note input is present with boxed styling
+      expect(html).toContain('id="expense-note-error"');
+      expect(html).toContain('role="alert"');
+      expect(html).toContain("必须填写备注说明");
+      expect(html).toContain("类别为&#x27;其他&#x27;时");
+      expect(html).toContain("bg-finance-loss-light");
+      expect(html).toContain("border-finance-loss-border");
+      expect(html).toContain("rounded-lg");
+      expect(html).toContain("text-finance-loss");
+      expect(html).toContain("font-medium");
+
+      // Verify note input has error border and accessibility attributes
+      expect(html).toContain('aria-invalid="true"');
+      expect(html).toContain('aria-describedby="expense-note-error"');
+      expect(html).toContain("border-finance-loss");
+
+      // Verify top inlineError banner is NOT present
+      expect(html).not.toContain("animate-slide-down");
+      expect(html).not.toContain('aria-label="Close"');
+    });
   });
 });
