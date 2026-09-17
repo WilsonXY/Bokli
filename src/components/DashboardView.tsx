@@ -270,7 +270,7 @@ export function DashboardView({
                   <span className="block text-sm font-bold text-ink-secondary truncate">
                     {t.totalRevenue}
                   </span>
-                  <span className="mt-1 block text-base sm:text-xl font-bold text-ink-primary tabular-nums truncate">
+                  <span className="mt-1 block text-sm sm:text-xl font-bold text-ink-primary tabular-nums">
                     {formatMyr(BigInt(activeTile.revenueSen))}
                   </span>
                 </div>
@@ -279,7 +279,7 @@ export function DashboardView({
                   <span className="block text-sm font-bold text-ink-secondary truncate">
                     {t.costsTitle}
                   </span>
-                  <span className="mt-1 block text-base sm:text-xl font-bold text-slate-700 tabular-nums truncate">
+                  <span className="mt-1 block text-sm sm:text-xl font-bold text-slate-700 tabular-nums">
                     {formatMyr(BigInt(activeTile.dailyCostSen))}
                   </span>
                 </div>
@@ -288,7 +288,7 @@ export function DashboardView({
                   <span className="block text-sm font-bold text-ink-secondary truncate">
                     {t.operatingExpenses}
                   </span>
-                  <span className="mt-1 block text-base sm:text-xl font-bold text-slate-700 tabular-nums truncate">
+                  <span className="mt-1 block text-sm sm:text-xl font-bold text-slate-700 tabular-nums">
                     {formatMyr(BigInt(activeTile.operatingSen))}
                   </span>
                 </div>
