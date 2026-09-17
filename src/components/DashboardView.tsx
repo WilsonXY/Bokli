@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
-import { formatMyr } from "@/lib/money";
+import { amountSizeClass, formatMyr } from "@/lib/money";
 import { MonthSelectorDropdown } from "@/components/MonthSelectorDropdown";
 
 export interface SerializedMonthTile {
@@ -110,6 +110,11 @@ export function DashboardView({
   };
 
   const isProfitPositive = activeTile ? BigInt(activeTile.netSen) >= 0n : true;
+
+  const headlineNet = activeTile ? formatMyr(BigInt(activeTile.netSen)) : "";
+  const stripRevenue = activeTile ? formatMyr(BigInt(activeTile.revenueSen)) : "";
+  const stripDailyCost = activeTile ? formatMyr(BigInt(activeTile.dailyCostSen)) : "";
+  const stripOperating = activeTile ? formatMyr(BigInt(activeTile.operatingSen)) : "";
 
   const categoryPalette: Record<keyof SerializedCostByCategory, { bg: string; hex: string }> = {
     restock: { bg: "bg-blue-600", hex: "#2563eb" },
@@ -255,11 +260,15 @@ export function DashboardView({
                 </div>
                 <div className="mt-1 flex items-baseline gap-2">
                   <span
-                    className={`text-3xl sm:text-4xl font-extrabold tracking-tight tabular-nums ${
+                    className={`${amountSizeClass(
+                      headlineNet,
+                      "text-2xl",
+                      "text-3xl"
+                    )} sm:text-4xl font-extrabold tracking-tight tabular-nums ${
                       isProfitPositive ? "text-emerald-700" : "text-rose-600"
                     }`}
                   >
-                    {formatMyr(BigInt(activeTile.netSen))}
+                    {headlineNet}
                   </span>
                 </div>
               </div>
@@ -270,8 +279,14 @@ export function DashboardView({
                   <span className="block text-sm font-bold text-ink-secondary truncate">
                     {t.totalRevenue}
                   </span>
-                  <span className="mt-1 block text-base sm:text-xl font-bold text-ink-primary tabular-nums truncate">
-                    {formatMyr(BigInt(activeTile.revenueSen))}
+                  <span
+                    className={`mt-1 block ${amountSizeClass(
+                      stripRevenue,
+                      "text-xs",
+                      "text-sm"
+                    )} sm:text-xl font-bold text-ink-primary tabular-nums`}
+                  >
+                    {stripRevenue}
                   </span>
                 </div>
 
@@ -279,8 +294,14 @@ export function DashboardView({
                   <span className="block text-sm font-bold text-ink-secondary truncate">
                     {t.costsTitle}
                   </span>
-                  <span className="mt-1 block text-base sm:text-xl font-bold text-slate-700 tabular-nums truncate">
-                    {formatMyr(BigInt(activeTile.dailyCostSen))}
+                  <span
+                    className={`mt-1 block ${amountSizeClass(
+                      stripDailyCost,
+                      "text-xs",
+                      "text-sm"
+                    )} sm:text-xl font-bold text-slate-700 tabular-nums`}
+                  >
+                    {stripDailyCost}
                   </span>
                 </div>
 
@@ -288,8 +309,14 @@ export function DashboardView({
                   <span className="block text-sm font-bold text-ink-secondary truncate">
                     {t.operatingExpenses}
                   </span>
-                  <span className="mt-1 block text-base sm:text-xl font-bold text-slate-700 tabular-nums truncate">
-                    {formatMyr(BigInt(activeTile.operatingSen))}
+                  <span
+                    className={`mt-1 block ${amountSizeClass(
+                      stripOperating,
+                      "text-xs",
+                      "text-sm"
+                    )} sm:text-xl font-bold text-slate-700 tabular-nums`}
+                  >
+                    {stripOperating}
                   </span>
                 </div>
               </div>

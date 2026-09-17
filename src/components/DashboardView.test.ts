@@ -115,4 +115,98 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
       }
     });
   });
+
+  describe("headline and 3-way strip amounts dynamic sizing", () => {
+    it("applies text-xs on strip amounts longer than 11 characters and keeps base sizing otherwise", () => {
+      const mockTile: SerializedMonthTile = {
+        month: "2026-05",
+        status: "open",
+        revenueSen: 100568612, // RM1005686.12 -> 12 characters
+        dailyCostSen: 50000000, // RM500000.00 -> 11 characters
+        grossSen: 50568612,
+        operatingSen: 120000000, // RM1200000.00 -> 12 characters
+        netSen: -19431388,
+      };
+
+      const html = ReactDOMServer.renderToStaticMarkup(
+        React.createElement(DashboardView, {
+          tiles: [mockTile],
+          activeMonth: "2026-05",
+          activeTile: mockTile,
+          trend: [],
+          split: null,
+          costByCategory: null,
+        })
+      );
+
+      // Revenue (12 chars): conditional replacement text-xs sm:text-xl (never coexists with text-sm)
+      expect(html).toContain("RM1005686.12");
+      expect(html).toMatch(/class="[^"]*text-xs sm:text-xl font-bold text-ink-primary tabular-nums"[^>]*>RM1005686\.12/);
+      expect(html).not.toMatch(/class="[^"]*text-sm[^"]*"[^>]*>RM1005686\.12/);
+
+      // Daily cost (11 chars): keeps base text-sm sm:text-xl (never includes text-xs)
+      expect(html).toContain("RM500000.00");
+      expect(html).toMatch(/class="[^"]*text-sm sm:text-xl font-bold text-slate-700 tabular-nums"[^>]*>RM500000\.00/);
+      expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
+
+      // Operating expenses (12 chars): conditional replacement text-xs sm:text-xl (never coexists with text-sm)
+      expect(html).toContain("RM1200000.00");
+      expect(html).toMatch(/class="[^"]*text-xs sm:text-xl font-bold text-slate-700 tabular-nums"[^>]*>RM1200000\.00/);
+      expect(html).not.toMatch(/class="[^"]*text-sm[^"]*"[^>]*>RM1200000\.00/);
+    });
+
+    it("shrinks headline net profit to text-2xl on mobile when longer than 11 characters and keeps text-3xl otherwise", () => {
+      // Long headline amount: -RM194313.88 -> 13 characters
+      const longTile: SerializedMonthTile = {
+        month: "2026-05",
+        status: "open",
+        revenueSen: 100000,
+        dailyCostSen: 50000,
+        grossSen: 50000,
+        operatingSen: 24431388,
+        netSen: -19431388,
+      };
+
+      const longHtml = ReactDOMServer.renderToStaticMarkup(
+        React.createElement(DashboardView, {
+          tiles: [longTile],
+          activeMonth: "2026-05",
+          activeTile: longTile,
+          trend: [],
+          split: null,
+          costByCategory: null,
+        })
+      );
+
+      expect(longHtml).toContain("-RM194313.88");
+      expect(longHtml).toMatch(/class="[^"]*text-2xl sm:text-4xl font-extrabold tracking-tight tabular-nums text-rose-600"[^>]*>-RM194313\.88/);
+      expect(longHtml).not.toMatch(/class="[^"]*text-3xl[^"]*"[^>]*>-RM194313\.88/);
+
+      // Normal headline amount: RM5000.00 -> 9 characters <= 11
+      const normalTile: SerializedMonthTile = {
+        month: "2026-05",
+        status: "open",
+        revenueSen: 1000000,
+        dailyCostSen: 300000,
+        grossSen: 700000,
+        operatingSen: 200000,
+        netSen: 500000,
+      };
+
+      const normalHtml = ReactDOMServer.renderToStaticMarkup(
+        React.createElement(DashboardView, {
+          tiles: [normalTile],
+          activeMonth: "2026-05",
+          activeTile: normalTile,
+          trend: [],
+          split: null,
+          costByCategory: null,
+        })
+      );
+
+      expect(normalHtml).toContain("RM5000.00");
+      expect(normalHtml).toMatch(/class="[^"]*text-3xl sm:text-4xl font-extrabold tracking-tight tabular-nums text-emerald-700"[^>]*>RM5000\.00/);
+      expect(normalHtml).not.toMatch(/class="[^"]*text-2xl[^"]*"[^>]*>RM5000\.00/);
+    });
+  });
 });

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
+import { amountSizeClass, formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
 import { useI18n, translateApiError } from "@/lib/i18n";
 import { CalendarPopover } from "@/components/CalendarPopover";
 import type { CostCategory } from "@/services/daily-sheet";
@@ -997,7 +997,13 @@ export function DailySheetForm({
                         </div>
 
                         <div className="flex items-center gap-2.5 shrink-0">
-                          <span className="text-base font-bold text-slate-700 tabular-nums whitespace-nowrap">
+                          <span
+                            className={`${amountSizeClass(
+                              formatMyr(BigInt(line.amountSen)),
+                              "text-xs",
+                              "text-base"
+                            )} font-bold text-slate-700 tabular-nums whitespace-nowrap`}
+                          >
                             {formatMyr(BigInt(line.amountSen))}
                           </span>
 
@@ -1215,7 +1221,11 @@ export function DailySheetForm({
                   {t.grossProfit}
                 </div>
                 <div
-                  className={`text-xl font-bold ${
+                  className={`${amountSizeClass(
+                    grossProfitSen !== null ? formatMyr(grossProfitSen) : "—",
+                    "text-base",
+                    "text-xl"
+                  )} font-bold ${
                     grossProfitSen !== null && grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
                   }`}
                 >
@@ -1326,7 +1336,13 @@ export function DailySheetForm({
                   </span>
                 )}
               </div>
-              <span className="text-base font-bold text-finance-loss whitespace-nowrap">
+              <span
+                className={`${amountSizeClass(
+                  formatMyr(BigInt(costLines[pendingDeleteIndex].amountSen)),
+                  "text-xs",
+                  "text-base"
+                )} font-bold text-finance-loss whitespace-nowrap tabular-nums`}
+              >
                 {formatMyr(BigInt(costLines[pendingDeleteIndex].amountSen))}
               </span>
             </div>
