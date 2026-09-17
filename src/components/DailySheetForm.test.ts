@@ -16,7 +16,8 @@ import {
   toSen,
   mergeCostLines,
   appendOrMergeCostLine,
-  applyCostLineUpdate,
+  consolidateCostLines,
+  findZeroCostLineIndex,
   getCostLineKey,
   type CostLineItem,
 } from "./DailySheetForm";
@@ -439,51 +440,58 @@ describe("findMissingOtherNoteIndex (save gate)", () => {
   });
 });
 
-describe("live editing cost line auto-merge (applyCostLineUpdate)", () => {
-  // (a) editing a line to match another merges + sums
-  it("merges and sums amounts when editing note so category and note match an existing line", () => {
+describe("cost line consolidation on add/save only (consolidateCostLines)", () => {
+  // (a) typing an amount on a fresh line that matches an existing line does NOT merge
+  it("typing an amount on a fresh line that matches an existing line does NOT merge", () => {
+    const lines: CostLineItem[] = [
+      { clientId: "line-1", category: "restock", amountSen: 4000, amountInput: "40", note: "Rice" },
+      { clientId: "line-2", category: "restock", amountSen: 0, amountInput: "", note: "Rice" },
+    ];
+
+    // User types "10" on line-2 (plain functional patch, no live merge mid-typing)
+    const updated = lines.map((l, i) =>
+      i === 1 ? { ...l, amountSen: 1000, amountInput: "10" } : l
+    );
+
+    expect(updated).toHaveLength(2);
+    expect(updated[0].amountSen).toBe(4000);
+    expect(updated[1].amountSen).toBe(1000);
+
+    // Merging only happens when consolidateCostLines is explicitly called (on add or save)
+    const consolidated = consolidateCostLines(updated);
+    expect(consolidated).toHaveLength(1);
+    expect(consolidated[0].amountSen).toBe(5000);
+    expect(consolidated[0].amountInput).toBe("50");
+  });
+
+  // (b) consolidateCostLines merges two >0 duplicates and sums
+  it("consolidateCostLines merges two >0 duplicates and sums", () => {
     const lines: CostLineItem[] = [
       { clientId: "line-1", category: "restock", amountSen: 2000, amountInput: "20", note: "Rice" },
-      { clientId: "line-2", category: "restock", amountSen: 3000, amountInput: "30", note: "Ric" },
+      { clientId: "line-2", category: "restock", amountSen: 3000, amountInput: "30", note: "Rice" },
     ];
 
-    const result = applyCostLineUpdate(lines, 1, { note: "Rice" });
+    const result = consolidateCostLines(lines);
 
-    expect(result.lines).toHaveLength(1);
-    expect(result.lines[0].category).toBe("restock");
-    expect(result.lines[0].note).toBe("Rice");
-    expect(result.lines[0].amountSen).toBe(5000);
-    expect(result.lines[0].amountInput).toBe("50");
-    expect(result.expandedIndex).toBe(0);
+    expect(result).toHaveLength(1);
+    expect(result[0].category).toBe("restock");
+    expect(result[0].note).toBe("Rice");
+    expect(result[0].amountSen).toBe(5000);
+    expect(result[0].amountInput).toBe("50");
+    expect(result[0].clientId).toBe("line-1");
   });
 
-  it("merges and sums amounts when editing category so it matches an existing line", () => {
+  it("merges duplicates with matching category and whitespace-equivalent note", () => {
     const lines: CostLineItem[] = [
-      { clientId: "line-1", category: "restock", amountSen: 1500, note: "Shell" },
-      { clientId: "line-2", category: "gas", amountSen: 2500, note: "Shell" },
+      { clientId: "line-1", category: "restock", amountSen: 2000, amountInput: "20", note: "Rice" },
+      { clientId: "line-2", category: "restock", amountSen: 3000, amountInput: "30", note: "  Rice  " },
     ];
 
-    const result = applyCostLineUpdate(lines, 1, { category: "restock" });
+    const result = consolidateCostLines(lines);
 
-    expect(result.lines).toHaveLength(1);
-    expect(result.lines[0].category).toBe("restock");
-    expect(result.lines[0].amountSen).toBe(4000);
-    expect(result.lines[0].amountInput).toBe("40");
-    expect(result.expandedIndex).toBe(0);
-  });
-
-  it("merges and sums amounts when editing amount from 0 to > 0 on a matching category and note line", () => {
-    const lines: CostLineItem[] = [
-      { clientId: "line-1", category: "restock", amountSen: 4000, note: "Rice" },
-      { clientId: "line-2", category: "restock", amountSen: 0, note: "Rice" },
-    ];
-
-    const result = applyCostLineUpdate(lines, 1, { amountSen: 1000, amountInput: "10" });
-
-    expect(result.lines).toHaveLength(1);
-    expect(result.lines[0].amountSen).toBe(5000);
-    expect(result.lines[0].amountInput).toBe("50");
-    expect(result.expandedIndex).toBe(0);
+    expect(result).toHaveLength(1);
+    expect(result[0].note).toBe("Rice");
+    expect(result[0].amountSen).toBe(5000);
   });
 
   it("caps merged amount at MAX_SAFE_SEN upon overflow", () => {
@@ -492,72 +500,52 @@ describe("live editing cost line auto-merge (applyCostLineUpdate)", () => {
       { clientId: "line-2", category: "restock", amountSen: 1000, note: "Rice" },
     ];
 
-    const result = applyCostLineUpdate(lines, 1, { note: "Rice" });
+    const result = consolidateCostLines(lines);
 
-    expect(result.lines).toHaveLength(1);
-    expect(result.lines[0].amountSen).toBe(Number.MAX_SAFE_INTEGER);
+    expect(result).toHaveLength(1);
+    expect(result[0].amountSen).toBe(Number.MAX_SAFE_INTEGER);
   });
 
-  // (b) zero-amount line never merges
-  it("never merges zero-amount lines even when category and note match", () => {
+  // (c) zero lines pass through untouched and keep position
+  it("zero lines pass through untouched and keep position", () => {
     const lines: CostLineItem[] = [
       { clientId: "line-1", category: "restock", amountSen: 2000, note: "" },
       { clientId: "line-2", category: "restock", amountSen: 0, note: "" },
+      { clientId: "line-3", category: "restock", amountSen: 3000, note: "" },
     ];
 
-    // Editing note on zero-amount line
-    const res1 = applyCostLineUpdate(lines, 1, { note: "   " });
-    expect(res1.lines).toHaveLength(2);
-    expect(res1.lines[0].amountSen).toBe(2000);
-    expect(res1.lines[1].amountSen).toBe(0);
-    expect(res1.expandedIndex).toBe(1);
+    const result = consolidateCostLines(lines);
 
-    // Two zero-amount lines do not merge
-    const zeroLines: CostLineItem[] = [
-      { clientId: "line-1", category: "restock", amountSen: 0, note: "Rice" },
-      { clientId: "line-2", category: "restock", amountSen: 0, note: "Rice" },
+    expect(result).toHaveLength(2);
+    expect(result[0].clientId).toBe("line-1");
+    expect(result[0].amountSen).toBe(5000);
+    expect(result[1]).toBe(lines[1]);
+    expect(result[1].amountSen).toBe(0);
+
+    // Two zero-amount lines also pass through untouched without merging
+    const twoZeroLines: CostLineItem[] = [
+      { clientId: "line-a", category: "restock", amountSen: 0, note: "Rice" },
+      { clientId: "line-b", category: "restock", amountSen: 0, note: "Rice" },
     ];
-    const res2 = applyCostLineUpdate(zeroLines, 1, { note: "Rice" });
-    expect(res2.lines).toHaveLength(2);
-    expect(res2.expandedIndex).toBe(1);
-
-    // Editing an amount to 0 does not merge with a zero-amount line
-    const res3 = applyCostLineUpdate(lines, 0, { amountSen: 0, amountInput: "" });
-    expect(res3.lines).toHaveLength(2);
-    expect(res3.expandedIndex).toBe(0);
+    const resZero = consolidateCostLines(twoZeroLines);
+    expect(resZero).toHaveLength(2);
+    expect(resZero[0]).toBe(twoZeroLines[0]);
+    expect(resZero[1]).toBe(twoZeroLines[1]);
   });
 
-  // (c) ids combine and first-position kept
-  it("combines ids and keeps the first line position and clientId when editing second line to match first", () => {
+  // (d) ids combine, first position kept
+  it("combines ids and keeps the first line position and clientId", () => {
     const lines: CostLineItem[] = [
       { id: 101, ids: [101], clientId: "c-first", category: "gas", amountSen: 2000, note: "Shell" },
-      { id: 102, ids: [102], clientId: "c-second", category: "gas", amountSen: 3000, note: "Petronas" },
+      { id: 102, ids: [102], clientId: "c-second", category: "gas", amountSen: 3000, note: "Shell" },
     ];
 
-    // User edits second line (index 1) to match first line
-    const result = applyCostLineUpdate(lines, 1, { note: "Shell" });
+    const result = consolidateCostLines(lines);
 
-    expect(result.lines).toHaveLength(1);
-    expect(result.lines[0].clientId).toBe("c-first");
-    expect(result.lines[0].ids).toEqual([101, 102]);
-    expect(result.lines[0].amountSen).toBe(5000);
-    expect(result.expandedIndex).toBe(0);
-  });
-
-  it("combines ids and keeps the first line position and clientId when editing first line to match second", () => {
-    const lines: CostLineItem[] = [
-      { id: 101, clientId: "c-first", category: "gas", amountSen: 2000, note: "Petronas" },
-      { id: 102, ids: [102, 103], clientId: "c-second", category: "gas", amountSen: 3000, note: "Shell" },
-    ];
-
-    // User edits first line (index 0) to match second line
-    const result = applyCostLineUpdate(lines, 0, { note: "Shell" });
-
-    expect(result.lines).toHaveLength(1);
-    expect(result.lines[0].clientId).toBe("c-first");
-    expect(result.lines[0].ids).toEqual([101, 102, 103]);
-    expect(result.lines[0].amountSen).toBe(5000);
-    expect(result.expandedIndex).toBe(0);
+    expect(result).toHaveLength(1);
+    expect(result[0].clientId).toBe("c-first");
+    expect(result[0].ids).toEqual([101, 102]);
+    expect(result[0].amountSen).toBe(5000);
   });
 
   it("deduplicates ids when combining if same id exists across both lines", () => {
@@ -566,79 +554,100 @@ describe("live editing cost line auto-merge (applyCostLineUpdate)", () => {
       { id: 102, ids: [102, 103], clientId: "c-2", category: "restock", amountSen: 2000, note: "Rice" },
     ];
 
-    const result = applyCostLineUpdate(lines, 1, { category: "restock" });
-    expect(result.lines).toHaveLength(1);
-    expect(result.lines[0].ids).toEqual([101, 102, 103]);
+    const result = consolidateCostLines(lines);
+    expect(result).toHaveLength(1);
+    expect(result[0].ids).toEqual([101, 102, 103]);
+  });
+});
+
+describe("findZeroCostLineIndex (save gate)", () => {
+  it("returns -1 when all lines have amountSen > 0", () => {
+    expect(findZeroCostLineIndex([{ amountSen: 100 }, { amountSen: 2000 }])).toBe(-1);
   });
 
-  // Stale noteErrorIndex clearing and remapping
-  it("clears noteErrorIndex when editing the note of the flagged line without merge", () => {
-    const lines: CostLineItem[] = [
-      { clientId: "l1", category: "other", amountSen: 2000, note: "" },
-    ];
-    const result = applyCostLineUpdate(lines, 0, { note: "Supplies" }, 0);
-    expect(result.noteErrorIndex).toBeNull();
+  it("returns index of first line with amountSen <= 0", () => {
+    expect(
+      findZeroCostLineIndex([
+        { amountSen: 1000 },
+        { amountSen: 0 },
+        { amountSen: 2000 },
+      ])
+    ).toBe(1);
   });
 
-  it("clears noteErrorIndex when changing the category of the flagged line away from other", () => {
-    const lines: CostLineItem[] = [
-      { clientId: "l1", category: "other", amountSen: 2000, note: "" },
-    ];
-    const result = applyCostLineUpdate(lines, 0, { category: "restock" }, 0);
-    expect(result.noteErrorIndex).toBeNull();
+  it("returns 0 when first line is zero or negative", () => {
+    expect(findZeroCostLineIndex([{ amountSen: 0 }, { amountSen: 500 }])).toBe(0);
+    expect(findZeroCostLineIndex([{ amountSen: -10 }])).toBe(0);
   });
 
-  it("clears noteErrorIndex when flagged line merges into a non-other row (no phantom highlight)", () => {
-    const lines: CostLineItem[] = [
-      { clientId: "l1", category: "restock", amountSen: 2000, note: "Rice" },
-      { clientId: "l2", category: "other", amountSen: 3000, note: "" },
-    ];
-    // Line 1 is flagged (noteErrorIndex = 1), user edits line 1 to match line 0
-    const result = applyCostLineUpdate(
-      lines,
-      1,
-      { category: "restock", note: "Rice" },
-      1
+  it("returns -1 for empty lines array", () => {
+    expect(findZeroCostLineIndex([])).toBe(-1);
+  });
+});
+
+describe("Cost line inline errors and boxed styling parity", () => {
+  it("note error uses the boxed style (class assertions)", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: [
+          { category: "other", amountSen: 2000, note: "" },
+        ],
+        isClosed: false,
+        todayKl: "2026-05-15",
+        initialNoteErrorIndex: 0,
+      })
     );
-    expect(result.lines).toHaveLength(1);
-    expect(result.noteErrorIndex).toBeNull();
+
+    // Verify error element exists with correct id and role
+    expect(html).toContain('id="other-note-error-0"');
+    expect(html).toContain('role="alert"');
+
+    // Verify boxed red-tinted styling classes
+    expect(html).toContain("bg-finance-loss-light");
+    expect(html).toContain("border-finance-loss-border");
+    expect(html).toContain("rounded-lg");
+    expect(html).toContain("text-finance-loss");
+    expect(html).toContain("font-medium");
+    expect(html).toContain("必须填写备注说明");
+    expect(html).toContain("类别为&#x27;其他&#x27;时");
   });
 
-  it("remaps noteErrorIndex to firstIndex when flagged line is removed in merge and merged row still lacks other note", () => {
-    const lines: CostLineItem[] = [
-      { clientId: "l1", category: "other", amountSen: 2000, note: "" },
-      { clientId: "l2", category: "other", amountSen: 3000, note: "" },
-    ];
-    // Line 1 is flagged (noteErrorIndex = 1), user updates amount of line 1 to merge into line 0
-    const result = applyCostLineUpdate(lines, 1, { amountSen: 4000 }, 1);
-    expect(result.lines).toHaveLength(1);
-    expect(result.lines[0].category).toBe("other");
-    expect(result.noteErrorIndex).toBe(0);
-  });
+  it("zero-line save shows inline error state under amount input not top banner", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, {
+        date: "2026-05-15",
+        initialCashSen: 5000,
+        initialTngSen: 5000,
+        initialCostLines: [
+          { category: "restock", amountSen: 0, note: "Rice" },
+        ],
+        isClosed: false,
+        todayKl: "2026-05-15",
+        initialCostAmountErrorIndex: 0,
+      })
+    );
 
-  it("shifts noteErrorIndex down by 1 when a line before it is dropped in a merge", () => {
-    const lines: CostLineItem[] = [
-      { clientId: "l1", category: "restock", amountSen: 2000, note: "Rice" },
-      { clientId: "l2", category: "restock", amountSen: 1000, note: "Ric" },
-      { clientId: "l3", category: "other", amountSen: 5000, note: "" },
-    ];
-    // Line 2 (l3) is flagged as noteErrorIndex = 2
-    // User edits Line 1 (l2) note to "Rice" -> merges with Line 0 (l1), dropping index 1
-    const result = applyCostLineUpdate(lines, 1, { note: "Rice" }, 2);
-    expect(result.lines).toHaveLength(2);
-    expect(result.noteErrorIndex).toBe(1);
-  });
+    // Verify inline error under amount input exists with correct id, role, and text
+    expect(html).toContain('id="cost-amount-error-0"');
+    expect(html).toContain('role="alert"');
+    expect(html).toContain(t.invalidAmount);
 
-  it("leaves noteErrorIndex unchanged when a merge happens after it", () => {
-    const lines: CostLineItem[] = [
-      { clientId: "l1", category: "other", amountSen: 5000, note: "" },
-      { clientId: "l2", category: "restock", amountSen: 2000, note: "Rice" },
-      { clientId: "l3", category: "restock", amountSen: 1000, note: "Ric" },
-    ];
-    // Line 0 is flagged as noteErrorIndex = 0
-    // User edits Line 2 note to "Rice" -> merges with Line 1, dropping index 2
-    const result = applyCostLineUpdate(lines, 2, { note: "Rice" }, 0);
-    expect(result.lines).toHaveLength(2);
-    expect(result.noteErrorIndex).toBe(0);
+    // Verify boxed styling classes matching expenses page
+    expect(html).toContain("bg-finance-loss-light");
+    expect(html).toContain("border-finance-loss-border");
+    expect(html).toContain("rounded-lg");
+    expect(html).toContain("text-finance-loss");
+    expect(html).toContain("font-medium");
+
+    // Verify amount input receives error border and aria-invalid
+    expect(html).toContain('aria-invalid="true"');
+    expect(html).toContain('aria-describedby="cost-amount-error-0"');
+    expect(html).toContain("border-finance-loss");
+
+    // Verify top notification banner is NOT rendered
+    expect(html).not.toContain('aria-label="Close"');
   });
 });
