@@ -1,4 +1,6 @@
-import { desc, eq, like } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
+import { getTodayInKualaLumpur } from "@/lib/datetime";
+import { assertValidSen, dailySheetInMonth } from "./daily-sheet";
 import { getDb, type Db } from "@/db";
 import {
   dailySheets,
@@ -6,8 +8,6 @@ import {
   type MonthClose,
 } from "@/db/schema";
 import { isValidMonthStr, subSen, sumSen } from "@/lib/money";
-import { getTodayInKualaLumpur } from "@/lib/datetime";
-import { assertValidSen } from "./daily-sheet";
 import {
   ClosedMonthError,
   ForbiddenError,
@@ -109,7 +109,7 @@ export async function closeMonth(
     const sheetsInMonth = tx
       .select({ id: dailySheets.id })
       .from(dailySheets)
-      .where(like(dailySheets.date, `${month}-%`))
+      .where(dailySheetInMonth(month))
       .all();
 
     if (sheetsInMonth.length === 0 && !options?.confirmEmpty) {

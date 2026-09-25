@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, like, type SQL } from "drizzle-orm";
 import { getDb, type DbLike } from "@/db";
 import {
   costLines,
@@ -156,6 +156,13 @@ export function validateCostLines(
       trimmedNote,
     );
   }
+}
+
+/**
+ * WHERE predicate matching Daily Sheets whose date ("YYYY-MM-DD") falls in month ("YYYY-MM").
+ */
+export function dailySheetInMonth(month: string): SQL {
+  return like(dailySheets.date, `${month}-%`);
 }
 
 /**

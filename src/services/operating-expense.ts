@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, like, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { getDb, type Db } from "@/db";
 import {
   costLines,
@@ -12,6 +12,7 @@ import {
   assertMonthNotClosed,
   assertValidNote,
   assertValidSen,
+  dailySheetInMonth,
 } from "./daily-sheet";
 import { getTodayInKualaLumpur } from "@/lib/datetime";
 import { ClosedMonthError, NotFoundError, ValidationError } from "./errors";
@@ -36,13 +37,6 @@ export function isValidOperatingExpenseType(
     typeof type === "string" &&
     OPERATING_EXPENSE_TYPES.includes(type as OperatingExpenseType)
   );
-}
-
-/**
- * WHERE predicate matching Daily Sheets whose date ("YYYY-MM-DD") falls in month ("YYYY-MM").
- */
-export function dailySheetInMonth(month: string): SQL {
-  return like(dailySheets.date, `${month}-%`);
 }
 
 /**

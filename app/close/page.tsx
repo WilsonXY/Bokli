@@ -1,10 +1,11 @@
 import React from "react";
-import { eq, like } from "drizzle-orm";
+import { getTodayInKualaLumpur } from "@/lib/datetime";
+import { dailySheetInMonth } from "@/services/daily-sheet";
+import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { getDb } from "@/db";
 import { dailySheets, monthCloses } from "@/db/schema";
 import { listMonthTiles, type MonthTile } from "@/services/dashboard";
-import { getTodayInKualaLumpur } from "@/lib/datetime";
 import { isValidMonthStr } from "@/lib/money";
 import { resolveActiveMonthView } from "@/lib/months";
 import { describeLoadError } from "@/lib/page-load";
@@ -65,7 +66,7 @@ export default async function MonthClosePage(props: PageProps) {
         db
           .select({ id: dailySheets.id })
           .from(dailySheets)
-          .where(like(dailySheets.date, `${activeMonth}-%`))
+          .where(dailySheetInMonth(activeMonth))
           .all(),
       ]);
 
