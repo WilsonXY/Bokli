@@ -286,7 +286,15 @@ export function AppShell({ children }: AppShellProps) {
                 disabled={isSigningOut}
                 onClick={async () => {
                   setIsSigningOut(true);
-                  await signOut({ callbackUrl: "/login" });
+                  try {
+                    await signOut({ callbackUrl: "/login" });
+                  } catch (err) {
+                    console.error("Sign out failed:", err);
+                  } finally {
+                    // Never leave the modal stuck on "Signing out..." if the
+                    // request rejects; on success we navigate away anyway.
+                    setIsSigningOut(false);
+                  }
                 }}
                 className="flex-1 min-h-[44px] h-11 rounded-xl bg-finance-loss hover:bg-finance-loss/90 active:bg-finance-loss-dark btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 disabled:opacity-50"
               >

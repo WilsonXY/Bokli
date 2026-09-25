@@ -21,3 +21,22 @@ export function sanitizeCallbackUrl(url: string | null | undefined, fallback = "
   }
   return fallback;
 }
+
+/**
+ * Resolves where to send a user once they are logged in.
+ * A missing callbackUrl, the bare root, or the login page itself all mean
+ * "no meaningful target" and fall back; every other value goes through
+ * sanitizeCallbackUrl so off-origin targets cannot leak through.
+ *
+ * Shared by the middleware and the login page so the policy lives in one
+ * place; this module has no DB imports, keeping it middleware-safe.
+ */
+export function postLoginTarget(
+  callbackUrl: string | null | undefined,
+  fallback = "/dashboard",
+): string {
+  if (!callbackUrl || callbackUrl === "/" || callbackUrl.startsWith("/login")) {
+    return fallback;
+  }
+  return sanitizeCallbackUrl(callbackUrl, fallback);
+}
