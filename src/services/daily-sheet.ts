@@ -10,7 +10,6 @@ import {
 export type { CostLine, DailySheet };
 import { getTodayInKualaLumpur, isFutureDateInKL } from "@/lib/datetime";
 import { isValidDateStr, subSen, sumSen } from "@/lib/money";
-import { COST_CATEGORIES, type CostCategory } from "@/lib/vocab";
 import {
   COST_CATEGORIES,
   isOtherNoteMissing,

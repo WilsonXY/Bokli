@@ -45,20 +45,6 @@ function latestMigrationInList(name: string): string {
   return latest.replace(/,\s+/g, ",");
 }
 
-describe("vocab stays in sync with schema CHECK constraints", () => {
-  it("chk_cost_lines_category matches COST_CATEGORIES", () => {
-    expect(checkSql(costLines, "chk_cost_lines_category")).toBe(
-      `"cost_lines"."category" ${inList(COST_CATEGORIES)}`,
-    );
-    expect(latestMigrationInList("chk_cost_lines_category")).toBe(inList(COST_CATEGORIES));
-  });
-
-  it("chk_opex_type matches OPERATING_EXPENSE_TYPES", () => {
-    expect(checkSql(operatingExpenses, "chk_opex_type")).toBe(
-      `"operating_expenses"."type" ${inList(OPERATING_EXPENSE_TYPES)}`,
-    );
-    expect(latestMigrationInList("chk_opex_type")).toBe(inList(OPERATING_EXPENSE_TYPES));
-
 describe("isValidCostCategory", () => {
   it("accepts known categories and rejects anything else", () => {
     expect(isValidCostCategory("restock")).toBe(true);
@@ -79,3 +65,22 @@ describe("isOtherNoteMissing", () => {
 
   it("never flags non-'other' categories", () => {
     expect(isOtherNoteMissing("gas", null)).toBe(false);
+  });
+});
+
+describe("vocab stays in sync with schema CHECK constraints", () => {
+  it("chk_cost_lines_category matches COST_CATEGORIES", () => {
+    expect(checkSql(costLines, "chk_cost_lines_category")).toBe(
+      `"cost_lines"."category" ${inList(COST_CATEGORIES)}`,
+    );
+    expect(latestMigrationInList("chk_cost_lines_category")).toBe(inList(COST_CATEGORIES));
+  });
+
+  it("chk_opex_type matches OPERATING_EXPENSE_TYPES", () => {
+    expect(checkSql(operatingExpenses, "chk_opex_type")).toBe(
+      `"operating_expenses"."type" ${inList(OPERATING_EXPENSE_TYPES)}`,
+    );
+    expect(latestMigrationInList("chk_opex_type")).toBe(inList(OPERATING_EXPENSE_TYPES));
+  });
+});
+
