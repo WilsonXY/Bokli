@@ -554,7 +554,7 @@ export function DashboardView({
                             <g
                               key={pt.date}
                               role="button"
-                              aria-label={`${pt.date}: RM${(pt.totalSen / 100).toFixed(2)}`}
+                              aria-label={`${pt.date}: ${formatMyr(BigInt(pt.totalSen))}`}
                               aria-pressed={isActive}
                               tabIndex={0}
                               className="chart-point-interactive"
@@ -678,7 +678,7 @@ export function DashboardView({
                                 fill="#0f172a"
                                 className="select-none tabular-nums"
                               >
-                                RM{(highlightedPoint.totalSen / 100).toFixed(2)}
+                                {formatMyr(BigInt(highlightedPoint.totalSen))}
                               </text>
                             </g>
                           );
