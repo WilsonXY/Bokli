@@ -1,11 +1,13 @@
 import { desc, eq } from "drizzle-orm";
 import { getTodayInKualaLumpur } from "@/lib/datetime";
 import { assertValidSen, dailySheetInMonth } from "./daily-sheet";
-import { getDb, type Db } from "@/db";
+import { getDb, type Db, type DbLike } from "@/db";
 import {
   dailySheets,
+  monthCloseEvents,
   monthCloses,
   type MonthClose,
+  type MonthCloseEventAction,
 } from "@/db/schema";
 import { evaluateReconciliation, isValidMonthStr } from "@/lib/money";
 import {
@@ -56,6 +58,29 @@ export interface MonthCloseHistoryItem extends MonthClose {
 }
 
 /**
+ * Append one row to the Month Close audit history. Must be called with the
+ * transaction that wrote `row`, so the event and the month_closes change
+ * commit or roll back together.
+ */
+function recordMonthCloseEvent(
+  tx: DbLike,
+  action: MonthCloseEventAction,
+  at: string,
+  reason: string | null,
+  row: MonthClose,
+): void {
+  tx.insert(monthCloseEvents)
+    .values({
+      month: row.month,
+      action,
+      at,
+      reason,
+      snapshot: JSON.stringify(row),
+    })
+    .run();
+}
+
+/**
  * Close a month (Month Close + Reconciliation).
  * - month must be valid YYYY-MM
  * - month must NOT be in the future (Asia/Kuala_Lumpur)
@@ -65,6 +90,8 @@ export interface MonthCloseHistoryItem extends MonthClose {
  * - reconciliation: expected = netSen; actual = cashOnHandSen + tngOnHandSen
  *   mismatch is WARN ONLY (does not block), but note is REQUIRED on mismatch
  * - stores snapshot, reconciliation inputs, note, and closedAt
+ * - appends a "close" event to month_close_events (re-close included), so a
+ *   re-close no longer loses the earlier close/reopen history
  * - the already-closed / sheets-count reads, the live snapshot and the close row
  *   write all run inside a single transaction, so no concurrent revenue or
  *   Operating Expense edit can land between the snapshot and the committed close
@@ -203,6 +230,14 @@ export async function closeMonth(
       }
     }
 
+    recordMonthCloseEvent(
+      tx,
+      "close",
+      closedAtTimestamp,
+      trimmedNote,
+      closeRecord,
+    );
+
     return {
       ...closeRecord,
       expectedSen,
@@ -218,6 +253,7 @@ export async function closeMonth(
  * Reopen a closed month.
  * - Admin-only: caller passes options.role; asserts role === 'Admin'
  * - Sets reopenedAt + reopenReason on the close row
+ * - Appends a "reopen" event to month_close_events
  * - After reopen, edits to Daily Sheets and Operating Expenses are allowed again
  * - The existence / already-open read and the update run in a single transaction
  */
@@ -279,6 +315,14 @@ export async function reopenMonth(
       .where(eq(monthCloses.id, existing.id))
       .returning()
       .get();
+
+    recordMonthCloseEvent(
+      tx,
+      "reopen",
+      reopenedAtTimestamp,
+      trimmedReason,
+      updated,
+    );
 
     return updated;
   });

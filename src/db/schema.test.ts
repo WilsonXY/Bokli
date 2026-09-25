@@ -45,6 +45,7 @@ describe("schema sanity", () => {
       "cost_lines",
       "operating_expenses",
       "month_closes",
+      "month_close_events",
       "login_attempts",
     ]) {
       expect(names).toContain(t);
