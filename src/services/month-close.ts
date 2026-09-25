@@ -7,7 +7,7 @@ import {
   monthCloses,
   type MonthClose,
 } from "@/db/schema";
-import { isValidMonthStr, subSen, sumSen } from "@/lib/money";
+import { evaluateReconciliation, isValidMonthStr } from "@/lib/money";
 import {
   ClosedMonthError,
   ForbiddenError,
@@ -132,10 +132,12 @@ export async function closeMonth(
     const preview = getMonthPreviewSync(month, { db: tx });
 
     // Reconciliation: expected = netSen; actual = cashOnHandSen + tngOnHandSen
-    const expectedSen = preview.netSen;
-    const actualSen = sumSen([validCashOnHand, validTngOnHand]);
-    const differenceSen = subSen(actualSen, expectedSen);
-    const balanced = differenceSen === 0n;
+    const { expectedSen, actualSen, differenceSen, balanced } =
+      evaluateReconciliation({
+        expectedSen: preview.netSen,
+        cashOnHandSen: validCashOnHand,
+        tngOnHandSen: validTngOnHand,
+      });
 
     const trimmedNote = note?.trim() || null;
 
@@ -308,12 +310,12 @@ export async function getClose(
     return null;
   }
 
-  const cashOnHand = BigInt(close.cashOnHandSen ?? 0);
-  const tngOnHand = BigInt(close.tngOnHandSen ?? 0);
-  const actualSen = sumSen([cashOnHand, tngOnHand]);
-  const expectedSen = BigInt(close.netSen);
-  const differenceSen = subSen(actualSen, expectedSen);
-  const balanced = differenceSen === 0n;
+  const { expectedSen, actualSen, differenceSen, balanced } =
+    evaluateReconciliation({
+      expectedSen: BigInt(close.netSen),
+      cashOnHandSen: BigInt(close.cashOnHandSen ?? 0),
+      tngOnHandSen: BigInt(close.tngOnHandSen ?? 0),
+    });
 
   return {
     ...close,
@@ -344,20 +346,12 @@ export async function listCloses(
     .orderBy(desc(monthCloses.month))
     .all();
 
-  return rows.map((row) => {
-    const cashOnHand = BigInt(row.cashOnHandSen ?? 0);
-    const tngOnHand = BigInt(row.tngOnHandSen ?? 0);
-    const actualSen = sumSen([cashOnHand, tngOnHand]);
-    const expectedSen = BigInt(row.netSen);
-    const differenceSen = subSen(actualSen, expectedSen);
-    const balanced = differenceSen === 0n;
-
-    return {
-      ...row,
-      expectedSen,
-      actualSen,
-      differenceSen,
-      balanced,
-    };
-  });
+  return rows.map((row) => ({
+    ...row,
+    ...evaluateReconciliation({
+      expectedSen: BigInt(row.netSen),
+      cashOnHandSen: BigInt(row.cashOnHandSen ?? 0),
+      tngOnHandSen: BigInt(row.tngOnHandSen ?? 0),
+    }),
+  }));
 }

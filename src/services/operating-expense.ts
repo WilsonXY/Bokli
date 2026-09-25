@@ -6,7 +6,7 @@ import {
   operatingExpenses,
   type OperatingExpense,
 } from "@/db/schema";
-import { isValidMonthStr, subSen, sumSen } from "@/lib/money";
+import { computeProfit, isValidMonthStr, sumSen } from "@/lib/money";
 import { OPERATING_EXPENSE_TYPES, type OperatingExpenseType } from "@/lib/vocab";
 import {
   assertMonthNotClosed,
@@ -423,8 +423,11 @@ export function getMonthPreviewSync(
   const operatingSen = sumSen(expenses.map((e) => BigInt(e.amountSen)));
 
   // 4. Gross Profit = revenue - dailyCosts; Net Profit = gross - operating
-  const grossSen = subSen(revenueSen, dailyCostSen);
-  const netSen = subSen(grossSen, operatingSen);
+  const { grossSen, netSen } = computeProfit({
+    revenueSen,
+    dailyCostSen,
+    operatingSen,
+  });
 
   return {
     month,

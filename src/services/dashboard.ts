@@ -7,7 +7,12 @@ import {
   operatingExpenses,
   type MonthClose,
 } from "@/db/schema";
-import { isValidMonthStr, subSen, sumSen } from "@/lib/money";
+import {
+  computeProfit,
+  evaluateReconciliation,
+  isValidMonthStr,
+  sumSen,
+} from "@/lib/money";
 import { COST_CATEGORIES, type CostCategory } from "@/lib/vocab";
 import { dailySheetInMonth } from "./daily-sheet";
 import { NotFoundError, ValidationError } from "./errors";
@@ -106,11 +111,11 @@ export function closedTileFromRecord(
   closeRecord: MonthClose,
 ): MonthTile {
   const netSen = BigInt(closeRecord.netSen);
-  const cashOnHand = BigInt(closeRecord.cashOnHandSen ?? 0);
-  const tngOnHand = BigInt(closeRecord.tngOnHandSen ?? 0);
-  const actualSen = sumSen([cashOnHand, tngOnHand]);
-  const differenceSen = subSen(actualSen, netSen);
-  const balanced = differenceSen === 0n;
+  const { balanced } = evaluateReconciliation({
+    expectedSen: netSen,
+    cashOnHandSen: BigInt(closeRecord.cashOnHandSen ?? 0),
+    tngOnHandSen: BigInt(closeRecord.tngOnHandSen ?? 0),
+  });
 
   return {
     month,
@@ -394,8 +399,11 @@ export async function listMonthTiles(
       const revenueSen = revenueByMonth.get(m) ?? 0n;
       const dailyCostSen = dailyCostByMonth.get(m) ?? 0n;
       const operatingSen = operatingByMonth.get(m) ?? 0n;
-      const grossSen = subSen(revenueSen, dailyCostSen);
-      const netSen = subSen(grossSen, operatingSen);
+      const { grossSen, netSen } = computeProfit({
+        revenueSen,
+        dailyCostSen,
+        operatingSen,
+      });
       const status: MonthStatus = closeRecord?.reopenedAt ? "reopened" : "open";
 
       tiles.push({

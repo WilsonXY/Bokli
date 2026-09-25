@@ -98,6 +98,51 @@ export function subSen(a: bigint, b: bigint): bigint {
   return assertRange(a - b);
 }
 
+export interface ProfitBreakdown {
+  grossSen: bigint;
+  netSen: bigint;
+}
+
+/**
+ * Gross Profit = revenue - Daily Costs; Net Profit = Gross Profit - Operating
+ * Expenses. Range-checked at each step.
+ */
+export function computeProfit(input: {
+  revenueSen: bigint;
+  dailyCostSen: bigint;
+  operatingSen: bigint;
+}): ProfitBreakdown {
+  const grossSen = subSen(input.revenueSen, input.dailyCostSen);
+  const netSen = subSen(grossSen, input.operatingSen);
+  return { grossSen, netSen };
+}
+
+export interface ReconciliationResult {
+  expectedSen: bigint;
+  actualSen: bigint;
+  differenceSen: bigint;
+  balanced: boolean;
+}
+
+/**
+ * Reconciliation: expected = Net Profit; actual = cash on hand + TnG on hand;
+ * difference = actual - expected; balanced when the difference is zero.
+ */
+export function evaluateReconciliation(input: {
+  expectedSen: bigint;
+  cashOnHandSen: bigint;
+  tngOnHandSen: bigint;
+}): ReconciliationResult {
+  const actualSen = sumSen([input.cashOnHandSen, input.tngOnHandSen]);
+  const differenceSen = subSen(actualSen, input.expectedSen);
+  return {
+    expectedSen: input.expectedSen,
+    actualSen,
+    differenceSen,
+    balanced: differenceSen === 0n,
+  };
+}
+
 /**
  * Validate and sanitize money input string while typing or pasting.
  * Cleans whitespace, commas, and optional leading 'RM'. Normalizes '.5' to '0.5'.
