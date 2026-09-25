@@ -137,9 +137,31 @@ export function assertValidNote(note: unknown): string | null {
 }
 
 /**
+ * Asserts that a Cost Line amount is strictly positive (policy decision 2026-09-25:
+ * zero-amount Cost Lines are not allowed - a Cost Line that costs nothing is not a Cost).
+ * Deliberately NOT folded into assertValidSen, which is shared with Revenue:
+ * a Revenue of 0 sen stays legal.
+ */
+export function assertPositiveCostAmount(
+  amount: bigint,
+  category: unknown,
+  note: string | null,
+): bigint {
+  if (amount <= 0n) {
+    const label = note
+      ? `"${String(category)}" ("${note}")`
+      : `"${String(category)}"`;
+    throw new ValidationError(
+      `Daily Cost amount (amountSen) must be greater than 0 for Cost Category ${label}, received: ${amount.toString()}`,
+    );
+  }
+  return amount;
+}
+
+/**
  * Fully validates an array of cost line inputs according to schema and business rules.
  * Throws ValidationError if the input is not an array, or if any line has an invalid
- * structure, invalid or negative/float amount, invalid category, or missing note when category is 'other',
+ * structure, invalid or zero/negative/float amount, invalid category, or missing note when category is 'other',
  * or non-string note.
  */
 export function validateCostLines(
@@ -154,7 +176,7 @@ export function validateCostLines(
       throw new ValidationError("Each item in costLines must be an object");
     }
 
-    assertValidSen(
+    const validAmount = assertValidSen(
       (line as ReplaceCostLineInput).amountSen,
       "Daily Cost amount (amountSen)",
     );
@@ -169,6 +191,12 @@ export function validateCostLines(
     if ((line as ReplaceCostLineInput).category === "other" && !trimmedNote) {
       throw new ValidationError("Note is required when Cost Category is 'other'");
     }
+
+    assertPositiveCostAmount(
+      validAmount,
+      (line as ReplaceCostLineInput).category,
+      trimmedNote,
+    );
   }
 }
 
@@ -341,7 +369,7 @@ export function setRevenue(
  * Add a Cost Line to a Daily Sheet.
  * - Category must be in CostCategory enum
  * - Note required when category is 'other'
- * - Amount must be non-negative sen integer
+ * - Amount must be a positive sen integer (zero is rejected)
  * - Month must not be closed
  * - Updates Daily Sheet's updatedAt timestamp atomically in a single transaction
  */
@@ -369,6 +397,8 @@ export function addCostLine(
   if (category === "other" && !trimmedNote) {
     throw new ValidationError("Note is required when Cost Category is 'other'");
   }
+
+  assertPositiveCostAmount(validAmount, category, trimmedNote);
 
   const sheet = db
     .select()
@@ -416,7 +446,7 @@ export interface ReplaceCostLineInput {
  * Replace all Cost Lines for a Daily Sheet with the provided list in one atomic transaction.
  * - Month must not be closed
  * - Deletes all existing cost lines for that sheet, then inserts the submitted list
- * - Reuses existing validation (category enum, note required for 'other', non-negative sen, assertMonthNotClosed)
+ * - Reuses existing validation (category enum, note required for 'other', positive sen, assertMonthNotClosed)
  * - Keeps updatedAt timestamp trail on parent Daily Sheet (no hard delete of sheet)
  */
 export function replaceCostLines(
@@ -462,6 +492,8 @@ export function replaceCostLines(
       "Daily Cost amount (amountSen)",
     );
     const trimmedNote = assertValidNote(line.note);
+
+    assertPositiveCostAmount(validAmount, category, trimmedNote);
 
     const existing = merged.find(
       (m) => m.category === category && m.note === trimmedNote,
@@ -533,6 +565,7 @@ export interface UpdateCostLineInput {
 /**
  * Update an existing Cost Line.
  * - Month must not be closed
+ * - Resulting amount must be a positive sen integer (zero is rejected)
  * - Corrections keep timestamps on parent Daily Sheet atomically in a single transaction
  */
 export function updateCostLine(
@@ -595,6 +628,8 @@ export function updateCostLine(
   if (finalCategory === "other" && !finalNote) {
     throw new ValidationError("Note is required when Cost Category is 'other'");
   }
+
+  assertPositiveCostAmount(BigInt(finalAmountSen), finalCategory, finalNote);
 
   return db.transaction((tx) => {
     const updatedLine = tx
