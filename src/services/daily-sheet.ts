@@ -11,6 +11,11 @@ export type { CostLine, DailySheet };
 import { getTodayInKualaLumpur, isFutureDateInKL } from "@/lib/datetime";
 import { isValidDateStr, subSen, sumSen } from "@/lib/money";
 import {
+  CostLineAmountOverflowError,
+  groupCostLines,
+  type CostLineGroup,
+} from "@/lib/cost-line-group";
+import {
   COST_CATEGORIES,
   isOtherNoteMissing,
   isValidCostCategory,
@@ -427,16 +432,9 @@ export function replaceCostLines(
 
   getEditableSheet(sheetId, db);
 
-  // Merge cost lines with same category + same (trimmed) note.
-  // Treat null note and empty/whitespace note as equivalent (both are 'no note').
-  // Sum amountSen and validate merged totals.
-  const merged: Array<{
-    category: CostCategory;
-    note: string | null;
-    amountSen: bigint;
-  }> = [];
-
-  for (const line of lines) {
+  // Validate each submitted line, then merge by the shared Cost Line identity
+  // (category + trimmed note; null and empty/whitespace notes are equivalent).
+  const validated = lines.map((line) => {
     if (!isValidCostCategory(line.category)) {
       throw new ValidationError(
         `Invalid Cost Category: "${String(line.category)}". Must be one of: ${COST_CATEGORIES.join(", ")}`,
@@ -451,21 +449,17 @@ export function replaceCostLines(
 
     assertPositiveCostAmount(validAmount, category, trimmedNote);
 
-    const existing = merged.find(
-      (m) => m.category === category && m.note === trimmedNote,
-    );
+    return { category, note: trimmedNote, amountSen: validAmount };
+  });
 
-    if (existing) {
-      const mergedTotal = existing.amountSen + validAmount;
-      assertValidSen(mergedTotal, "Daily Cost amount (amountSen)");
-      existing.amountSen = mergedTotal;
-    } else {
-      merged.push({
-        category,
-        note: trimmedNote,
-        amountSen: validAmount,
-      });
+  let merged: CostLineGroup<(typeof validated)[number]>[];
+  try {
+    merged = groupCostLines(validated);
+  } catch (err) {
+    if (err instanceof CostLineAmountOverflowError) {
+      throw new ValidationError(err.message, "invalidAmount");
     }
+    throw err;
   }
 
   // Validate merged rows: re-check category and required note for "other"
@@ -485,7 +479,7 @@ export function replaceCostLines(
 
   const validatedLines = merged.map((item) => ({
     dailySheetId: sheetId,
-    amountSen: Number(item.amountSen),
+    amountSen: item.amountSen,
     category: item.category,
     note: item.note,
   }));

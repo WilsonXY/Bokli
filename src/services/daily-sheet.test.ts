@@ -32,6 +32,11 @@ import {
   ValidationError,
 } from "./errors";
 import { POST as sheetsPost } from "../../app/api/sheets/route";
+import { consolidateCostLines } from "@/components/DailySheetForm";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
 
 let tmpDir: string;
 let dbPath: string;
@@ -1038,6 +1043,79 @@ describe("8. Regression tests: duplicate lines & non-string note validation", ()
     ).toThrow(ValidationError);
   });
 
+  it("merged overflow is rejected with code invalidAmount, never saturated, and leaves saved lines untouched", () => {
+    const sheet = getOrCreateSheet("2026-09-19", { db });
+    replaceCostLines(sheet.id, [{ amountSen: 1200, category: "gas" }], { db });
+
+    let caught: unknown;
+    try {
+      replaceCostLines(
+        sheet.id,
+        [
+          { amountSen: 500, category: "transport" },
+          { amountSen: Number.MAX_SAFE_INTEGER, category: "restock", note: "bulk" },
+          { amountSen: 1, category: "restock", note: " bulk " },
+        ],
+        { db },
+      );
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(ValidationError);
+    expect((caught as ValidationError).code).toBe("invalidAmount");
+
+    const rows = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.dailySheetId, sheet.id))
+      .all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].category).toBe("gas");
+    expect(rows[0].amountSen).toBe(1200);
+
+    // A merge landing exactly on the limit is still accepted
+    const atLimit = replaceCostLines(
+      sheet.id,
+      [
+        { amountSen: Number.MAX_SAFE_INTEGER - 1, category: "restock", note: "bulk" },
+        { amountSen: 1, category: "restock", note: "bulk" },
+      ],
+      { db },
+    );
+    expect(atLimit).toHaveLength(1);
+    expect(atLimit[0].amountSen).toBe(Number.MAX_SAFE_INTEGER);
+  });
+
+  it("client consolidateCostLines and server replaceCostLines apply the same merge rule", () => {
+    const sheet = getOrCreateSheet("2026-09-20", { db });
+    // Same fixture as the form parity test in DailySheetForm.test.ts
+    const lines = [
+      { category: "restock" as const, amountSen: 2000, note: " rice " },
+      { category: "gas" as const, amountSen: 700, note: null },
+      { category: "restock" as const, amountSen: 3000, note: "rice" },
+      { category: "gas" as const, amountSen: 300, note: "   " },
+      { category: "other" as const, amountSen: 900, note: "rice" },
+    ];
+
+    const server = replaceCostLines(sheet.id, lines, { db }).map((l) => ({
+      category: l.category,
+      note: l.note,
+      amountSen: l.amountSen,
+    }));
+    const client = consolidateCostLines(lines).map((l) => ({
+      category: l.category,
+      note: (l.note ?? "").trim() || null,
+      amountSen: l.amountSen,
+    }));
+
+    expect(server).toEqual(client);
+    expect(server).toEqual([
+      { category: "restock", note: "rice", amountSen: 5000 },
+      { category: "gas", note: null, amountSen: 1000 },
+      { category: "other", note: "rice", amountSen: 900 },
+    ]);
+  });
+
   it("REGRESSION: replaceCostLines re-validates category and requires note for other on merged rows", () => {
     const sheet = getOrCreateSheet("2026-09-09", { db });
     expect(() =>
@@ -1197,6 +1275,43 @@ describe("9. Pre-merge review: all-or-nothing atomicity and pre-validation in PO
     const after = getOrCreateSheet(testDate, { db });
     expect(after.cashSen).toBe(5000);
     expect(after.tngSen).toBe(3000);
+  });
+
+  it("returns 400 invalidAmount for a merged overflow and persists neither revenue nor cost lines", async () => {
+    const testDate = "2026-09-21";
+    const sheet = getOrCreateSheet(testDate, { db });
+    setRevenue(sheet.id, 4000, 2000, { db });
+    replaceCostLines(sheet.id, [{ amountSen: 800, category: "gas" }], { db });
+
+    const req = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: testDate,
+        cashSen: 90000,
+        tngSen: 70000,
+        costLines: [
+          { amountSen: Number.MAX_SAFE_INTEGER, category: "restock", note: "rice" },
+          { amountSen: 1, category: "restock", note: "rice" },
+        ],
+      }),
+    });
+
+    const res = await sheetsPost(req);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.code).toBe("invalidAmount");
+
+    const after = getOrCreateSheet(testDate, { db });
+    expect(after.cashSen).toBe(4000);
+    expect(after.tngSen).toBe(2000);
+    const rows = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.dailySheetId, sheet.id))
+      .all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amountSen).toBe(800);
   });
 
   it("rolls back revenue updates when replaceCostLines fails mid-POST (revenue must NOT persist)", async () => {
