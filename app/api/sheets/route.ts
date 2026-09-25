@@ -4,14 +4,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/auth/guard";
 import { getDb } from "@/db";
 import * as dailySheetService from "@/services/daily-sheet";
-import {
-  CostCategory,
-  getSheetWithCosts,
-  ValidationError,
-} from "@/services/daily-sheet";
-import { handleError } from "@/services/errors";
+import { handleError, ValidationError } from "@/services/errors";
 
-function formatSheetResponse(result: NonNullable<ReturnType<typeof getSheetWithCosts>>) {
+function formatSheetResponse(
+  result: NonNullable<ReturnType<typeof dailySheetService.getSheetWithCosts>>,
+) {
   return {
     sheet: result.sheet,
     costLines: result.costLines,
@@ -52,7 +49,7 @@ export const POST = withAuth(async (req: NextRequest) => {
       const line = dailySheetService.addCostLine(
         sheetId,
         body.amountSen,
-        body.category as CostCategory,
+        body.category as dailySheetService.CostCategory,
         body.note,
       );
       return NextResponse.json({ costLine: line }, { status: 201 });
@@ -143,7 +140,7 @@ export const POST = withAuth(async (req: NextRequest) => {
           dailySheetService.addCostLine(
             currentSheet.id,
             validAmount,
-            body.category as CostCategory,
+            body.category as dailySheetService.CostCategory,
             trimmedNote,
             { db: tx as any },
           );

@@ -9,6 +9,12 @@ import {
 } from "@/db/schema";
 export type { CostLine, DailySheet };
 import { isValidDateStr, subSen, sumSen } from "@/lib/money";
+import {
+  ClosedMonthError,
+  FutureDateError,
+  NotFoundError,
+  ValidationError,
+} from "./errors";
 
 export const COST_CATEGORIES = [
   "restock",
@@ -20,34 +26,6 @@ export const COST_CATEGORIES = [
 ] as const;
 
 export type CostCategory = (typeof COST_CATEGORIES)[number];
-
-export class ValidationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ValidationError";
-  }
-}
-
-export class NotFoundError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "NotFoundError";
-  }
-}
-
-export class ClosedMonthError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ClosedMonthError";
-  }
-}
-
-export class FutureDateError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "FutureDateError";
-  }
-}
 
 /**
  * Returns today's date in Asia/Kuala_Lumpur wall time as "YYYY-MM-DD".

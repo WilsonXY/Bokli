@@ -1,19 +1,49 @@
 import { NextResponse } from "next/server";
-import {
-  ClosedMonthError,
-  FutureDateError,
-  NotFoundError,
-  ValidationError,
-} from "./daily-sheet";
-import { ForbiddenError } from "./month-close";
 
-export {
-  ClosedMonthError,
-  ForbiddenError,
-  FutureDateError,
-  NotFoundError,
-  ValidationError,
-};
+/**
+ * Domain error classes.
+ *
+ * This module is a leaf: it must not import from any service module, so that
+ * importing an error class never pulls the DB layer into the client/UI import
+ * graph.
+ */
+
+export class ValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ValidationError";
+  }
+}
+
+export class NotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NotFoundError";
+  }
+}
+
+export class ClosedMonthError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ClosedMonthError";
+  }
+}
+
+export class FutureDateError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "FutureDateError";
+  }
+}
+
+export class ForbiddenError extends Error {
+  constructor(
+    message: string = "Forbidden: Admin role required to reopen a closed month",
+  ) {
+    super(message);
+    this.name = "ForbiddenError";
+  }
+}
 
 /**
  * Shared error handler for API routes.
