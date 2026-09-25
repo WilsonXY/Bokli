@@ -6,19 +6,21 @@ import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3"
 import * as schema from "./schema";
 
 /**
- * Stable database path contract: BOKLI_DB_PATH env var,
- * default ./data/bokli.db relative to the project root.
+ * Stable database path contract: BOKLI_DB_PATH env var, required.
+ * There is deliberately no default — an unset path fails closed instead of
+ * silently falling back to ./data/bokli.db (the PROD DB in the prod checkout).
  * This path is the coupling point for the future Hermes backup job.
  */
 export function resolveDbPath(env: NodeJS.ProcessEnv = process.env): string {
-  if (env.BOKLI_DB_PATH) {
-    return path.resolve(env.BOKLI_DB_PATH);
+  const dbPath = env.BOKLI_DB_PATH?.trim();
+  if (!dbPath) {
+    throw new Error(
+      "BOKLI_DB_PATH is not set. Refusing to guess a database path. " +
+        "Set BOKLI_DB_PATH in .env.local for dev (pointing at data-dev/) " +
+        "or in .env / the systemd unit for prod.",
+    );
   }
-  // When running inside .next/standalone, process.cwd() is .next/standalone
-  if (process.cwd().endsWith(path.join(".next", "standalone"))) {
-    return path.resolve(process.cwd(), "..", "..", "data", "bokli.db");
-  }
-  return path.resolve(process.cwd(), "data", "bokli.db");
+  return path.resolve(dbPath);
 }
 
 export type Db = BetterSQLite3Database<typeof schema>;

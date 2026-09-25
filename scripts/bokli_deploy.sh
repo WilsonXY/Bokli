@@ -20,7 +20,8 @@
 #
 # Deploy Actions:
 #   - Check out tag (git checkout <tag>)
-#   - Run database migrations: BOKLI_DB_PATH=<repo>/data/bokli.db npx tsx src/db/migrate.ts
+#   - Run database migrations: npx tsx src/db/migrate.ts with BOKLI_DB_PATH taken
+#     from the environment or the repo .env (refuses if neither sets it)
 #     (skippable via BOKLI_DEPLOY_SKIP_MIGRATE=1)
 #   - Build production artifacts: BOKLI_BUILD_DIR=.next-prod npm run build
 #     (skippable via BOKLI_DEPLOY_SKIP_BUILD=1, custom command via BOKLI_DEPLOY_BUILD_CMD)
@@ -138,7 +139,19 @@ if [ "${BOKLI_DEPLOY_SKIP_MIGRATE:-0}" = "1" ]; then
   echo "ℹ️  Skipping database migrations (BOKLI_DEPLOY_SKIP_MIGRATE=1)"
 else
   echo "==> Running database migrations..."
-  BOKLI_DB_PATH="${BOKLI_DB_PATH:-$REPO_ROOT/data/bokli.db}" npx tsx src/db/migrate.ts
+  if [ -z "${BOKLI_DB_PATH:-}" ] && [ -f "$REPO_ROOT/.env" ]; then
+    _raw_db_line=$(grep -E '^[[:space:]]*(export[[:space:]]+)?BOKLI_DB_PATH[[:space:]]*=' "$REPO_ROOT/.env" | head -1 || true)
+    BOKLI_DB_PATH=$(printf '%s' "$_raw_db_line" | cut -d= -f2- \
+      | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' \
+            -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/")
+    unset _raw_db_line
+    export BOKLI_DB_PATH
+  fi
+  if [ -z "${BOKLI_DB_PATH:-}" ] || [ -z "$(printf '%s' "${BOKLI_DB_PATH:-}" | tr -d '[:space:]')" ]; then
+    echo "❌ Refusing to migrate: BOKLI_DB_PATH is not set (export it or set it in $REPO_ROOT/.env)." >&2
+    exit 1
+  fi
+  npx tsx src/db/migrate.ts
 fi
 
 # Build production artifacts
