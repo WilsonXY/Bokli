@@ -15,6 +15,7 @@ import {
 import { ClosedMonthError, NotFoundError, ValidationError } from "./errors";
 import {
   addOperatingExpense,
+  deleteOperatingExpenses,
   getMonthPreview,
   isValidOperatingExpenseType,
   listOperatingExpenses,
@@ -891,5 +892,165 @@ describe("9. Future-month rejection (policy: Opex cannot be dated forward)", () 
     ).rejects.toThrow(
       'Month "2026-10" is in the future (current month in Asia/Kuala_Lumpur is "2026-09")',
     );
+  });
+});
+
+describe("10. Bulk delete (deleteOperatingExpenses + DELETE { ids })", () => {
+  const authSession = {
+    user: { id: "2", name: "katte", role: "Admin" as const },
+  };
+
+  function makeAuthReq(url: string, init?: any) {
+    const req = new NextRequest(url, init);
+    (req as any).auth = authSession;
+    return req;
+  }
+
+  function bulkDeleteReq(body: unknown) {
+    return makeAuthReq("http://localhost:3000/api/expenses", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  }
+
+  function insertExpense(month: string, note: string) {
+    return db
+      .insert(operatingExpenses)
+      .values({ month, type: "wages", amountSen: 1000, note })
+      .returning()
+      .get();
+  }
+
+  it("deletes every id in one call and counts the removed rows", async () => {
+    const month = "2024-02";
+    const a = insertExpense(month, "bulk a");
+    const b = insertExpense(month, "bulk b");
+    const keep = insertExpense(month, "bulk keep");
+
+    const result = await deleteOperatingExpenses([a.id, b.id], { db });
+    expect(result).toEqual({ deleted: 2 });
+
+    const left = await listOperatingExpenses(month, { db });
+    expect(left.map((e) => e.id)).toEqual([keep.id]);
+    await removeOperatingExpense(keep.id, { db });
+  });
+
+  it("skips ids that do not exist and counts only what was removed", async () => {
+    const a = insertExpense("2024-02", "bulk partial");
+    const result = await deleteOperatingExpenses([a.id, 999998, 999999, a.id], {
+      db,
+    });
+    expect(result).toEqual({ deleted: 1 });
+
+    expect(await deleteOperatingExpenses([999999], { db })).toEqual({
+      deleted: 0,
+    });
+  });
+
+  it("rejects an empty array and invalid ids with a saveError ValidationError", async () => {
+    await expect(deleteOperatingExpenses([], { db })).rejects.toThrow(
+      ValidationError,
+    );
+    await expect(deleteOperatingExpenses([], { db })).rejects.toMatchObject({
+      code: "saveError",
+    });
+    await expect(deleteOperatingExpenses([1.5], { db })).rejects.toThrow(
+      ValidationError,
+    );
+  });
+
+  it("deletes nothing when any row is in a closed month (single transaction)", async () => {
+    // 2025-04 is closed by section 4.
+    const open = insertExpense("2024-02", "bulk open");
+    const closed = insertExpense("2025-04", "bulk closed");
+
+    await expect(
+      deleteOperatingExpenses([open.id, closed.id], { db }),
+    ).rejects.toThrow(ClosedMonthError);
+
+    const stillThere = db
+      .select()
+      .from(operatingExpenses)
+      .where(eq(operatingExpenses.id, open.id))
+      .get();
+    expect(stillThere).toBeDefined();
+    await removeOperatingExpense(open.id, { db });
+  });
+
+  it("DELETE with { ids } removes the whole group in one request", async () => {
+    const month = "2024-03";
+    const a = insertExpense(month, "api bulk a");
+    const b = insertExpense(month, "api bulk b");
+
+    const res = await expensesDelete(bulkDeleteReq({ ids: [a.id, b.id] }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ deleted: 2 });
+    expect(await listOperatingExpenses(month, { db })).toHaveLength(0);
+
+    // Ids already gone are not a 404 for the batch.
+    const again = await expensesDelete(bulkDeleteReq({ ids: [a.id] }));
+    expect(again.status).toBe(200);
+    expect(await again.json()).toEqual({ deleted: 0 });
+  });
+
+  it("DELETE rejects empty, oversize and malformed ids arrays", async () => {
+    const tooMany = Array.from({ length: 51 }, (_, i) => i + 1);
+    for (const body of [
+      { ids: [] },
+      { ids: tooMany },
+      { ids: "1,2" },
+      { ids: [1, 0] },
+      { ids: [1, 1.5] },
+      { ids: [1, "2junk"] },
+      { ids: [true] },
+    ]) {
+      const res = await expensesDelete(bulkDeleteReq(body));
+      expect(res.status).toBe(400);
+      expect((await res.json()).code).toBe("saveError");
+    }
+
+    // Exactly 50 is allowed (all missing -> nothing deleted).
+    const fifty = Array.from({ length: 50 }, (_, i) => 900000 + i);
+    const okRes = await expensesDelete(bulkDeleteReq({ ids: fifty }));
+    expect(okRes.status).toBe(200);
+    expect(await okRes.json()).toEqual({ deleted: 0 });
+  });
+
+  it("DELETE maps a closed-month row in the batch to 409 and deletes nothing", async () => {
+    const open = insertExpense("2024-02", "api bulk open");
+    const closed = insertExpense("2025-04", "api bulk closed");
+
+    const res = await expensesDelete(
+      bulkDeleteReq({ ids: [open.id, closed.id] }),
+    );
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("monthClosed");
+    expect(
+      (await listOperatingExpenses("2024-02", { db })).some(
+        (e) => e.id === open.id,
+      ),
+    ).toBe(true);
+    await removeOperatingExpense(open.id, { db });
+  });
+
+  it("single-id DELETE ?id= keeps its existing response shape", async () => {
+    const a = insertExpense("2024-03", "api single");
+    const res = await expensesDelete(
+      makeAuthReq(`http://localhost:3000/api/expenses?id=${a.id}`, {
+        method: "DELETE",
+      }),
+    );
+    expect(res.status).toBe(200);
+    const data = await res.json();
+    expect(data.success).toBe(true);
+    expect(data.removedExpense.id).toBe(a.id);
+
+    const missing = await expensesDelete(
+      makeAuthReq(`http://localhost:3000/api/expenses?id=${a.id}`, {
+        method: "DELETE",
+      }),
+    );
+    expect(missing.status).toBe(404);
   });
 });

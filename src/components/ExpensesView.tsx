@@ -321,21 +321,23 @@ export function ExpensesView({
     dismissSuccessBanner();
     setDeletingKey(key);
 
+    // One request for the whole card: the server deletes every id in a single
+    // transaction, so a failure leaves nothing half-deleted.
     const deletedIds: number[] = [];
     try {
-      for (const id of ids) {
-        const res = await fetch(`/api/expenses?id=${id}`, {
-          method: "DELETE",
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw Object.assign(
-            new Error(data.error || "Failed to delete expense"),
-            { code: data.code }
-          );
-        }
-        deletedIds.push(id);
+      const res = await fetch("/api/expenses", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw Object.assign(
+          new Error(data.error || "Failed to delete expense"),
+          { code: data.code }
+        );
       }
+      deletedIds.push(...ids);
 
       showSuccessBanner(t.deleteExpenseSuccess);
     } catch (err: any) {

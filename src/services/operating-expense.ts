@@ -1,4 +1,4 @@
-import { and, eq, isNull, like } from "drizzle-orm";
+import { and, eq, inArray, isNull, like } from "drizzle-orm";
 import { getDb, type Db } from "@/db";
 import {
   costLines,
@@ -324,6 +324,49 @@ export async function removeOperatingExpense(
   db.delete(operatingExpenses).where(eq(operatingExpenses.id, id)).run();
 
   return { success: true, removedExpense: existing };
+}
+
+/**
+ * Remove several Operating Expenses in one transaction (a merged expense card).
+ * - ids must be a non-empty array of positive integers
+ * - Ids that do not exist are skipped; `deleted` counts rows actually removed
+ * - If any existing row is in a closed month, nothing is deleted (ClosedMonthError)
+ */
+export async function deleteOperatingExpenses(
+  ids: number[],
+  options?: { db?: Db },
+): Promise<{ deleted: number }> {
+  const db = options?.db ?? getDb().db;
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    throw new ValidationError("At least one Operating Expense id is required");
+  }
+  for (const id of ids) {
+    if (!Number.isInteger(id) || id <= 0) {
+      throw new ValidationError(`Invalid Operating Expense id: ${id}`);
+    }
+  }
+
+  const uniqueIds = [...new Set(ids)];
+
+  return db.transaction((tx) => {
+    const existing = tx
+      .select({ id: operatingExpenses.id, month: operatingExpenses.month })
+      .from(operatingExpenses)
+      .where(inArray(operatingExpenses.id, uniqueIds))
+      .all();
+
+    for (const month of new Set(existing.map((e) => e.month))) {
+      assertMonthNotClosed(month, tx);
+    }
+
+    const result = tx
+      .delete(operatingExpenses)
+      .where(inArray(operatingExpenses.id, uniqueIds))
+      .run();
+
+    return { deleted: result.changes };
+  });
 }
 
 /**
