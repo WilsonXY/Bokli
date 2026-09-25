@@ -6,6 +6,7 @@ import { dailySheets, monthCloses } from "@/db/schema";
 import { listMonthTiles, type MonthTile } from "@/services/dashboard";
 import { getTodayInKualaLumpur } from "@/services/daily-sheet";
 import { isValidMonthStr } from "@/lib/money";
+import { describeLoadError } from "@/lib/page-load";
 import { getMonthPreview } from "@/services/operating-expense";
 import { getClose } from "@/services/month-close";
 import { MonthCloseView, type CloseRecordData } from "@/components/MonthCloseView";
@@ -32,7 +33,7 @@ export default async function MonthClosePage(props: PageProps) {
     rawTiles = await listMonthTiles();
   } catch (err) {
     console.error("Failed to list month tiles for month close:", err);
-    loadError = "Failed to load month close data. Please refresh or try again later.";
+    loadError = describeLoadError("month close");
   }
 
   // Active month: requested valid month, or first existing non-future month, or current month
@@ -61,8 +62,6 @@ export default async function MonthClosePage(props: PageProps) {
     status: tileStatusMap.get(m) ?? "open",
   }));
 
-  const { db } = getDb();
-
   let financials: {
     revenueSen: number;
     dailyCostSen: number;
@@ -76,6 +75,9 @@ export default async function MonthClosePage(props: PageProps) {
 
   if (!loadError) {
     try {
+      // getDb() must stay inside the try: an unreachable DB throws here, and
+      // outside it the throw would bypass loadError and hit the error boundary.
+      const { db } = getDb();
       const [preview, rawClose, sheets] = await Promise.all([
         getMonthPreview(activeMonth, { db }),
         getClose(activeMonth, { db }),
@@ -114,7 +116,7 @@ export default async function MonthClosePage(props: PageProps) {
       }
     } catch (err) {
       console.error(`Failed to load month close data for ${activeMonth}:`, err);
-      loadError = "Failed to load month data. Please refresh or try again later.";
+      loadError = describeLoadError("month");
     }
   }
 
