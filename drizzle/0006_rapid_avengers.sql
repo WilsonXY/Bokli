@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX `uq_opex_month_type_note` ON `operating_expenses` (`month`,`type`,`note`) WHERE "operating_expenses"."note" IS NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX `uq_opex_month_type_null_note` ON `operating_expenses` (`month`,`type`) WHERE "operating_expenses"."note" IS NULL;

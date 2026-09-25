@@ -43,6 +43,13 @@
       "when": 1790364485084,
       "tag": "0005_loud_solo",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1790365070557,
+      "tag": "0006_rapid_avengers",
+      "breakpoints": true
     }
   ]
 }

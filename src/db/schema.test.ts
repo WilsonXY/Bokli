@@ -204,4 +204,51 @@ describe("schema sanity", () => {
         .run(),
     ).toThrow(/UNIQUE/);
   });
+
+  describe("Operating Expense identity (month, type, note) is unique", () => {
+    const insertOpex = (month: string, type: string, note: string | null) =>
+      db
+        .insert(operatingExpenses)
+        .values({ month, type, amountSen: 100, note })
+        .run();
+
+    it("rejects a second row with the same non-NULL note", () => {
+      insertOpex("2025-01", "rental", "stall A");
+      expect(() => insertOpex("2025-01", "rental", "stall A")).toThrow(
+        /UNIQUE/,
+      );
+    });
+
+    it("rejects a second row with a NULL note (NULLs are not distinct here)", () => {
+      insertOpex("2025-02", "utilities", null);
+      expect(() => insertOpex("2025-02", "utilities", null)).toThrow(/UNIQUE/);
+    });
+
+    it("allows distinct notes, NULL beside a note, and other months/types", () => {
+      insertOpex("2025-03", "wages", "A");
+      insertOpex("2025-03", "wages", "B");
+      insertOpex("2025-03", "wages", null);
+      insertOpex("2025-03", "rental", null);
+      insertOpex("2025-04", "wages", null);
+      insertOpex("2025-04", "wages", "A");
+      const rows = sqlite
+        .prepare(
+          "SELECT COUNT(*) AS n FROM operating_expenses WHERE month IN ('2025-03','2025-04')",
+        )
+        .get() as { n: number };
+      expect(rows.n).toBe(6);
+    });
+
+    it("rejects an UPDATE that moves a row onto an existing identity", () => {
+      insertOpex("2025-05", "rental", null);
+      insertOpex("2025-05", "rental", "x");
+      expect(() =>
+        sqlite
+          .prepare(
+            "UPDATE operating_expenses SET note = NULL WHERE month = '2025-05' AND note = 'x'",
+          )
+          .run(),
+      ).toThrow(/UNIQUE/);
+    });
+  });
 });
