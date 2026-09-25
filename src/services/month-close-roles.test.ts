@@ -145,6 +145,24 @@ describe("Close/reopen role policy — POST /api/close/reopen (Admin only)", () 
     expect(body.error).toBe(FORBIDDEN_MESSAGE);
   });
 
+  it("403 for an Operator comes from the ROUTE guard, not the service", async () => {
+    // Use a month that is NOT closed at all: the service would answer with a
+    // different error (not closed / not found, 4xx other than this 403), so
+    // this test only passes if the route itself rejects before calling
+    // reopenMonth. If the route guard is ever removed, this fails loudly
+    // even though the service still has its own ForbiddenError.
+    const res = await reopenPost(
+      postJson("http://localhost:3000/api/close/reopen", operatorSession, {
+        month: "2099-12",
+        reason: "Route-guard isolation probe",
+      }),
+    );
+
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe(FORBIDDEN_MESSAGE);
+  });
+
   it("does not reopen the month when an Operator is rejected", async () => {
     // The 403 above must be fail-closed: the close row stays closed.
     const res = await reopenPost(
