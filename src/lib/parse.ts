@@ -5,6 +5,14 @@
  * a failure straight into a `{ error, code }` response. Error prose matches
  * what the routes returned before these helpers existed; codes stay inside the
  * existing `ApiErrorCode` vocabulary.
+ *
+ * Intentionally stricter than the hand-rolled checks they replaced (each only
+ * turns an abuse-edge input into a 4xx; no valid request changes outcome):
+ * - JSON array bodies get "Request body must be a JSON object" instead of
+ *   falling through to a field-required error.
+ * - parsePositiveId rejects " 3", "1e2", "0x10", booleans (Number(true) === 1)
+ *   and ids beyond Number.MAX_SAFE_INTEGER.
+ * - Bodies over MAX_BODY_JSON_BYTES (64 KiB) get 413.
  */
 
 /** Largest JSON request body the API accepts. Daily Sheets are the biggest payload and stay far below this. */
