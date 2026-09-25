@@ -40,6 +40,15 @@ vi.mock("@/services/dashboard", async (importOriginal) => {
   };
 });
 
+// Mock the db module so getDb() acquisition itself can be forced to fail
+vi.mock("@/db", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/db")>();
+  return {
+    ...actual,
+    getDb: vi.fn(actual.getDb),
+  };
+});
+
 vi.mock("@/services/month-close", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/services/month-close")>();
   return {
@@ -55,6 +64,7 @@ import DashboardPage from "../../app/dashboard/page";
 import * as opexService from "@/services/operating-expense";
 import * as dashboardService from "@/services/dashboard";
 import * as monthCloseService from "@/services/month-close";
+import * as dbModule from "@/db";
 import { getTodayInKualaLumpur } from "@/services/daily-sheet";
 
 describe("Server page error handling regression tests", () => {
@@ -288,6 +298,65 @@ describe("Server page error handling regression tests", () => {
       const html = ReactDOMServer.renderToStaticMarkup(pageElement);
       expect(html).not.toContain("2026-13");
       expect(consoleErrorSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  // Regression: getDb() used to be called outside these pages' try blocks, so an
+  // unreachable DB threw on acquisition before loadError could be set and Next
+  // rendered the generic error boundary instead of the page's own error UI.
+  describe("DB handle acquisition failure (getDb throws)", () => {
+    const actualGetDb = vi.mocked(dbModule.getDb).getMockImplementation()!;
+
+    function breakDbAcquisition() {
+      vi.mocked(dbModule.getDb).mockImplementation(() => {
+        throw new Error("SQLITE_CANTOPEN: unable to open database file");
+      });
+    }
+
+    afterEach(() => {
+      vi.mocked(dbModule.getDb).mockImplementation(actualGetDb);
+    });
+
+    it("ExpensesPage renders its own error UI instead of throwing", async () => {
+      breakDbAcquisition();
+
+      const pageElement = await ExpensesPage({
+        searchParams: Promise.resolve({ month: "2026-08" }),
+      });
+      const html = ReactDOMServer.renderToStaticMarkup(pageElement);
+
+      expect(html).toContain('role="alert"');
+      expect(html).toContain("Failed to load expenses data");
+      expect(html).not.toContain("Add Operating Expense");
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    });
+
+    it("MonthClosePage renders its own error UI instead of throwing", async () => {
+      breakDbAcquisition();
+
+      const pageElement = await MonthClosePage({
+        searchParams: Promise.resolve({ month: "2026-08" }),
+      });
+      const html = ReactDOMServer.renderToStaticMarkup(pageElement);
+
+      expect(html).toContain('role="alert"');
+      expect(html).toContain("Failed to load month close data");
+      expect(html).not.toContain("btnPerformClose");
+      expect(html).not.toContain("Financial Impact");
+      expect(consoleErrorSpy).toHaveBeenCalled();
+    });
+
+    it("HomePage logs under its own scope tag and re-throws for the error boundary", async () => {
+      breakDbAcquisition();
+
+      // The daily sheet form has no loadError UI, and rendering it with zeroed
+      // figures would fabricate numbers, so the page deliberately re-throws.
+      await expect(
+        HomePage({ searchParams: Promise.resolve({}) }),
+      ).rejects.toThrow("SQLITE_CANTOPEN");
+
+      const loggedErrorArgs = consoleErrorSpy.mock.calls.flat().join(" ");
+      expect(loggedErrorArgs).toContain("Failed to load daily sheet data");
     });
   });
 });

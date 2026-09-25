@@ -9,6 +9,7 @@ import {
 } from "@/services/operating-expense";
 import { ExpensesView, type OperatingExpenseItem } from "@/components/ExpensesView";
 import { isValidMonthStr } from "@/lib/money";
+import { describeLoadError } from "@/lib/page-load";
 
 interface PageProps {
   searchParams?: Promise<{ month?: string }>;
@@ -27,7 +28,7 @@ export default async function ExpensesPage(props: PageProps) {
     rawTiles = await listMonthTiles();
   } catch (err) {
     console.error("Failed to list month tiles for expenses:", err);
-    loadError = "Failed to load expenses data. Please refresh or try again later.";
+    loadError = describeLoadError("expenses");
   }
 
   // Active month: requested valid month, or first existing non-future month, or current month
@@ -56,7 +57,6 @@ export default async function ExpensesPage(props: PageProps) {
     status: tileStatusMap.get(m) ?? "open",
   }));
 
-  const { db } = getDb();
   let expenses: OperatingExpenseItem[] = [];
   let isClosed = false;
   let summary: {
@@ -67,6 +67,9 @@ export default async function ExpensesPage(props: PageProps) {
 
   if (!loadError) {
     try {
+      // getDb() must stay inside the try: an unreachable DB throws here, and
+      // outside it the throw would bypass loadError and hit the error boundary.
+      const { db } = getDb();
       const [rawExpenses, preview] = await Promise.all([
         listOperatingExpenses(activeMonth, { db }),
         getMonthPreview(activeMonth, { db }),
@@ -90,7 +93,7 @@ export default async function ExpensesPage(props: PageProps) {
       };
     } catch (err) {
       console.error(`Failed to load expenses data for ${activeMonth}:`, err);
-      loadError = "Failed to load expenses data. Please refresh or try again later.";
+      loadError = describeLoadError("expenses");
     }
   }
 
