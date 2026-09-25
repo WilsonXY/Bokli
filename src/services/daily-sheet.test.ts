@@ -1423,3 +1423,159 @@ describe("9. Pre-merge review: all-or-nothing atomicity and pre-validation in PO
     expect(afterSheets).toHaveLength(0);
   });
 });
+
+describe("10. Zero-amount Cost Lines rejected server-side (policy 2026-09-25)", () => {
+  it("replaceCostLines() rejects a zero-amount line and leaves existing lines untouched", () => {
+    const sheet = getOrCreateSheet("2026-09-11", { db });
+
+    // Seed 1 valid cost line
+    replaceCostLines(sheet.id, [{ amountSen: 1500, category: "gas" }], { db });
+
+    // Zero amount is rejected (bigint, number, and numeric-string forms)
+    expect(() =>
+      replaceCostLines(sheet.id, [{ amountSen: 0, category: "gas" }], { db }),
+    ).toThrow(ValidationError);
+
+    expect(() =>
+      replaceCostLines(sheet.id, [{ amountSen: 0n, category: "gas" }], { db }),
+    ).toThrow(ValidationError);
+
+    expect(() =>
+      replaceCostLines(
+        sheet.id,
+        [{ amountSen: "0" as any, category: "gas" }],
+        { db },
+      ),
+    ).toThrow(ValidationError);
+
+    // A zero line mixed in with valid lines fails the whole call
+    expect(() =>
+      replaceCostLines(
+        sheet.id,
+        [
+          { amountSen: 2000, category: "restock" },
+          { amountSen: 0, category: "transport" },
+        ],
+        { db },
+      ),
+    ).toThrow(ValidationError);
+
+    // Two zero lines that would merge into a zero row are also rejected
+    expect(() =>
+      replaceCostLines(
+        sheet.id,
+        [
+          { amountSen: 0, category: "gas" },
+          { amountSen: 0, category: "gas" },
+        ],
+        { db },
+      ),
+    ).toThrow(ValidationError);
+
+    // Atomicity: the seeded line survived, nothing was deleted or inserted
+    const rows = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.dailySheetId, sheet.id))
+      .all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amountSen).toBe(1500);
+    expect(rows[0].category).toBe("gas");
+  });
+
+  it("validation error names the Cost Category, the note, and the zero amount", () => {
+    const sheet = getOrCreateSheet("2026-09-11", { db });
+
+    expect(() =>
+      replaceCostLines(
+        sheet.id,
+        [{ amountSen: 0, category: "other", note: "Free sample" }],
+        { db },
+      ),
+    ).toThrow(/must be greater than 0.*"other" \("Free sample"\).*received: 0/);
+
+    expect(() =>
+      replaceCostLines(sheet.id, [{ amountSen: 0, category: "gas" }], { db }),
+    ).toThrow(/must be greater than 0.*"gas".*received: 0/);
+  });
+
+  it("replaceCostLines() still accepts an empty array (no lines is fine) and positive lines", () => {
+    const sheet = getOrCreateSheet("2026-09-12", { db });
+
+    // Positive lines are written normally
+    const inserted = replaceCostLines(
+      sheet.id,
+      [
+        { amountSen: 1, category: "gas" },
+        { amountSen: 4520, category: "restock", note: "  rice  " },
+      ],
+      { db },
+    );
+    expect(inserted).toHaveLength(2);
+    expect(inserted.map((l) => l.amountSen).sort((a, b) => a - b)).toEqual([
+      1, 4520,
+    ]);
+    expect(inserted.find((l) => l.category === "restock")!.note).toBe("rice");
+
+    // Empty array clears the lines without throwing
+    const cleared = replaceCostLines(sheet.id, [], { db });
+    expect(cleared).toHaveLength(0);
+    const rows = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.dailySheetId, sheet.id))
+      .all();
+    expect(rows).toHaveLength(0);
+  });
+
+  it("addCostLine() rejects a zero amount but still accepts positive amounts", () => {
+    const sheet = getOrCreateSheet("2026-09-12", { db });
+
+    expect(() => addCostLine(sheet.id, 0, "gas", null, { db })).toThrow(
+      ValidationError,
+    );
+    expect(() => addCostLine(sheet.id, 0n, "gas", null, { db })).toThrow(
+      ValidationError,
+    );
+
+    const line = addCostLine(sheet.id, 700, "gas", null, { db });
+    expect(line.amountSen).toBe(700);
+  });
+
+  it("updateCostLine() rejects an update that would set the amount to zero", () => {
+    const sheet = getOrCreateSheet("2026-09-12", { db });
+    const line = addCostLine(sheet.id, 2500, "restock", null, { db });
+
+    expect(() =>
+      updateCostLine(line.id, { amountSen: 0 }, { db }),
+    ).toThrow(ValidationError);
+
+    expect(() =>
+      updateCostLine(line.id, { amountSen: 0n }, { db }),
+    ).toThrow(ValidationError);
+
+    // Row is unchanged after the rejected update
+    const unchanged = db
+      .select()
+      .from(costLines)
+      .where(eq(costLines.id, line.id))
+      .get()!;
+    expect(unchanged.amountSen).toBe(2500);
+
+    // A positive correction still goes through
+    const corrected = updateCostLine(line.id, { amountSen: 2600 }, { db });
+    expect(corrected.amountSen).toBe(2600);
+  });
+
+  it("Revenue of 0 stays legal (assertValidSen is NOT tightened)", () => {
+    const sheet = getOrCreateSheet("2026-09-12", { db });
+
+    const zeroed = setRevenue(sheet.id, 0, 0, { db });
+    expect(zeroed.cashSen).toBe(0);
+    expect(zeroed.tngSen).toBe(0);
+
+    const cashOnly = setRevenue(sheet.id, 15000, 0, { db });
+    expect(cashOnly.cashSen).toBe(15000);
+    expect(cashOnly.tngSen).toBe(0);
+  });
+});
