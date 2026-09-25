@@ -131,7 +131,7 @@ export async function addOperatingExpense(
       : isNull(operatingExpenses.note);
 
   return db.transaction((tx) => {
-    assertMonthNotClosed(month, tx as any);
+    assertMonthNotClosed(month, tx);
 
     const existing = tx
       .select()
