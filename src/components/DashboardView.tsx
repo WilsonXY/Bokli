@@ -107,14 +107,17 @@ export function getDonutSlice(
 export function buildCostSlices<T extends { amountSen: number }>(
   entries: T[]
 ): Array<T & { start: number; end: number }> {
-  const totalSen = entries.reduce((acc, entry) => acc + entry.amountSen, 0);
+  // Zero-amount entries would render as degenerate zero-width slices, so the
+  // helper filters them itself — callers shouldn't have to remember to.
+  const positive = entries.filter((e) => e.amountSen > 0);
+  const totalSen = positive.reduce((acc, entry) => acc + entry.amountSen, 0);
   if (totalSen <= 0) return [];
 
   let runningSen = 0;
-  return entries.map((entry, idx) => {
+  return positive.map((entry, idx) => {
     const start = runningSen / totalSen;
     runningSen += entry.amountSen;
-    const end = idx === entries.length - 1 ? 1 : runningSen / totalSen;
+    const end = idx === positive.length - 1 ? 1 : runningSen / totalSen;
     return { ...entry, start, end };
   });
 }
