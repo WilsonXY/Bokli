@@ -143,7 +143,7 @@ else
     _raw_db_line=$(grep -E '^[[:space:]]*(export[[:space:]]+)?BOKLI_DB_PATH[[:space:]]*=' "$REPO_ROOT/.env" | head -1 || true)
     BOKLI_DB_PATH=$(printf '%s' "$_raw_db_line" | cut -d= -f2- \
       | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' \
-            -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'/\1/")
+            -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/")
     unset _raw_db_line
     export BOKLI_DB_PATH
   fi
