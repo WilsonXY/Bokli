@@ -1,5 +1,5 @@
 import { desc, eq, like } from "drizzle-orm";
-import { getDb, openDb, type Db } from "@/db";
+import { getDb, type Db } from "@/db";
 import {
   dailySheets,
   monthCloses,
