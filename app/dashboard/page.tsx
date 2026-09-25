@@ -3,6 +3,7 @@ import {
   getCashTngSplit,
   getCostByCategory,
   getDailyTrend,
+  emptyCostByCategory,
   getMonthTile,
   listMonthTiles,
   type CostByCategory,
@@ -49,14 +50,7 @@ export default async function DashboardPage(props: PageProps) {
   let activeTile: MonthTile | null = null;
   let trend: DailyTrendRow[] = [];
   let split = { cashSen: 0n, tngSen: 0n, totalSen: 0n };
-  let costByCategory: CostByCategory = {
-    restock: 0n,
-    gas: 0n,
-    transport: 0n,
-    "wages-daily": 0n,
-    maintenance: 0n,
-    other: 0n,
-  };
+  let costByCategory: CostByCategory = emptyCostByCategory();
 
   if (!loadError) {
     try {

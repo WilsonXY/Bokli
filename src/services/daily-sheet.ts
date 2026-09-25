@@ -10,6 +10,7 @@ import {
 export type { CostLine, DailySheet };
 import { getTodayInKualaLumpur, isFutureDateInKL } from "@/lib/datetime";
 import { isValidDateStr, subSen, sumSen } from "@/lib/money";
+import { COST_CATEGORIES, type CostCategory } from "@/lib/vocab";
 import {
   ClosedMonthError,
   FutureDateError,
@@ -17,16 +18,7 @@ import {
   ValidationError,
 } from "./errors";
 
-export const COST_CATEGORIES = [
-  "restock",
-  "gas",
-  "transport",
-  "wages-daily",
-  "maintenance",
-  "other",
-] as const;
-
-export type CostCategory = (typeof COST_CATEGORIES)[number];
+export type { CostCategory };
 
 /**
  * Checks whether a category is a valid Cost Category per CONTEXT.md.
@@ -190,6 +182,35 @@ export function assertMonthNotClosed(month: string, db: DbLike): void {
   }
 }
 
+/**
+ * Editability guard shared by every Daily Sheet mutation: loads the sheet,
+ * throws NotFoundError if missing, then asserts its month is not closed.
+ */
+function getEditableSheet(sheetId: number, db: DbLike): DailySheet {
+  const sheet = db
+    .select()
+    .from(dailySheets)
+    .where(eq(dailySheets.id, sheetId))
+    .get();
+
+  if (!sheet) {
+    throw new NotFoundError(`Daily Sheet with id ${sheetId} not found`);
+  }
+
+  assertMonthNotClosed(sheet.date.slice(0, 7), db);
+  return sheet;
+}
+
+/**
+ * Bumps a Daily Sheet's updatedAt after one of its Cost Lines changed.
+ */
+function touchSheetUpdatedAt(sheetId: number, db: DbLike): void {
+  db.update(dailySheets)
+    .set({ updatedAt: new Date().toISOString() })
+    .where(eq(dailySheets.id, sheetId))
+    .run();
+}
+
 export interface DailySheetWithCosts {
   sheet: DailySheet;
   costLines: CostLine[];
@@ -304,18 +325,7 @@ export function setRevenue(
   const validCash = assertValidSen(cashSen, "Cash Revenue (cashSen)");
   const validTng = assertValidSen(tngSen, "TnG Revenue (tngSen)");
 
-  const sheet = db
-    .select()
-    .from(dailySheets)
-    .where(eq(dailySheets.id, sheetId))
-    .get();
-
-  if (!sheet) {
-    throw new NotFoundError(`Daily Sheet with id ${sheetId} not found`);
-  }
-
-  const month = sheet.date.slice(0, 7);
-  assertMonthNotClosed(month, db);
+  getEditableSheet(sheetId, db);
 
   const updated = db
     .update(dailySheets)
@@ -369,18 +379,7 @@ export function addCostLine(
 
   assertPositiveCostAmount(validAmount, category, trimmedNote);
 
-  const sheet = db
-    .select()
-    .from(dailySheets)
-    .where(eq(dailySheets.id, sheetId))
-    .get();
-
-  if (!sheet) {
-    throw new NotFoundError(`Daily Sheet with id ${sheetId} not found`);
-  }
-
-  const month = sheet.date.slice(0, 7);
-  assertMonthNotClosed(month, db);
+  getEditableSheet(sheetId, db);
 
   return db.transaction((tx) => {
     const inserted = tx
@@ -395,10 +394,7 @@ export function addCostLine(
       .get();
 
     // Keep updatedAt timestamp trail on parent Daily Sheet (no hard delete of sheet)
-    tx.update(dailySheets)
-      .set({ updatedAt: new Date().toISOString() })
-      .where(eq(dailySheets.id, sheetId))
-      .run();
+    touchSheetUpdatedAt(sheetId, tx);
 
     return inserted;
   });
@@ -427,18 +423,7 @@ export function replaceCostLines(
 
   validateCostLines(lines);
 
-  const sheet = db
-    .select()
-    .from(dailySheets)
-    .where(eq(dailySheets.id, sheetId))
-    .get();
-
-  if (!sheet) {
-    throw new NotFoundError(`Daily Sheet with id ${sheetId} not found`);
-  }
-
-  const month = sheet.date.slice(0, 7);
-  assertMonthNotClosed(month, db);
+  getEditableSheet(sheetId, db);
 
   // Merge cost lines with same category + same (trimmed) note.
   // Treat null note and empty/whitespace note as equivalent (both are 'no note').
@@ -519,10 +504,7 @@ export function replaceCostLines(
     }
 
     // Keep updatedAt timestamp trail on parent Daily Sheet (no hard delete of sheet)
-    tx.update(dailySheets)
-      .set({ updatedAt: new Date().toISOString() })
-      .where(eq(dailySheets.id, sheetId))
-      .run();
+    touchSheetUpdatedAt(sheetId, tx);
 
     return insertedLines;
   });
@@ -557,20 +539,7 @@ export function updateCostLine(
     throw new NotFoundError(`Cost Line with id ${costLineId} not found`);
   }
 
-  const sheet = db
-    .select()
-    .from(dailySheets)
-    .where(eq(dailySheets.id, existingLine.dailySheetId))
-    .get();
-
-  if (!sheet) {
-    throw new NotFoundError(
-      `Daily Sheet with id ${existingLine.dailySheetId} not found`,
-    );
-  }
-
-  const month = sheet.date.slice(0, 7);
-  assertMonthNotClosed(month, db);
+  const sheet = getEditableSheet(existingLine.dailySheetId, db);
 
   const finalCategory =
     updates.category !== undefined
@@ -619,10 +588,7 @@ export function updateCostLine(
       .get();
 
     // Keep updatedAt timestamp trail on parent Daily Sheet
-    tx.update(dailySheets)
-      .set({ updatedAt: new Date().toISOString() })
-      .where(eq(dailySheets.id, sheet.id))
-      .run();
+    touchSheetUpdatedAt(sheet.id, tx);
 
     return updatedLine;
   });
@@ -649,29 +615,13 @@ export function removeCostLine(
     throw new NotFoundError(`Cost Line with id ${costLineId} not found`);
   }
 
-  const sheet = db
-    .select()
-    .from(dailySheets)
-    .where(eq(dailySheets.id, existingLine.dailySheetId))
-    .get();
-
-  if (!sheet) {
-    throw new NotFoundError(
-      `Daily Sheet with id ${existingLine.dailySheetId} not found`,
-    );
-  }
-
-  const month = sheet.date.slice(0, 7);
-  assertMonthNotClosed(month, db);
+  const sheet = getEditableSheet(existingLine.dailySheetId, db);
 
   return db.transaction((tx) => {
     tx.delete(costLines).where(eq(costLines.id, costLineId)).run();
 
     // Keep updatedAt timestamp trail on parent Daily Sheet
-    tx.update(dailySheets)
-      .set({ updatedAt: new Date().toISOString() })
-      .where(eq(dailySheets.id, sheet.id))
-      .run();
+    touchSheetUpdatedAt(sheet.id, tx);
 
     return { success: true, removedLine: existingLine };
   });

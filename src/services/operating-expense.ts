@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, like } from "drizzle-orm";
+import { and, eq, inArray, isNull, like, type SQL } from "drizzle-orm";
 import { getDb, type Db } from "@/db";
 import {
   costLines,
@@ -7,6 +7,7 @@ import {
   type OperatingExpense,
 } from "@/db/schema";
 import { isValidMonthStr, subSen, sumSen } from "@/lib/money";
+import { OPERATING_EXPENSE_TYPES, type OperatingExpenseType } from "@/lib/vocab";
 import {
   assertMonthNotClosed,
   assertValidNote,
@@ -22,15 +23,8 @@ export {
   isMonthClosed,
 } from "./daily-sheet";
 
-export const OPERATING_EXPENSE_TYPES = [
-  "rental",
-  "utilities",
-  "wages",
-  "other",
-] as const;
-
 export type { OperatingExpense } from "@/db/schema";
-export type OperatingExpenseType = (typeof OPERATING_EXPENSE_TYPES)[number];
+export type { OperatingExpenseType };
 
 /**
  * Checks whether a type is a valid Operating Expense type per CONTEXT.md and schema.
@@ -42,6 +36,13 @@ export function isValidOperatingExpenseType(
     typeof type === "string" &&
     OPERATING_EXPENSE_TYPES.includes(type as OperatingExpenseType)
   );
+}
+
+/**
+ * WHERE predicate matching Daily Sheets whose date ("YYYY-MM-DD") falls in month ("YYYY-MM").
+ */
+export function dailySheetInMonth(month: string): SQL {
+  return like(dailySheets.date, `${month}-%`);
 }
 
 /**
@@ -399,7 +400,7 @@ export function getMonthPreviewSync(
       tngSen: dailySheets.tngSen,
     })
     .from(dailySheets)
-    .where(like(dailySheets.date, `${month}-%`))
+    .where(dailySheetInMonth(month))
     .all();
 
   const revenueAmounts = sheets.flatMap((s) => [
@@ -413,7 +414,7 @@ export function getMonthPreviewSync(
     .select({ amountSen: costLines.amountSen })
     .from(costLines)
     .innerJoin(dailySheets, eq(costLines.dailySheetId, dailySheets.id))
-    .where(like(dailySheets.date, `${month}-%`))
+    .where(dailySheetInMonth(month))
     .all();
 
   const dailyCostSen = sumSen(costs.map((c) => BigInt(c.amountSen)));

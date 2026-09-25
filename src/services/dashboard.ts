@@ -1,4 +1,4 @@
-import { asc, eq, like } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { getDb, type Db } from "@/db";
 import {
   costLines,
@@ -7,9 +7,9 @@ import {
   operatingExpenses,
 } from "@/db/schema";
 import { isValidMonthStr, subSen, sumSen } from "@/lib/money";
-import { type CostCategory } from "./daily-sheet";
+import { COST_CATEGORIES, type CostCategory } from "@/lib/vocab";
 import { NotFoundError, ValidationError } from "./errors";
-import { getMonthPreview } from "./operating-expense";
+import { dailySheetInMonth, getMonthPreview } from "./operating-expense";
 
 export type MonthStatus = "open" | "closed" | "reopened";
 
@@ -39,6 +39,15 @@ export interface CashTngSplit {
 
 export type CostByCategory = Record<CostCategory, bigint>;
 
+/**
+ * Zeroed Cost Category breakdown, one key per COST_CATEGORIES entry (in order).
+ */
+export function emptyCostByCategory(): CostByCategory {
+  return Object.fromEntries(
+    COST_CATEGORIES.map((c) => [c, 0n]),
+  ) as CostByCategory;
+}
+
 export interface DashboardMonthData {
   tile: MonthTile;
   trend: DailyTrendRow[];
@@ -62,7 +71,7 @@ export function hasMonthData(month: string, options?: { db?: Db }): boolean {
   const sheet = db
     .select({ id: dailySheets.id })
     .from(dailySheets)
-    .where(like(dailySheets.date, `${month}-%`))
+    .where(dailySheetInMonth(month))
     .limit(1)
     .get();
   if (sheet) return true;
@@ -176,7 +185,7 @@ export async function getDailyTrend(
       tngSen: dailySheets.tngSen,
     })
     .from(dailySheets)
-    .where(like(dailySheets.date, `${month}-%`))
+    .where(dailySheetInMonth(month))
     .orderBy(asc(dailySheets.date))
     .all();
 
@@ -215,7 +224,7 @@ export async function getCashTngSplit(
       tngSen: dailySheets.tngSen,
     })
     .from(dailySheets)
-    .where(like(dailySheets.date, `${month}-%`))
+    .where(dailySheetInMonth(month))
     .all();
 
   const cashSen = sumSen(sheets.map((s) => BigInt(s.cashSen)));
@@ -231,7 +240,7 @@ export async function getCashTngSplit(
 
 /**
  * Get Daily Cost breakdown by Cost Category enum for a month.
- * Categories: restock, gas, transport, wages-daily, other.
+ * Categories: restock, gas, transport, wages-daily, maintenance, other.
  */
 export async function getCostByCategory(
   month: string,
@@ -252,17 +261,10 @@ export async function getCostByCategory(
     })
     .from(costLines)
     .innerJoin(dailySheets, eq(costLines.dailySheetId, dailySheets.id))
-    .where(like(dailySheets.date, `${month}-%`))
+    .where(dailySheetInMonth(month))
     .all();
 
-  const sums: CostByCategory = {
-    restock: 0n,
-    gas: 0n,
-    transport: 0n,
-    "wages-daily": 0n,
-    maintenance: 0n,
-    other: 0n,
-  };
+  const sums = emptyCostByCategory();
 
   for (const c of costs) {
     const cat = c.category as CostCategory;
