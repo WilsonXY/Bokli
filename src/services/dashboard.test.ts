@@ -2,7 +2,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { NextRequest } from "next/server";
 
 import { openDb, type Db } from "@/db";
 import { runMigrations } from "@/db/migrate";
@@ -25,7 +24,6 @@ import {
 import { addCostLine, getOrCreateSheet, setRevenue } from "./daily-sheet";
 import { addOperatingExpense } from "./operating-expense";
 import { closeMonth, reopenMonth } from "./month-close";
-import { GET as dashboardGet } from "../../app/api/dashboard/route";
 
 let tmpDir: string;
 let dbPath: string;
@@ -316,102 +314,5 @@ describe("Dashboard Service - read-only guarantee (no mutation)", () => {
     expect(costsAfter).toEqual(costsBefore);
     expect(expensesAfter).toEqual(expensesBefore);
     expect(closesAfter).toEqual(closesBefore);
-  });
-});
-
-describe("Dashboard API route - GET /api/dashboard", () => {
-  const operatorSession = {
-    user: { id: "1", username: "operator1", role: "Operator" as const },
-    expires: new Date(Date.now() + 86400000).toISOString(),
-  };
-
-  function makeAuthReq(url: string, session = operatorSession) {
-    const req = new NextRequest(url);
-    (req as any).auth = session;
-    return req;
-  }
-
-  it("rejects unauthenticated requests with 401", async () => {
-    const req = new NextRequest("http://localhost:3000/api/dashboard");
-    const res = await dashboardGet(req);
-    expect(res.status).toBe(401);
-  });
-
-  it("rejects invalid month format with 400", async () => {
-    const req = makeAuthReq("http://localhost:3000/api/dashboard?month=invalid");
-    const res = await dashboardGet(req);
-    expect(res.status).toBe(400);
-  });
-
-  it("returns 404 for month with no data", async () => {
-    const req = makeAuthReq("http://localhost:3000/api/dashboard?month=2099-01");
-    const res = await dashboardGet(req);
-    expect(res.status).toBe(404);
-  });
-
-  it("returns full dashboard data for a valid month", async () => {
-    const req = makeAuthReq(`http://localhost:3000/api/dashboard?month=${TEST_MONTH}`);
-    const res = await dashboardGet(req);
-    expect(res.status).toBe(200);
-
-    const json = await res.json();
-    expect(json.tile).toBeDefined();
-    expect(json.tile.month).toBe(TEST_MONTH);
-    expect(json.tile.revenueSen).toBe(55000);
-    expect(json.tile.dailyCostSen).toBe(15000);
-    expect(json.tile.grossSen).toBe(40000);
-    expect(json.tile.operatingSen).toBe(15000);
-    expect(json.tile.netSen).toBe(25000);
-    expect(json.tile.status).toBe("open");
-
-    expect(json.trend).toHaveLength(2);
-    expect(json.split.cashSen).toBe(35000);
-    expect(json.split.tngSen).toBe(20000);
-    expect(json.costByCategory.restock).toBe(4000);
-    expect(json.costByCategory["wages-daily"]).toBe(5000);
-    expect(json.costByCategory.maintenance).toBe(0);
-  });
-
-  it("returns month tiles list when no month is specified", async () => {
-    const req = makeAuthReq("http://localhost:3000/api/dashboard");
-    const res = await dashboardGet(req);
-    expect(res.status).toBe(200);
-
-    const json = await res.json();
-    expect(Array.isArray(json.tiles)).toBe(true);
-    expect(json.tiles.length).toBeGreaterThan(0);
-    expect(json.tiles.some((t: any) => t.month === TEST_MONTH)).toBe(true);
-  });
-
-  it("supports limit query parameter when listing tiles", async () => {
-    const req = makeAuthReq("http://localhost:3000/api/dashboard?limit=2");
-    const res = await dashboardGet(req);
-    expect(res.status).toBe(200);
-
-    const json = await res.json();
-    expect(json.tiles).toHaveLength(2);
-  });
-
-  it("supports upToMonth query parameter when listing tiles", async () => {
-    const req = makeAuthReq("http://localhost:3000/api/dashboard?upToMonth=2025-01");
-    const res = await dashboardGet(req);
-    expect(res.status).toBe(200);
-
-    const json = await res.json();
-    for (const t of json.tiles) {
-      expect(t.month <= "2025-01").toBe(true);
-    }
-  });
-
-  it("rejects invalid limit parameter with 400", async () => {
-    const req = makeAuthReq("http://localhost:3000/api/dashboard?limit=notanumber");
-    const res = await dashboardGet(req);
-    expect(res.status).toBe(400);
-  });
-
-  it("rejects invalid upToMonth parameter with 400", async () => {
-    const req = makeAuthReq("http://localhost:3000/api/dashboard?upToMonth=badmonth");
-    const res = await dashboardGet(req);
-    expect(res.status).toBe(400);
   });
 });

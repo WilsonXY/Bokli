@@ -1,69 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/auth/guard";
-import {
-  closeMonth,
-  getClose,
-  listCloses,
-} from "@/services/month-close";
+import { closeMonth } from "@/services/month-close";
 import { handleError } from "@/services/errors";
-
-/**
- * GET /api/close?month=YYYY-MM or GET /api/close
- * If month is provided: get close snapshot + reconciliation for that month.
- * If month is omitted: list close history for all closed months with diffs.
- */
-export const GET = withAuth(async (req: NextRequest) => {
-  try {
-    const { searchParams } = new URL(req.url);
-    const month = searchParams.get("month");
-
-    if (month) {
-      const result = await getClose(month);
-      if (!result) {
-        return NextResponse.json(
-          { error: `Month close not found for month: ${month}` },
-          { status: 404 },
-        );
-      }
-
-      const {
-        expectedSen,
-        actualSen,
-        differenceSen,
-        balanced,
-        warning,
-        ...close
-      } = result;
-
-      return NextResponse.json(
-        {
-          close,
-          balanced,
-          differenceSen: Number(differenceSen),
-          expectedSen: Number(expectedSen),
-          actualSen: Number(actualSen),
-          ...(warning ? { warning } : {}),
-        },
-        { status: 200 },
-      );
-    }
-
-    const closes = await listCloses();
-    return NextResponse.json(
-      {
-        closes: closes.map((c) => ({
-          ...c,
-          differenceSen: Number(c.differenceSen),
-          expectedSen: Number(c.expectedSen),
-          actualSen: Number(c.actualSen),
-        })),
-      },
-      { status: 200 },
-    );
-  } catch (err) {
-    return handleError(err);
-  }
-});
 
 /**
  * POST /api/close

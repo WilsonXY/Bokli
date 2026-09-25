@@ -31,7 +31,7 @@ import {
   listCloses,
   reopenMonth,
 } from "./month-close";
-import { GET as closeGet, POST as closePost } from "../../app/api/close/route";
+import { POST as closePost } from "../../app/api/close/route";
 import { POST as reopenPost } from "../../app/api/close/reopen/route";
 
 let tmpDir: string;
@@ -476,10 +476,6 @@ describe("8. API Routes (/api/close and /api/close/reopen)", () => {
   }
 
   it("rejects unauthenticated requests with 401 Unauthorized", async () => {
-    // GET /api/close anonymous
-    const getRes = await closeGet(new NextRequest("http://localhost:3000/api/close"));
-    expect(getRes.status).toBe(401);
-
     // POST /api/close anonymous
     const postRes = await closePost(
       new NextRequest("http://localhost:3000/api/close", {
@@ -537,7 +533,7 @@ describe("8. API Routes (/api/close and /api/close/reopen)", () => {
     expect(bad3Body.error).toContain("zero Daily Sheets");
   });
 
-  it("handles successful close and retrieval via /api/close", async () => {
+  it("handles successful close via POST /api/close", async () => {
     const TEST_MONTH = "2025-05";
     const now = new Date("2025-05-25T12:00:00Z");
 
@@ -566,37 +562,14 @@ describe("8. API Routes (/api/close and /api/close/reopen)", () => {
     expect(postBody.balanced).toBe(true);
     expect(postBody.differenceSen).toBe(0);
 
-    // GET /api/close?month=2025-05
-    const getSingleReq = makeAuthReq(
-      `http://localhost:3000/api/close?month=${TEST_MONTH}`,
-      operatorSession,
-    );
-    const getSingleRes = await closeGet(getSingleReq);
-    expect(getSingleRes.status).toBe(200);
-    const getSingleBody = await getSingleRes.json();
-    expect(getSingleBody.close.month).toBe(TEST_MONTH);
-    expect(getSingleBody.balanced).toBe(true);
+    // The Month Close is persisted and readable through the service layer
+    const persisted = await getClose(TEST_MONTH, { db });
+    expect(persisted).not.toBeNull();
+    expect(persisted!.month).toBe(TEST_MONTH);
+    expect(persisted!.balanced).toBe(true);
 
-    // GET /api/close (history list)
-    const getListReq = makeAuthReq(
-      "http://localhost:3000/api/close",
-      operatorSession,
-    );
-    const getListRes = await closeGet(getListReq);
-    expect(getListRes.status).toBe(200);
-    const getListBody = await getListRes.json();
-    expect(Array.isArray(getListBody.closes)).toBe(true);
-    expect(getListBody.closes.some((c: any) => c.month === TEST_MONTH)).toBe(
-      true,
-    );
-
-    // GET non-existent month returns 404
-    const getNotFoundReq = makeAuthReq(
-      "http://localhost:3000/api/close?month=2024-11",
-      operatorSession,
-    );
-    const getNotFoundRes = await closeGet(getNotFoundReq);
-    expect(getNotFoundRes.status).toBe(404);
+    const history = await listCloses({ db });
+    expect(history.some((c) => c.month === TEST_MONTH)).toBe(true);
   });
 
   it("POST /api/close/reopen: rejects Operator with 403, accepts Admin with 200", async () => {

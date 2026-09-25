@@ -16,7 +16,7 @@ import { hashPassword, verifyPassword } from "./password";
 import { authConfig, SESSION_MAX_AGE, resolveCookieSecure } from "./config";
 import { authGuard, withAuth, isProtectedApiPath } from "./guard";
 import { handlers } from "./index";
-import { GET as bookkeepingGet } from "../../app/api/bookkeeping/route";
+import { POST as closePost } from "../../app/api/close/route";
 import middleware from "../../middleware";
 
 let tmpDir: string;
@@ -165,7 +165,7 @@ describe("seeded family users (db:seed)", () => {
 
 describe("auth guard", () => {
   it("identifies protected vs public API paths", () => {
-    expect(isProtectedApiPath("/api/bookkeeping")).toBe(true);
+    expect(isProtectedApiPath("/api/close")).toBe(true);
     expect(isProtectedApiPath("/api/daily-sheets")).toBe(true);
     expect(isProtectedApiPath("/api/auth/signin")).toBe(false);
     expect(isProtectedApiPath("/api/auth/callback/credentials")).toBe(false);
@@ -174,7 +174,7 @@ describe("auth guard", () => {
   });
 
   it("rejects anonymous request to protected route with 401", async () => {
-    const req = new NextRequest("http://localhost:3000/api/bookkeeping");
+    const req = new NextRequest("http://localhost:3000/api/close");
     const res = await authGuard(req, null);
 
     expect(res).not.toBeNull();
@@ -184,7 +184,7 @@ describe("auth guard", () => {
   });
 
   it("allows authenticated session through the auth guard", async () => {
-    const req = new NextRequest("http://localhost:3000/api/bookkeeping");
+    const req = new NextRequest("http://localhost:3000/api/close");
     const authenticatedSession = {
       user: { id: "1", name: "mom", role: "Operator" as const },
     };
@@ -201,20 +201,23 @@ describe("auth guard", () => {
       });
     });
 
-    const anonReq = new NextRequest("http://localhost:3000/api/bookkeeping");
+    const anonReq = new NextRequest("http://localhost:3000/api/close");
     const anonRes = await mockHandler(anonReq);
     expect(anonRes.status).toBe(401);
   });
 
-  it("protects bookkeeping API route handler directly", async () => {
+  it("protects the close API route handler directly", async () => {
     // Calling the route handler anonymously returns 401
-    const anonReq = new NextRequest("http://localhost:3000/api/bookkeeping");
-    const anonRes = await bookkeepingGet(anonReq);
+    const anonReq = new NextRequest("http://localhost:3000/api/close", {
+      method: "POST",
+      body: JSON.stringify({ month: "2026-01", cashOnHandSen: 0, tngOnHandSen: 0 }),
+    });
+    const anonRes = await closePost(anonReq);
     expect(anonRes.status).toBe(401);
   });
 
-  it("middleware rejects anonymous access to /api/bookkeeping and allows /api/auth/*", async () => {
-    const anonReq = new NextRequest("http://localhost:3000/api/bookkeeping");
+  it("middleware rejects anonymous access to /api/close and allows /api/auth/*", async () => {
+    const anonReq = new NextRequest("http://localhost:3000/api/close");
     const mwRes = (await middleware(anonReq, {} as any)) as Response;
     expect(mwRes.status).toBe(401);
 
@@ -287,23 +290,45 @@ describe("end-to-end credentials login and API access", () => {
     expect(session.user.name).toBe("mom");
     expect(session.user.role).toBe("Operator");
 
-    // 4. Access protected bookkeeping route with session cookie
-    const bookkeepingReq = new NextRequest("http://localhost:3000/api/bookkeeping", {
+    // 4. A withAuth-wrapped protected route resolves the session cookie and
+    //    hands the correct user through to the handler.
+    const probeRoute = withAuth(async (_req, session) => {
+      return new Response(JSON.stringify({ ok: true, user: session.user }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    const probeReq = new NextRequest("http://localhost:3000/api/close", {
       headers: {
         Cookie: sessionTokenCookie!,
         "x-forwarded-proto": "http",
         Host: "localhost:3000",
       },
     });
-    const bookkeepingRes = await bookkeepingGet(bookkeepingReq);
-    expect(bookkeepingRes.status).toBe(200);
-    const body = (await bookkeepingRes.json()) as any;
+    const probeRes = await probeRoute(probeReq);
+    expect(probeRes.status).toBe(200);
+    const body = (await probeRes.json()) as any;
     expect(body.ok).toBe(true);
     expect(body.user.name).toBe("mom");
     expect(body.user.role).toBe("Operator");
 
+    // 4b. The real protected route admits the session: it reaches the handler
+    //     and fails payload validation with 400 rather than being rejected 401.
+    const closeReq = new NextRequest("http://localhost:3000/api/close", {
+      method: "POST",
+      headers: {
+        Cookie: sessionTokenCookie!,
+        "Content-Type": "application/json",
+        "x-forwarded-proto": "http",
+        Host: "localhost:3000",
+      },
+      body: JSON.stringify({}),
+    });
+    const closeRes = await closePost(closeReq);
+    expect(closeRes.status).toBe(400);
+
     // 5. Verify middleware allows authenticated session
-    const mwAuthReq = new NextRequest("http://localhost:3000/api/bookkeeping", {
+    const mwAuthReq = new NextRequest("http://localhost:3000/api/close", {
       headers: {
         Cookie: sessionTokenCookie!,
         "x-forwarded-proto": "http",

@@ -30,12 +30,7 @@ import {
   updateCostLine,
   ValidationError,
 } from "./daily-sheet";
-import { GET as sheetsGet, POST as sheetsPost, PATCH as sheetsPatch } from "../../app/api/sheets/route";
-import {
-  POST as costLinesPost,
-  PATCH as costLinesPatch,
-  DELETE as costLinesDelete,
-} from "../../app/api/sheets/cost-lines/route";
+import { POST as sheetsPost } from "../../app/api/sheets/route";
 
 let tmpDir: string;
 let dbPath: string;
@@ -437,13 +432,6 @@ describe("5. Closed-month edit rejection", () => {
 
 describe("6. API routes and auth guard protection (/api/sheets)", () => {
   it("rejects anonymous requests with 401 Unauthorized", async () => {
-    // GET anonymous
-    const getReq = new NextRequest("http://localhost:3000/api/sheets?date=2026-09-01");
-    const getRes = await sheetsGet(getReq);
-    expect(getRes.status).toBe(401);
-    const getBody = await getRes.json();
-    expect(getBody.error).toBe("Unauthorized");
-
     // POST anonymous
     const postReq = new NextRequest("http://localhost:3000/api/sheets", {
       method: "POST",
@@ -451,29 +439,8 @@ describe("6. API routes and auth guard protection (/api/sheets)", () => {
     });
     const postRes = await sheetsPost(postReq);
     expect(postRes.status).toBe(401);
-
-    // PATCH anonymous
-    const patchReq = new NextRequest("http://localhost:3000/api/sheets", {
-      method: "PATCH",
-      body: JSON.stringify({ date: "2026-09-01", cashSen: 100, tngSen: 100 }),
-    });
-    const patchRes = await sheetsPatch(patchReq);
-    expect(patchRes.status).toBe(401);
-
-    // Cost-lines route anonymous
-    const lineReq = new NextRequest("http://localhost:3000/api/sheets/cost-lines", {
-      method: "POST",
-      body: JSON.stringify({ sheetId: 1, amountSen: 100, category: "gas" }),
-    });
-    const lineRes = await costLinesPost(lineReq);
-    expect(lineRes.status).toBe(401);
-
-    // Cost-lines DELETE anonymous
-    const deleteReq = new NextRequest("http://localhost:3000/api/sheets/cost-lines?id=1", {
-      method: "DELETE",
-    });
-    const deleteRes = await costLinesDelete(deleteReq);
-    expect(deleteRes.status).toBe(401);
+    const postBody = await postRes.json();
+    expect(postBody.error).toBe("Unauthorized");
   });
 
   it("performs end-to-end Daily Sheet lifecycle via API routes", async () => {
@@ -511,17 +478,9 @@ describe("6. API routes and auth guard protection (/api/sheets)", () => {
     expect(postData.totalCostSen).toBe(4500);
     expect(postData.grossProfitSen).toBe(10500);
 
-    // 2. GET /api/sheets?date=2026-09-06
-    const getReq = makeAuthReq("http://localhost:3000/api/sheets?date=2026-09-06");
-    const getRes = await sheetsGet(getReq);
-    expect(getRes.status).toBe(200);
-    const getData = await getRes.json();
-    expect(getData.sheet.date).toBe("2026-09-06");
-    expect(getData.costLines).toHaveLength(2);
-
-    // 3. PATCH /api/sheets to update revenue
-    const patchReq = makeAuthReq("http://localhost:3000/api/sheets", {
-      method: "PATCH",
+    // 2. Re-saving the same date via POST updates revenue in place
+    const resaveReq = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         date: "2026-09-06",
@@ -529,12 +488,13 @@ describe("6. API routes and auth guard protection (/api/sheets)", () => {
         tngSen: 6000,
       }),
     });
-    const patchRes = await sheetsPatch(patchReq);
-    expect(patchRes.status).toBe(200);
-    const patchData = await patchRes.json();
-    expect(patchData.totalRevenueSen).toBe(18000);
+    const resaveRes = await sheetsPost(resaveReq);
+    expect(resaveRes.status).toBe(201);
+    const resaveData = await resaveRes.json();
+    expect(resaveData.totalRevenueSen).toBe(18000);
+    expect(resaveData.costLines).toHaveLength(2);
 
-    // 4. Input validation: invalid date returns 400 with clear message
+    // 3. Input validation: invalid date returns 400 with clear message
     const badDateReq = makeAuthReq("http://localhost:3000/api/sheets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -545,41 +505,19 @@ describe("6. API routes and auth guard protection (/api/sheets)", () => {
     const badDateBody = await badDateRes.json();
     expect(badDateBody.error).toMatch(/Invalid date format/);
 
-    // 5. Input validation: missing note for 'other' returns 400
-    const badOtherReq = makeAuthReq("http://localhost:3000/api/sheets/cost-lines", {
+    // 4. Input validation: missing note for 'other' returns 400
+    const badOtherReq = makeAuthReq("http://localhost:3000/api/sheets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        sheetId: postData.sheet.id,
-        amountSen: 500,
-        category: "other",
+        date: "2026-09-06",
+        costLines: [{ amountSen: 500, category: "other" }],
       }),
     });
-    const badOtherRes = await costLinesPost(badOtherReq);
+    const badOtherRes = await sheetsPost(badOtherReq);
     expect(badOtherRes.status).toBe(400);
     const badOtherBody = await badOtherRes.json();
     expect(badOtherBody.error).toMatch(/Note is required when Cost Category is 'other'/);
-
-    // 6. Delete cost line via DELETE /api/sheets/cost-lines?id=...
-    const firstLineId = postData.costLines[0].id;
-    const deleteReq = makeAuthReq(
-      `http://localhost:3000/api/sheets/cost-lines?id=${firstLineId}`,
-      { method: "DELETE" },
-    );
-    const deleteRes = await costLinesDelete(deleteReq);
-    expect(deleteRes.status).toBe(200);
-    const deleteBody = await deleteRes.json();
-    expect(deleteBody.success).toBe(true);
-
-    // 7. Verify DELETE /api/sheets returns 405 (no hard delete of sheet)
-    const delSheetReq = makeAuthReq("http://localhost:3000/api/sheets", {
-      method: "DELETE",
-    });
-    const delSheetRes = await sheetsPatch(delSheetReq);
-    // GET verifies sheet still exists
-    const verifyGetReq = makeAuthReq("http://localhost:3000/api/sheets?date=2026-09-06");
-    const verifyGetRes = await sheetsGet(verifyGetReq);
-    expect(verifyGetRes.status).toBe(200);
   });
 });
 
@@ -1172,24 +1110,8 @@ describe("8. Regression tests: duplicate lines & non-string note validation", ()
     const postSingleBody = await postSingleRes.json();
     expect(postSingleBody.error).toMatch(/Note must be a string/);
 
-    // 3. POST /api/sheets/cost-lines with note: 123
+    // 3. Direct service validations throw ValidationError (not TypeError)
     const sheet = getOrCreateSheet("2026-09-08", { db });
-    const postCostLineRouteReq = makeAuthReq("http://localhost:3000/api/sheets/cost-lines", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sheetId: sheet.id,
-        amountSen: 1000,
-        category: "restock",
-        note: 123,
-      }),
-    });
-    const postCostLineRouteRes = await costLinesPost(postCostLineRouteReq);
-    expect(postCostLineRouteRes.status).toBe(400);
-    const postCostLineRouteBody = await postCostLineRouteRes.json();
-    expect(postCostLineRouteBody.error).toMatch(/Note must be a string/);
-
-    // 4. Direct service validations throw ValidationError (not TypeError)
     expect(() =>
       addCostLine(sheet.id, 1000, "restock", 123 as any, { db }),
     ).toThrow(ValidationError);
@@ -1207,7 +1129,7 @@ describe("8. Regression tests: duplicate lines & non-string note validation", ()
       updateCostLine(validLine.id, { note: 123 as any }, { db }),
     ).toThrow(ValidationError);
 
-    // 5. assertValidNote helper behavior
+    // 4. assertValidNote helper behavior
     expect(assertValidNote(undefined)).toBeNull();
     expect(assertValidNote(null)).toBeNull();
     expect(assertValidNote("   ")).toBeNull();
