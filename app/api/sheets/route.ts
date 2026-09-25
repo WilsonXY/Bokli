@@ -157,6 +157,7 @@ export const POST = withAuth(async (req: NextRequest) => {
         if (body.category === "other" && !trimmedNote) {
           throw new ValidationError("Note is required when Cost Category is 'other'");
         }
+        dailySheetService.assertPositiveCostAmount(validAmount, body.category, trimmedNote);
 
         // Idempotent legacy check: do not duplicate identical cost line on retry
         const existingLines = tx
