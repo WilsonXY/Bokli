@@ -508,6 +508,9 @@ describe("7. API routes & Auth guard protection (/api/expenses)", () => {
     expect(postExpRes.status).toBe(401);
     const postExpBody = await postExpRes.json();
     expect(postExpBody.error).toBe("Unauthorized");
+    // The 401 carries the stable code too, so the client's structured path
+    // covers auth failures instead of falling back to prose matching.
+    expect(postExpBody.code).toBe("unauthorized");
 
     // DELETE /api/expenses anonymous
     const deleteExpReq = new NextRequest(
@@ -555,6 +558,21 @@ describe("7. API routes & Auth guard protection (/api/expenses)", () => {
     });
     const noMonthRes = await expensesPost(noMonthReq);
     expect(noMonthRes.status).toBe(400);
+    expect((await noMonthRes.json()).code).toBe("saveError");
+
+    // 2b. Missing 'amountSen': a generic validation body, NOT an invalid
+    // amount. Its prose contains "amount", so the codeless fallback used to
+    // render it as invalidAmount; the explicit code keeps it generic.
+    const noAmountReq = makeAuthReq("http://localhost:3000/api/expenses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ month: testMonth, type: "rental" }),
+    });
+    const noAmountRes = await expensesPost(noAmountReq);
+    expect(noAmountRes.status).toBe(400);
+    const noAmountBody = await noAmountRes.json();
+    expect(noAmountBody.error).toBe("Field 'amountSen' is required");
+    expect(noAmountBody.code).toBe("saveError");
 
     // 3. Successful POST /api/expenses
     const postReq = makeAuthReq("http://localhost:3000/api/expenses", {

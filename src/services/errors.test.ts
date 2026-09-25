@@ -63,6 +63,14 @@ describe("error codes: code -> i18n key mapping record", () => {
     ).toBe(zh.reopenReasonRequired);
   });
 
+  it("an explicitly-generic direct 400 body beats the prose fallback", () => {
+    // "Field 'amountSen' is required" prose-contains "amount", so the codeless
+    // fallback renders it as invalidAmount; the explicit code keeps it generic.
+    const body = { error: "Field 'amountSen' is required", code: "saveError" };
+    expect(translateApiError(body, zh)).toBe(zh.saveError);
+    expect(translateApiError(body.error, zh)).toBe(zh.invalidAmount);
+  });
+
   it("still substring-matches codeless prose (legacy fallback)", () => {
     expect(translateApiError("Unauthorized", zh)).toBe(zh.unauthorizedError);
     expect(translateApiError({ error: "Unauthorized" }, zh)).toBe(

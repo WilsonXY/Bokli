@@ -29,21 +29,27 @@ export const POST = withAuth(async (req: NextRequest) => {
 
     if (!body || typeof body !== "object") {
       return NextResponse.json(
-        { error: "Request body must be a JSON object" },
+        { error: "Request body must be a JSON object", code: "saveError" },
         { status: 400 },
       );
     }
 
     if (!body.date || typeof body.date !== "string") {
       return NextResponse.json(
-        { error: "Field 'date' is required (format: YYYY-MM-DD)" },
+        {
+          error: "Field 'date' is required (format: YYYY-MM-DD)",
+          code: "saveError",
+        },
         { status: 400 },
       );
     }
 
     if (!Array.isArray(body.costLines)) {
       return NextResponse.json(
-        { error: "Field 'costLines' is required and must be an array" },
+        {
+          error: "Field 'costLines' is required and must be an array",
+          code: "saveError",
+        },
         { status: 400 },
       );
     }
@@ -53,7 +59,10 @@ export const POST = withAuth(async (req: NextRequest) => {
     const strayFields = LEGACY_FIELDS.filter((f) => body[f] !== undefined);
     if (strayFields.length > 0) {
       return NextResponse.json(
-        { error: `Unexpected legacy field(s): ${strayFields.join(", ")}` },
+        {
+          error: `Unexpected legacy field(s): ${strayFields.join(", ")}`,
+          code: "saveError",
+        },
         { status: 400 },
       );
     }

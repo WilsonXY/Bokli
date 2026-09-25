@@ -16,28 +16,31 @@ export const POST = withAuth(async (req: NextRequest) => {
 
     if (!body || typeof body !== "object") {
       return NextResponse.json(
-        { error: "Request body must be a JSON object" },
+        { error: "Request body must be a JSON object", code: "saveError" },
         { status: 400 },
       );
     }
 
     if (!body.month || typeof body.month !== "string") {
       return NextResponse.json(
-        { error: "Field 'month' is required (format: YYYY-MM)" },
+        {
+          error: "Field 'month' is required (format: YYYY-MM)",
+          code: "saveError",
+        },
         { status: 400 },
       );
     }
 
     if (body.cashOnHandSen === undefined) {
       return NextResponse.json(
-        { error: "Field 'cashOnHandSen' is required" },
+        { error: "Field 'cashOnHandSen' is required", code: "saveError" },
         { status: 400 },
       );
     }
 
     if (body.tngOnHandSen === undefined) {
       return NextResponse.json(
-        { error: "Field 'tngOnHandSen' is required" },
+        { error: "Field 'tngOnHandSen' is required", code: "saveError" },
         { status: 400 },
       );
     }

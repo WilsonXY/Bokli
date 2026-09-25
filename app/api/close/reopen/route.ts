@@ -25,14 +25,17 @@ export const POST = withAuth(
 
       if (!body || typeof body !== "object") {
         return NextResponse.json(
-          { error: "Request body must be a JSON object" },
+          { error: "Request body must be a JSON object", code: "saveError" },
           { status: 400 },
         );
       }
 
       if (!body.month || typeof body.month !== "string") {
         return NextResponse.json(
-          { error: "Field 'month' is required (format: YYYY-MM)" },
+          {
+            error: "Field 'month' is required (format: YYYY-MM)",
+            code: "saveError",
+          },
           { status: 400 },
         );
       }

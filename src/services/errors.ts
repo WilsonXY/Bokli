@@ -14,7 +14,9 @@ import { NextResponse } from "next/server";
  * These are the contract between the services/API and the client's
  * `translateApiError` — English prose messages are for logs and for legacy
  * fallback only, never for matching. The set is closed and mirrors the existing
- * user-facing i18n cases; do not add a code without an i18n case behind it.
+ * user-facing i18n cases; do not add a code without one behind it. `notFound`
+ * and `futureDate` are the exceptions: they exist so the server can be precise,
+ * but the client deliberately renders them as the generic save error.
  */
 export type ApiErrorCode =
   | "unauthorized"
