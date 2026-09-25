@@ -74,7 +74,20 @@ export function getDonutSlice(
   const x2Inner = (cx + rInner * Math.cos(startAngle)).toFixed(4);
   const y2Inner = (cy + rInner * Math.sin(startAngle)).toFixed(4);
 
-  const d = `M ${x1Outer} ${y1Outer} A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2Outer} ${y2Outer} L ${x1Inner} ${y1Inner} A ${rInner} ${rInner} 0 ${largeArc} 0 ${x2Inner} ${y2Inner} Z`;
+  // A single-category month yields one slice spanning the whole circle. Its two
+  // arc endpoints coincide, and SVG drops an elliptical arc whose endpoints are
+  // identical — the donut would render empty. Emit a closed ring instead: two
+  // half arcs for the outer edge, two counter-wound half arcs to punch the hole.
+  const xMid = cx.toFixed(4);
+  const yTopOuter = (cy - rOuter).toFixed(4);
+  const yBotOuter = (cy + rOuter).toFixed(4);
+  const yTopInner = (cy - rInner).toFixed(4);
+  const yBotInner = (cy + rInner).toFixed(4);
+
+  const d =
+    sliceDelta >= 1
+      ? `M ${xMid} ${yTopOuter} A ${rOuter} ${rOuter} 0 1 1 ${xMid} ${yBotOuter} A ${rOuter} ${rOuter} 0 1 1 ${xMid} ${yTopOuter} Z M ${xMid} ${yTopInner} A ${rInner} ${rInner} 0 1 0 ${xMid} ${yBotInner} A ${rInner} ${rInner} 0 1 0 ${xMid} ${yTopInner} Z`
+      : `M ${x1Outer} ${y1Outer} A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2Outer} ${y2Outer} L ${x1Inner} ${y1Inner} A ${rInner} ${rInner} 0 ${largeArc} 0 ${x2Inner} ${y2Inner} Z`;
 
   // Mid-angle for embedding percentage label directly into donut slice
   const midAngle = (((startPct + endPct) / 2) * 360 - 90) * (Math.PI / 180);
@@ -83,6 +96,30 @@ export function getDonutSlice(
   const ty = Number((cy + rMid * Math.sin(midAngle)).toFixed(4));
 
   return { d, tx, ty };
+}
+
+/**
+ * Turns cost entries into donut slice boundaries. Boundaries come from the exact
+ * sen shares (integer amounts), never from the rounded display percentages — the
+ * rounded ones leave visible gaps (three equal slices stop at 0.99). The last
+ * slice is pinned to 1 so the ring always closes.
+ */
+export function buildCostSlices<T extends { amountSen: number }>(
+  entries: T[]
+): Array<T & { start: number; end: number }> {
+  // Zero-amount entries would render as degenerate zero-width slices, so the
+  // helper filters them itself — callers shouldn't have to remember to.
+  const positive = entries.filter((e) => e.amountSen > 0);
+  const totalSen = positive.reduce((acc, entry) => acc + entry.amountSen, 0);
+  if (totalSen <= 0) return [];
+
+  let runningSen = 0;
+  return positive.map((entry, idx) => {
+    const start = runningSen / totalSen;
+    runningSen += entry.amountSen;
+    const end = idx === positive.length - 1 ? 1 : runningSen / totalSen;
+    return { ...entry, start, end };
+  });
 }
 
 export function DashboardView({
@@ -133,30 +170,19 @@ export function DashboardView({
     Object.keys(categoryLabels) as Array<keyof SerializedCostByCategory>
   )
     .map((cat) => {
-      const amount = costByCategory ? costByCategory[cat] : 0;
-      const pct = totalCosts > 0 ? Math.round((amount / totalCosts) * 100) : 0;
+      const amountSen = costByCategory ? costByCategory[cat] : 0;
+      const pct = totalCosts > 0 ? Math.round((amountSen / totalCosts) * 100) : 0;
       return {
         cat,
         label: categoryLabels[cat],
-        amount,
+        amountSen,
         pct,
         ...categoryPalette[cat],
       };
     })
-    .filter((entry) => entry.amount > 0);
+    .filter((entry) => entry.amountSen > 0);
 
-  let runningPct = 0;
-  const costSlices = costEntries.map((entry) => {
-    const pctFraction = Math.round((entry.pct / 100) * 10000) / 10000;
-    const start = Math.round(runningPct * 10000) / 10000;
-    const end = Math.min(1, Math.round((start + pctFraction) * 10000) / 10000);
-    runningPct = end;
-    return {
-      ...entry,
-      start,
-      end,
-    };
-  });
+  const costSlices = buildCostSlices(costEntries);
 
   const splitTotal = split?.totalSen ?? 0;
   const cashPct = splitTotal > 0 ? Math.round((split!.cashSen / splitTotal) * 100) : 0;
@@ -465,7 +491,7 @@ export function DashboardView({
                         </span>
                       </div>
                       <span className="font-bold text-ink-primary tabular-nums">
-                        {formatMyr(BigInt(entry.amount))}
+                        {formatMyr(BigInt(entry.amountSen))}
                       </span>
                     </div>
                   ))}
