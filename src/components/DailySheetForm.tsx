@@ -535,7 +535,15 @@ export function DailySheetForm({
 
   function markTouchedDuringSave(field: DraftField) {
     touchedDuringSaveRef.current?.add(field);
+    draftEverTouchedRef.current = true;
   }
+
+  // Sticky "she touched the draft at some point" flag for the prop-sync gate
+  // below: isModified alone misses a mid-flight keystroke that lands the draft
+  // back on the baseline (e.g. retyped "12.50" over "12.5" — same sen, so
+  // isModified is false), and the full-reset branch would then wipe the
+  // retyped formatting. Cleared only by explicit date navigation.
+  const draftEverTouchedRef = useRef(false);
 
   // Baseline state representing the saved/initial state for the selected date
   const [baseline, setBaseline] = useState(() => ({
@@ -587,7 +595,7 @@ export function DailySheetForm({
     // save re-delivers the server props, and that snapshot may not overwrite a
     // draft the Operator has already touched. Take it as the authoritative
     // baseline only. Switching date is explicit navigation, so it still reloads.
-    if (!dateChanged && isModifiedRef.current) {
+    if (!dateChanged && (isModifiedRef.current || draftEverTouchedRef.current)) {
       setBaseline({
         cashInput: cashStr,
         tngInput: tngStr,
@@ -596,6 +604,7 @@ export function DailySheetForm({
       return;
     }
 
+    draftEverTouchedRef.current = false;
     setCashInput(cashStr);
     setTngInput(tngStr);
     setCostLines(mergedInitial);
@@ -743,6 +752,8 @@ export function DailySheetForm({
     // Open the touched-fields window for the duration of the flight.
     touchedDuringSaveRef.current = new Set<DraftField>();
     setSaving(true);
+    const savedDate = date;
+    let navigatedAway = false;
 
     try {
       const res = await fetch("/api/sheets", {
@@ -779,12 +790,19 @@ export function DailySheetForm({
         const savedCash = senToDecimalStr(Number(data.sheet.cashSen));
         const savedTng = senToDecimalStr(Number(data.sheet.tngSen));
 
+        // Cross-date guard: if she navigated to another date while the save
+        // was in flight, the navigation effect already reloaded this form for
+        // the new date — writing the old date's snapshot here would pollute
+        // the new date's baseline and draft.
+        const navigatedAwayNow = prevDateRef.current !== savedDate;
+        navigatedAway = navigatedAwayNow;
+
         const touched = touchedDuringSaveRef.current ?? new Set<DraftField>();
 
         // The baseline always takes the server snapshot: it stays the
         // authoritative reference for conflict detection and the
         // unsaved-changes affordance.
-        setBaseline({
+        if (!navigatedAway) setBaseline({
           cashInput: savedCash,
           tngInput: savedTng,
           costLines: savedCostLines,
@@ -793,15 +811,19 @@ export function DailySheetForm({
         // The visible draft only rebases onto fields she did NOT touch during
         // the flight. Anything typed mid-flight survives verbatim and shows up
         // as unsaved, so the next save re-sends the merged draft.
-        if (!touched.has("cash")) setCashInput(savedCash);
-        if (!touched.has("tng")) setTngInput(savedTng);
-        setCostLines((prev) =>
-          rebaseCostLinesAfterSave(prev, savedCostLines, touched.has("costLines"))
-        );
+        if (!navigatedAway) {
+          if (!touched.has("cash")) setCashInput(savedCash);
+          if (!touched.has("tng")) setTngInput(savedTng);
+          setCostLines((prev) =>
+            rebaseCostLinesAfterSave(prev, savedCostLines, touched.has("costLines"))
+          );
+        }
       }
 
-      setSuccessMessage(t.saveSuccess);
-      setTimeout(() => setSuccessMessage(null), 3500);
+      if (!navigatedAway) {
+        setSuccessMessage(t.saveSuccess);
+        setTimeout(() => setSuccessMessage(null), 3500);
+      }
       startTransition(() => {
         router.refresh();
       });

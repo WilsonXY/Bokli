@@ -667,6 +667,7 @@ export function ExpensesView({
                   <div className="flex items-center gap-2.5 pt-1">
                     <button
                       type="button"
+                      disabled={adding}
                       onClick={() => {
                         setIsDraftOpen(false);
                         setAmountInput("");
