@@ -1054,3 +1054,91 @@ describe("10. Bulk delete (deleteOperatingExpenses + DELETE { ids })", () => {
     expect(missing.status).toBe(404);
   });
 });
+
+describe("11. Operating Expense identity invariant (month, type, note)", () => {
+  it("add still merges into the existing row for the same identity, NULL note included", async () => {
+    const month = "2023-01";
+    const a = await addOperatingExpense(month, "wages", 1000, null, { db });
+    const b = await addOperatingExpense(month, "wages", 500, "  ", { db });
+    const c = await addOperatingExpense(month, "wages", 200, "helper", { db });
+    const d = await addOperatingExpense(month, "wages", 300, "helper", { db });
+
+    expect(b.merged).toBe(true);
+    expect(b.id).toBe(a.id);
+    expect(d.merged).toBe(true);
+    expect(d.id).toBe(c.id);
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r.note === null)?.amountSen).toBe(1500);
+    expect(rows.find((r) => r.note === "helper")?.amountSen).toBe(500);
+  });
+
+  it("update onto another row's non-NULL identity is a saveError ValidationError and changes nothing", async () => {
+    const month = "2023-02";
+    const a = await addOperatingExpense(month, "rental", 1000, "stall A", { db });
+    const b = await addOperatingExpense(month, "rental", 2000, "stall B", { db });
+
+    const err = await updateOperatingExpense(
+      b.id,
+      { note: "stall A", amountSen: 9999 },
+      { db },
+    ).catch((e) => e);
+    expect(err).toBeInstanceOf(ValidationError);
+    expect(err.code).toBe("saveError");
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(2);
+    expect(rows.find((r) => r.id === a.id)).toMatchObject({
+      note: "stall A",
+      amountSen: 1000,
+    });
+    expect(rows.find((r) => r.id === b.id)).toMatchObject({
+      note: "stall B",
+      amountSen: 2000,
+    });
+  });
+
+  it("update onto another row's NULL-note identity (via note, type or month) is rejected", async () => {
+    const month = "2023-03";
+    await addOperatingExpense(month, "utilities", 1000, null, { db });
+    const noted = await addOperatingExpense(month, "utilities", 2000, "water", { db });
+    const otherType = await addOperatingExpense(month, "rental", 3000, null, { db });
+    const otherMonth = await addOperatingExpense("2023-04", "utilities", 4000, null, { db });
+
+    await expect(
+      updateOperatingExpense(noted.id, { note: null }, { db }),
+    ).rejects.toThrow(ValidationError);
+    await expect(
+      updateOperatingExpense(noted.id, { note: "   " }, { db }),
+    ).rejects.toThrow(ValidationError);
+    await expect(
+      updateOperatingExpense(otherType.id, { type: "utilities" }, { db }),
+    ).rejects.toThrow(ValidationError);
+    await expect(
+      updateOperatingExpense(otherMonth.id, { month }, { db }),
+    ).rejects.toThrow(ValidationError);
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(3);
+  });
+
+  it("update that keeps its own identity or moves to a free one still succeeds", async () => {
+    const month = "2023-05";
+    const a = await addOperatingExpense(month, "rental", 1000, null, { db });
+    await addOperatingExpense(month, "rental", 2000, "kiosk", { db });
+
+    const sameIdentity = await updateOperatingExpense(
+      a.id,
+      { amountSen: 1500, note: null, type: "rental" },
+      { db },
+    );
+    expect(sameIdentity.amountSen).toBe(1500);
+
+    const moved = await updateOperatingExpense(a.id, { note: "stall" }, { db });
+    expect(moved.note).toBe("stall");
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(2);
+  });
+});

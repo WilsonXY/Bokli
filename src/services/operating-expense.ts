@@ -211,6 +211,8 @@ export async function listOperatingExpenses(
  * - Target month must NOT be in the future (Asia/Kuala_Lumpur)
  * - Validates type, note (required if other), and amountSen
  * - Rejects writes to CLOSED months (ClosedMonthError)
+ * - Rejects an edit that would collide with another row's (month, type, note)
+ *   identity (ValidationError); it never merges
  */
 export async function updateOperatingExpense(
   id: number,
@@ -273,20 +275,34 @@ export async function updateOperatingExpense(
     );
   }
 
-  const updated = db
-    .update(operatingExpenses)
-    .set({
-      month: updates.month !== undefined ? updates.month : existing.month,
-      type: finalType,
-      amountSen: finalAmountSen,
-      note: finalNote,
-      updatedAt: new Date().toISOString(),
-    })
-    .where(eq(operatingExpenses.id, id))
-    .returning()
-    .get();
+  const finalMonth =
+    updates.month !== undefined ? updates.month : existing.month;
 
-  return updated;
+  try {
+    return db
+      .update(operatingExpenses)
+      .set({
+        month: finalMonth,
+        type: finalType,
+        amountSen: finalAmountSen,
+        note: finalNote,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(operatingExpenses.id, id))
+      .returning()
+      .get();
+  } catch (err) {
+    // The only UNIQUE constraints on operating_expenses are the identity
+    // indexes; an edit must not silently merge into another row.
+    if (
+      (err as { code?: unknown } | null)?.code === "SQLITE_CONSTRAINT_UNIQUE"
+    ) {
+      throw new ValidationError(
+        `Another Operating Expense already exists for month "${finalMonth}", type "${finalType}" and note ${finalNote === null ? "(none)" : `"${finalNote}"`}`,
+      );
+    }
+    throw err;
+  }
 }
 
 /**

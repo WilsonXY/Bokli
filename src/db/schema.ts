@@ -101,6 +101,15 @@ export const operatingExpenses = sqliteTable(
   },
   (t) => [
     index("ix_operating_expenses_month").on(t.month),
+    // Operating Expense identity = (month, type, note), the addOperatingExpense
+    // merge key. SQLite treats NULLs as distinct in a UNIQUE index, so a NULL
+    // note gets its own partial index on (month, type) to make it conflict too.
+    uniqueIndex("uq_opex_month_type_note")
+      .on(t.month, t.type, t.note)
+      .where(sql`${t.note} IS NOT NULL`),
+    uniqueIndex("uq_opex_month_type_null_note")
+      .on(t.month, t.type)
+      .where(sql`${t.note} IS NULL`),
     check("chk_opex_type", sql`${t.type} IN ('rental','utilities','wages','other')`),
     check("chk_opex_amount_nonneg", sql`${t.amountSen} >= 0`),
   ],
