@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { openDb, getDb, closeDb, type Db } from "./index";
@@ -250,5 +251,169 @@ describe("schema sanity", () => {
           .run(),
       ).toThrow(/UNIQUE/);
     });
+  });
+
+  describe("CHECK constraints mirror service validation", () => {
+    let sheetId: number;
+    beforeAll(() => {
+      sheetId = db
+        .insert(dailySheets)
+        .values({ date: "2026-08-01" })
+        .returning({ id: dailySheets.id })
+        .get()!.id;
+    });
+
+    const insertCostLine = (amountSen: number, category: string, note: string | null) =>
+      db
+        .insert(costLines)
+        .values({ dailySheetId: sheetId, amountSen, category, note })
+        .run();
+    const insertOpex = (type: string, note: string | null, amountSen = 100) =>
+      db
+        .insert(operatingExpenses)
+        .values({ month: "2024-01", type, amountSen, note })
+        .run();
+    const insertClose = (
+      month: string,
+      cashOnHandSen: number | null,
+      tngOnHandSen: number | null,
+    ) =>
+      db
+        .insert(monthCloses)
+        .values({
+          month,
+          revenueSen: 0,
+          dailyCostSen: 0,
+          grossSen: 0,
+          operatingSen: 0,
+          netSen: 0,
+          cashOnHandSen,
+          tngOnHandSen,
+        })
+        .run();
+
+    const blankNotes = ["", " ", "   ", "\t", " \n\r\t\v\f "];
+
+    it("rejects blank or whitespace-only notes on 'other' Cost Lines", () => {
+      for (const note of blankNotes) {
+        expect(() => insertCostLine(100, "other", note)).toThrow(
+          /chk_cost_lines_other_note/,
+        );
+      }
+      expect(() => insertCostLine(100, "other", "  gas top-up  ")).not.toThrow();
+      expect(() => insertCostLine(100, "gas", null)).not.toThrow();
+      expect(() => insertCostLine(100, "gas", "   ")).not.toThrow();
+    });
+
+    it("rejects zero-amount Cost Lines, accepts 1 sen", () => {
+      expect(() => insertCostLine(0, "restock", null)).toThrow(
+        /chk_cost_lines_amount_positive/,
+      );
+      expect(() => insertCostLine(1, "restock", null)).not.toThrow();
+      expect(() =>
+        sqlite
+          .prepare("UPDATE cost_lines SET amount_sen = 0 WHERE daily_sheet_id = ?")
+          .run(sheetId),
+      ).toThrow(/chk_cost_lines_amount_positive/);
+    });
+
+    it("requires a non-blank note on 'other' Operating Expenses", () => {
+      expect(() => insertOpex("other", null)).toThrow(/chk_opex_other_note/);
+      for (const note of blankNotes) {
+        expect(() => insertOpex("other", note)).toThrow(/chk_opex_other_note/);
+      }
+      expect(() => insertOpex("other", "Licensing renewal fee")).not.toThrow();
+      expect(() => insertOpex("rental", null)).not.toThrow();
+      // A zero Operating Expense is still allowed (only Cost Lines must be > 0).
+      expect(() => insertOpex("utilities", null, 0)).not.toThrow();
+      expect(() =>
+        sqlite
+          .prepare(
+            "UPDATE operating_expenses SET type = 'other' WHERE month = '2024-01' AND type = 'rental'",
+          )
+          .run(),
+      ).toThrow(/chk_opex_other_note/);
+    });
+
+    it("rejects negative on-hand amounts on month_closes, allows 0 and NULL", () => {
+      expect(() => insertClose("2024-01", -1, 0)).toThrow(
+        /chk_month_closes_cash_on_hand_nonneg/,
+      );
+      expect(() => insertClose("2024-01", 0, -1)).toThrow(
+        /chk_month_closes_tng_on_hand_nonneg/,
+      );
+      expect(() => insertClose("2024-01", 0, 0)).not.toThrow();
+      // Legacy closes predating Reconciliation inputs keep NULL on-hand columns.
+      expect(() => insertClose("2024-02", null, null)).not.toThrow();
+      expect(() =>
+        sqlite
+          .prepare("UPDATE month_closes SET cash_on_hand_sen = -5 WHERE month = '2024-02'")
+          .run(),
+      ).toThrow(/chk_month_closes_cash_on_hand_nonneg/);
+    });
+  });
+});
+
+describe("migration 0007 (CHECK tightening table rebuild)", () => {
+  it("preserves rows, ids and AUTOINCREMENT high-water marks", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bokli-mig0007-"));
+    try {
+      // Migrations folder truncated to 0000-0006: the state before 0007.
+      const full = path.resolve(process.cwd(), "drizzle");
+      const pre = path.join(dir, "drizzle-pre");
+      fs.cpSync(full, pre, { recursive: true });
+      const journalPath = path.join(pre, "meta", "_journal.json");
+      const journal = JSON.parse(fs.readFileSync(journalPath, "utf8"));
+      journal.entries = journal.entries.filter(
+        (e: { idx: number }) => e.idx < 7,
+      );
+      fs.writeFileSync(journalPath, JSON.stringify(journal));
+
+      const dbPath = path.join(dir, "mig.db");
+      const opened = openDb(dbPath);
+      const raw = opened.sqlite;
+      try {
+        migrate(opened.db, { migrationsFolder: pre });
+        raw.exec(`
+          INSERT INTO daily_sheets (date) VALUES ('2026-01-01');
+          INSERT INTO cost_lines (daily_sheet_id, amount_sen, category, note)
+            VALUES (1, 100, 'gas', NULL), (1, 200, 'other', 'x'), (1, 300, 'restock', NULL);
+          DELETE FROM cost_lines WHERE amount_sen = 300;
+          INSERT INTO operating_expenses (month, type, amount_sen) VALUES ('2026-01', 'rental', 1);
+          DELETE FROM operating_expenses;
+          INSERT INTO month_closes (month, revenue_sen, daily_cost_sen, gross_sen, operating_sen, net_sen)
+            VALUES ('2025-12', 0, 0, 0, 0, 0);
+        `);
+        const before = raw.prepare("SELECT * FROM cost_lines ORDER BY id").all();
+        const closeBefore = raw.prepare("SELECT * FROM month_closes").all();
+
+        migrate(opened.db, { migrationsFolder: full });
+
+        expect(raw.prepare("SELECT * FROM cost_lines ORDER BY id").all()).toEqual(before);
+        // Legacy close with NULL on-hand columns survives the rebuild.
+        expect(raw.prepare("SELECT * FROM month_closes").all()).toEqual(closeBefore);
+        const seq = Object.fromEntries(
+          (
+            raw.prepare("SELECT name, seq FROM sqlite_sequence").all() as Array<{
+              name: string;
+              seq: number;
+            }>
+          ).map((r) => [r.name, r.seq]),
+        );
+        expect(seq).toMatchObject({ cost_lines: 3, operating_expenses: 1, month_closes: 1 });
+        expect(Object.keys(seq).some((n) => n.startsWith("__new_"))).toBe(false);
+        // Deleted ids are not reused after the rebuild.
+        raw.exec("INSERT INTO operating_expenses (month, type, amount_sen) VALUES ('2026-01', 'rental', 1)");
+        expect(
+          (raw.prepare("SELECT id FROM operating_expenses").get() as { id: number }).id,
+        ).toBe(2);
+        expect(raw.prepare("PRAGMA foreign_key_check").all()).toEqual([]);
+        expect(raw.prepare("PRAGMA integrity_check").pluck().get()).toBe("ok");
+      } finally {
+        raw.close();
+      }
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
