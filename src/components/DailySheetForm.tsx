@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { amountSizeClass, formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
+import { amountSizeClass, formatMyr, sanitizeMoneyInput, tryParseSen } from "@/lib/money";
 import { useI18n, translateApiError } from "@/lib/i18n";
 import { CalendarPopover } from "@/components/CalendarPopover";
 import type { CostCategory } from "@/services/daily-sheet";
@@ -385,17 +385,6 @@ export function toggleCostLineExpansion(
   };
 }
 
-// Safe parsing helper: returns null for unparseable non-empty inputs
-export function toSen(val: string): bigint | null {
-  const s = val.trim();
-  if (!s) return 0n;
-  try {
-    return parseSen(s);
-  } catch {
-    return null;
-  }
-}
-
 export function DailySheetForm({
   date,
   initialCashSen,
@@ -587,8 +576,8 @@ export function DailySheetForm({
     setCostAmountErrorIndex(null);
   }
 
-  const cashSen = toSen(cashInput);
-  const tngSen = toSen(tngInput);
+  const cashSen = tryParseSen(cashInput);
+  const tngSen = tryParseSen(tngInput);
   const cashError = cashInput.trim() !== "" && cashSen === null;
   const tngError = tngInput.trim() !== "" && tngSen === null;
   const hasParseError = cashError || tngError;
@@ -1117,7 +1106,7 @@ export function DailySheetForm({
                                   onChange={(e) => {
                                     const sanitized = sanitizeMoneyInput(e.target.value);
                                     if (sanitized !== null) {
-                                      const sen = toSen(sanitized);
+                                      const sen = tryParseSen(sanitized);
                                       handleUpdateCostLine(idx, {
                                         amountInput: sanitized,
                                         amountSen: Number(sen ?? 0n),

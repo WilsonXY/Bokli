@@ -7,6 +7,7 @@ import {
   isValidMonthStr,
   parseSen,
   sanitizeMoneyInput,
+  tryParseSen,
   subSen,
   sumSen,
   MoneyFormatError,
@@ -29,6 +30,37 @@ describe("parseSen", () => {
     expect(() => parseSen("abc")).toThrow(MoneyFormatError);
     expect(() => parseSen("1,234")).toThrow(MoneyFormatError);
     expect(() => parseSen("RM5")).toThrow(MoneyFormatError);
+  });
+});
+
+describe("tryParseSen", () => {
+  it("treats blank input as zero sen", () => {
+    expect(tryParseSen("")).toBe(0n);
+    expect(tryParseSen("   ")).toBe(0n);
+  });
+
+  it("parses valid money strings like parseSen", () => {
+    expect(tryParseSen("12.34")).toBe(1234n);
+    expect(tryParseSen("50")).toBe(5000n);
+    expect(tryParseSen("0.5")).toBe(50n);
+    expect(tryParseSen(" 7.25 ")).toBe(725n);
+    expect(tryParseSen("-1.50")).toBe(-150n);
+  });
+
+  it("returns null — never 0n — for unparseable non-empty input", () => {
+    expect(tryParseSen("12.")).toBeNull();
+    expect(tryParseSen(".")).toBeNull();
+    expect(tryParseSen("abc")).toBeNull();
+    expect(tryParseSen("12.34.56")).toBeNull();
+    expect(tryParseSen("12.345")).toBeNull();
+    expect(tryParseSen("--50")).toBeNull();
+    expect(tryParseSen("invalid-input")).toBeNull();
+    expect(tryParseSen("1,234")).toBeNull();
+    expect(tryParseSen("RM5")).toBeNull();
+  });
+
+  it("does not swallow range errors into a silent zero", () => {
+    expect(tryParseSen("999999999999999999")).toBeNull();
   });
 });
 
