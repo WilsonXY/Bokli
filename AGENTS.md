@@ -16,9 +16,10 @@ it in your report — the driver agent filters and records it.
 ## Database (critical)
 - Prod DB lives at `data/bokli.db` (relative to repo root); dev DB at `data-dev/`.
 - The active DB is selected ONLY via the `BOKLI_DB_PATH` env var, normally set in
-  `.env.local` (git-ignored). If `.env.local` is missing, the server silently
-  falls back to the PROD database — never delete it without replacing
-  `BOKLI_DB_PATH`.
+  `.env.local` (git-ignored) for dev and `.env` / the systemd unit for prod.
+  There is NO fallback: if `BOKLI_DB_PATH` is unset, the app, migrations, and
+  drizzle-kit throw a hard error. Never "fix" that error by pointing dev at the
+  prod DB path.
 - Any destructive command on a DB: first verify the resolved path points at
   `data-dev/`.
 

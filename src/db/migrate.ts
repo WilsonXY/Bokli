@@ -22,7 +22,7 @@ export function resolveMigrationsFolder(): string {
 
 /**
  * Apply Drizzle migrations to a database.
- * Uses BOKLI_DB_PATH (default ./data/bokli.db) unless a path is given.
+ * Uses BOKLI_DB_PATH (required; throws if unset) unless a path is given.
  */
 export function runMigrations(customDbPath?: string): { db: Db } {
   const folder = resolveMigrationsFolder();
