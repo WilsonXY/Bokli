@@ -12,23 +12,19 @@ import { getTodayInKualaLumpur, isFutureDateInKL } from "@/lib/datetime";
 import { isValidDateStr, subSen, sumSen } from "@/lib/money";
 import { COST_CATEGORIES, type CostCategory } from "@/lib/vocab";
 import {
+  COST_CATEGORIES,
+  isOtherNoteMissing,
+  isValidCostCategory,
+  type CostCategory,
+} from "@/lib/vocab";
+import {
   ClosedMonthError,
   FutureDateError,
   NotFoundError,
   ValidationError,
 } from "./errors";
 
-export type { CostCategory };
-
-/**
- * Checks whether a category is a valid Cost Category per CONTEXT.md.
- */
-export function isValidCostCategory(category: unknown): category is CostCategory {
-  return (
-    typeof category === "string" &&
-    COST_CATEGORIES.includes(category as CostCategory)
-  );
-}
+export { COST_CATEGORIES, isValidCostCategory, type CostCategory };
 
 /**
  * Validates that an amount is a non-negative integer representing sen (MYR minor units).
@@ -143,7 +139,7 @@ export function validateCostLines(
     }
 
     const trimmedNote = assertValidNote((line as ReplaceCostLineInput).note);
-    if ((line as ReplaceCostLineInput).category === "other" && !trimmedNote) {
+    if (isOtherNoteMissing((line as ReplaceCostLineInput).category, trimmedNote)) {
       throw new ValidationError(
         "Note is required when Cost Category is 'other'",
         "otherNoteRequired",
@@ -377,7 +373,7 @@ export function addCostLine(
   }
 
   const trimmedNote = assertValidNote(note);
-  if (category === "other" && !trimmedNote) {
+  if (isOtherNoteMissing(category, trimmedNote)) {
     throw new ValidationError(
       "Note is required when Cost Category is 'other'",
       "otherNoteRequired",
@@ -480,7 +476,7 @@ export function replaceCostLines(
         `Invalid Cost Category: "${String(item.category)}". Must be one of: ${COST_CATEGORIES.join(", ")}`,
       );
     }
-    if (item.category === "other" && !item.note) {
+    if (isOtherNoteMissing(item.category, item.note)) {
       throw new ValidationError(
         "Note is required when Cost Category is 'other'",
         "otherNoteRequired",
@@ -573,7 +569,7 @@ export function updateCostLine(
     finalNote = existingLine.note;
   }
 
-  if (finalCategory === "other" && !finalNote) {
+  if (isOtherNoteMissing(finalCategory, finalNote)) {
     throw new ValidationError(
       "Note is required when Cost Category is 'other'",
       "otherNoteRequired",
