@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
+import { eq } from "drizzle-orm";
 
 import { openDb, type Db } from "@/db";
 import { runMigrations } from "@/db/migrate";
@@ -630,5 +631,180 @@ describe("8. API Routes (/api/close and /api/close/reopen)", () => {
     expect(adminBody.close.reopenReason).toBe(
       "Approved correction for missing fuel expense",
     );
+  });
+});
+
+describe("9. Atomicity: close and reopen run in a single transaction", () => {
+  /**
+   * Wraps a Db so the callback handed to db.transaction runs for real against the
+   * transaction and then throws, forcing a rollback. If closeMonth / reopenMonth
+   * did their reads and writes outside a transaction, db.transaction would never
+   * be called and nothing here would fail -> the tests below would not reject.
+   */
+  function failAfterTransactionBody(realDb: Db, error: Error): Db {
+    return new Proxy(realDb as object, {
+      get(target, prop) {
+        if (prop === "transaction") {
+          return (cb: (tx: unknown) => unknown, config?: unknown) =>
+            (target as Db).transaction(
+              (tx) => {
+                cb(tx);
+                throw error;
+              },
+              config as never,
+            );
+        }
+        const value = Reflect.get(target, prop, target);
+        return typeof value === "function" ? value.bind(target) : value;
+      },
+    }) as Db;
+  }
+
+  function closeRowsFor(month: string) {
+    return db
+      .select()
+      .from(monthCloses)
+      .where(eq(monthCloses.month, month))
+      .all();
+  }
+
+  it("leaves no partial close row when the transaction body fails (insert path)", async () => {
+    const MONTH = "2025-06";
+    const MOCK_NOW = new Date("2025-06-30T12:00:00Z");
+
+    const sheet = await getOrCreateSheet(`${MONTH}-01`, { db, now: MOCK_NOW });
+    await setRevenue(sheet.id, 30000, 10000, { db });
+    // Net = 40000 sen; reconciliation matches so nothing else can reject.
+
+    const boom = new Error("Simulated failure inside the Month Close transaction");
+    const failingDb = failAfterTransactionBody(db, boom);
+
+    await expect(
+      closeMonth(MONTH, 30000, 10000, null, { db: failingDb, now: MOCK_NOW }),
+    ).rejects.toThrow(boom);
+
+    // The close row must have been rolled back, not partially committed.
+    expect(closeRowsFor(MONTH)).toHaveLength(0);
+    expect(await getClose(MONTH, { db })).toBeNull();
+
+    // The month is still open, so edits remain allowed.
+    const stillEditable = await setRevenue(sheet.id, 31000, 10000, { db });
+    expect(stillEditable.cashSen).toBe(31000);
+  });
+
+  it("leaves the reopened close row untouched when re-closing fails (update path)", async () => {
+    const MONTH = "2025-07";
+    const MOCK_NOW = new Date("2025-07-31T12:00:00Z");
+
+    const sheet = await getOrCreateSheet(`${MONTH}-01`, { db, now: MOCK_NOW });
+    await setRevenue(sheet.id, 20000, 5000, { db });
+
+    // First close: Net = 25000 sen
+    await closeMonth(MONTH, 20000, 5000, null, { db, now: MOCK_NOW });
+    const reason = "Missing restock receipt";
+    await reopenMonth(MONTH, reason, { role: "Admin", db, now: MOCK_NOW });
+
+    const before = closeRowsFor(MONTH)[0];
+    expect(before.netSen).toBe(25000);
+    expect(before.reopenedAt).toBe(MOCK_NOW.toISOString());
+
+    // Change the numbers so a successful re-close would write a different snapshot.
+    await setRevenue(sheet.id, 90000, 5000, { db });
+
+    const boom = new Error("Simulated failure inside the re-close transaction");
+    await expect(
+      closeMonth(MONTH, 95000, 0, null, {
+        db: failAfterTransactionBody(db, boom),
+        now: MOCK_NOW,
+      }),
+    ).rejects.toThrow(boom);
+
+    // Snapshot and reopen fields must be exactly as before the failed re-close.
+    const after = closeRowsFor(MONTH)[0];
+    expect(after.netSen).toBe(25000);
+    expect(after.revenueSen).toBe(25000);
+    expect(after.cashOnHandSen).toBe(20000);
+    expect(after.tngOnHandSen).toBe(5000);
+    expect(after.reopenedAt).toBe(MOCK_NOW.toISOString());
+    expect(after.reopenReason).toBe(reason);
+    expect(after.closedAt).toBe(before.closedAt);
+  });
+
+  it("leaves the close row locked when reopenMonth fails mid-transaction", async () => {
+    const MONTH = "2025-08";
+    const MOCK_NOW = new Date("2025-08-31T12:00:00Z");
+
+    const sheet = await getOrCreateSheet(`${MONTH}-01`, { db, now: MOCK_NOW });
+    await setRevenue(sheet.id, 12000, 3000, { db });
+    await closeMonth(MONTH, 12000, 3000, null, { db, now: MOCK_NOW });
+
+    const boom = new Error("Simulated failure inside the reopen transaction");
+    await expect(
+      reopenMonth(MONTH, "Admin correction", {
+        role: "Admin",
+        db: failAfterTransactionBody(db, boom),
+        now: MOCK_NOW,
+      }),
+    ).rejects.toThrow(boom);
+
+    const after = closeRowsFor(MONTH)[0];
+    expect(after.reopenedAt).toBeNull();
+    expect(after.reopenReason).toBeNull();
+
+    // Month is still closed, so the edit lock still holds.
+    expect(() => setRevenue(sheet.id, 99000, 0, { db })).toThrow(
+      ClosedMonthError,
+    );
+  });
+
+  it("gives a concurrent revenue edit no window between the snapshot and the committed close", async () => {
+    const MONTH = "2025-09";
+    const MOCK_NOW = new Date("2025-09-30T12:00:00Z");
+
+    const sheet = await getOrCreateSheet(`${MONTH}-01`, { db, now: MOCK_NOW });
+    await setRevenue(sheet.id, 40000, 0, { db });
+
+    // Queue an edit that would run at the first yield point inside closeMonth.
+    // With the whole sequence in one synchronous transaction there is no such
+    // point, so this runs only after the close is committed and must be rejected.
+    let editOutcome: unknown = "never ran";
+    queueMicrotask(() => {
+      try {
+        setRevenue(sheet.id, 88888, 0, { db });
+        editOutcome = "committed";
+      } catch (err) {
+        editOutcome = err;
+      }
+    });
+
+    const result = await closeMonth(MONTH, 40000, 0, null, {
+      db,
+      now: MOCK_NOW,
+    });
+
+    expect(editOutcome).toBeInstanceOf(ClosedMonthError);
+    expect(result.revenueSen).toBe(40000);
+    expect(result.netSen).toBe(40000);
+
+    // The committed snapshot matches the data as of the close, with no edit lost.
+    const persisted = await getClose(MONTH, { db });
+    expect(persisted!.revenueSen).toBe(40000);
+    const sheetAfter = await getSheetWithCosts(`${MONTH}-01`, { db });
+    expect(sheetAfter!.sheet.cashSen).toBe(40000);
+  });
+
+  it("writes no close row when the reconciliation note is missing on a mismatch", async () => {
+    const MONTH = "2025-10";
+    const MOCK_NOW = new Date("2025-10-31T12:00:00Z");
+
+    const sheet = await getOrCreateSheet(`${MONTH}-01`, { db, now: MOCK_NOW });
+    await setRevenue(sheet.id, 10000, 0, { db });
+
+    await expect(
+      closeMonth(MONTH, 9000, 0, null, { db, now: MOCK_NOW }),
+    ).rejects.toThrow(ValidationError);
+
+    expect(closeRowsFor(MONTH)).toHaveLength(0);
+    expect(await getClose(MONTH, { db })).toBeNull();
   });
 });

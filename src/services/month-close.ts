@@ -14,7 +14,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "./daily-sheet";
-import { getMonthPreview } from "./operating-expense";
+import { getMonthPreviewSync } from "./operating-expense";
 
 export {
   ClosedMonthError,
@@ -80,6 +80,9 @@ export interface MonthCloseHistoryItem extends MonthClose {
  * - reconciliation: expected = netSen; actual = cashOnHandSen + tngOnHandSen
  *   mismatch is WARN ONLY (does not block), but note is REQUIRED on mismatch
  * - stores snapshot, reconciliation inputs, note, and closedAt
+ * - the already-closed / sheets-count reads, the live snapshot and the close row
+ *   write all run inside a single transaction, so no concurrent revenue or
+ *   Operating Expense edit can land between the snapshot and the committed close
  */
 export async function closeMonth(
   month: string,
@@ -103,92 +106,74 @@ export async function closeMonth(
     );
   }
 
-  // Check if already closed
-  const existing = db
-    .select()
-    .from(monthCloses)
-    .where(eq(monthCloses.month, month))
-    .get();
-
-  if (existing && !existing.reopenedAt) {
-    throw new ClosedMonthError(`Month "${month}" is already closed`);
-  }
-
-  // Check for daily sheets in month
-  const sheetsInMonth = db
-    .select({ id: dailySheets.id })
-    .from(dailySheets)
-    .where(like(dailySheets.date, `${month}-%`))
-    .all();
-
-  if (sheetsInMonth.length === 0 && !options?.confirmEmpty) {
-    throw new ValidationError(
-      `Month "${month}" has zero Daily Sheets. Set confirmEmpty=true to close an empty month.`,
-    );
-  }
-
-  // Validate sen amounts (integer sen, non-negative, no floats)
-  const validCashOnHand = assertValidSen(
-    cashOnHandSen,
-    "Cash on hand (cashOnHandSen)",
-  );
-  const validTngOnHand = assertValidSen(
-    tngOnHandSen,
-    "TnG on hand (tngOnHandSen)",
-  );
-
-  // Live snapshot computation from current data
-  const preview = await getMonthPreview(month, { db });
-
-  // Reconciliation: expected = netSen; actual = cashOnHandSen + tngOnHandSen
-  const expectedSen = preview.netSen;
-  const actualSen = sumSen([validCashOnHand, validTngOnHand]);
-  const differenceSen = subSen(actualSen, expectedSen);
-  const balanced = differenceSen === 0n;
-
-  const trimmedNote = note?.trim() || null;
-
-  // On mismatch -> WARN ONLY (do not block), but note is REQUIRED
-  if (!balanced && !trimmedNote) {
-    throw new ValidationError(
-      `A note is required when Reconciliation has a mismatch (expected: ${expectedSen.toString()} sen, actual: ${actualSen.toString()} sen, difference: ${differenceSen.toString()} sen)`,
-    );
-  }
-
-  const warning = !balanced
-    ? `Reconciliation mismatch: expected ${expectedSen.toString()} sen, actual ${actualSen.toString()} sen (difference: ${differenceSen.toString()} sen)`
-    : undefined;
-
-  const closedAtTimestamp = (options?.now ?? new Date()).toISOString();
-
-  let closeRecord: MonthClose;
-
-  if (existing && existing.reopenedAt) {
-    // Re-closing a previously reopened month: update existing record and reset reopened fields
-    closeRecord = db
-      .update(monthCloses)
-      .set({
-        revenueSen: Number(preview.revenueSen),
-        dailyCostSen: Number(preview.dailyCostSen),
-        grossSen: Number(preview.grossSen),
-        operatingSen: Number(preview.operatingSen),
-        netSen: Number(preview.netSen),
-        cashOnHandSen: Number(validCashOnHand),
-        tngOnHandSen: Number(validTngOnHand),
-        note: trimmedNote,
-        closedAt: closedAtTimestamp,
-        reopenedAt: null,
-        reopenReason: null,
-      })
-      .where(eq(monthCloses.id, existing.id))
-      .returning()
+  // Single transaction: check-then-act reads, the live snapshot and the close row
+  // write must not be separated by a yield point (see getMonthPreviewSync).
+  return db.transaction((tx) => {
+    // Check if already closed
+    const existing = tx
+      .select()
+      .from(monthCloses)
+      .where(eq(monthCloses.month, month))
       .get();
-  } else {
-    try {
-      closeRecord = db
-        .insert(monthCloses)
-        .values({
-          month,
+
+    if (existing && !existing.reopenedAt) {
+      throw new ClosedMonthError(`Month "${month}" is already closed`);
+    }
+
+    // Check for daily sheets in month
+    const sheetsInMonth = tx
+      .select({ id: dailySheets.id })
+      .from(dailySheets)
+      .where(like(dailySheets.date, `${month}-%`))
+      .all();
+
+    if (sheetsInMonth.length === 0 && !options?.confirmEmpty) {
+      throw new ValidationError(
+        `Month "${month}" has zero Daily Sheets. Set confirmEmpty=true to close an empty month.`,
+      );
+    }
+
+    // Validate sen amounts (integer sen, non-negative, no floats)
+    const validCashOnHand = assertValidSen(
+      cashOnHandSen,
+      "Cash on hand (cashOnHandSen)",
+    );
+    const validTngOnHand = assertValidSen(
+      tngOnHandSen,
+      "TnG on hand (tngOnHandSen)",
+    );
+
+    // Live snapshot computation from current data
+    const preview = getMonthPreviewSync(month, { db: tx });
+
+    // Reconciliation: expected = netSen; actual = cashOnHandSen + tngOnHandSen
+    const expectedSen = preview.netSen;
+    const actualSen = sumSen([validCashOnHand, validTngOnHand]);
+    const differenceSen = subSen(actualSen, expectedSen);
+    const balanced = differenceSen === 0n;
+
+    const trimmedNote = note?.trim() || null;
+
+    // On mismatch -> WARN ONLY (do not block), but note is REQUIRED
+    if (!balanced && !trimmedNote) {
+      throw new ValidationError(
+        `A note is required when Reconciliation has a mismatch (expected: ${expectedSen.toString()} sen, actual: ${actualSen.toString()} sen, difference: ${differenceSen.toString()} sen)`,
+      );
+    }
+
+    const warning = !balanced
+      ? `Reconciliation mismatch: expected ${expectedSen.toString()} sen, actual ${actualSen.toString()} sen (difference: ${differenceSen.toString()} sen)`
+      : undefined;
+
+    const closedAtTimestamp = (options?.now ?? new Date()).toISOString();
+
+    let closeRecord: MonthClose;
+
+    if (existing && existing.reopenedAt) {
+      // Re-closing a previously reopened month: update existing record and reset reopened fields
+      closeRecord = tx
+        .update(monthCloses)
+        .set({
           revenueSen: Number(preview.revenueSen),
           dailyCostSen: Number(preview.dailyCostSen),
           grossSen: Number(preview.grossSen),
@@ -198,25 +183,47 @@ export async function closeMonth(
           tngOnHandSen: Number(validTngOnHand),
           note: trimmedNote,
           closedAt: closedAtTimestamp,
+          reopenedAt: null,
+          reopenReason: null,
         })
+        .where(eq(monthCloses.id, existing.id))
         .returning()
         .get();
-    } catch (err: any) {
-      if (String(err?.message).includes("UNIQUE")) {
-        throw new ClosedMonthError(`Month "${month}" is already closed`);
+    } else {
+      try {
+        closeRecord = tx
+          .insert(monthCloses)
+          .values({
+            month,
+            revenueSen: Number(preview.revenueSen),
+            dailyCostSen: Number(preview.dailyCostSen),
+            grossSen: Number(preview.grossSen),
+            operatingSen: Number(preview.operatingSen),
+            netSen: Number(preview.netSen),
+            cashOnHandSen: Number(validCashOnHand),
+            tngOnHandSen: Number(validTngOnHand),
+            note: trimmedNote,
+            closedAt: closedAtTimestamp,
+          })
+          .returning()
+          .get();
+      } catch (err: any) {
+        if (String(err?.message).includes("UNIQUE")) {
+          throw new ClosedMonthError(`Month "${month}" is already closed`);
+        }
+        throw err;
       }
-      throw err;
     }
-  }
 
-  return {
-    ...closeRecord,
-    expectedSen,
-    actualSen,
-    differenceSen,
-    balanced,
-    ...(warning ? { warning } : {}),
-  };
+    return {
+      ...closeRecord,
+      expectedSen,
+      actualSen,
+      differenceSen,
+      balanced,
+      ...(warning ? { warning } : {}),
+    };
+  });
 }
 
 /**
@@ -224,6 +231,7 @@ export async function closeMonth(
  * - Admin-only: caller passes options.role; asserts role === 'Admin'
  * - Sets reopenedAt + reopenReason on the close row
  * - After reopen, edits to Daily Sheets and Operating Expenses are allowed again
+ * - The existence / already-open read and the update run in a single transaction
  */
 export async function reopenMonth(
   month: string,
@@ -250,35 +258,39 @@ export async function reopenMonth(
     throw new ValidationError("A reason is required to reopen a closed month");
   }
 
-  const existing = db
-    .select()
-    .from(monthCloses)
-    .where(eq(monthCloses.month, month))
-    .get();
+  // Single transaction: the check-then-act read and the update must not be
+  // separated, so two concurrent reopens cannot both pass the already-open check.
+  return db.transaction((tx) => {
+    const existing = tx
+      .select()
+      .from(monthCloses)
+      .where(eq(monthCloses.month, month))
+      .get();
 
-  if (!existing) {
-    throw new NotFoundError(`Month close not found for month: "${month}"`);
-  }
+    if (!existing) {
+      throw new NotFoundError(`Month close not found for month: "${month}"`);
+    }
 
-  if (existing.reopenedAt) {
-    throw new ValidationError(
-      `Month "${month}" is already open (reopened at ${existing.reopenedAt})`,
-    );
-  }
+    if (existing.reopenedAt) {
+      throw new ValidationError(
+        `Month "${month}" is already open (reopened at ${existing.reopenedAt})`,
+      );
+    }
 
-  const reopenedAtTimestamp = (options?.now ?? new Date()).toISOString();
+    const reopenedAtTimestamp = (options?.now ?? new Date()).toISOString();
 
-  const updated = db
-    .update(monthCloses)
-    .set({
-      reopenedAt: reopenedAtTimestamp,
-      reopenReason: trimmedReason,
-    })
-    .where(eq(monthCloses.id, existing.id))
-    .returning()
-    .get();
+    const updated = tx
+      .update(monthCloses)
+      .set({
+        reopenedAt: reopenedAtTimestamp,
+        reopenReason: trimmedReason,
+      })
+      .where(eq(monthCloses.id, existing.id))
+      .returning()
+      .get();
 
-  return updated;
+    return updated;
+  });
 }
 
 /**

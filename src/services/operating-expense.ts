@@ -338,11 +338,12 @@ export async function removeOperatingExpense(
  * - operatingSen: sum of all Operating Expenses in month
  * - netSen: Net Profit = grossSen - operatingSen
  * All calculations use integer sen via Money helpers (no floats).
+ * Synchronous so it can run inside a better-sqlite3 transaction callback.
  */
-export async function getMonthPreview(
+export function getMonthPreviewSync(
   month: string,
   options?: { db?: Db },
-): Promise<MonthPreview> {
+): MonthPreview {
   const db = options?.db ?? getDb().db;
 
   if (!isValidMonthStr(month)) {
@@ -398,4 +399,17 @@ export async function getMonthPreview(
     operatingSen,
     netSen,
   };
+}
+
+/**
+ * Async form of {@link getMonthPreviewSync}, kept as the default entry point so
+ * existing callers (and their rejects-on-invalid-month contract) are unchanged.
+ * Callers running inside a better-sqlite3 transaction must use the sync form:
+ * the transaction callback cannot await.
+ */
+export async function getMonthPreview(
+  month: string,
+  options?: { db?: Db },
+): Promise<MonthPreview> {
+  return getMonthPreviewSync(month, options);
 }
