@@ -6,31 +6,15 @@ import {
   type MonthClose,
 } from "@/db/schema";
 import { isValidMonthStr, subSen, sumSen } from "@/lib/money";
+import { assertValidSen, getTodayInKualaLumpur } from "./daily-sheet";
 import {
-  assertValidSen,
   ClosedMonthError,
+  ForbiddenError,
   FutureDateError,
-  getTodayInKualaLumpur,
   NotFoundError,
   ValidationError,
-} from "./daily-sheet";
+} from "./errors";
 import { getMonthPreviewSync } from "./operating-expense";
-
-export {
-  ClosedMonthError,
-  FutureDateError,
-  NotFoundError,
-  ValidationError,
-} from "./daily-sheet";
-
-export class ForbiddenError extends Error {
-  constructor(
-    message: string = "Forbidden: Admin role required to reopen a closed month",
-  ) {
-    super(message);
-    this.name = "ForbiddenError";
-  }
-}
 
 /**
  * Check whether a month ("YYYY-MM") is in the future in Asia/Kuala_Lumpur wall time.

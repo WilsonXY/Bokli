@@ -19,8 +19,8 @@ import {
   getCashTngSplit,
   hasMonthData,
   listMonthTiles,
-  ValidationError,
 } from "./dashboard";
+import { ValidationError } from "./errors";
 import { addCostLine, getOrCreateSheet, setRevenue } from "./daily-sheet";
 import { addOperatingExpense } from "./operating-expense";
 import { closeMonth, reopenMonth } from "./month-close";

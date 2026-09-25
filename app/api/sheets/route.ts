@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/auth/guard";
 import { getDb } from "@/db";
 import * as dailySheetService from "@/services/daily-sheet";
-import { getSheetWithCosts } from "@/services/daily-sheet";
 import { handleError } from "@/services/errors";
 
-function formatSheetResponse(result: NonNullable<ReturnType<typeof getSheetWithCosts>>) {
+function formatSheetResponse(
+  result: NonNullable<ReturnType<typeof dailySheetService.getSheetWithCosts>>,
+) {
   return {
     sheet: result.sheet,
     costLines: result.costLines,
