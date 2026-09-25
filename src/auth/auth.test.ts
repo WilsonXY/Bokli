@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { execSync } from "node:child_process";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { eq } from "drizzle-orm";
 
@@ -14,7 +14,7 @@ import { seedUsers } from "@/db/seed";
 import { resetPassword, readPassword } from "@/cli/reset-password";
 import { hashPassword, verifyPassword } from "./password";
 import { authConfig, SESSION_MAX_AGE, resolveCookieSecure } from "./config";
-import { authGuard, withAuth, isProtectedApiPath } from "./guard";
+import { authGuard, withAuth, isProtectedApiPath, type AuthSession } from "./guard";
 import { handlers } from "./index";
 import { POST as closePost } from "../../app/api/close/route";
 import middleware from "../../middleware";
@@ -163,6 +163,21 @@ describe("seeded family users (db:seed)", () => {
   });
 });
 
+/**
+ * Counts how many times a request's `cookie` header is read. `resolveSession`
+ * reads it exactly once per cookie-based session resolution, so this is a
+ * module-instance-independent way to count resolutions per request.
+ */
+function countCookieReads(req: NextRequest): () => number {
+  const names: string[] = [];
+  const realGet = req.headers.get.bind(req.headers);
+  vi.spyOn(req.headers, "get").mockImplementation((name: string) => {
+    names.push(name.toLowerCase());
+    return realGet(name);
+  });
+  return () => names.filter((n) => n === "cookie").length;
+}
+
 describe("auth guard", () => {
   it("identifies protected vs public API paths", () => {
     expect(isProtectedApiPath("/api/close")).toBe(true);
@@ -204,6 +219,31 @@ describe("auth guard", () => {
     const anonReq = new NextRequest("http://localhost:3000/api/close");
     const anonRes = await mockHandler(anonReq);
     expect(anonRes.status).toBe(401);
+  });
+
+  it("withAuth reuses a session already attached to the request instead of re-resolving it", async () => {
+    const attached: AuthSession = {
+      user: { id: "1", name: "mom", role: "Operator" },
+      expires: "2099-01-01T00:00:00.000Z",
+    };
+    const req = Object.assign(new NextRequest("http://localhost:3000/api/close"), {
+      auth: attached,
+    });
+    const cookieReads = countCookieReads(req);
+
+    let handedToHandler: AuthSession | undefined;
+    const route = withAuth(async (_req, session) => {
+      handedToHandler = session;
+      return new Response(null, { status: 204 });
+    });
+
+    const res = await route(req);
+
+    expect(res.status).toBe(204);
+    // The very same session object reaches the handler — never { user: undefined }.
+    expect(handedToHandler).toBe(attached);
+    // req.auth wins outright: no cookie resolution is attempted at all.
+    expect(cookieReads()).toBe(0);
   });
 
   it("protects the close API route handler directly", async () => {
@@ -311,6 +351,23 @@ describe("end-to-end credentials login and API access", () => {
     expect(body.ok).toBe(true);
     expect(body.user.name).toBe("mom");
     expect(body.user.role).toBe("Operator");
+
+    // 4a. That cookie session is decoded exactly once per request: the guard and
+    //     the handler share a single resolution instead of each doing their own.
+    const countedReq = new NextRequest("http://localhost:3000/api/close", {
+      headers: {
+        Cookie: sessionTokenCookie!,
+        "x-forwarded-proto": "http",
+        Host: "localhost:3000",
+      },
+    });
+    const cookieReads = countCookieReads(countedReq);
+    const countedRes = await probeRoute(countedReq);
+    const countedBody = (await countedRes.json()) as any;
+
+    expect(countedRes.status).toBe(200);
+    expect(countedBody.user.name).toBe("mom");
+    expect(cookieReads()).toBe(1);
 
     // 4b. The real protected route admits the session: it reaches the handler
     //     and fails payload validation with 400 rather than being rejected 401.
