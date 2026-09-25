@@ -39,6 +39,10 @@ npm run reset-password -- <username>
 npm run reset-password -- mom
 npm run reset-password -- katte
 ```
+Sessions are 30-day JWTs, so a password reset alone does **not** log out existing
+sessions — `AUTH_SECRET` must be rotated afterwards (audit decision #6). The CLI
+does not read `.env`/`.env.local`, so `BOKLI_DB_PATH` must be supplied on the
+command line. Full procedure: [Runbook: Password Reset + AUTH_SECRET Rotation](../docs/runbook-password-reset.md).
 
 ---
 
