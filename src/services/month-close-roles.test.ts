@@ -7,7 +7,8 @@ import { NextRequest } from "next/server";
 import { openDb, type Db } from "@/db";
 import { runMigrations } from "@/db/migrate";
 import { getOrCreateSheet, setRevenue } from "./daily-sheet";
-import { ForbiddenError, reopenMonth } from "./month-close";
+import { ForbiddenError } from "./errors";
+import { reopenMonth } from "./month-close";
 import { POST as closePost } from "../../app/api/close/route";
 import { POST as reopenPost } from "../../app/api/close/reopen/route";
 
