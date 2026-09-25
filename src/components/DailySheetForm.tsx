@@ -35,6 +35,9 @@ export interface DailySheetFormProps {
 
 const MAX_SAFE_SEN = Number.MAX_SAFE_INTEGER; // 9007199254740991
 
+// How long the save-success banner stays visible before it auto-dismisses.
+const SUCCESS_BANNER_MS = 3500;
+
 export function normalizeNote(note?: unknown): string {
   if (typeof note !== "string") {
     return "";
@@ -470,6 +473,43 @@ export function DailySheetForm({
   }, [showConfirmModal, pendingDeleteIndex]);
   const [errorMessage, setErrorMessage] = useState<string | null>(initialErrorMessage);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // The success banner is owned by a single timer. Every show/dismiss cancels the
+  // pending expiry first, so a timeout armed by an earlier save can never wipe a
+  // banner raised by a later one (two saves inside SUCCESS_BANNER_MS).
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function clearSuccessTimer() {
+    if (successTimerRef.current !== null) {
+      clearTimeout(successTimerRef.current);
+      successTimerRef.current = null;
+    }
+  }
+
+  // Banner-only: deliberately touches no draft state, so dismissing it while a
+  // save is in flight cannot disturb the operator's in-flight edits.
+  function dismissSuccessMessage() {
+    clearSuccessTimer();
+    setSuccessMessage(null);
+  }
+
+  function showSuccessMessage(message: string) {
+    clearSuccessTimer();
+    setSuccessMessage(message);
+    successTimerRef.current = setTimeout(() => {
+      successTimerRef.current = null;
+      setSuccessMessage(null);
+    }, SUCCESS_BANNER_MS);
+  }
+
+  // Drop a pending expiry when the form unmounts
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current !== null) {
+        clearTimeout(successTimerRef.current);
+      }
+    };
+  }, []);
   const [noteErrorIndex, setNoteErrorIndex] = useState<number | null>(initialNoteErrorIndex);
   const [costAmountErrorIndex, setCostAmountErrorIndex] = useState<number | null>(initialCostAmountErrorIndex);
   const noteErrorRef = useRef<HTMLInputElement | null>(null);
@@ -594,6 +634,7 @@ export function DailySheetForm({
     ) {
       setCostAmountErrorIndex(null);
     }
+    if (successMessage) dismissSuccessMessage();
     setExpandedIndex(index);
     setCostLines((prev) =>
       prev.map((line, i) => (i === index ? { ...line, ...patch } : line))
@@ -661,7 +702,7 @@ export function DailySheetForm({
     }
     setNoteErrorIndex(null);
     setErrorMessage(null);
-    setSuccessMessage(null);
+    dismissSuccessMessage();
 
     setSaving(true);
 
@@ -710,8 +751,7 @@ export function DailySheetForm({
         setTngInput(savedTng);
       }
 
-      setSuccessMessage(t.saveSuccess);
-      setTimeout(() => setSuccessMessage(null), 3500);
+      showSuccessMessage(t.saveSuccess);
       startTransition(() => {
         router.refresh();
       });
@@ -859,6 +899,7 @@ export function DailySheetForm({
                   if (sanitized !== null) {
                     setCashInput(sanitized);
                     if (errorMessage) setErrorMessage(null);
+                    if (successMessage) dismissSuccessMessage();
                   }
                 }}
                 placeholder="0.00"
@@ -905,6 +946,7 @@ export function DailySheetForm({
                   if (sanitized !== null) {
                     setTngInput(sanitized);
                     if (errorMessage) setErrorMessage(null);
+                    if (successMessage) dismissSuccessMessage();
                   }
                 }}
                 placeholder="0.00"
@@ -1206,7 +1248,7 @@ export function DailySheetForm({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSuccessMessage(null)}
+                  onClick={dismissSuccessMessage}
                   className="text-xs font-bold ml-2 text-ink-muted hover:text-brand-broccoli w-7 h-7 flex items-center justify-center rounded-md shrink-0"
                   aria-label="Close"
                 >
