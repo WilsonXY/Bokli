@@ -25,6 +25,12 @@ export function resolveDbPath(env: NodeJS.ProcessEnv = process.env): string {
 
 export type Db = BetterSQLite3Database<typeof schema>;
 
+/** The transaction handle drizzle hands to a `db.transaction(tx => ...)` callback. */
+export type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
+
+/** Anything a service can run queries against: the pooled db or an open transaction. */
+export type DbLike = Db | Tx;
+
 export function openDb(dbPath?: string): { db: Db; sqlite: Database.Database } {
   const resolved = dbPath ? path.resolve(dbPath) : resolveDbPath();
   fs.mkdirSync(path.dirname(resolved), { recursive: true });

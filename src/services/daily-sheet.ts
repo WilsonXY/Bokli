@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { getDb, type Db } from "@/db";
+import { getDb, type DbLike } from "@/db";
 import {
   costLines,
   dailySheets,
@@ -203,7 +203,7 @@ export function validateCostLines(
 /**
  * Check if a month ("YYYY-MM") is currently closed (has a month_closes record and reopenedAt IS NULL).
  */
-export function isMonthClosed(month: string, db: Db): boolean {
+export function isMonthClosed(month: string, db: DbLike): boolean {
   const close = db
     .select()
     .from(monthCloses)
@@ -216,7 +216,7 @@ export function isMonthClosed(month: string, db: Db): boolean {
 /**
  * Asserts that a month is open for edits. Throws ClosedMonthError if closed.
  */
-export function assertMonthNotClosed(month: string, db: Db): void {
+export function assertMonthNotClosed(month: string, db: DbLike): void {
   if (isMonthClosed(month, db)) {
     throw new ClosedMonthError(
       `Month "${month}" is closed and cannot be edited`,
@@ -241,7 +241,7 @@ export interface DailySheetWithCosts {
  */
 export function getOrCreateSheet(
   date: string,
-  options?: { db?: Db; now?: Date },
+  options?: { db?: DbLike; now?: Date },
 ): DailySheet {
   const db = options?.db ?? getDb().db;
 
@@ -303,7 +303,7 @@ export function getOrCreateSheet(
  */
 export function getSheetByDate(
   date: string,
-  options?: { db?: Db },
+  options?: { db?: DbLike },
 ): DailySheet | null {
   const db = options?.db ?? getDb().db;
 
@@ -331,7 +331,7 @@ export function setRevenue(
   sheetId: number,
   cashSen: number | bigint,
   tngSen: number | bigint,
-  options?: { db?: Db },
+  options?: { db?: DbLike },
 ): DailySheet {
   const db = options?.db ?? getDb().db;
 
@@ -378,7 +378,7 @@ export function addCostLine(
   amountSen: number | bigint,
   category: CostCategory,
   note?: unknown,
-  options?: { db?: Db },
+  options?: { db?: DbLike },
 ): CostLine {
   const db = options?.db ?? getDb().db;
 
@@ -452,7 +452,7 @@ export interface ReplaceCostLineInput {
 export function replaceCostLines(
   sheetId: number,
   lines: ReplaceCostLineInput[],
-  options?: { db?: Db },
+  options?: { db?: DbLike },
 ): CostLine[] {
   const db = options?.db ?? getDb().db;
 
@@ -571,7 +571,7 @@ export interface UpdateCostLineInput {
 export function updateCostLine(
   costLineId: number,
   updates: UpdateCostLineInput,
-  options?: { db?: Db },
+  options?: { db?: DbLike },
 ): CostLine {
   const db = options?.db ?? getDb().db;
 
@@ -660,7 +660,7 @@ export function updateCostLine(
  */
 export function removeCostLine(
   costLineId: number,
-  options?: { db?: Db },
+  options?: { db?: DbLike },
 ): { success: boolean; removedLine: CostLine } {
   const db = options?.db ?? getDb().db;
 
@@ -709,7 +709,7 @@ export function removeCostLine(
  */
 export function getSheetWithCosts(
   date: string,
-  options?: { db?: Db },
+  options?: { db?: DbLike },
 ): DailySheetWithCosts | null {
   const db = options?.db ?? getDb().db;
 

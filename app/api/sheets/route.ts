@@ -1,14 +1,8 @@
-import { eq } from "drizzle-orm";
-import { costLines } from "@/db/schema";
 import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/auth/guard";
 import { getDb } from "@/db";
 import * as dailySheetService from "@/services/daily-sheet";
-import {
-  CostCategory,
-  getSheetWithCosts,
-  ValidationError,
-} from "@/services/daily-sheet";
+import { getSheetWithCosts } from "@/services/daily-sheet";
 import { handleError } from "@/services/errors";
 
 function formatSheetResponse(result: NonNullable<ReturnType<typeof getSheetWithCosts>>) {
@@ -23,7 +17,8 @@ function formatSheetResponse(result: NonNullable<ReturnType<typeof getSheetWithC
 
 /**
  * POST /api/sheets
- * Create / ensure a Daily Sheet for a date, optionally setting revenue or adding/replacing cost lines.
+ * Save a Daily Sheet for a date: create-or-get the sheet, optionally set revenue,
+ * and replace its Cost Lines with the submitted list. All-or-nothing.
  */
 export const POST = withAuth(async (req: NextRequest) => {
   try {
@@ -36,29 +31,6 @@ export const POST = withAuth(async (req: NextRequest) => {
       );
     }
 
-    // Direct-insert path: append-only single-line add (via sheetId + category + amountSen, or action: "addCostLine").
-    // Hardening: To ensure the sheet-save flow (which specifies 'date' and optional 'costLines' array) cannot
-    // accidentally trigger this single-line append branch, we only enter this branch if action is explicitly
-    // "addCostLine" OR if sheetId + category + amountSen are provided WITHOUT sheet-save fields (no 'date' and no 'costLines').
-    const isDirectAddCostLine =
-      body.action === "addCostLine" ||
-      (!body.date && !Array.isArray(body.costLines) && body.sheetId !== undefined && body.category !== undefined && body.amountSen !== undefined);
-
-    if (isDirectAddCostLine) {
-      const sheetId = Number(body.sheetId);
-      if (!Number.isInteger(sheetId) || sheetId <= 0) {
-        return NextResponse.json({ error: "Valid sheetId is required" }, { status: 400 });
-      }
-      const line = dailySheetService.addCostLine(
-        sheetId,
-        body.amountSen,
-        body.category as CostCategory,
-        body.note,
-      );
-      return NextResponse.json({ costLine: line }, { status: 201 });
-    }
-
-    // Standard sheet creation / lookup by date
     if (!body.date || typeof body.date !== "string") {
       return NextResponse.json(
         { error: "Field 'date' is required (format: YYYY-MM-DD)" },
@@ -66,89 +38,30 @@ export const POST = withAuth(async (req: NextRequest) => {
       );
     }
 
-    // Ambiguity check: Reject if both full save (costLines array) and legacy fields (amountSen/category) are present
-    if (
-      Array.isArray(body.costLines) &&
-      (body.amountSen !== undefined || body.category !== undefined)
-    ) {
+    if (!Array.isArray(body.costLines)) {
       return NextResponse.json(
-        {
-          error:
-            "Ambiguous request body: both 'costLines' and legacy single-line fields ('amountSen'/'category') were provided. Please use 'costLines' exclusively.",
-        },
+        { error: "Field 'costLines' is required and must be an array" },
         { status: 400 },
       );
     }
 
-    // Validate costLines fully BEFORE setRevenue if costLines was provided
-    if (body.costLines !== undefined) {
-      dailySheetService.validateCostLines(body.costLines);
-    }
+    // Validate costLines fully BEFORE setRevenue so a bad line cannot persist revenue.
+    dailySheetService.validateCostLines(body.costLines);
 
     const { db } = getDb();
 
     // Single drizzle db.transaction wrapping create-or-get sheet + setRevenue + replaceCostLines so POST is all-or-nothing
     const sheet = db.transaction((tx) => {
-      const currentSheet = dailySheetService.getOrCreateSheet(body.date, { db: tx as any });
+      const currentSheet = dailySheetService.getOrCreateSheet(body.date, { db: tx });
 
       // Optional revenue setup
       if (body.cashSen !== undefined || body.tngSen !== undefined) {
         const cash = body.cashSen !== undefined ? body.cashSen : currentSheet.cashSen;
         const tng = body.tngSen !== undefined ? body.tngSen : currentSheet.tngSen;
-        dailySheetService.setRevenue(currentSheet.id, cash, tng, { db: tx as any });
+        dailySheetService.setRevenue(currentSheet.id, cash, tng, { db: tx });
       }
 
-      // Cost lines replacement / addition:
-      // When body.costLines is an array, call replaceCostLines instead of looping addCostLine (idempotent re-save).
-      if (Array.isArray(body.costLines)) {
-        dailySheetService.replaceCostLines(currentSheet.id, body.costLines, { db: tx as any });
-      } else if (body.amountSen !== undefined || body.category !== undefined) {
-        if (body.amountSen === undefined) {
-          throw new ValidationError("Field 'amountSen' is required when 'category' is provided");
-        }
-        if (!body.category) {
-          throw new ValidationError("Field 'category' is required when 'amountSen' is provided");
-        }
-
-        const validAmount = dailySheetService.assertValidSen(
-          body.amountSen,
-          "Daily Cost amount (amountSen)",
-        );
-        if (!dailySheetService.isValidCostCategory(body.category)) {
-          throw new ValidationError(
-            `Invalid Cost Category: "${String(body.category)}". Must be one of: ${dailySheetService.COST_CATEGORIES.join(", ")}`,
-          );
-        }
-        const trimmedNote = dailySheetService.assertValidNote(body.note);
-        if (body.category === "other" && !trimmedNote) {
-          throw new ValidationError("Note is required when Cost Category is 'other'");
-        }
-        dailySheetService.assertPositiveCostAmount(validAmount, body.category, trimmedNote);
-
-        // Idempotent legacy check: do not duplicate identical cost line on retry
-        const existingLines = tx
-          .select()
-          .from(costLines)
-          .where(eq(costLines.dailySheetId, currentSheet.id))
-          .all();
-
-        const alreadyExists = existingLines.some(
-          (line) =>
-            line.category === body.category &&
-            line.amountSen === Number(validAmount) &&
-            (line.note?.trim() || null) === trimmedNote,
-        );
-
-        if (!alreadyExists) {
-          dailySheetService.addCostLine(
-            currentSheet.id,
-            validAmount,
-            body.category as CostCategory,
-            trimmedNote,
-            { db: tx as any },
-          );
-        }
-      }
+      dailySheetService.replaceCostLines(currentSheet.id, body.costLines, { db: tx });
 
       return currentSheet;
     });

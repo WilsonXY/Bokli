@@ -486,6 +486,10 @@ describe("6. API routes and auth guard protection (/api/sheets)", () => {
         date: "2026-09-06",
         cashSen: 12000,
         tngSen: 6000,
+        costLines: [
+          { amountSen: 3000, category: "restock" },
+          { amountSen: 1500, category: "gas" },
+        ],
       }),
     });
     const resaveRes = await sheetsPost(resaveReq);
@@ -494,11 +498,30 @@ describe("6. API routes and auth guard protection (/api/sheets)", () => {
     expect(resaveData.totalRevenueSen).toBe(18000);
     expect(resaveData.costLines).toHaveLength(2);
 
+    // 2b. Revenue-only save (no costLines) is no longer accepted: costLines is required
+    const revenueOnlyReq = makeAuthReq("http://localhost:3000/api/sheets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: "2026-09-06",
+        cashSen: 13000,
+        tngSen: 7000,
+      }),
+    });
+    const revenueOnlyRes = await sheetsPost(revenueOnlyReq);
+    expect(revenueOnlyRes.status).toBe(400);
+    const revenueOnlyBody = await revenueOnlyRes.json();
+    expect(revenueOnlyBody.error).toMatch(/'costLines' is required/);
+
+    // Revenue must NOT have been touched by the rejected request
+    const afterReject = getSheetWithCosts("2026-09-06", { db });
+    expect(Number(afterReject!.totalRevenueSen)).toBe(18000);
+
     // 3. Input validation: invalid date returns 400 with clear message
     const badDateReq = makeAuthReq("http://localhost:3000/api/sheets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date: "not-a-date" }),
+      body: JSON.stringify({ date: "not-a-date", costLines: [] }),
     });
     const badDateRes = await sheetsPost(badDateReq);
     expect(badDateRes.status).toBe(400);
@@ -751,18 +774,15 @@ describe("7. Idempotent cost line replacement and hardening (Option A)", () => {
     expect(dbLines).toHaveLength(2);
   });
 
-  it("hardening: direct-insert stays append-only single-line add and sheet-save cannot trigger it accidentally", async () => {
+  it("retired legacy POST branches: direct-add and single-line shapes now return 400", async () => {
     const sheet = getOrCreateSheet("2026-09-07", { db });
 
     // Sheet currently has 2 lines from the previous test
-    let currentLines = db
-      .select()
-      .from(costLines)
-      .where(eq(costLines.dailySheetId, sheet.id))
-      .all();
-    expect(currentLines).toHaveLength(2);
+    const linesFor = (sheetId: number) =>
+      db.select().from(costLines).where(eq(costLines.dailySheetId, sheetId)).all();
+    expect(linesFor(sheet.id)).toHaveLength(2);
 
-    // 1. Direct-insert with action: "addCostLine" appends a single line
+    // 1. Direct-add via action: "addCostLine" is gone -> 400 (no 'date')
     const directActionReq = makeAuthReq("http://localhost:3000/api/sheets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -774,20 +794,10 @@ describe("7. Idempotent cost line replacement and hardening (Option A)", () => {
       }),
     });
     const directActionRes = await sheetsPost(directActionReq);
-    expect(directActionRes.status).toBe(201);
-    const directActionData = await directActionRes.json();
-    expect(directActionData.costLine.category).toBe("transport");
-    expect(directActionData.costLine.amountSen).toBe(500);
+    expect(directActionRes.status).toBe(400);
+    expect((await directActionRes.json()).error).toMatch(/'date' is required/);
 
-    // Now 3 lines
-    currentLines = db
-      .select()
-      .from(costLines)
-      .where(eq(costLines.dailySheetId, sheet.id))
-      .all();
-    expect(currentLines).toHaveLength(3);
-
-    // 2. Direct-insert with sheetId + category + amountSen (no date, no costLines) appends a single line
+    // 2. Direct-add via sheetId + category + amountSen (no date) is gone -> 400
     const directFieldsReq = makeAuthReq("http://localhost:3000/api/sheets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -798,21 +808,13 @@ describe("7. Idempotent cost line replacement and hardening (Option A)", () => {
       }),
     });
     const directFieldsRes = await sheetsPost(directFieldsReq);
-    expect(directFieldsRes.status).toBe(201);
-    const directFieldsData = await directFieldsRes.json();
-    expect(directFieldsData.costLine.category).toBe("wages-daily");
-    expect(directFieldsData.costLine.amountSen).toBe(1200);
+    expect(directFieldsRes.status).toBe(400);
+    expect((await directFieldsRes.json()).error).toMatch(/'date' is required/);
 
-    // Now 4 lines
-    currentLines = db
-      .select()
-      .from(costLines)
-      .where(eq(costLines.dailySheetId, sheet.id))
-      .all();
-    expect(currentLines).toHaveLength(4);
+    // Neither rejected request wrote anything
+    expect(linesFor(sheet.id)).toHaveLength(2);
 
-    // 3. Sheet-save flow with date + costLines + extraneous sheetId does NOT trigger direct-insert;
-    // it replaces costLines with the provided array
+    // 3. Sheet-save flow with an extraneous sheetId still saves normally
     const sheetSaveWithSheetIdReq = makeAuthReq("http://localhost:3000/api/sheets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -827,19 +829,14 @@ describe("7. Idempotent cost line replacement and hardening (Option A)", () => {
     const sheetSaveRes = await sheetsPost(sheetSaveWithSheetIdReq);
     expect(sheetSaveRes.status).toBe(201);
     const sheetSaveData = await sheetSaveRes.json();
-    // It replaced the 4 lines with the 1 submitted line
+    // It replaced the 2 lines with the 1 submitted line
     expect(sheetSaveData.costLines).toHaveLength(1);
     expect(sheetSaveData.costLines[0].category).toBe("maintenance");
+    expect(linesFor(sheet.id)).toHaveLength(1);
 
-    currentLines = db
-      .select()
-      .from(costLines)
-      .where(eq(costLines.dailySheetId, sheet.id))
-      .all();
-    expect(currentLines).toHaveLength(1);
-
-    // 4. Ambiguous body with both costLines array AND legacy single-line fields returns 400
-    const ambiguousReq = makeAuthReq("http://localhost:3000/api/sheets", {
+    // 4. Stray single-line fields alongside costLines are simply ignored now
+    // (the old ambiguity check is gone): costLines is the only source of truth
+    const strayFieldsReq = makeAuthReq("http://localhost:3000/api/sheets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -851,38 +848,42 @@ describe("7. Idempotent cost line replacement and hardening (Option A)", () => {
         ],
       }),
     });
-    const ambiguousRes = await sheetsPost(ambiguousReq);
-    expect(ambiguousRes.status).toBe(400);
-    const ambiguousData = await ambiguousRes.json();
-    expect(ambiguousData.error).toMatch(/Ambiguous request body/);
+    const strayFieldsRes = await sheetsPost(strayFieldsReq);
+    expect(strayFieldsRes.status).toBe(201);
+    const strayFieldsData = await strayFieldsRes.json();
+    expect(strayFieldsData.costLines).toHaveLength(1);
+    expect(strayFieldsData.costLines[0].category).toBe("maintenance");
+    expect(strayFieldsData.totalCostSen).toBe(2500);
 
-    // 5. Idempotent legacy single-line save path: retrying the same payload does not duplicate rows
-    const legacyPayload = {
-      date: "2026-09-09",
-      amountSen: 2000,
-      category: "gas",
-      note: "petronas",
-    };
-    const legacyFirstReq = makeAuthReq("http://localhost:3000/api/sheets", {
+    // 5. Legacy single-line save (date + amountSen + category, no costLines) -> 400
+    const legacySingleReq = makeAuthReq("http://localhost:3000/api/sheets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(legacyPayload),
+      body: JSON.stringify({
+        date: "2026-09-09",
+        amountSen: 2000,
+        category: "gas",
+        note: "petronas",
+      }),
     });
-    const legacyFirstRes = await sheetsPost(legacyFirstReq);
-    expect(legacyFirstRes.status).toBe(201);
-    const legacyFirstData = await legacyFirstRes.json();
-    expect(legacyFirstData.costLines).toHaveLength(1);
+    const legacySingleRes = await sheetsPost(legacySingleReq);
+    expect(legacySingleRes.status).toBe(400);
+    expect((await legacySingleRes.json()).error).toMatch(/'costLines' is required/);
 
-    const legacyRetryReq = makeAuthReq("http://localhost:3000/api/sheets", {
+    // A rejected save must not have created the sheet for that date
+    expect(
+      db.select().from(dailySheets).where(eq(dailySheets.date, "2026-09-09")).all(),
+    ).toHaveLength(0);
+
+    // 6. A non-array costLines is rejected too
+    const badCostLinesReq = makeAuthReq("http://localhost:3000/api/sheets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(legacyPayload),
+      body: JSON.stringify({ date: "2026-09-07", costLines: "not-an-array" }),
     });
-    const legacyRetryRes = await sheetsPost(legacyRetryReq);
-    expect(legacyRetryRes.status).toBe(201);
-    const legacyRetryData = await legacyRetryRes.json();
-    expect(legacyRetryData.costLines).toHaveLength(1);
-    expect(legacyRetryData.costLines[0].id).toBe(legacyFirstData.costLines[0].id);
+    const badCostLinesRes = await sheetsPost(badCostLinesReq);
+    expect(badCostLinesRes.status).toBe(400);
+    expect((await badCostLinesRes.json()).error).toMatch(/must be an array/);
   });
 });
 
@@ -1094,7 +1095,7 @@ describe("8. Regression tests: duplicate lines & non-string note validation", ()
     const postCostLinesBody = await postCostLinesRes.json();
     expect(postCostLinesBody.error).toMatch(/Note must be a string/);
 
-    // 2. POST /api/sheets with single line containing non-string note: 123
+    // 2. The legacy single-line shape is retired: rejected before note validation
     const postSingleReq = makeAuthReq("http://localhost:3000/api/sheets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1108,7 +1109,7 @@ describe("8. Regression tests: duplicate lines & non-string note validation", ()
     const postSingleRes = await sheetsPost(postSingleReq);
     expect(postSingleRes.status).toBe(400);
     const postSingleBody = await postSingleRes.json();
-    expect(postSingleBody.error).toMatch(/Note must be a string/);
+    expect(postSingleBody.error).toMatch(/'costLines' is required/);
 
     // 3. Direct service validations throw ValidationError (not TypeError)
     const sheet = getOrCreateSheet("2026-09-08", { db });
