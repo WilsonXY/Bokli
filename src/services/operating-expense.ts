@@ -12,6 +12,7 @@ import {
   assertValidNote,
   assertValidSen,
   ClosedMonthError,
+  getTodayInKualaLumpur,
   NotFoundError,
   ValidationError,
 } from "./daily-sheet";
@@ -48,6 +49,20 @@ export function isValidOperatingExpenseType(
   );
 }
 
+/**
+ * Rejects Operating Expenses dated to a future month (Asia/Kuala_Lumpur wall time).
+ * Mirrors the future-month rule enforced by Month Close; kept local to avoid an
+ * import cycle with month-close.ts (which imports getMonthPreview from here).
+ */
+function assertMonthNotInFuture(month: string, now?: Date): void {
+  const currentMonth = getTodayInKualaLumpur(now).slice(0, 7);
+  if (month > currentMonth) {
+    throw new ValidationError(
+      `Month "${month}" is in the future (current month in Asia/Kuala_Lumpur is "${currentMonth}")`,
+    );
+  }
+}
+
 export interface UpdateOperatingExpenseInput {
   month?: string;
   type?: OperatingExpenseType;
@@ -67,6 +82,7 @@ export interface MonthPreview {
 /**
  * Add an Operating Expense for a month.
  * - Month must be valid YYYY-MM
+ * - Month must NOT be in the future (Asia/Kuala_Lumpur)
  * - Type enum: rental | utilities | wages | other
  * - Note required when type is 'other'
  * - Amount must be a non-negative sen integer
@@ -82,7 +98,7 @@ export async function addOperatingExpense(
   type: OperatingExpenseType,
   amountSen: number | bigint,
   note?: string | null,
-  options?: { db?: Db },
+  options?: { db?: Db; now?: Date },
 ): Promise<AddOperatingExpenseResult> {
   const db = options?.db ?? getDb().db;
 
@@ -91,6 +107,8 @@ export async function addOperatingExpense(
       `Invalid month format: "${month}", expected YYYY-MM`,
     );
   }
+
+  assertMonthNotInFuture(month, options?.now);
 
   assertMonthNotClosed(month, db);
 
@@ -199,13 +217,14 @@ export async function listOperatingExpenses(
 /**
  * Update an existing Operating Expense.
  * - Checks that existing month is open (and target month if changed)
+ * - Target month must NOT be in the future (Asia/Kuala_Lumpur)
  * - Validates type, note (required if other), and amountSen
  * - Rejects writes to CLOSED months (ClosedMonthError)
  */
 export async function updateOperatingExpense(
   id: number,
   updates: UpdateOperatingExpenseInput,
-  options?: { db?: Db },
+  options?: { db?: Db; now?: Date },
 ): Promise<OperatingExpense> {
   const db = options?.db ?? getDb().db;
 
@@ -231,6 +250,7 @@ export async function updateOperatingExpense(
         `Invalid month format: "${updates.month}", expected YYYY-MM`,
       );
     }
+    assertMonthNotInFuture(updates.month, options?.now);
     assertMonthNotClosed(updates.month, db);
   }
 
