@@ -862,4 +862,26 @@ describe("9. Future-month rejection (policy: Opex cannot be dated forward)", () 
     );
     expect(moved.month).toBe(CURRENT_MONTH);
   });
+
+  it("uses KL wall time, not UTC, for the future-month boundary", async () => {
+    // 2026-09-30T20:00Z = 2026-10-01 04:00 KL -> "2026-10" is the CURRENT month
+    // in KL (would be future if UTC date were used): must be ALLOWED.
+    const klNextDay = new Date("2026-09-30T20:00:00Z");
+    const allowed = await addOperatingExpense("2026-10", "rental", 10000, "kl-boundary", {
+      db,
+      now: klNextDay,
+    });
+    expect(allowed.month).toBe("2026-10");
+
+    // 2026-09-30T15:00Z = 2026-09-30 23:00 KL -> "2026-10" is still future: rejected.
+    const klSameDay = new Date("2026-09-30T15:00:00Z");
+    await expect(
+      addOperatingExpense("2026-10", "utilities", 4000, "kl-boundary-2", {
+        db,
+        now: klSameDay,
+      }),
+    ).rejects.toThrow(
+      'Month "2026-10" is in the future (current month in Asia/Kuala_Lumpur is "2026-09")',
+    );
+  });
 });
