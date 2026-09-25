@@ -357,12 +357,61 @@ export function useI18n() {
   return useContext(I18nContext);
 }
 
+/**
+ * The structured error body every API route now returns: `code` is the stable
+ * protocol, `error` is English prose kept for logs and legacy fallback.
+ */
+export interface ApiErrorPayload {
+  error?: string | null;
+  code?: string | null;
+}
+
+/**
+ * The API error protocol: stable error code -> i18n key.
+ *
+ * This record is the ONLY place a server error code becomes a user-facing
+ * string. `notFound` and `futureDate` have no dedicated i18n case, so they
+ * intentionally land on the generic save error rather than inventing one.
+ */
+export const API_ERROR_CODE_TO_KEY: Record<string, keyof TranslationMap> = {
+  unauthorized: "unauthorizedError",
+  forbidden: "forbiddenError",
+  monthClosed: "monthClosedError",
+  network: "networkError",
+  rateLimited: "loginRateLimited",
+  otherNoteRequired: "otherNoteRequired",
+  varianceNoteRequired: "varianceNoteRequired",
+  reopenReasonRequired: "reopenReasonRequired",
+  invalidAmount: "invalidAmount",
+  notFound: "saveError",
+  futureDate: "saveError",
+  saveError: "saveError",
+};
+
+/**
+ * Translates an API error for display.
+ *
+ * Prefers the structured `code`; the English-prose substring matcher below is
+ * ONLY a fallback for codeless errors (client-side failures, legacy or
+ * deliberately codeless 400s). Substring matching on prose is what used to
+ * collide "note is required when Operating Expense type is 'other'" with the
+ * Reconciliation variance message — a coded error never reaches it.
+ */
 export function translateApiError(
-  error: string | undefined | null,
+  error: string | ApiErrorPayload | undefined | null,
   t: TranslationMap
 ): string {
-  if (!error) return t.saveError;
-  const lower = error.toLowerCase();
+  const payload: ApiErrorPayload =
+    typeof error === "string" ? { error } : error ?? {};
+
+  if (payload.code) {
+    const key = API_ERROR_CODE_TO_KEY[payload.code];
+    if (key) return t[key];
+  }
+
+  const message = payload.error;
+  if (!message) return t.saveError;
+  const lower = message.toLowerCase();
   if (
     lower.includes("unauthorized") ||
     lower.includes("unauthenticated") ||

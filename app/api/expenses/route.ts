@@ -17,28 +17,31 @@ export const POST = withAuth(async (req: NextRequest) => {
 
     if (!body || typeof body !== "object") {
       return NextResponse.json(
-        { error: "Request body must be a JSON object" },
+        { error: "Request body must be a JSON object", code: "saveError" },
         { status: 400 },
       );
     }
 
     if (!body.month || typeof body.month !== "string") {
       return NextResponse.json(
-        { error: "Field 'month' is required (format: YYYY-MM)" },
+        {
+          error: "Field 'month' is required (format: YYYY-MM)",
+          code: "saveError",
+        },
         { status: 400 },
       );
     }
 
     if (!body.type || typeof body.type !== "string") {
       return NextResponse.json(
-        { error: "Field 'type' is required" },
+        { error: "Field 'type' is required", code: "saveError" },
         { status: 400 },
       );
     }
 
     if (body.amountSen === undefined) {
       return NextResponse.json(
-        { error: "Field 'amountSen' is required" },
+        { error: "Field 'amountSen' is required", code: "saveError" },
         { status: 400 },
       );
     }
@@ -78,7 +81,10 @@ export const DELETE = withAuth(async (req: NextRequest) => {
 
     if (!Number.isInteger(id) || id <= 0) {
       return NextResponse.json(
-        { error: "Valid 'id' query parameter or body field is required" },
+        {
+          error: "Valid 'id' query parameter or body field is required",
+          code: "saveError",
+        },
         { status: 400 },
       );
     }

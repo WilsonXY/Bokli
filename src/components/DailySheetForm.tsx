@@ -805,7 +805,7 @@ export function DailySheetForm({
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(translateApiError(data.error, t));
+        throw Object.assign(new Error(data.error ?? ""), { code: data.code });
       }
 
       if (data.sheet && Array.isArray(data.costLines)) {
@@ -855,7 +855,7 @@ export function DailySheetForm({
         router.refresh();
       });
     } catch (err: any) {
-      setErrorMessage(translateApiError(err.message, t));
+      setErrorMessage(translateApiError({ error: err.message, code: err.code }, t));
     } finally {
       touchedDuringSaveRef.current = null;
       setSaving(false);

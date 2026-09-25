@@ -86,7 +86,10 @@ export async function authGuard(
     sessionOverride !== undefined ? sessionOverride : await resolveSession(req);
 
   if (!session || !session.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Unauthorized", code: "unauthorized" },
+      { status: 401 },
+    );
   }
 
   return null;
@@ -111,7 +114,10 @@ export function withAuth<T extends Request = NextRequest>(
     // Reachable only for non-protected paths, where authGuard abstains.
     // The handler still requires an authenticated user.
     if (!session || !session.user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized", code: "unauthorized" },
+        { status: 401 },
+      );
     }
 
     return handler(req, session);

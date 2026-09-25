@@ -142,6 +142,7 @@ export async function closeMonth(
     if (!balanced && !trimmedNote) {
       throw new ValidationError(
         `A note is required when Reconciliation has a mismatch (expected: ${expectedSen.toString()} sen, actual: ${actualSen.toString()} sen, difference: ${differenceSen.toString()} sen)`,
+        "varianceNoteRequired",
       );
     }
 
@@ -239,7 +240,10 @@ export async function reopenMonth(
 
   const trimmedReason = reason?.trim();
   if (!trimmedReason) {
-    throw new ValidationError("A reason is required to reopen a closed month");
+    throw new ValidationError(
+      "A reason is required to reopen a closed month",
+      "reopenReasonRequired",
+    );
   }
 
   // Single transaction: the check-then-act read and the update must not be

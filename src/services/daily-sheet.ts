@@ -71,6 +71,7 @@ export function assertValidSen(amount: unknown, fieldName: string): bigint {
     if (!Number.isFinite(amount) || !Number.isInteger(amount)) {
       throw new ValidationError(
         `${fieldName} must be an integer (sen), received: ${amount}`,
+        "invalidAmount",
       );
     }
     val = BigInt(amount);
@@ -79,18 +80,21 @@ export function assertValidSen(amount: unknown, fieldName: string): bigint {
   } else {
     throw new ValidationError(
       `${fieldName} must be an integer (sen), received: ${String(amount)}`,
+      "invalidAmount",
     );
   }
 
   if (val < 0n) {
     throw new ValidationError(
       `${fieldName} cannot be negative, received: ${val.toString()}`,
+      "invalidAmount",
     );
   }
 
   if (val > BigInt(Number.MAX_SAFE_INTEGER)) {
     throw new ValidationError(
       `${fieldName} exceeds maximum safe amount (${Number.MAX_SAFE_INTEGER} sen), received: ${val.toString()}`,
+      "invalidAmount",
     );
   }
 
@@ -131,6 +135,7 @@ export function assertPositiveCostAmount(
       : `"${String(category)}"`;
     throw new ValidationError(
       `Daily Cost amount (amountSen) must be greater than 0 for Cost Category ${label}, received: ${amount.toString()}`,
+      "invalidAmount",
     );
   }
   return amount;
@@ -167,7 +172,10 @@ export function validateCostLines(
 
     const trimmedNote = assertValidNote((line as ReplaceCostLineInput).note);
     if ((line as ReplaceCostLineInput).category === "other" && !trimmedNote) {
-      throw new ValidationError("Note is required when Cost Category is 'other'");
+      throw new ValidationError(
+        "Note is required when Cost Category is 'other'",
+        "otherNoteRequired",
+      );
     }
 
     assertPositiveCostAmount(
@@ -373,7 +381,10 @@ export function addCostLine(
 
   const trimmedNote = assertValidNote(note);
   if (category === "other" && !trimmedNote) {
-    throw new ValidationError("Note is required when Cost Category is 'other'");
+    throw new ValidationError(
+      "Note is required when Cost Category is 'other'",
+      "otherNoteRequired",
+    );
   }
 
   assertPositiveCostAmount(validAmount, category, trimmedNote);
@@ -498,7 +509,10 @@ export function replaceCostLines(
       );
     }
     if (item.category === "other" && !item.note) {
-      throw new ValidationError("Note is required when Cost Category is 'other'");
+      throw new ValidationError(
+        "Note is required when Cost Category is 'other'",
+        "otherNoteRequired",
+      );
     }
   }
 
@@ -604,7 +618,10 @@ export function updateCostLine(
   }
 
   if (finalCategory === "other" && !finalNote) {
-    throw new ValidationError("Note is required when Cost Category is 'other'");
+    throw new ValidationError(
+      "Note is required when Cost Category is 'other'",
+      "otherNoteRequired",
+    );
   }
 
   assertPositiveCostAmount(BigInt(finalAmountSen), finalCategory, finalNote);

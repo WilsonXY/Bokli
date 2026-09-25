@@ -200,7 +200,7 @@ export function MonthCloseView({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(translateApiError(data.error, t));
+        throw Object.assign(new Error(data.error ?? ""), { code: data.code });
       }
 
       setSuccessMessage(t.closeSuccess);
@@ -210,7 +210,7 @@ export function MonthCloseView({
         router.refresh();
       });
     } catch (err: any) {
-      setErrorMessage(translateApiError(err.message, t));
+      setErrorMessage(translateApiError({ error: err.message, code: err.code }, t));
     } finally {
       setSubmitting(false);
     }
@@ -241,7 +241,7 @@ export function MonthCloseView({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(translateApiError(data.error, t));
+        throw Object.assign(new Error(data.error ?? ""), { code: data.code });
       }
 
       setShowReopenBox(false);
@@ -253,7 +253,7 @@ export function MonthCloseView({
         router.refresh();
       });
     } catch (err: any) {
-      setErrorMessage(translateApiError(err.message, t));
+      setErrorMessage(translateApiError({ error: err.message, code: err.code }, t));
     } finally {
       setSubmitting(false);
     }
