@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { type AuthSession, withAuth } from "@/auth/guard";
 import { reopenMonth } from "@/services/month-close";
 import { handleError } from "@/services/errors";
+import { parseJsonBody } from "@/lib/parse";
 
 /**
  * POST /api/close/reopen
@@ -21,14 +22,14 @@ export const POST = withAuth(
         );
       }
 
-      const body = await req.json();
-
-      if (!body || typeof body !== "object") {
+      const parsed = await parseJsonBody(req);
+      if (!parsed.ok) {
         return NextResponse.json(
-          { error: "Request body must be a JSON object", code: "saveError" },
-          { status: 400 },
+          { error: parsed.error, code: parsed.code },
+          { status: parsed.status },
         );
       }
+      const body = parsed.body;
 
       if (!body.month || typeof body.month !== "string") {
         return NextResponse.json(

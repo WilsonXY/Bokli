@@ -3,6 +3,7 @@ import { withAuth } from "@/auth/guard";
 import { getDb } from "@/db";
 import * as dailySheetService from "@/services/daily-sheet";
 import { handleError } from "@/services/errors";
+import { parseJsonBody } from "@/lib/parse";
 
 function formatSheetResponse(
   result: NonNullable<ReturnType<typeof dailySheetService.getSheetWithCosts>>,
@@ -25,14 +26,14 @@ const LEGACY_FIELDS = ["sheetId", "category", "amountSen", "note", "action"] as 
  */
 export const POST = withAuth(async (req: NextRequest) => {
   try {
-    const body = await req.json();
-
-    if (!body || typeof body !== "object") {
+    const parsed = await parseJsonBody(req);
+    if (!parsed.ok) {
       return NextResponse.json(
-        { error: "Request body must be a JSON object", code: "saveError" },
-        { status: 400 },
+        { error: parsed.error, code: parsed.code },
+        { status: parsed.status },
       );
     }
+    const body = parsed.body;
 
     if (!body.date || typeof body.date !== "string") {
       return NextResponse.json(
@@ -68,27 +69,28 @@ export const POST = withAuth(async (req: NextRequest) => {
     }
 
     // Validate costLines fully BEFORE setRevenue so a bad line cannot persist revenue.
-    dailySheetService.validateCostLines(body.costLines);
+    const { date, costLines } = body;
+    dailySheetService.validateCostLines(costLines);
 
     const { db } = getDb();
 
     // Single drizzle db.transaction wrapping create-or-get sheet + setRevenue + replaceCostLines so POST is all-or-nothing
     const sheet = db.transaction((tx) => {
-      const currentSheet = dailySheetService.getOrCreateSheet(body.date, { db: tx });
+      const currentSheet = dailySheetService.getOrCreateSheet(date, { db: tx });
 
-      // Optional revenue setup
+      // Optional revenue setup (amounts are validated by the service)
       if (body.cashSen !== undefined || body.tngSen !== undefined) {
-        const cash = body.cashSen !== undefined ? body.cashSen : currentSheet.cashSen;
-        const tng = body.tngSen !== undefined ? body.tngSen : currentSheet.tngSen;
+        const cash = (body.cashSen !== undefined ? body.cashSen : currentSheet.cashSen) as number | bigint;
+        const tng = (body.tngSen !== undefined ? body.tngSen : currentSheet.tngSen) as number | bigint;
         dailySheetService.setRevenue(currentSheet.id, cash, tng, { db: tx });
       }
 
-      dailySheetService.replaceCostLines(currentSheet.id, body.costLines, { db: tx });
+      dailySheetService.replaceCostLines(currentSheet.id, costLines, { db: tx });
 
       return currentSheet;
     });
 
-    const withCosts = dailySheetService.getSheetWithCosts(body.date, { db });
+    const withCosts = dailySheetService.getSheetWithCosts(date, { db });
     if (!withCosts) {
       return NextResponse.json({ sheet }, { status: 201 });
     }

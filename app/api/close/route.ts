@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/auth/guard";
 import { closeMonth } from "@/services/month-close";
 import { handleError } from "@/services/errors";
+import { parseJsonBody } from "@/lib/parse";
 
 /**
  * POST /api/close
@@ -12,14 +13,14 @@ import { handleError } from "@/services/errors";
  */
 export const POST = withAuth(async (req: NextRequest) => {
   try {
-    const body = await req.json();
-
-    if (!body || typeof body !== "object") {
+    const parsed = await parseJsonBody(req);
+    if (!parsed.ok) {
       return NextResponse.json(
-        { error: "Request body must be a JSON object", code: "saveError" },
-        { status: 400 },
+        { error: parsed.error, code: parsed.code },
+        { status: parsed.status },
       );
     }
+    const body = parsed.body;
 
     if (!body.month || typeof body.month !== "string") {
       return NextResponse.json(
@@ -45,11 +46,12 @@ export const POST = withAuth(async (req: NextRequest) => {
       );
     }
 
+    // Amount and note shapes are validated by the service.
     const result = await closeMonth(
       body.month,
-      body.cashOnHandSen,
-      body.tngOnHandSen,
-      body.note,
+      body.cashOnHandSen as number | bigint,
+      body.tngOnHandSen as number | bigint,
+      body.note as string | null | undefined,
       { confirmEmpty: Boolean(body.confirmEmpty) },
     );
 
