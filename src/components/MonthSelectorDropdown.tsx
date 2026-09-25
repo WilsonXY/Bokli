@@ -2,10 +2,11 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useI18n } from "@/lib/i18n";
+import type { MonthStatus } from "@/services/dashboard";
 
 export interface MonthOption {
   month: string;
-  status?: "open" | "closed" | "reopened";
+  status?: MonthStatus;
   disabled?: boolean;
 }
 
@@ -62,7 +63,7 @@ export function MonthSelectorDropdown({
   const currentOption = options.find((opt) => opt.month === currentMonth);
   const currentStatus = currentOption?.status ?? "open";
 
-  function getStatusLabel(status?: "open" | "closed" | "reopened") {
+  function getStatusLabel(status?: MonthStatus) {
     switch (status) {
       case "closed":
         return t.closedStatus;
@@ -73,7 +74,7 @@ export function MonthSelectorDropdown({
     }
   }
 
-  function getStatusBadgeStyle(status?: "open" | "closed" | "reopened") {
+  function getStatusBadgeStyle(status?: MonthStatus) {
     switch (status) {
       case "closed":
         return "bg-status-closed-bg text-status-closed border-status-closed/20";

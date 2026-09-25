@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
 import { amountSizeClass, formatMyr } from "@/lib/money";
+import type { MonthStatus } from "@/services/dashboard";
 import { MonthSelectorDropdown } from "@/components/MonthSelectorDropdown";
 
 export interface SerializedMonthTile {
@@ -14,7 +15,7 @@ export interface SerializedMonthTile {
   grossSen: number;
   operatingSen: number;
   netSen: number;
-  status: "open" | "closed" | "reopened";
+  status: MonthStatus;
   balanced?: boolean;
 }
 
