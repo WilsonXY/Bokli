@@ -26,7 +26,7 @@ it in your report — the driver agent filters and records it.
 ## Verification (before claiming any change done)
 ```bash
 npx tsc --noEmit
-npm test -- --max-workers=1
+npm test
 ```
 Auth-related changes also require the login smoke test (see repo `scripts/`).
 

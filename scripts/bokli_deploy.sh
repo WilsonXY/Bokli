@@ -138,7 +138,11 @@ if [ "${BOKLI_DEPLOY_SKIP_MIGRATE:-0}" = "1" ]; then
   echo "ℹ️  Skipping database migrations (BOKLI_DEPLOY_SKIP_MIGRATE=1)"
 else
   echo "==> Running database migrations..."
-  BOKLI_DB_PATH="${BOKLI_DB_PATH:-$REPO_ROOT/data/bokli.db}" npx tsx src/db/migrate.ts
+  if [ -z "${BOKLI_DB_PATH:-}" ]; then
+    echo "❌ Refusing to migrate: BOKLI_DB_PATH is not set. Export it (e.g. BOKLI_DB_PATH=$REPO_ROOT/data/bokli.db) before deploying." >&2
+    exit 1
+  fi
+  npx tsx src/db/migrate.ts
 fi
 
 # Build production artifacts
