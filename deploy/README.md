@@ -28,8 +28,8 @@ A template is provided in [`.env.example`](file:///home/penguin/projects/bokli/.
 | `AUTH_SECRET` / `NEXTAUTH_SECRET` | **Yes** | Built-in fallback | High-entropy secret key (min 32 characters) used to sign and encrypt session tokens. Generate with `openssl rand -base64 32`. Both names are accepted interchangeably. |
 | `AUTH_URL` / `NEXTAUTH_URL` | **Yes** | `http://localhost:3000` | Canonical public base URL for NextAuth redirects, callbacks, and cookie domains. MUST match the URL users actually visit (cookie scoping). Current prod: `https://bokli.ktte.me` (Cloudflare tunnel + Access). Dev: see `.env.local`. |
 | `BOKLI_DB_PATH` | **Yes** | `<repo>/data/bokli.db` | Absolute filesystem path to the SQLite database file. **Critical:** Must be an absolute path (e.g. `/home/penguin/projects/bokli/data/bokli.db`) to ensure stability across working directory changes and as the coupling point for Hermes backups. |
-| `BOKLI_MOM_PASSWORD` | Recommended | `mom-bokli-default-pass` | Initial password used when executing `npm run db:seed` for the `mom` account (`Operator` role). |
-| `BOKLI_ADMIN_PASSWORD` | Recommended | `katte-bokli-default-pass` | Initial password used when executing `npm run db:seed` for the `katte` account (`Admin` role). |
+| `BOKLI_MOM_PASSWORD` | **Yes (to seed)** | _none_ | Initial password used when executing `npm run db:seed` for the `mom` account (`Operator` role). Must be set explicitly — there is no default; `src/db/seed.ts` throws if it is unset. |
+| `BOKLI_ADMIN_PASSWORD` | **Yes (to seed)** | _none_ | Initial password used when executing `npm run db:seed` for the `katte` account (`Admin` role). Must be set explicitly — there is no default; `src/db/seed.ts` throws if it is unset. |
 
 ### CLI Password Reset Contract
 Family logins do not have self-registration or email recovery. Passwords can be reset at any time via the command-line utility:
@@ -95,7 +95,9 @@ Run database schema migrations and seed the initial operator/admin logins:
 # Apply migrations to the SQLite database specified by BOKLI_DB_PATH
 npm run db:migrate
 
-# Seed family users ('mom' and 'katte') idempotently
+# Seed family users ('mom' and 'katte') idempotently.
+# BOKLI_MOM_PASSWORD and BOKLI_ADMIN_PASSWORD must both be set (in .env or the
+# environment) — seeding has no default passwords and refuses to run without them.
 npm run db:seed
 ```
 
@@ -224,6 +226,37 @@ Bokli follows a release-tag-gated deployment flow to ensure that production alwa
    - Builds production artifacts (`BOKLI_BUILD_DIR=.next-prod npm run build`).
    - Restarts the user service (`systemctl --user restart bokli`).
    - Performs post-restart health check against `http://localhost:5000/login` (verifying HTTP 200 with retries and timeout).
+
+### Single-deploy lock (`.deploy.lock`)
+Immediately after resolving the repo root — before the fetch, checkout, migrations,
+build, stamp or restart — the script takes an exclusive non-blocking `flock` on
+`<repo>/.deploy.lock` (held on fd 9 for the whole run, released automatically on
+exit). If another deploy already holds it, the second deploy refuses with
+`❌ Refusing deploy: another deploy is already running` and exits 1 without
+touching anything. This prevents two concurrent deploys from racing on the same
+checkout, `.next-prod` output, build stamp and service restart — a race that could
+leave prod serving one tag's artifacts stamped with another tag.
+
+The lock file is untracked (and never blocks the clean-tracked-files gate, which
+runs with `--untracked-files=no`). To see who holds it: `fuser -v <repo>/.deploy.lock`.
+
+### Test-only seams (`BOKLI_DEPLOY_TEST_MODE`)
+`BOKLI_DEPLOY_BUILD_CMD` replaces the real production build command. On its own it
+would let a deploy write a fresh `.next-prod/BUILD_MANIFEST` for a build that never
+ran, so prod would pass the `ExecStartPre` stamp check while serving stale
+artifacts. It is therefore gated:
+
+- `BOKLI_DEPLOY_BUILD_CMD` is honoured **only** when `BOKLI_DEPLOY_TEST_MODE=1` is
+  also set. Without it the script prints an error and exits 1 before any mutation.
+- When `BOKLI_DEPLOY_TEST_MODE=1` is set, the script prints a loud
+  `THIS IS NOT A REAL DEPLOY` banner. Never set it on the production host.
+
+The remaining seams (`BOKLI_DEPLOY_SKIP_FETCH`, `BOKLI_DEPLOY_SKIP_MIGRATE`,
+`BOKLI_DEPLOY_SKIP_BUILD`, `BOKLI_DEPLOY_SKIP_RESTART`, `BOKLI_DEPLOY_SKIP_SLEEP`,
+`BOKLI_DEPLOY_SKIP_HEALTHCHECK`, `BOKLI_DEPLOY_HEALTHCHECK_URL`, `BOKLI_REPO_DIR`)
+are unchanged. Note that `BOKLI_DEPLOY_SKIP_BUILD=1` never writes a new stamp: it
+re-verifies the existing one against the checked-out HEAD/tag and refuses the
+restart if it does not match.
 
 ### Rollbacks
 - **Redeploy Previous Tag**: To roll back an application release, deploy the previously known-good release tag using the `--allow-rollback` flag:

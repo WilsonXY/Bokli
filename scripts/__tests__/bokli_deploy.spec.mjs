@@ -67,6 +67,36 @@ function startMockHttpServer() {
   });
 }
 
+function holdDeployLock(repoDir) {
+  // Holds an exclusive flock on <repoDir>/.deploy.lock the same way the deploy
+  // script does, so a concurrently started deploy must refuse.
+  return new Promise((resolve, reject) => {
+    const child = spawn(
+      "bash",
+      [
+        "-c",
+        `exec 9>"${path.join(repoDir, ".deploy.lock")}"; flock -n 9 || exit 1; echo held; sleep 60`,
+      ],
+      { stdio: ["ignore", "pipe", "pipe"] }
+    );
+
+    child.stdout.once("data", (data) => {
+      if (data.toString().includes("held")) {
+        resolve({ release: () => child.kill() });
+      } else {
+        reject(new Error(`unexpected lock holder output: ${data}`));
+      }
+    });
+
+    child.on("error", reject);
+    child.on("exit", (code) => {
+      if (code !== null && code !== 0) {
+        reject(new Error(`lock holder exited with ${code}`));
+      }
+    });
+  });
+}
+
 function writeBuildStamp(cloneDir, tag, commitOverride) {
   const commit = commitOverride || runGit(["rev-parse", "HEAD"], cloneDir).trim();
   fs.mkdirSync(path.join(cloneDir, ".next-prod"), { recursive: true });
@@ -337,6 +367,7 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
       ["v1.0.0-manifest"],
       {
         BOKLI_DEPLOY_SKIP_MIGRATE: "1",
+        BOKLI_DEPLOY_TEST_MODE: "1",
         BOKLI_DEPLOY_BUILD_CMD: "true",
         BOKLI_DEPLOY_SKIP_RESTART: "1",
         BOKLI_DEPLOY_SKIP_HEALTHCHECK: "1",
@@ -478,5 +509,110 @@ describe("scripts/bokli_deploy.sh refusal gates and deployment flow", () => {
     } finally {
       mockServer.close();
     }
+  });
+
+  it("refuses a second deploy while another deploy holds the .deploy.lock", async () => {
+    runGit(["tag", "-a", "v1.0.0-lock", "-m", "Release v1.0.0-lock"], cloneDir);
+    runGit(["push", "origin", "v1.0.0-lock"], cloneDir);
+    writeBuildStamp(cloneDir, "v1.0.0-lock");
+
+    const lockHolder = await holdDeployLock(cloneDir);
+    try {
+      const res = runDeploy(
+        fixtureDeployScript,
+        ["v1.0.0-lock"],
+        {
+          BOKLI_DEPLOY_SKIP_MIGRATE: "1",
+          BOKLI_DEPLOY_SKIP_BUILD: "1",
+          BOKLI_DEPLOY_SKIP_RESTART: "1",
+          BOKLI_DEPLOY_SKIP_HEALTHCHECK: "1",
+          BOKLI_DEPLOY_SKIP_SLEEP: "1",
+        },
+        cloneDir
+      );
+
+      expect(res.status).toBe(1);
+      expect(res.stderr).toContain("❌ Refusing deploy: another deploy is already running");
+      expect(res.stderr).toContain(".deploy.lock");
+      // Refused before any mutation: no checkout happened.
+      expect(res.stdout).not.toContain("==> Checking out");
+    } finally {
+      lockHolder.release();
+    }
+  });
+
+  it("releases the .deploy.lock when the deploy finishes, so the next deploy can run", () => {
+    runGit(["tag", "-a", "v1.0.0-lockfree", "-m", "Release v1.0.0-lockfree"], cloneDir);
+    runGit(["push", "origin", "v1.0.0-lockfree"], cloneDir);
+    writeBuildStamp(cloneDir, "v1.0.0-lockfree");
+
+    const env = {
+      BOKLI_DEPLOY_SKIP_MIGRATE: "1",
+      BOKLI_DEPLOY_SKIP_BUILD: "1",
+      BOKLI_DEPLOY_SKIP_RESTART: "1",
+      BOKLI_DEPLOY_SKIP_HEALTHCHECK: "1",
+      BOKLI_DEPLOY_SKIP_SLEEP: "1",
+    };
+
+    const first = runDeploy(fixtureDeployScript, ["v1.0.0-lockfree"], env, cloneDir);
+    expect(first.status).toBe(0);
+    expect(fs.existsSync(path.join(cloneDir, ".deploy.lock"))).toBe(true);
+
+    const second = runDeploy(fixtureDeployScript, ["v1.0.0-lockfree"], env, cloneDir);
+    expect(second.status).toBe(0);
+    expect(second.stderr).not.toContain("another deploy is already running");
+  });
+
+  it("refuses BOKLI_DEPLOY_BUILD_CMD unless BOKLI_DEPLOY_TEST_MODE=1", () => {
+    runGit(["tag", "-a", "v1.0.0-buildcmd", "-m", "Release v1.0.0-buildcmd"], cloneDir);
+    runGit(["push", "origin", "v1.0.0-buildcmd"], cloneDir);
+    fs.mkdirSync(path.join(cloneDir, ".next-prod"), { recursive: true });
+
+    const res = runDeploy(
+      fixtureDeployScript,
+      ["v1.0.0-buildcmd"],
+      {
+        BOKLI_DEPLOY_SKIP_MIGRATE: "1",
+        BOKLI_DEPLOY_BUILD_CMD: "true",
+        BOKLI_DEPLOY_SKIP_RESTART: "1",
+        BOKLI_DEPLOY_SKIP_HEALTHCHECK: "1",
+        BOKLI_DEPLOY_SKIP_SLEEP: "1",
+      },
+      cloneDir
+    );
+
+    expect(res.status).toBe(1);
+    expect(res.stderr).toContain(
+      "❌ Refusing deploy: BOKLI_DEPLOY_BUILD_CMD is set but BOKLI_DEPLOY_TEST_MODE=1 is not."
+    );
+    // Refused before any mutation: no checkout and no fresh build stamp.
+    expect(res.stdout).not.toContain("==> Checking out");
+    expect(fs.existsSync(path.join(cloneDir, ".next-prod/BUILD_MANIFEST"))).toBe(false);
+  });
+
+  it("prints a loud test-mode banner when BOKLI_DEPLOY_TEST_MODE=1 honours BUILD_CMD", () => {
+    runGit(["tag", "-a", "v1.0.0-testmode", "-m", "Release v1.0.0-testmode"], cloneDir);
+    runGit(["push", "origin", "v1.0.0-testmode"], cloneDir);
+    fs.mkdirSync(path.join(cloneDir, ".next-prod"), { recursive: true });
+
+    const res = runDeploy(
+      fixtureDeployScript,
+      ["v1.0.0-testmode"],
+      {
+        BOKLI_DEPLOY_SKIP_MIGRATE: "1",
+        BOKLI_DEPLOY_TEST_MODE: "1",
+        BOKLI_DEPLOY_BUILD_CMD: "true",
+        BOKLI_DEPLOY_SKIP_RESTART: "1",
+        BOKLI_DEPLOY_SKIP_HEALTHCHECK: "1",
+        BOKLI_DEPLOY_SKIP_SLEEP: "1",
+      },
+      cloneDir
+    );
+
+    expect(res.status).toBe(0);
+    expect(res.stdout).toContain("BOKLI_DEPLOY_TEST_MODE=1 — THIS IS NOT A REAL DEPLOY");
+    expect(res.stdout).toContain("BOKLI_DEPLOY_BUILD_CMD='true'");
+    expect(res.stdout).toContain("TEST MODE: running BOKLI_DEPLOY_BUILD_CMD instead of the real build.");
+    expect(fs.existsSync(path.join(cloneDir, ".next-prod/BUILD_MANIFEST"))).toBe(true);
   });
 });
