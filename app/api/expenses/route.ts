@@ -6,6 +6,7 @@ import {
   removeOperatingExpense,
 } from "@/services/operating-expense";
 import { handleError } from "@/services/errors";
+import { parseJsonBody, parsePositiveId } from "@/lib/parse";
 
 /**
  * POST /api/expenses
@@ -13,14 +14,14 @@ import { handleError } from "@/services/errors";
  */
 export const POST = withAuth(async (req: NextRequest) => {
   try {
-    const body = await req.json();
-
-    if (!body || typeof body !== "object") {
+    const parsed = await parseJsonBody(req);
+    if (!parsed.ok) {
       return NextResponse.json(
-        { error: "Request body must be a JSON object", code: "saveError" },
-        { status: 400 },
+        { error: parsed.error, code: parsed.code },
+        { status: parsed.status },
       );
     }
+    const body = parsed.body;
 
     if (!body.month || typeof body.month !== "string") {
       return NextResponse.json(
@@ -46,11 +47,12 @@ export const POST = withAuth(async (req: NextRequest) => {
       );
     }
 
+    // Type, amount and note shapes are validated by the service.
     const expense = await addOperatingExpense(
       body.month,
       body.type as OperatingExpenseType,
-      body.amountSen,
-      body.note,
+      body.amountSen as number | bigint,
+      body.note as string | null | undefined,
     );
 
     return NextResponse.json(
@@ -71,25 +73,28 @@ export const DELETE = withAuth(async (req: NextRequest) => {
     const { searchParams } = new URL(req.url);
     const idParam = searchParams.get("id");
 
-    let id: number;
-    if (idParam) {
-      id = Number(idParam);
-    } else {
-      const body = await req.json().catch(() => ({}));
-      id = Number(body.id);
+    let rawId: unknown = idParam;
+    if (!idParam) {
+      // A missing or malformed body just means "no id" — except an oversize one.
+      const parsed = await parseJsonBody(req);
+      if (!parsed.ok && parsed.status === 413) {
+        return NextResponse.json(
+          { error: parsed.error, code: parsed.code },
+          { status: parsed.status },
+        );
+      }
+      rawId = parsed.ok ? parsed.body.id : undefined;
     }
 
-    if (!Number.isInteger(id) || id <= 0) {
+    const id = parsePositiveId(rawId, "'id' query parameter or body field");
+    if (!id.ok) {
       return NextResponse.json(
-        {
-          error: "Valid 'id' query parameter or body field is required",
-          code: "saveError",
-        },
+        { error: id.error, code: id.code },
         { status: 400 },
       );
     }
 
-    const result = await removeOperatingExpense(id);
+    const result = await removeOperatingExpense(id.id);
     return NextResponse.json(result, { status: 200 });
   } catch (err) {
     return handleError(err);

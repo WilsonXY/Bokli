@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { NextRequest } from "next/server";
 
 import { openDb, type Db } from "@/db";
+import { MAX_BODY_JSON_BYTES } from "@/lib/parse";
 import { runMigrations } from "@/db/migrate";
 import {
   monthCloses,
@@ -634,6 +635,53 @@ describe("7. API routes & Auth guard protection (/api/expenses)", () => {
 
     // 6. The Operating Expense is gone after deletion
     expect(await listOperatingExpenses(testMonth, { db })).toHaveLength(0);
+
+    // 7. DELETE with a JSON `null` body is a 400, not a 500 (audit #88)
+    const nullBodyRes = await expensesDelete(
+      makeAuthReq("http://localhost:3000/api/expenses", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: "null",
+      }),
+    );
+    expect(nullBodyRes.status).toBe(400);
+    expect(await nullBodyRes.json()).toEqual({
+      error: "Valid 'id' query parameter or body field is required",
+      code: "saveError",
+    });
+
+    // 8. Float / junk ids are rejected, from the query or the body
+    for (const req of [
+      makeAuthReq("http://localhost:3000/api/expenses?id=1.5", { method: "DELETE" }),
+      makeAuthReq("http://localhost:3000/api/expenses?id=2junk", { method: "DELETE" }),
+      makeAuthReq("http://localhost:3000/api/expenses", {
+        method: "DELETE",
+        body: JSON.stringify({ id: 0 }),
+      }),
+    ]) {
+      const res = await expensesDelete(req);
+      expect(res.status).toBe(400);
+      expect((await res.json()).code).toBe("saveError");
+    }
+
+    // 9. Non-object and oversize POST bodies are rejected before the service
+    const arrayRes = await expensesPost(
+      makeAuthReq("http://localhost:3000/api/expenses", {
+        method: "POST",
+        body: "[]",
+      }),
+    );
+    expect(arrayRes.status).toBe(400);
+    expect((await arrayRes.json()).error).toBe("Request body must be a JSON object");
+
+    const bigRes = await expensesPost(
+      makeAuthReq("http://localhost:3000/api/expenses", {
+        method: "POST",
+        body: JSON.stringify({ month: testMonth, note: "x".repeat(MAX_BODY_JSON_BYTES) }),
+      }),
+    );
+    expect(bigRes.status).toBe(413);
+    expect((await bigRes.json()).code).toBe("saveError");
   });
 });
 
