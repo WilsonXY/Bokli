@@ -25,6 +25,30 @@ describe("sanitizeCallbackUrl", () => {
     expect(sanitizeCallbackUrl("\\evil.com")).toBe("/");
   });
 
+  it("rejects control-character bypasses (stripped by the URL parser)", () => {
+    expect(sanitizeCallbackUrl("/\t//evil.com")).toBe("/");
+    expect(sanitizeCallbackUrl("/\n//evil.com")).toBe("/");
+    expect(sanitizeCallbackUrl("/\r/evil.example")).toBe("/");
+    expect(sanitizeCallbackUrl("/\v//evil.com")).toBe("/");
+    expect(sanitizeCallbackUrl("/\f//evil.com")).toBe("/");
+    expect(sanitizeCallbackUrl("/\u0000//evil.com")).toBe("/");
+    expect(sanitizeCallbackUrl("/\u007f//evil.com")).toBe("/");
+    expect(sanitizeCallbackUrl("/expenses\t\t/../..//evil.com")).toBe("/");
+  });
+
+  it("keeps control-char targets same-origin once sanitized", () => {
+    const base = "https://bokli.example";
+    for (const raw of ["/\t//evil.example", "/\n//evil.com", "/\r/evil.example"]) {
+      expect(new URL(sanitizeCallbackUrl(raw), base).origin).toBe(base);
+    }
+  });
+
+  it("still allows normal same-origin paths", () => {
+    expect(sanitizeCallbackUrl("/")).toBe("/");
+    expect(sanitizeCallbackUrl("/expenses")).toBe("/expenses");
+    expect(sanitizeCallbackUrl("/close")).toBe("/close");
+  });
+
   it("handles null, undefined, empty strings", () => {
     expect(sanitizeCallbackUrl(null)).toBe("/");
     expect(sanitizeCallbackUrl(undefined)).toBe("/");

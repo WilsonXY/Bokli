@@ -4,13 +4,17 @@
  * - Starts with "/"
  * - Does not start with "//" (protocol-relative URL bypass)
  * - Does not contain "\" (backslash bypass / normalizations)
+ * - Contains no C0 control characters or DEL (tab/LF/CR and friends are
+ *   stripped by the WHATWG URL parser, so "/\t//evil.example" would
+ *   otherwise pass the checks above and then resolve off-origin)
  */
 export function sanitizeCallbackUrl(url: string | null | undefined, fallback = "/"): string {
   if (
     url &&
     url.startsWith("/") &&
     !url.startsWith("//") &&
-    !url.includes("\\")
+    !url.includes("\\") &&
+    !/[\u0000-\u001f\u007f]/.test(url)
   ) {
     return url;
   }
