@@ -20,7 +20,8 @@
 #
 # Deploy Actions:
 #   - Check out tag (git checkout <tag>)
-#   - Run database migrations: BOKLI_DB_PATH=<repo>/data/bokli.db npx tsx src/db/migrate.ts
+#   - Run database migrations: npx tsx src/db/migrate.ts with BOKLI_DB_PATH taken
+#     from the environment or the repo .env (refuses if neither sets it)
 #     (skippable via BOKLI_DEPLOY_SKIP_MIGRATE=1)
 #   - Build production artifacts: BOKLI_BUILD_DIR=.next-prod npm run build
 #     (skippable via BOKLI_DEPLOY_SKIP_BUILD=1, custom command via BOKLI_DEPLOY_BUILD_CMD)
@@ -138,8 +139,12 @@ if [ "${BOKLI_DEPLOY_SKIP_MIGRATE:-0}" = "1" ]; then
   echo "ℹ️  Skipping database migrations (BOKLI_DEPLOY_SKIP_MIGRATE=1)"
 else
   echo "==> Running database migrations..."
+  if [ -z "${BOKLI_DB_PATH:-}" ] && [ -f "$REPO_ROOT/.env" ]; then
+    BOKLI_DB_PATH=$(grep -E '^BOKLI_DB_PATH=' "$REPO_ROOT/.env" | head -1 | cut -d= -f2-)
+    export BOKLI_DB_PATH
+  fi
   if [ -z "${BOKLI_DB_PATH:-}" ]; then
-    echo "❌ Refusing to migrate: BOKLI_DB_PATH is not set. Export it (e.g. BOKLI_DB_PATH=$REPO_ROOT/data/bokli.db) before deploying." >&2
+    echo "❌ Refusing to migrate: BOKLI_DB_PATH is not set (export it or set it in $REPO_ROOT/.env)." >&2
     exit 1
   fi
   npx tsx src/db/migrate.ts
