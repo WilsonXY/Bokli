@@ -317,7 +317,7 @@ describe("Server page error handling regression tests", () => {
       vi.mocked(dbModule.getDb).mockImplementation(actualGetDb);
     });
 
-    it("ExpensesPage renders its own error UI instead of throwing", async () => {
+    it("ExpensesPage renders its own error UI when the whole DB is unreachable", async () => {
       breakDbAcquisition();
 
       const pageElement = await ExpensesPage({
@@ -331,7 +331,7 @@ describe("Server page error handling regression tests", () => {
       expect(consoleErrorSpy).toHaveBeenCalled();
     });
 
-    it("MonthClosePage renders its own error UI instead of throwing", async () => {
+    it("MonthClosePage renders its own error UI when the whole DB is unreachable", async () => {
       breakDbAcquisition();
 
       const pageElement = await MonthClosePage({
@@ -344,6 +344,68 @@ describe("Server page error handling regression tests", () => {
       expect(html).not.toContain("btnPerformClose");
       expect(html).not.toContain("Financial Impact");
       expect(consoleErrorSpy).toHaveBeenCalled();
+    });
+
+    // The cases above trip the first try (listMonthTiles acquires its own handle
+    // internally), which sets loadError and short-circuits the guarded block.
+    // These two let the service reads succeed so the page-level getDb() call is
+    // the only thing that fails — the exact line this fix moved.
+    it("ExpensesPage recovers when only the page-level getDb() fails", async () => {
+      vi.mocked(dashboardService.listMonthTiles).mockResolvedValueOnce([
+        {
+          month: "2026-08",
+          revenueSen: 0n,
+          dailyCostSen: 0n,
+          grossSen: 0n,
+          operatingSen: 0n,
+          netSen: 0n,
+          status: "open",
+          balanced: false,
+        },
+      ]);
+      breakDbAcquisition();
+
+      const pageElement = await ExpensesPage({
+        searchParams: Promise.resolve({ month: "2026-08" }),
+      });
+      const html = ReactDOMServer.renderToStaticMarkup(pageElement);
+
+      expect(html).toContain('role="alert"');
+      expect(html).toContain("Failed to load expenses data");
+      expect(html).not.toContain("Add Operating Expense");
+
+      // Logged by the guarded block's catch, not the month-tiles catch
+      const loggedErrorArgs = consoleErrorSpy.mock.calls.flat().join(" ");
+      expect(loggedErrorArgs).toContain("Failed to load expenses data for 2026-08");
+    });
+
+    it("MonthClosePage recovers when only the page-level getDb() fails", async () => {
+      vi.mocked(dashboardService.listMonthTiles).mockResolvedValueOnce([
+        {
+          month: "2026-08",
+          revenueSen: 0n,
+          dailyCostSen: 0n,
+          grossSen: 0n,
+          operatingSen: 0n,
+          netSen: 0n,
+          status: "open",
+          balanced: false,
+        },
+      ]);
+      breakDbAcquisition();
+
+      const pageElement = await MonthClosePage({
+        searchParams: Promise.resolve({ month: "2026-08" }),
+      });
+      const html = ReactDOMServer.renderToStaticMarkup(pageElement);
+
+      expect(html).toContain('role="alert"');
+      expect(html).toContain("Failed to load month data");
+      expect(html).not.toContain("btnPerformClose");
+      expect(html).not.toContain("Financial Impact");
+
+      const loggedErrorArgs = consoleErrorSpy.mock.calls.flat().join(" ");
+      expect(loggedErrorArgs).toContain("Failed to load month close data for 2026-08");
     });
 
     it("HomePage logs under its own scope tag and re-throws for the error boundary", async () => {
