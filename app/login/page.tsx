@@ -95,7 +95,8 @@ function LoginForm() {
 
       router.push(targetUrl);
       router.refresh();
-    } catch {
+    } catch (err) {
+      console.error("Login request failed:", err);
       setError(t.loginNetworkError);
       setLoading(false);
     }

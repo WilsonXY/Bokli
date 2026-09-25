@@ -35,14 +35,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             { db, now: new Date() },
           );
         } catch (err) {
+          // Credentials failures (including RateLimited) are expected outcomes:
+          // rethrow them untouched so @auth/core surfaces them as a credentials
+          // error carrying their `code`.
           if (
             err instanceof CredentialsSignin ||
             (err && typeof err === "object" && "code" in err && (err as any).code === "RateLimited")
           ) {
             throw err;
           }
+          // Anything else is an infrastructure failure (DB unavailable, bcrypt
+          // blowing up, ...). Swallowing it into `null` would render as "wrong
+          // username or password", so log it and rethrow: the auth layer turns
+          // it into an error response instead of a credentials failure.
           console.error("Auth authorize error:", err);
-          return null;
+          throw err;
         }
       },
     }),
