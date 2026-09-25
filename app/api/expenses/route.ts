@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/auth/guard";
 import {
   addOperatingExpense,
+  deleteOperatingExpenses,
   type OperatingExpenseType,
   removeOperatingExpense,
 } from "@/services/operating-expense";
@@ -64,9 +65,15 @@ export const POST = withAuth(async (req: NextRequest) => {
   }
 });
 
+/** Most ids a single bulk DELETE may carry (a merged card holds a handful). */
+const MAX_BULK_DELETE_IDS = 50;
+
 /**
  * DELETE /api/expenses?id=... (or JSON body { id })
  * Remove an Operating Expense.
+ *
+ * DELETE /api/expenses with JSON body { ids: number[] } (1..50)
+ * Remove several Operating Expenses in one transaction -> { deleted: n }.
  */
 export const DELETE = withAuth(async (req: NextRequest) => {
   try {
@@ -83,6 +90,39 @@ export const DELETE = withAuth(async (req: NextRequest) => {
           { status: parsed.status },
         );
       }
+
+      if (parsed.ok && parsed.body.ids !== undefined) {
+        const rawIds = parsed.body.ids;
+        if (
+          !Array.isArray(rawIds) ||
+          rawIds.length === 0 ||
+          rawIds.length > MAX_BULK_DELETE_IDS
+        ) {
+          return NextResponse.json(
+            {
+              error: `Field 'ids' must be an array of 1 to ${MAX_BULK_DELETE_IDS} ids`,
+              code: "saveError",
+            },
+            { status: 400 },
+          );
+        }
+
+        const ids: number[] = [];
+        for (const raw of rawIds) {
+          const id = parsePositiveId(raw, "'ids' entry");
+          if (!id.ok) {
+            return NextResponse.json(
+              { error: id.error, code: id.code },
+              { status: 400 },
+            );
+          }
+          ids.push(id.id);
+        }
+
+        const result = await deleteOperatingExpenses(ids);
+        return NextResponse.json(result, { status: 200 });
+      }
+
       rawId = parsed.ok ? parsed.body.id : undefined;
     }
 
