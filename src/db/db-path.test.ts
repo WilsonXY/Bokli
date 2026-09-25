@@ -25,6 +25,17 @@ describe("resolveDbPath", () => {
   it("throws when BOKLI_DB_PATH is empty", () => {
     expect(() => resolveDbPath(env({ BOKLI_DB_PATH: "" }))).toThrow(/BOKLI_DB_PATH is not set/);
   });
+
+  it("throws when BOKLI_DB_PATH is whitespace-only", () => {
+    expect(() => resolveDbPath(env({ BOKLI_DB_PATH: "   " }))).toThrow(/BOKLI_DB_PATH is not set/);
+    expect(() => resolveDbPath(env({ BOKLI_DB_PATH: "\t\n" }))).toThrow(/BOKLI_DB_PATH is not set/);
+  });
+
+  it("trims surrounding whitespace from a valid BOKLI_DB_PATH", () => {
+    expect(resolveDbPath(env({ BOKLI_DB_PATH: "  data-dev/bokli.db  " }))).toBe(
+      path.resolve(process.cwd(), "data-dev/bokli.db"),
+    );
+  });
 });
 
 describe("db handles without BOKLI_DB_PATH", () => {

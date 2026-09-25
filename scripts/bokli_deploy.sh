@@ -140,10 +140,14 @@ if [ "${BOKLI_DEPLOY_SKIP_MIGRATE:-0}" = "1" ]; then
 else
   echo "==> Running database migrations..."
   if [ -z "${BOKLI_DB_PATH:-}" ] && [ -f "$REPO_ROOT/.env" ]; then
-    BOKLI_DB_PATH=$(grep -E '^BOKLI_DB_PATH=' "$REPO_ROOT/.env" | head -1 | cut -d= -f2-)
+    _raw_db_line=$(grep -E '^[[:space:]]*(export[[:space:]]+)?BOKLI_DB_PATH[[:space:]]*=' "$REPO_ROOT/.env" | head -1 || true)
+    BOKLI_DB_PATH=$(printf '%s' "$_raw_db_line" | cut -d= -f2- \
+      | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' \
+            -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'/\1/")
+    unset _raw_db_line
     export BOKLI_DB_PATH
   fi
-  if [ -z "${BOKLI_DB_PATH:-}" ]; then
+  if [ -z "${BOKLI_DB_PATH:-}" ] || [ -z "$(printf '%s' "${BOKLI_DB_PATH:-}" | tr -d '[:space:]')" ]; then
     echo "❌ Refusing to migrate: BOKLI_DB_PATH is not set (export it or set it in $REPO_ROOT/.env)." >&2
     exit 1
   fi
