@@ -772,3 +772,94 @@ it("safely merges concurrent duplicate expenses via transaction without double-i
     expect(rows[0].updatedAt).toBe(second.updatedAt);
   });
 });
+
+describe("9. Future-month rejection (policy: Opex cannot be dated forward)", () => {
+  const MOCK_NOW = new Date("2026-09-10T12:00:00Z"); // current month in KL is 2026-09
+  const PAST_MONTH = "2026-08";
+  const CURRENT_MONTH = "2026-09";
+  const FUTURE_MONTH = "2026-10";
+
+  it("rejects addOperatingExpense for a future month", async () => {
+    await expect(
+      addOperatingExpense(FUTURE_MONTH, "rental", 10000, null, {
+        db,
+        now: MOCK_NOW,
+      }),
+    ).rejects.toThrow(ValidationError);
+
+    await expect(
+      addOperatingExpense(FUTURE_MONTH, "rental", 10000, null, {
+        db,
+        now: MOCK_NOW,
+      }),
+    ).rejects.toThrow(
+      `Month "${FUTURE_MONTH}" is in the future (current month in Asia/Kuala_Lumpur is "${CURRENT_MONTH}")`,
+    );
+
+    // No row written for the rejected month
+    const rows = await listOperatingExpenses(FUTURE_MONTH, { db });
+    expect(rows).toHaveLength(0);
+  });
+
+  it("rejects addOperatingExpense for a far-future month against the real clock", async () => {
+    await expect(
+      addOperatingExpense("2099-01", "rental", 10000, null, { db }),
+    ).rejects.toThrow(ValidationError);
+
+    const rows = await listOperatingExpenses("2099-01", { db });
+    expect(rows).toHaveLength(0);
+  });
+
+  it("rejects updateOperatingExpense moving an expense into a future month", async () => {
+    const expense = await addOperatingExpense(
+      PAST_MONTH,
+      "utilities",
+      4000,
+      "future-move-check",
+      { db, now: MOCK_NOW },
+    );
+
+    await expect(
+      updateOperatingExpense(
+        expense.id,
+        { month: FUTURE_MONTH },
+        { db, now: MOCK_NOW },
+      ),
+    ).rejects.toThrow(ValidationError);
+
+    // Row is untouched
+    const unchanged = db
+      .select()
+      .from(operatingExpenses)
+      .where(eq(operatingExpenses.id, expense.id))
+      .get();
+    expect(unchanged?.month).toBe(PAST_MONTH);
+  });
+
+  it("allows past and current months for add and update", async () => {
+    const past = await addOperatingExpense(
+      PAST_MONTH,
+      "rental",
+      50000,
+      "past-month-ok",
+      { db, now: MOCK_NOW },
+    );
+    expect(past.month).toBe(PAST_MONTH);
+
+    const current = await addOperatingExpense(
+      CURRENT_MONTH,
+      "wages",
+      30000,
+      "current-month-ok",
+      { db, now: MOCK_NOW },
+    );
+    expect(current.month).toBe(CURRENT_MONTH);
+
+    const moved = await updateOperatingExpense(
+      past.id,
+      { month: CURRENT_MONTH },
+      { db, now: MOCK_NOW },
+    );
+    expect(moved.month).toBe(CURRENT_MONTH);
+  });
+});
