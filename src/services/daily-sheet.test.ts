@@ -186,6 +186,9 @@ describe("3. Cost Category CHECK and note requirement", () => {
     expect(() =>
       addCostLine(sheet.id, 500n, "other", "   ", { db }),
     ).toThrow(/Note is required when Cost Category is 'other'/);
+    expect(() =>
+      addCostLine(sheet.id, 500n, "other", null, { db }),
+    ).toThrow(expect.objectContaining({ code: "otherNoteRequired" }));
 
     // Valid note accepted
     const line = addCostLine(sheet.id, 500n, "other", "Plastic takeout containers", {
@@ -543,6 +546,7 @@ describe("6. API routes and auth guard protection (/api/sheets)", () => {
     expect(badOtherRes.status).toBe(400);
     const badOtherBody = await badOtherRes.json();
     expect(badOtherBody.error).toMatch(/Note is required when Cost Category is 'other'/);
+    expect(badOtherBody.code).toBe("otherNoteRequired");
   });
 });
 

@@ -158,6 +158,11 @@ describe("2. Reconciliation warn-only and note-required-on-mismatch", () => {
     await expect(
       closeMonth(MONTH, 30000, 15000, "   ", { db, now: MOCK_NOW }),
     ).rejects.toThrow(ValidationError);
+
+    // 4. The error carries the stable variance code
+    await expect(
+      closeMonth(MONTH, 30000, 15000, undefined, { db, now: MOCK_NOW }),
+    ).rejects.toMatchObject({ code: "varianceNoteRequired" });
   });
 
   it("warns only and does NOT block Month Close when note is provided on mismatch", async () => {
@@ -282,6 +287,10 @@ describe("5. Reopen gating (Operator rejected with Forbidden, Admin allowed)", (
     await expect(
       reopenMonth(MONTH, "   ", { role: "Admin", db, now: MOCK_NOW }),
     ).rejects.toThrow(ValidationError);
+
+    await expect(
+      reopenMonth(MONTH, "", { role: "Admin", db, now: MOCK_NOW }),
+    ).rejects.toMatchObject({ code: "reopenReasonRequired" });
   });
 
   it("allows Admin to reopen with reason and sets reopenedAt + reopenReason", async () => {

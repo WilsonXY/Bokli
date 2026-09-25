@@ -117,6 +117,7 @@ export async function addOperatingExpense(
   if (type === "other" && !trimmedNote) {
     throw new ValidationError(
       "Note is required when Operating Expense type is 'other'",
+      "otherNoteRequired",
     );
   }
 
@@ -273,6 +274,7 @@ export async function updateOperatingExpense(
   if (finalType === "other" && !finalNote) {
     throw new ValidationError(
       "Note is required when Operating Expense type is 'other'",
+      "otherNoteRequired",
     );
   }
 

@@ -282,7 +282,7 @@ export function ExpensesView({
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(translateApiError(data.error, t));
+        throw Object.assign(new Error(data.error ?? ""), { code: data.code });
       }
 
       setExpenses((prev) => {
@@ -307,7 +307,7 @@ export function ExpensesView({
         router.refresh();
       });
     } catch (err: any) {
-      setInlineError(translateApiError(err.message, t));
+      setInlineError(translateApiError({ error: err.message, code: err.code }, t));
     } finally {
       touchedDuringAddRef.current = null;
       setAdding(false);
@@ -329,14 +329,17 @@ export function ExpensesView({
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(translateApiError(data.error || "Failed to delete expense", t));
+          throw Object.assign(
+            new Error(data.error || "Failed to delete expense"),
+            { code: data.code }
+          );
         }
         deletedIds.push(id);
       }
 
       showSuccessBanner(t.deleteExpenseSuccess);
     } catch (err: any) {
-      setInlineError(translateApiError(err.message, t));
+      setInlineError(translateApiError({ error: err.message, code: err.code }, t));
     } finally {
       if (deletedIds.length > 0) {
         setExpenses((prev) => prev.filter((item) => !deletedIds.includes(item.id)));

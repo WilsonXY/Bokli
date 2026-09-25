@@ -137,6 +137,12 @@ describe("2. Type and note rules", () => {
       addOperatingExpense(MONTH, "other", 5000, "   ", { db }),
     ).rejects.toThrow(ValidationError);
 
+    // The error carries the stable code the client translates (NOT the
+    // variance one, which the English prose alone would collide with).
+    await expect(
+      addOperatingExpense(MONTH, "other", 5000, undefined, { db }),
+    ).rejects.toMatchObject({ code: "otherNoteRequired" });
+
     // Non-empty note succeeds
     const expense = await addOperatingExpense(
       MONTH,

@@ -15,6 +15,7 @@ export const POST = withAuth(
         return NextResponse.json(
           {
             error: "Forbidden: Admin role required to reopen a closed month",
+            code: "forbidden",
           },
           { status: 403 },
         );
@@ -42,7 +43,10 @@ export const POST = withAuth(
         !body.reason.trim()
       ) {
         return NextResponse.json(
-          { error: "Field 'reason' is required to reopen a closed month" },
+          {
+            error: "Field 'reason' is required to reopen a closed month",
+            code: "reopenReasonRequired",
+          },
           { status: 400 },
         );
       }
