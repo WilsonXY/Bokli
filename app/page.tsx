@@ -1,11 +1,11 @@
 import React from "react";
 import {
   type CostCategory,
-  getTodayInKualaLumpur,
   getSheetWithCosts,
   isMonthClosed,
 } from "@/services/daily-sheet";
 import { getDb } from "@/db";
+import { getTodayInKualaLumpur } from "@/lib/datetime";
 import { isValidDateStr } from "@/lib/money";
 import { DailySheetForm } from "@/components/DailySheetForm";
 

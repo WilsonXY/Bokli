@@ -55,3 +55,24 @@ export function formatKlDate(iso: string): string {
 
   return `${map.year}-${map.month}-${map.day}`;
 }
+
+/**
+ * Returns today's date in Asia/Kuala_Lumpur wall time as "YYYY-MM-DD".
+ */
+export function getTodayInKualaLumpur(now: Date = new Date()): string {
+  const parts = klDateFormatter.formatToParts(now);
+  const map: Record<string, string> = {};
+  for (const part of parts) {
+    map[part.type] = part.value;
+  }
+
+  return `${map.year}-${map.month}-${map.day}`;
+}
+
+/**
+ * Check whether a date string is in the future in Asia/Kuala_Lumpur.
+ */
+export function isFutureDateInKL(date: string, now: Date = new Date()): boolean {
+  const today = getTodayInKualaLumpur(now);
+  return date > today;
+}

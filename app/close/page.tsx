@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { getDb } from "@/db";
 import { dailySheets, monthCloses } from "@/db/schema";
 import { listMonthTiles, type MonthTile } from "@/services/dashboard";
-import { getTodayInKualaLumpur } from "@/services/daily-sheet";
+import { getTodayInKualaLumpur } from "@/lib/datetime";
 import { isValidMonthStr } from "@/lib/money";
 import { describeLoadError } from "@/lib/page-load";
 import { getMonthPreview } from "@/services/operating-expense";
