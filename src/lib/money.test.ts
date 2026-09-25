@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   amountSizeClass,
+  computeProfit,
+  evaluateReconciliation,
   formatMyr,
   isValidDateStr,
   isValidMonthStr,
@@ -141,6 +143,110 @@ describe("arithmetic", () => {
 
   it("rejects out-of-range results", () => {
     expect(() => sumSen([9007199254740991n, 1n])).toThrow(MoneyRangeError);
+  });
+});
+
+describe("computeProfit", () => {
+  it("derives Gross Profit and Net Profit", () => {
+    expect(
+      computeProfit({ revenueSen: 10000n, dailyCostSen: 3000n, operatingSen: 2500n }),
+    ).toEqual({ grossSen: 7000n, netSen: 4500n });
+  });
+
+  it("allows negative Gross and Net Profit", () => {
+    expect(
+      computeProfit({ revenueSen: 1000n, dailyCostSen: 1500n, operatingSen: 200n }),
+    ).toEqual({ grossSen: -500n, netSen: -700n });
+  });
+
+  it("returns zeros for an empty month", () => {
+    expect(
+      computeProfit({ revenueSen: 0n, dailyCostSen: 0n, operatingSen: 0n }),
+    ).toEqual({ grossSen: 0n, netSen: 0n });
+  });
+
+  it("rejects out-of-range results", () => {
+    expect(() =>
+      computeProfit({
+        revenueSen: -9007199254740991n,
+        dailyCostSen: 1n,
+        operatingSen: 0n,
+      }),
+    ).toThrow(MoneyRangeError);
+    expect(() =>
+      computeProfit({
+        revenueSen: -9007199254740991n,
+        dailyCostSen: 0n,
+        operatingSen: 1n,
+      }),
+    ).toThrow(MoneyRangeError);
+  });
+});
+
+describe("evaluateReconciliation", () => {
+  it("is balanced when cash + TnG on hand equals Net Profit", () => {
+    expect(
+      evaluateReconciliation({
+        expectedSen: 4500n,
+        cashOnHandSen: 3000n,
+        tngOnHandSen: 1500n,
+      }),
+    ).toEqual({
+      expectedSen: 4500n,
+      actualSen: 4500n,
+      differenceSen: 0n,
+      balanced: true,
+    });
+  });
+
+  it("reports a positive difference when on-hand exceeds Net Profit", () => {
+    expect(
+      evaluateReconciliation({
+        expectedSen: 4500n,
+        cashOnHandSen: 3000n,
+        tngOnHandSen: 1600n,
+      }),
+    ).toEqual({
+      expectedSen: 4500n,
+      actualSen: 4600n,
+      differenceSen: 100n,
+      balanced: false,
+    });
+  });
+
+  it("reports a negative difference when on-hand falls short", () => {
+    expect(
+      evaluateReconciliation({
+        expectedSen: 4500n,
+        cashOnHandSen: 0n,
+        tngOnHandSen: 4000n,
+      }),
+    ).toEqual({
+      expectedSen: 4500n,
+      actualSen: 4000n,
+      differenceSen: -500n,
+      balanced: false,
+    });
+  });
+
+  it("reconciles against a negative Net Profit", () => {
+    const r = evaluateReconciliation({
+      expectedSen: -700n,
+      cashOnHandSen: 0n,
+      tngOnHandSen: 0n,
+    });
+    expect(r.differenceSen).toBe(700n);
+    expect(r.balanced).toBe(false);
+  });
+
+  it("rejects out-of-range totals", () => {
+    expect(() =>
+      evaluateReconciliation({
+        expectedSen: 0n,
+        cashOnHandSen: 9007199254740991n,
+        tngOnHandSen: 1n,
+      }),
+    ).toThrow(MoneyRangeError);
   });
 });
 
