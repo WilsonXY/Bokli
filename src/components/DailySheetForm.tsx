@@ -385,6 +385,42 @@ export function toggleCostLineExpansion(
   };
 }
 
+// Fields of the visible draft that the in-flight rebase tracks independently.
+export type DraftField = "cash" | "tng" | "costLines";
+
+// Rebase helper (local-first draft + authoritative baseline). After a save
+// returns, the server snapshot is authoritative for the *baseline*, but it must
+// never overwrite cost lines the Operator edited while the request was still in
+// flight — mom's typing wins. An untouched draft takes the saved rows verbatim;
+// a touched draft keeps every local row exactly as typed and only adopts the
+// saved row ids where the content still matches, so the baseline diff flags
+// precisely the rows she changed mid-flight and the next save re-sends the
+// merged draft.
+export function rebaseCostLinesAfterSave(
+  localLines: CostLineItem[],
+  savedLines: CostLineItem[],
+  touchedDuringSave: boolean
+): CostLineItem[] {
+  if (!touchedDuringSave) return savedLines;
+
+  const claimed = new Set<number>();
+  return localLines.map((line) => {
+    const matchIdx = savedLines.findIndex(
+      (saved, i) =>
+        !claimed.has(i) &&
+        saved.category === line.category &&
+        saved.amountSen === line.amountSen &&
+        normalizeNote(saved.note) === normalizeNote(line.note)
+    );
+    if (matchIdx === -1) {
+      // Edited during the flight: keep her value, untouched by the snapshot.
+      return line;
+    }
+    claimed.add(matchIdx);
+    return { ...line, id: savedLines[matchIdx].id, ids: savedLines[matchIdx].ids };
+  });
+}
+
 export function DailySheetForm({
   date,
   initialCashSen,
@@ -519,6 +555,25 @@ export function DailySheetForm({
   }, [costAmountErrorIndex]);
   const [saving, setSaving] = useState(false);
 
+  // Draft fields the Operator touched after the save request left the browser.
+  // Inputs are disabled while `saving`, but a keystroke can still land in the
+  // same tick (queued event, IME commit, paste) and the confirm/delete handlers
+  // stay live, so this set — not the disabled attribute — is what guarantees no
+  // keystroke is lost. Non-null only while a save is in flight.
+  const touchedDuringSaveRef = useRef<Set<DraftField> | null>(null);
+
+  function markTouchedDuringSave(field: DraftField) {
+    touchedDuringSaveRef.current?.add(field);
+    draftEverTouchedRef.current = true;
+  }
+
+  // Sticky "she touched the draft at some point" flag for the prop-sync gate
+  // below: isModified alone misses a mid-flight keystroke that lands the draft
+  // back on the baseline (e.g. retyped "12.50" over "12.5" — same sen, so
+  // isModified is false), and the full-reset branch would then wipe the
+  // retyped formatting. Cleared only by explicit date navigation.
+  const draftEverTouchedRef = useRef(false);
+
   // Baseline state representing the saved/initial state for the selected date
   const [baseline, setBaseline] = useState(() => ({
     cashInput: initCashStr,
@@ -548,11 +603,37 @@ export function DailySheetForm({
     return false;
   }, [cashInput, tngInput, costLines, baseline]);
 
+  // Mirror the dirty flag into a ref so the prop-sync effect can consult it
+  // without re-running (and resetting the form) on every keystroke.
+  const isModifiedRef = useRef(isModified);
+  useEffect(() => {
+    isModifiedRef.current = isModified;
+  }, [isModified]);
+
+  const prevDateRef = useRef(date);
+
   // Update form inputs when selected date or initial data changes
   useEffect(() => {
     const cashStr = initialCashInput !== undefined ? initialCashInput : senToDecimalStr(initialCashSen);
     const tngStr = initialTngInput !== undefined ? initialTngInput : senToDecimalStr(initialTngSen);
     const mergedInitial = mergeCostLines(initialCostLines);
+    const dateChanged = prevDateRef.current !== date;
+    prevDateRef.current = date;
+
+    // Same rebase invariant as handleSave: the router.refresh() fired after a
+    // save re-delivers the server props, and that snapshot may not overwrite a
+    // draft the Operator has already touched. Take it as the authoritative
+    // baseline only. Switching date is explicit navigation, so it still reloads.
+    if (!dateChanged && (isModifiedRef.current || draftEverTouchedRef.current)) {
+      setBaseline({
+        cashInput: cashStr,
+        tngInput: tngStr,
+        costLines: mergedInitial,
+      });
+      return;
+    }
+
+    draftEverTouchedRef.current = false;
     setCashInput(cashStr);
     setTngInput(tngStr);
     setCostLines(mergedInitial);
@@ -599,6 +680,7 @@ export function DailySheetForm({
   // Create and expand a new empty cost line with stable clientId
   function handleCreateNewCostLine() {
     if (isClosed) return;
+    markTouchedDuringSave("costLines");
     setNoteErrorIndex(null);
     setCostAmountErrorIndex(null);
     const result = createNewCostLine(costLines);
@@ -611,6 +693,7 @@ export function DailySheetForm({
     index: number,
     patch: Partial<CostLineItem>
   ) {
+    markTouchedDuringSave("costLines");
     if (
       (patch.note !== undefined && index === noteErrorIndex) ||
       (patch.category !== undefined && patch.category !== "other" && index === noteErrorIndex)
@@ -633,6 +716,7 @@ export function DailySheetForm({
   // Remove Cost Line
   function handleRemoveCostLine(index: number) {
     if (isClosed) return;
+    markTouchedDuringSave("costLines");
     setNoteErrorIndex(null);
     setCostAmountErrorIndex(null);
     setCostLines((prev) => prev.filter((_, i) => i !== index));
@@ -646,6 +730,8 @@ export function DailySheetForm({
 
   function handleToggleCostLine(index: number) {
     if (isClosed) return;
+    // Expanding also consolidates rows, so it counts as touching the draft.
+    markTouchedDuringSave("costLines");
     const result = toggleCostLineExpansion(costLines, index, expandedIndex, {
       noteErrorIndex,
       costAmountErrorIndex,
@@ -693,7 +779,11 @@ export function DailySheetForm({
     setErrorMessage(null);
     dismissSuccessMessage();
 
+    // Open the touched-fields window for the duration of the flight.
+    touchedDuringSaveRef.current = new Set<DraftField>();
     setSaving(true);
+    const savedDate = date;
+    let navigatedAway = false;
 
     try {
       const res = await fetch("/api/sheets", {
@@ -730,23 +820,44 @@ export function DailySheetForm({
         const savedCash = senToDecimalStr(Number(data.sheet.cashSen));
         const savedTng = senToDecimalStr(Number(data.sheet.tngSen));
 
-        setBaseline({
+        // Cross-date guard: if she navigated to another date while the save
+        // was in flight, the navigation effect already reloaded this form for
+        // the new date — writing the old date's snapshot here would pollute
+        // the new date's baseline and draft.
+        const navigatedAwayNow = prevDateRef.current !== savedDate;
+        navigatedAway = navigatedAwayNow;
+
+        const touched = touchedDuringSaveRef.current ?? new Set<DraftField>();
+
+        // The baseline always takes the server snapshot: it stays the
+        // authoritative reference for conflict detection and the
+        // unsaved-changes affordance.
+        if (!navigatedAway) setBaseline({
           cashInput: savedCash,
           tngInput: savedTng,
           costLines: savedCostLines,
         });
-        setCostLines(savedCostLines);
-        setCashInput(savedCash);
-        setTngInput(savedTng);
+
+        // The visible draft only rebases onto fields she did NOT touch during
+        // the flight. Anything typed mid-flight survives verbatim and shows up
+        // as unsaved, so the next save re-sends the merged draft.
+        if (!navigatedAway) {
+          if (!touched.has("cash")) setCashInput(savedCash);
+          if (!touched.has("tng")) setTngInput(savedTng);
+          setCostLines((prev) =>
+            rebaseCostLinesAfterSave(prev, savedCostLines, touched.has("costLines"))
+          );
+        }
       }
 
-      showSuccessMessage(t.saveSuccess);
+      if (!navigatedAway) showSuccessMessage(t.saveSuccess);
       startTransition(() => {
         router.refresh();
       });
     } catch (err: any) {
       setErrorMessage(translateApiError(err.message, t));
     } finally {
+      touchedDuringSaveRef.current = null;
       setSaving(false);
     }
   }
@@ -881,11 +992,12 @@ export function DailySheetForm({
                 id="cash-input"
                 type="text"
                 inputMode="decimal"
-                disabled={isClosed}
+                disabled={isClosed || saving}
                 value={cashInput}
                 onChange={(e) => {
                   const sanitized = sanitizeMoneyInput(e.target.value);
                   if (sanitized !== null) {
+                    markTouchedDuringSave("cash");
                     setCashInput(sanitized);
                     if (errorMessage) setErrorMessage(null);
                     if (successMessage) dismissSuccessMessage();
@@ -928,11 +1040,12 @@ export function DailySheetForm({
                 id="tng-input"
                 type="text"
                 inputMode="decimal"
-                disabled={isClosed}
+                disabled={isClosed || saving}
                 value={tngInput}
                 onChange={(e) => {
                   const sanitized = sanitizeMoneyInput(e.target.value);
                   if (sanitized !== null) {
+                    markTouchedDuringSave("tng");
                     setTngInput(sanitized);
                     if (errorMessage) setErrorMessage(null);
                     if (successMessage) dismissSuccessMessage();
@@ -1072,8 +1185,9 @@ export function DailySheetForm({
                                   <button
                                     key={cat.key}
                                     type="button"
+                                    disabled={isClosed || saving}
                                     onClick={() => handleUpdateCostLine(idx, { category: cat.key })}
-                                    className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold border btn-wave transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
+                                    className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold border btn-wave transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 disabled:opacity-50 ${
                                       isSelected
                                         ? "bg-brand-broccoli text-white border-brand-broccoli shadow-xs"
                                         : "bg-surface-canvas border-surface-border text-ink-secondary hover:border-ink-muted hover:text-ink-primary"
@@ -1099,6 +1213,7 @@ export function DailySheetForm({
                                 <input
                                   type="text"
                                   inputMode="decimal"
+                                  disabled={isClosed || saving}
                                   value={line.amountInput ?? (line.amountSen > 0 ? senToDecimalStr(line.amountSen) : "")}
                                   ref={idx === costAmountErrorIndex ? costAmountErrorRef : undefined}
                                   aria-invalid={idx === costAmountErrorIndex || undefined}
@@ -1139,6 +1254,7 @@ export function DailySheetForm({
                               </label>
                               <input
                                 type="text"
+                                disabled={isClosed || saving}
                                 value={line.note ?? ""}
                                 ref={idx === noteErrorIndex ? noteErrorRef : undefined}
                                 aria-invalid={idx === noteErrorIndex || undefined}
@@ -1177,8 +1293,9 @@ export function DailySheetForm({
         {!isClosed && (
           <button
             type="button"
+            disabled={saving}
             onClick={handleCreateNewCostLine}
-            className="relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-emerald-50/40 hover:bg-emerald-50/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden"
+            className="relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-emerald-50/40 hover:bg-emerald-50/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden disabled:opacity-50"
           >
             <svg
               className="absolute inset-0 w-full h-full pointer-events-none rounded-xl"

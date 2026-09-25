@@ -12,6 +12,7 @@ vi.mock("next/navigation", () => ({
 
 import {
   DashboardView,
+  buildCostSlices,
   getDonutSlice,
   type SerializedCostByCategory,
   type SerializedMonthTile,
@@ -51,6 +52,77 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
       expect(run1.d).toBe(run2.d);
       expect(run1.tx).toBe(run2.tx);
       expect(run1.ty).toBe(run2.ty);
+    });
+
+    it("emits a closed ring instead of a degenerate arc for a full-circle slice", () => {
+      const full = getDonutSlice(100, 100, 94, 48, 0, 1);
+
+      // Two outer half arcs (sweep 1) and two counter-wound inner half arcs (sweep 0)
+      expect(full.d.match(/A 94 94 0 1 1/g)?.length).toBe(2);
+      expect(full.d.match(/A 48 48 0 1 0/g)?.length).toBe(2);
+      // Both subpaths are closed, and no arc has coincident endpoints
+      expect(full.d.match(/Z/g)?.length).toBe(2);
+      expect(full.d).toContain("M 100.0000 6.0000");
+      expect(full.d).toContain("100.0000 194.0000");
+    });
+  });
+
+  describe("buildCostSlices exact-share boundaries", () => {
+    const entry = (cat: string, amountSen: number, pct: number) => ({
+      cat,
+      amountSen,
+      pct,
+      hex: "#2563eb",
+    });
+
+    it("tiles three equal slices across 0 -> 1 with no gaps or overlaps", () => {
+      const slices = buildCostSlices([
+        entry("restock", 1000, 33),
+        entry("gas", 1000, 33),
+        entry("transport", 1000, 33),
+      ]);
+
+      expect(slices.length).toBe(3);
+      expect(slices[0].start).toBe(0);
+      expect(slices[2].end).toBe(1);
+      // Each slice starts exactly where the previous one ended
+      expect(slices[1].start).toBe(slices[0].end);
+      expect(slices[2].start).toBe(slices[1].end);
+      // Rounded display percentages are untouched by the geometry
+      expect(slices.map((s) => s.pct)).toEqual([33, 33, 33]);
+    });
+
+    it("gives a single slice the full circle", () => {
+      const slices = buildCostSlices([entry("restock", 4500, 100)]);
+
+      expect(slices.length).toBe(1);
+      expect(slices[0].start).toBe(0);
+      expect(slices[0].end).toBe(1);
+    });
+
+    it("splits a 1/3 - 2/3 pair at the exact sen share", () => {
+      const slices = buildCostSlices([
+        entry("restock", 1000, 33),
+        entry("gas", 2000, 67),
+      ]);
+
+      expect(slices[0].start).toBe(0);
+      expect(slices[0].end).toBeCloseTo(1 / 3, 12);
+      expect(slices[1].start).toBeCloseTo(1 / 3, 12);
+      expect(slices[1].end).toBe(1);
+    });
+
+    it("returns an empty array when the total is zero", () => {
+      expect(buildCostSlices([])).toEqual([]);
+      expect(buildCostSlices([entry("restock", 0, 0)])).toEqual([]);
+    });
+
+    it("preserves the entry fields alongside the boundaries", () => {
+      const [slice] = buildCostSlices([entry("gas", 500, 100)]);
+
+      expect(slice.cat).toBe("gas");
+      expect(slice.hex).toBe("#2563eb");
+      expect(slice.amountSen).toBe(500);
     });
   });
 
@@ -113,6 +185,44 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
       for (const d of donutSlicePaths) {
         expect(d).toContain("A 94 94 0 0 1");
       }
+    });
+
+    it("renders a full ring for a month whose costs are all one category", () => {
+      const mockTile: SerializedMonthTile = {
+        month: "2026-05",
+        status: "open",
+        revenueSen: 100000,
+        dailyCostSen: 40000,
+        grossSen: 60000,
+        operatingSen: 10000,
+        netSen: 50000,
+      };
+
+      const html = ReactDOMServer.renderToStaticMarkup(
+        React.createElement(DashboardView, {
+          tiles: [mockTile],
+          activeMonth: "2026-05",
+          activeTile: mockTile,
+          trend: [],
+          split: null,
+          costByCategory: {
+            restock: 40000,
+            gas: 0,
+            transport: 0,
+            "wages-daily": 0,
+            maintenance: 0,
+            other: 0,
+          } as SerializedCostByCategory,
+        })
+      );
+
+      const paths = Array.from(html.matchAll(/d="([^"]+)"/g), (m) => m[1]);
+      const donutSlicePaths = paths.filter((d) => d.includes("A 94"));
+
+      expect(donutSlicePaths.length).toBe(1);
+      expect(donutSlicePaths[0].match(/A 94 94 0 1 1/g)?.length).toBe(2);
+      expect(donutSlicePaths[0].match(/A 48 48 0 1 0/g)?.length).toBe(2);
+      expect(html).toContain("100%");
     });
   });
 
