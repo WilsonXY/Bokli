@@ -22,6 +22,7 @@ import {
   createNewCostLine,
   findZeroCostLineIndex,
   getCostLineKey,
+  rebaseCostLinesAfterSave,
   type CostLineItem,
 } from "./DailySheetForm";
 import { DICTIONARY, translateApiError } from "@/lib/i18n";
@@ -1083,5 +1084,93 @@ describe("DailySheetForm long money amount dynamic sizing", () => {
     expect(html).toContain("RM0.00");
     expect(html).toMatch(/class="[^"]*text-xl font-bold text-brand-broccoli"[^>]*>RM0\.00/);
     expect(html).not.toMatch(/class="[^"]*text-base font-bold text-brand-broccoli"[^>]*>RM0\.00/);
+  });
+});
+
+describe("in-flight edit rebase (rebaseCostLinesAfterSave)", () => {
+  const savedLines: CostLineItem[] = [
+    { category: "restock", amountSen: 5000, amountInput: "50", note: "veg", ids: [11] },
+    { category: "gas", amountSen: 2500, amountInput: "25", note: null, ids: [12] },
+  ];
+
+  it("takes the server snapshot verbatim when the draft was untouched during the flight", () => {
+    const local: CostLineItem[] = [
+      { category: "restock", amountSen: 5000, amountInput: "50", note: "veg", ids: [] },
+      { category: "gas", amountSen: 2500, amountInput: "25", note: null, ids: [] },
+    ];
+
+    expect(rebaseCostLinesAfterSave(local, savedLines, false)).toBe(savedLines);
+  });
+
+  it("keeps an amount typed during the save instead of discarding it for the snapshot", () => {
+    // Mom retyped the restock amount while the POST was still in flight.
+    const local: CostLineItem[] = [
+      { category: "restock", amountSen: 5000, amountInput: "50", note: "veg", ids: [] },
+      { category: "gas", amountSen: 2500, amountInput: "25", note: null, ids: [] },
+      { category: "transport", amountSen: 1200, amountInput: "12", note: null, clientId: "line-x", ids: [] },
+    ];
+
+    const rebased = rebaseCostLinesAfterSave(local, savedLines, true);
+
+    // No keystrokes lost: the mid-flight line survives exactly as typed.
+    expect(rebased).toHaveLength(3);
+    expect(rebased[2]).toEqual(local[2]);
+    expect(rebased[2].ids).toEqual([]);
+
+    // Rows that still match the snapshot adopt the saved ids, so the baseline
+    // diff flags only the line she actually changed.
+    expect(rebased[0].ids).toEqual([11]);
+    expect(rebased[1].ids).toEqual([12]);
+  });
+
+  it("keeps a half-typed amount string and a note edited mid-flight", () => {
+    const local: CostLineItem[] = [
+      { category: "restock", amountSen: 5000, amountInput: "50.", note: "veg", ids: [] },
+      { category: "gas", amountSen: 2500, amountInput: "25", note: "cylinder", ids: [] },
+    ];
+
+    const rebased = rebaseCostLinesAfterSave(local, savedLines, true);
+
+    // Same amountSen as the snapshot, so the row adopts the id but keeps her
+    // in-progress input string rather than the normalised server rendering.
+    expect(rebased[0].amountInput).toBe("50.");
+    expect(rebased[0].ids).toEqual([11]);
+
+    // The note differs from the snapshot: her text wins and no id is adopted,
+    // so isModified stays true and the next save re-sends the merged draft.
+    expect(rebased[1].note).toBe("cylinder");
+    expect(rebased[1].ids).toEqual([]);
+  });
+
+  it("keeps a line deleted during the flight deleted", () => {
+    const local: CostLineItem[] = [
+      { category: "restock", amountSen: 5000, amountInput: "50", note: "veg", ids: [] },
+    ];
+
+    const rebased = rebaseCostLinesAfterSave(local, savedLines, true);
+
+    expect(rebased).toHaveLength(1);
+    expect(rebased[0].category).toBe("restock");
+    expect(rebased[0].ids).toEqual([11]);
+  });
+
+  it("does not hand the same saved row's ids to two identical local rows", () => {
+    const local: CostLineItem[] = [
+      { category: "gas", amountSen: 2500, amountInput: "25", note: null, ids: [] },
+      { category: "gas", amountSen: 2500, amountInput: "25", note: null, clientId: "line-dup", ids: [] },
+    ];
+
+    const rebased = rebaseCostLinesAfterSave(local, savedLines, true);
+
+    expect(rebased[0].ids).toEqual([12]);
+    expect(rebased[1].ids).toEqual([]);
+  });
+
+  it("treats whitespace-only note differences as the same row", () => {
+    const local: CostLineItem[] = [
+      { category: "restock", amountSen: 5000, amountInput: "50", note: "  veg  ", ids: [] },
+    ];
+
+    expect(rebaseCostLinesAfterSave(local, savedLines, true)[0].ids).toEqual([11]);
   });
 });

@@ -66,6 +66,25 @@ export function mergeOperatingExpenses(items: OperatingExpenseItem[]): MergedExp
   return merged;
 }
 
+// Draft fields of the add-expense form that the in-flight rebase tracks.
+export type ExpenseDraftField = "amount" | "note";
+
+// Rebase helper (local-first draft + authoritative server list). After an add
+// succeeds, the list refreshes from the server, but a half-typed draft the
+// Operator started while the request was in flight must survive — mom's typing
+// wins. Only fields she did NOT touch during the flight were the ones actually
+// submitted, so only those get cleared; if she touched anything, the draft card
+// stays open with her text intact.
+export function resolveExpenseDraftAfterAdd(
+  touchedDuringAdd: ReadonlySet<ExpenseDraftField>
+): { clearAmount: boolean; clearNote: boolean; closeDraft: boolean } {
+  return {
+    clearAmount: !touchedDuringAdd.has("amount"),
+    clearNote: !touchedDuringAdd.has("note"),
+    closeDraft: touchedDuringAdd.size === 0,
+  };
+}
+
 interface ExpensesViewProps {
   currentMonth: string;
   availableMonths: string[];
@@ -131,6 +150,17 @@ export function ExpensesView({
     }
   }, [noteError]);
   const [adding, setAdding] = useState(false);
+
+  // Draft fields the Operator touched after the add request left the browser.
+  // The inputs are disabled while `adding`, but a keystroke can still land in
+  // the same tick (queued event, IME commit, paste), so this set — not the
+  // disabled attribute — is what guarantees no keystroke is lost. Non-null only
+  // while an add is in flight.
+  const touchedDuringAddRef = useRef<Set<ExpenseDraftField> | null>(null);
+
+  function markTouchedDuringAdd(field: ExpenseDraftField) {
+    touchedDuringAddRef.current?.add(field);
+  }
   const [inlineError, setInlineError] = useState<string | null>(initialInlineError);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
@@ -195,6 +225,8 @@ export function ExpensesView({
     }
     setNoteError(false);
 
+    // Open the touched-fields window for the duration of the flight.
+    touchedDuringAddRef.current = new Set<ExpenseDraftField>();
     setAdding(true);
 
     try {
@@ -220,11 +252,16 @@ export function ExpensesView({
           ? prev.map((item) => (item.id === data.expense.id ? data.expense : item))
           : [...prev, data.expense];
       });
-      setAmountInput("");
-      setNoteInput("");
+      // Only clear what was actually submitted: anything she typed during the
+      // flight is a new draft and stays on screen (with the card open).
+      const rebase = resolveExpenseDraftAfterAdd(
+        touchedDuringAddRef.current ?? new Set<ExpenseDraftField>()
+      );
+      if (rebase.clearAmount) setAmountInput("");
+      if (rebase.clearNote) setNoteInput("");
       setAmountError(false);
       setNoteError(false);
-      setIsDraftOpen(false);
+      if (rebase.closeDraft) setIsDraftOpen(false);
       setSuccessBanner(t.addExpenseSuccess);
       setTimeout(() => setSuccessBanner(null), 3000);
 
@@ -234,6 +271,7 @@ export function ExpensesView({
     } catch (err: any) {
       setInlineError(translateApiError(err.message, t));
     } finally {
+      touchedDuringAddRef.current = null;
       setAdding(false);
     }
   }
@@ -521,12 +559,13 @@ export function ExpensesView({
                           <button
                             key={cat.key}
                             type="button"
+                            disabled={adding}
                             onClick={() => {
                               setNewType(cat.key);
                               if (cat.key !== "other" && noteError) setNoteError(false);
                               if (inlineError) setInlineError(null);
                             }}
-                            className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold border btn-wave transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
+                            className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold border btn-wave transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 disabled:opacity-50 ${
                               isSelected
                                 ? "bg-brand-broccoli text-white border-brand-broccoli shadow-xs"
                                 : "bg-surface-canvas border-surface-border text-ink-secondary hover:border-ink-muted hover:text-ink-primary"
@@ -552,12 +591,14 @@ export function ExpensesView({
                         <input
                           type="text"
                           inputMode="decimal"
+                          disabled={adding}
                           value={amountInput}
                           aria-invalid={amountError || undefined}
                           aria-describedby={amountError ? "expense-amount-error" : undefined}
                           onChange={(e) => {
                             const sanitized = sanitizeMoneyInput(e.target.value);
                             if (sanitized !== null) {
+                              markTouchedDuringAdd("amount");
                               setAmountInput(sanitized);
                               if (amountError) setAmountError(false);
                               if (inlineError) setInlineError(null);
@@ -591,10 +632,12 @@ export function ExpensesView({
                       <input
                         ref={noteInputRef}
                         type="text"
+                        disabled={adding}
                         value={noteInput}
                         aria-invalid={noteError || undefined}
                         aria-describedby={noteError ? "expense-note-error" : undefined}
                         onChange={(e) => {
+                          markTouchedDuringAdd("note");
                           setNoteInput(e.target.value);
                           if (noteError) setNoteError(false);
                           if (inlineError) setInlineError(null);
