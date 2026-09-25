@@ -4,7 +4,7 @@ import React, { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
-import { sanitizeCallbackUrl } from "@/lib/url";
+import { postLoginTarget } from "@/lib/url";
 import { resolveLoginErrorMessage } from "@/lib/login-error";
 
 function LoginForm() {
@@ -13,10 +13,7 @@ function LoginForm() {
   const callbackUrl = searchParams.get("callbackUrl");
   const urlError = searchParams.get("error");
   const urlCode = searchParams.get("code");
-  const targetUrl =
-    !callbackUrl || callbackUrl === "/" || callbackUrl.startsWith("/login")
-      ? "/dashboard"
-      : sanitizeCallbackUrl(callbackUrl, "/dashboard");
+  const targetUrl = postLoginTarget(callbackUrl);
 
   const { t, lang, setLang } = useI18n();
   const [username, setUsername] = useState("");

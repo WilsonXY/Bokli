@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 import { authConfig } from "@/auth/config";
-import { sanitizeCallbackUrl } from "@/lib/url";
+import { postLoginTarget } from "@/lib/url";
 
 const { auth } = NextAuth(authConfig);
 
@@ -24,10 +24,7 @@ export default auth((req) => {
   if (pathname === "/login" || pathname === "/login/") {
     if (isLoggedIn) {
       const callbackUrl = req.nextUrl.searchParams.get("callbackUrl");
-      const targetPath =
-        !callbackUrl || callbackUrl === "/" || callbackUrl.startsWith("/login")
-          ? "/dashboard"
-          : sanitizeCallbackUrl(callbackUrl, "/dashboard");
+      const targetPath = postLoginTarget(callbackUrl);
       return NextResponse.redirect(new URL(targetPath, req.nextUrl));
     }
     return NextResponse.next();
