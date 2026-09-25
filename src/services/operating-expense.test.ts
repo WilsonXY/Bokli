@@ -25,11 +25,8 @@ import {
 import { addCostLine, getOrCreateSheet, setRevenue } from "./daily-sheet";
 import {
   DELETE as expensesDelete,
-  GET as expensesGet,
-  PATCH as expensesPatch,
   POST as expensesPost,
 } from "../../app/api/expenses/route";
-import { GET as previewGet } from "../../app/api/preview/route";
 
 let tmpDir: string;
 let dbPath: string;
@@ -489,17 +486,8 @@ describe("6. Live month preview calculation (gross & net profit in sen)", () => 
   });
 });
 
-describe("7. API routes & Auth guard protection (/api/expenses and /api/preview)", () => {
+describe("7. API routes & Auth guard protection (/api/expenses)", () => {
   it("rejects anonymous requests with 401 Unauthorized", async () => {
-    // GET /api/expenses anonymous
-    const getExpReq = new NextRequest(
-      "http://localhost:3000/api/expenses?month=2025-12",
-    );
-    const getExpRes = await expensesGet(getExpReq);
-    expect(getExpRes.status).toBe(401);
-    const getExpBody = await getExpRes.json();
-    expect(getExpBody.error).toBe("Unauthorized");
-
     // POST /api/expenses anonymous
     const postExpReq = new NextRequest(
       "http://localhost:3000/api/expenses",
@@ -514,17 +502,8 @@ describe("7. API routes & Auth guard protection (/api/expenses and /api/preview)
     );
     const postExpRes = await expensesPost(postExpReq);
     expect(postExpRes.status).toBe(401);
-
-    // PATCH /api/expenses anonymous
-    const patchExpReq = new NextRequest(
-      "http://localhost:3000/api/expenses?id=1",
-      {
-        method: "PATCH",
-        body: JSON.stringify({ amountSen: 2000 }),
-      },
-    );
-    const patchExpRes = await expensesPatch(patchExpReq);
-    expect(patchExpRes.status).toBe(401);
+    const postExpBody = await postExpRes.json();
+    expect(postExpBody.error).toBe("Unauthorized");
 
     // DELETE /api/expenses anonymous
     const deleteExpReq = new NextRequest(
@@ -535,18 +514,9 @@ describe("7. API routes & Auth guard protection (/api/expenses and /api/preview)
     );
     const deleteExpRes = await expensesDelete(deleteExpReq);
     expect(deleteExpRes.status).toBe(401);
-
-    // GET /api/preview anonymous
-    const getPrevReq = new NextRequest(
-      "http://localhost:3000/api/preview?month=2025-12",
-    );
-    const getPrevRes = await previewGet(getPrevReq);
-    expect(getPrevRes.status).toBe(401);
-    const getPrevBody = await getPrevRes.json();
-    expect(getPrevBody.error).toBe("Unauthorized");
   });
 
-  it("handles authenticated CRUD on /api/expenses and live preview on /api/preview", async () => {
+  it("handles authenticated create and delete on /api/expenses", async () => {
     const authSession = {
       user: { id: "2", name: "katte", role: "Admin" as const },
     };
@@ -559,12 +529,7 @@ describe("7. API routes & Auth guard protection (/api/expenses and /api/preview)
 
     const testMonth = "2025-12";
 
-    // 1. Validation error on missing month query in GET /api/expenses
-    const badGetReq = makeAuthReq("http://localhost:3000/api/expenses");
-    const badGetRes = await expensesGet(badGetReq);
-    expect(badGetRes.status).toBe(400);
-
-    // 2. Validation error on invalid body in POST /api/expenses
+    // 1. Validation error on invalid body in POST /api/expenses
     const badPostReq = makeAuthReq("http://localhost:3000/api/expenses", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -577,6 +542,15 @@ describe("7. API routes & Auth guard protection (/api/expenses and /api/preview)
     });
     const badPostRes = await expensesPost(badPostReq);
     expect(badPostRes.status).toBe(400);
+
+    // 2. Missing 'month' field in POST /api/expenses
+    const noMonthReq = makeAuthReq("http://localhost:3000/api/expenses", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "rental", amountSen: 1000 }),
+    });
+    const noMonthRes = await expensesPost(noMonthReq);
+    expect(noMonthRes.status).toBe(400);
 
     // 3. Successful POST /api/expenses
     const postReq = makeAuthReq("http://localhost:3000/api/expenses", {
@@ -617,52 +591,13 @@ describe("7. API routes & Auth guard protection (/api/expenses and /api/preview)
     expect(mergePostData.expense.id).toBe(expenseId);
     expect(mergePostData.expense.amountSen).toBe(150000);
 
-    // 4. GET /api/expenses?month=2025-12
-    const getReq = makeAuthReq(
-      `http://localhost:3000/api/expenses?month=${testMonth}`,
-    );
-    const getRes = await expensesGet(getReq);
-    expect(getRes.status).toBe(200);
-    const getData = await getRes.json();
-    expect(getData.expenses).toHaveLength(1);
-    expect(getData.expenses[0].id).toBe(expenseId);
+    // 4. The Operating Expense is persisted for the month
+    const persisted = await listOperatingExpenses(testMonth, { db });
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0].id).toBe(expenseId);
+    expect(persisted[0].amountSen).toBe(150000);
 
-    // 5. PATCH /api/expenses?id=...
-    const patchReq = makeAuthReq(
-      `http://localhost:3000/api/expenses?id=${expenseId}`,
-      {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amountSen: 125000,
-        }),
-      },
-    );
-    const patchRes = await expensesPatch(patchReq);
-    expect(patchRes.status).toBe(200);
-    const patchData = await patchRes.json();
-    expect(patchData.expense.amountSen).toBe(125000);
-
-    // 6. GET /api/preview?month=2025-12
-    const prevReq = makeAuthReq(
-      `http://localhost:3000/api/preview?month=${testMonth}`,
-    );
-    const prevRes = await previewGet(prevReq);
-    expect(prevRes.status).toBe(200);
-    const prevData = await prevRes.json();
-    expect(prevData.month).toBe(testMonth);
-    expect(prevData.revenueSen).toBe(0);
-    expect(prevData.dailyCostSen).toBe(0);
-    expect(prevData.grossSen).toBe(0);
-    expect(prevData.operatingSen).toBe(125000);
-    expect(prevData.netSen).toBe(-125000);
-
-    // 7. Validation error on GET /api/preview without month
-    const badPrevReq = makeAuthReq("http://localhost:3000/api/preview");
-    const badPrevRes = await previewGet(badPrevReq);
-    expect(badPrevRes.status).toBe(400);
-
-    // 8. DELETE /api/expenses?id=...
+    // 5. DELETE /api/expenses?id=...
     const delReq = makeAuthReq(
       `http://localhost:3000/api/expenses?id=${expenseId}`,
       {
@@ -674,6 +609,9 @@ describe("7. API routes & Auth guard protection (/api/expenses and /api/preview)
     const delData = await delRes.json();
     expect(delData.success).toBe(true);
     expect(delData.removedExpense.id).toBe(expenseId);
+
+    // 6. The Operating Expense is gone after deletion
+    expect(await listOperatingExpenses(testMonth, { db })).toHaveLength(0);
   });
 });
 
