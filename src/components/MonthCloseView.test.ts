@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import React from "react";
 import ReactDOMServer from "react-dom/server";
 
@@ -13,6 +13,7 @@ vi.mock("next/navigation", () => ({
 import {
   MonthCloseView,
   computeReconciliationGating,
+  submitMonthClose,
 } from "./MonthCloseView";
 import { DICTIONARY } from "@/lib/i18n";
 import { tryParseSen } from "@/lib/money";
@@ -205,5 +206,167 @@ describe("MonthCloseView variance-gating", () => {
       expect(html).toContain("实际总金额");
       expect(html).not.toContain("实点总金额");
     });
+  });
+});
+
+describe("submitMonthClose (Month Close submit handler)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function setup(overrides: {
+    cashInput: string;
+    tngInput: string;
+    closeNote?: string;
+    hasSheetsInMonth?: boolean;
+    confirmEmpty?: boolean;
+    submitting?: boolean;
+    response?: { ok: boolean; body: unknown };
+  }) {
+    const closeNote = overrides.closeNote ?? "";
+    const confirmEmpty = overrides.confirmEmpty ?? false;
+    const gating = computeReconciliationGating({
+      cashInput: overrides.cashInput,
+      tngInput: overrides.tngInput,
+      expectedNetSen: BigInt(mockFinancials.netSen),
+      closeNote,
+      hasSheetsInMonth: overrides.hasSheetsInMonth ?? true,
+      confirmEmpty,
+    });
+    const response = overrides.response ?? { ok: true, body: { success: true } };
+    const fetchImpl = vi.fn(async () => ({
+      ok: response.ok,
+      json: async () => response.body,
+    })) as unknown as typeof fetch & ReturnType<typeof vi.fn>;
+    const deps = {
+      submitting: overrides.submitting ?? false,
+      gating,
+      currentMonth: "2026-05",
+      closeNote,
+      confirmEmpty,
+      t,
+      setErrorMessage: vi.fn(),
+      setSubmitting: vi.fn(),
+      setSuccessMessage: vi.fn(),
+      onClosed: vi.fn(),
+      fetchImpl,
+    };
+    return deps;
+  }
+
+  function expectBlocked(deps: ReturnType<typeof setup>, message: string) {
+    expect(deps.fetchImpl).not.toHaveBeenCalled();
+    expect(deps.setSubmitting).not.toHaveBeenCalled();
+    expect(deps.onClosed).not.toHaveBeenCalled();
+    expect(deps.setErrorMessage).toHaveBeenNthCalledWith(1, null);
+    expect(deps.setErrorMessage).toHaveBeenLastCalledWith(message);
+  }
+
+  it("blocks submit with invalidAmount when an amount is unparseable", async () => {
+    const deps = setup({ cashInput: "abc", tngInput: "0.00" });
+    await submitMonthClose(deps);
+    expectBlocked(deps, t.invalidAmount);
+  });
+
+  it("invalidAmount takes priority over empty-month and missing-note errors", async () => {
+    const deps = setup({
+      cashInput: "12.34.56",
+      tngInput: "0.00",
+      hasSheetsInMonth: false,
+      confirmEmpty: false,
+      closeNote: "",
+    });
+    await submitMonthClose(deps);
+    expectBlocked(deps, t.invalidAmount);
+  });
+
+  it("blocks submit with emptyMonthError for an empty month without confirmation", async () => {
+    const deps = setup({
+      cashInput: "600.00",
+      tngInput: "0.00",
+      hasSheetsInMonth: false,
+      confirmEmpty: false,
+      closeNote: "",
+    });
+    await submitMonthClose(deps);
+    // Empty-month confirmation outranks the missing variance note.
+    expectBlocked(deps, t.emptyMonthError);
+  });
+
+  it("blocks submit with varianceNoteRequired for a mismatched Reconciliation without a note", async () => {
+    const deps = setup({ cashInput: "600.00", tngInput: "0.00", closeNote: "   " });
+    await submitMonthClose(deps);
+    expectBlocked(deps, t.varianceNoteRequired);
+  });
+
+  it("does nothing while a submission is already in flight", async () => {
+    const deps = setup({ cashInput: "300.00", tngInput: "200.00", submitting: true });
+    await submitMonthClose(deps);
+    expect(deps.fetchImpl).not.toHaveBeenCalled();
+    expect(deps.setErrorMessage).not.toHaveBeenCalled();
+    expect(deps.setSubmitting).not.toHaveBeenCalled();
+  });
+
+  it("submits a balanced Reconciliation with parsed amounts from gating", async () => {
+    const deps = setup({ cashInput: "300.00", tngInput: "200.00" });
+    await submitMonthClose(deps);
+
+    expect(deps.fetchImpl).toHaveBeenCalledTimes(1);
+    const [url, init] = (deps.fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(url).toBe("/api/close");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body)).toEqual({
+      month: "2026-05",
+      cashOnHandSen: 30000,
+      tngOnHandSen: 20000,
+      confirmEmpty: false,
+    });
+    expect(deps.setSubmitting.mock.calls).toEqual([[true], [false]]);
+    expect(deps.setErrorMessage.mock.calls).toEqual([[null]]);
+    expect(deps.setSuccessMessage).toHaveBeenCalledWith(t.closeSuccess);
+    expect(deps.onClosed).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(3500);
+    expect(deps.setSuccessMessage).toHaveBeenLastCalledWith(null);
+  });
+
+  it("submits a mismatched Reconciliation with a trimmed note and empty-month confirmation", async () => {
+    const deps = setup({
+      cashInput: "450.00",
+      tngInput: "0.00",
+      closeNote: "  Till float correction  ",
+      hasSheetsInMonth: false,
+      confirmEmpty: true,
+    });
+    await submitMonthClose(deps);
+
+    expect(deps.fetchImpl).toHaveBeenCalledTimes(1);
+    const [, init] = (deps.fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(JSON.parse(init.body)).toEqual({
+      month: "2026-05",
+      cashOnHandSen: 45000,
+      tngOnHandSen: 0,
+      note: "Till float correction",
+      confirmEmpty: true,
+    });
+    expect(deps.onClosed).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces a translated server error and resets submitting", async () => {
+    const deps = setup({
+      cashInput: "300.00",
+      tngInput: "200.00",
+      response: { ok: false, body: { error: "Unauthorized" } },
+    });
+    await submitMonthClose(deps);
+
+    expect(deps.fetchImpl).toHaveBeenCalledTimes(1);
+    expect(deps.setErrorMessage).toHaveBeenLastCalledWith(t.unauthorizedError);
+    expect(deps.setSuccessMessage).not.toHaveBeenCalled();
+    expect(deps.onClosed).not.toHaveBeenCalled();
+    expect(deps.setSubmitting.mock.calls).toEqual([[true], [false]]);
   });
 });

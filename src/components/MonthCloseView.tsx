@@ -3,7 +3,7 @@
 import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMyr, sanitizeMoneyInput, tryParseSen } from "@/lib/money";
-import { useI18n, translateApiError } from "@/lib/i18n";
+import { useI18n, translateApiError, type TranslationMap } from "@/lib/i18n";
 import { MonthSelectorDropdown, MonthOption } from "@/components/MonthSelectorDropdown";
 
 interface FinancialSnapshot {
@@ -103,6 +103,76 @@ export function computeReconciliationGating(params: {
   };
 }
 
+export interface SubmitMonthCloseParams {
+  submitting: boolean;
+  gating: ReconciliationGatingResult;
+  currentMonth: string;
+  closeNote: string;
+  confirmEmpty: boolean;
+  t: TranslationMap;
+  setErrorMessage: (message: string | null) => void;
+  setSubmitting: (submitting: boolean) => void;
+  setSuccessMessage: (message: string | null) => void;
+  onClosed: () => void;
+  fetchImpl?: typeof fetch;
+}
+
+// Month Close submission; the gating result is the single source for validation and parsed amounts.
+export async function submitMonthClose({
+  submitting,
+  gating,
+  currentMonth,
+  closeNote,
+  confirmEmpty,
+  t,
+  setErrorMessage,
+  setSubmitting,
+  setSuccessMessage,
+  onClosed,
+  fetchImpl = fetch,
+}: SubmitMonthCloseParams): Promise<void> {
+  if (submitting) return;
+  setErrorMessage(null);
+
+  if (gating.validationError !== null) {
+    setErrorMessage(t[gating.validationError]);
+    return;
+  }
+  // Non-null: validationError is "invalidAmount" whenever either amount is null.
+  const cashOnHandSen = gating.cashOnHandSen!;
+  const tngOnHandSen = gating.tngOnHandSen!;
+
+  setSubmitting(true);
+
+  try {
+    const res = await fetchImpl("/api/close", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        month: currentMonth,
+        cashOnHandSen: Number(cashOnHandSen),
+        tngOnHandSen: Number(tngOnHandSen),
+        note: closeNote.trim() || undefined,
+        confirmEmpty,
+      }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) {
+      throw Object.assign(new Error(data.error ?? ""), { code: data.code });
+    }
+
+    setSuccessMessage(t.closeSuccess);
+    setTimeout(() => setSuccessMessage(null), 3500);
+
+    onClosed();
+  } catch (err: any) {
+    setErrorMessage(translateApiError({ error: err.message, code: err.code }, t));
+  } finally {
+    setSubmitting(false);
+  }
+}
+
 export function MonthCloseView({
   currentMonth,
   availableMonths,
@@ -148,8 +218,6 @@ export function MonthCloseView({
   });
 
   const {
-    cashOnHandSen,
-    tngOnHandSen,
     cashError,
     tngError,
     hasParseError,
@@ -165,55 +233,22 @@ export function MonthCloseView({
   // Handle Month Close submission
   async function handlePerformClose(e: React.FormEvent) {
     e.preventDefault();
-    if (submitting) return;
-    setErrorMessage(null);
-
-    if (hasParseError || cashOnHandSen === null || tngOnHandSen === null) {
-      setErrorMessage(t.invalidAmount);
-      return;
-    }
-
-    if (!hasSheetsInMonth && !confirmEmpty) {
-      setErrorMessage(t.emptyMonthError);
-      return;
-    }
-
-    if (!isBalanced && !closeNote.trim()) {
-      setErrorMessage(t.varianceNoteRequired);
-      return;
-    }
-
-    setSubmitting(true);
-
-    try {
-      const res = await fetch("/api/close", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          month: currentMonth,
-          cashOnHandSen: Number(cashOnHandSen),
-          tngOnHandSen: Number(tngOnHandSen),
-          note: closeNote.trim() || undefined,
-          confirmEmpty,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw Object.assign(new Error(data.error ?? ""), { code: data.code });
-      }
-
-      setSuccessMessage(t.closeSuccess);
-      setTimeout(() => setSuccessMessage(null), 3500);
-
-      startTransition(() => {
-        router.refresh();
-      });
-    } catch (err: any) {
-      setErrorMessage(translateApiError({ error: err.message, code: err.code }, t));
-    } finally {
-      setSubmitting(false);
-    }
+    await submitMonthClose({
+      submitting,
+      gating,
+      currentMonth,
+      closeNote,
+      confirmEmpty,
+      t,
+      setErrorMessage,
+      setSubmitting,
+      setSuccessMessage,
+      onClosed: () => {
+        startTransition(() => {
+          router.refresh();
+        });
+      },
+    });
   }
 
   // Handle Admin Reopen
