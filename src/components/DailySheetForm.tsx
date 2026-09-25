@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { amountSizeClass, formatMyr, sanitizeMoneyInput, tryParseSen } from "@/lib/money";
 import { useI18n, translateApiError } from "@/lib/i18n";
 import { CalendarPopover } from "@/components/CalendarPopover";
-import type { CostCategory } from "@/services/daily-sheet";
+import { isOtherNoteMissing, type CostCategory } from "@/lib/vocab";
 import type { CostLine } from "@/db/schema";
 
 export interface CostLineItem {
@@ -51,7 +51,7 @@ export function findMissingOtherNoteIndex(
   lines: Pick<CostLineItem, "category" | "note">[]
 ): number {
   return lines.findIndex(
-    (line) => line.category === "other" && !normalizeNote(line.note)
+    (line) => isOtherNoteMissing(line.category, line.note)
   );
 }
 
@@ -339,8 +339,7 @@ export function toggleCostLineExpansion(
       const newIdx = findConsolidatedLineIndex(errLine, consolidated);
       if (
         newIdx !== -1 &&
-        consolidated[newIdx].category === "other" &&
-        !normalizeNote(consolidated[newIdx].note)
+        isOtherNoteMissing(consolidated[newIdx].category, consolidated[newIdx].note)
       ) {
         noteErrorIndex = newIdx;
       }

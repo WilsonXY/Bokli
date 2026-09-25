@@ -4,7 +4,12 @@ import { getTableConfig, SQLiteSyncDialect } from "drizzle-orm/sqlite-core";
 import { describe, expect, it } from "vitest";
 
 import { costLines, operatingExpenses } from "@/db/schema";
-import { COST_CATEGORIES, OPERATING_EXPENSE_TYPES } from "./vocab";
+import {
+  COST_CATEGORIES,
+  OPERATING_EXPENSE_TYPES,
+  isOtherNoteMissing,
+  isValidCostCategory,
+} from "./vocab";
 
 const dialect = new SQLiteSyncDialect();
 
@@ -40,6 +45,29 @@ function latestMigrationInList(name: string): string {
   return latest.replace(/,\s+/g, ",");
 }
 
+describe("isValidCostCategory", () => {
+  it("accepts known categories and rejects anything else", () => {
+    expect(isValidCostCategory("restock")).toBe(true);
+    expect(isValidCostCategory("other")).toBe(true);
+    expect(isValidCostCategory("food")).toBe(false);
+    expect(isValidCostCategory(1)).toBe(false);
+  });
+});
+
+describe("isOtherNoteMissing", () => {
+  it("flags 'other' without a non-blank note", () => {
+    expect(isOtherNoteMissing("other", undefined)).toBe(true);
+    expect(isOtherNoteMissing("other", null)).toBe(true);
+    expect(isOtherNoteMissing("other", "   ")).toBe(true);
+    expect(isOtherNoteMissing("other", 5)).toBe(true);
+    expect(isOtherNoteMissing("other", "ice")).toBe(false);
+  });
+
+  it("never flags non-'other' categories", () => {
+    expect(isOtherNoteMissing("gas", null)).toBe(false);
+  });
+});
+
 describe("vocab stays in sync with schema CHECK constraints", () => {
   it("chk_cost_lines_category matches COST_CATEGORIES", () => {
     expect(checkSql(costLines, "chk_cost_lines_category")).toBe(
@@ -55,3 +83,4 @@ describe("vocab stays in sync with schema CHECK constraints", () => {
     expect(latestMigrationInList("chk_opex_type")).toBe(inList(OPERATING_EXPENSE_TYPES));
   });
 });
+

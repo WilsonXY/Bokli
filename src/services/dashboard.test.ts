@@ -12,6 +12,7 @@ import {
   operatingExpenses,
 } from "@/db/schema";
 import {
+  closedTileFromRecord,
   getDashboard,
   getCostByCategory,
   getDailyTrend,
@@ -322,5 +323,44 @@ describe("Dashboard Service - read-only guarantee (no mutation)", () => {
     expect(costsAfter).toEqual(costsBefore);
     expect(expensesAfter).toEqual(expensesBefore);
     expect(closesAfter).toEqual(closesBefore);
+  });
+});
+
+describe("Dashboard Service - closedTileFromRecord", () => {
+  const baseRecord = {
+    id: 1,
+    month: "2026-01",
+    revenueSen: 100000,
+    dailyCostSen: 30000,
+    grossSen: 70000,
+    operatingSen: 20000,
+    netSen: 50000,
+    cashOnHandSen: 30000,
+    tngOnHandSen: 20000,
+    note: null,
+    closedAt: "2026-02-01 00:00:00",
+    reopenedAt: null,
+    reopenReason: null,
+  };
+
+  it("maps the frozen snapshot and is balanced when on-hand equals Net", () => {
+    expect(closedTileFromRecord("2026-01", baseRecord)).toEqual({
+      month: "2026-01",
+      revenueSen: 100000n,
+      dailyCostSen: 30000n,
+      grossSen: 70000n,
+      operatingSen: 20000n,
+      netSen: 50000n,
+      status: "closed",
+      balanced: true,
+    });
+  });
+
+  it("is unbalanced when on-hand differs, treating null on-hand as 0", () => {
+    const tile = closedTileFromRecord("2026-01", {
+      ...baseRecord,
+      tngOnHandSen: null,
+    });
+    expect(tile.balanced).toBe(false);
   });
 });

@@ -5,6 +5,7 @@ import {
   dailySheets,
   monthCloses,
   operatingExpenses,
+  type MonthClose,
 } from "@/db/schema";
 import { isValidMonthStr, subSen, sumSen } from "@/lib/money";
 import { COST_CATEGORIES, type CostCategory } from "@/lib/vocab";
@@ -97,6 +98,33 @@ export function hasMonthData(month: string, options?: { db?: Db }): boolean {
 }
 
 /**
+ * Builds the tile for a closed Month from its frozen Month Close snapshot.
+ * Balanced when Cash + TnG on hand equals the snapshot's Net.
+ */
+export function closedTileFromRecord(
+  month: string,
+  closeRecord: MonthClose,
+): MonthTile {
+  const netSen = BigInt(closeRecord.netSen);
+  const cashOnHand = BigInt(closeRecord.cashOnHandSen ?? 0);
+  const tngOnHand = BigInt(closeRecord.tngOnHandSen ?? 0);
+  const actualSen = sumSen([cashOnHand, tngOnHand]);
+  const differenceSen = subSen(actualSen, netSen);
+  const balanced = differenceSen === 0n;
+
+  return {
+    month,
+    revenueSen: BigInt(closeRecord.revenueSen),
+    dailyCostSen: BigInt(closeRecord.dailyCostSen),
+    grossSen: BigInt(closeRecord.grossSen),
+    operatingSen: BigInt(closeRecord.operatingSen),
+    netSen,
+    status: "closed",
+    balanced,
+  };
+}
+
+/**
  * Get Month Tile for a month.
  * - revenueSen (cash+tng)
  * - dailyCostSen
@@ -128,24 +156,7 @@ export async function getMonthTile(
     .get();
 
   if (closeRecord && !closeRecord.reopenedAt) {
-    // Month is closed: use frozen snapshot and evaluate balanced
-    const netSen = BigInt(closeRecord.netSen);
-    const cashOnHand = BigInt(closeRecord.cashOnHandSen ?? 0);
-    const tngOnHand = BigInt(closeRecord.tngOnHandSen ?? 0);
-    const actualSen = sumSen([cashOnHand, tngOnHand]);
-    const differenceSen = subSen(actualSen, netSen);
-    const balanced = differenceSen === 0n;
-
-    return {
-      month,
-      revenueSen: BigInt(closeRecord.revenueSen),
-      dailyCostSen: BigInt(closeRecord.dailyCostSen),
-      grossSen: BigInt(closeRecord.grossSen),
-      operatingSen: BigInt(closeRecord.operatingSen),
-      netSen,
-      status: "closed",
-      balanced,
-    };
+    return closedTileFromRecord(month, closeRecord);
   }
 
   // Month is open or reopened: compute live preview from current data
@@ -378,24 +389,7 @@ export async function listMonthTiles(
     const closeRecord = closeByMonth.get(m);
 
     if (closeRecord && !closeRecord.reopenedAt) {
-      // Month is closed: use frozen snapshot and evaluate balanced
-      const netSen = BigInt(closeRecord.netSen);
-      const cashOnHand = BigInt(closeRecord.cashOnHandSen ?? 0);
-      const tngOnHand = BigInt(closeRecord.tngOnHandSen ?? 0);
-      const actualSen = sumSen([cashOnHand, tngOnHand]);
-      const differenceSen = subSen(actualSen, netSen);
-      const balanced = differenceSen === 0n;
-
-      tiles.push({
-        month: m,
-        revenueSen: BigInt(closeRecord.revenueSen),
-        dailyCostSen: BigInt(closeRecord.dailyCostSen),
-        grossSen: BigInt(closeRecord.grossSen),
-        operatingSen: BigInt(closeRecord.operatingSen),
-        netSen,
-        status: "closed",
-        balanced,
-      });
+      tiles.push(closedTileFromRecord(m, closeRecord));
     } else {
       const revenueSen = revenueByMonth.get(m) ?? 0n;
       const dailyCostSen = dailyCostByMonth.get(m) ?? 0n;
