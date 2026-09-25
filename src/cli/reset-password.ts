@@ -126,7 +126,7 @@ function printRotationReminder() {
       "  1. openssl rand -base64 32",
       "  2. set BOTH AUTH_SECRET and NEXTAUTH_SECRET to that value in prod .env",
       "  3. systemctl --user restart bokli",
-      "  4. npm run smoke:login",
+      "  4. smoke-test the login (see runbook §4.5)",
       "",
       "Note: this logs out EVERY user (mom included). That is expected.",
       "Runbook: docs/runbook-password-reset.md",
