@@ -11,6 +11,7 @@ import {
   authenticateCredentials,
   checkLock,
   cleanStaleAttempts,
+  clearLoginAttempts,
   DUMMY_BCRYPT_HASH,
   getLoginAttempt,
   LOGIN_LOCK_MINUTES,
@@ -464,5 +465,36 @@ describe("login rate limiter required spec scenarios", () => {
     const nextRes = recordFailure("mom", MOCK_NOW, db);
     expect(nextRes.failedCount).toBe(1);
     expect(nextRes.isLocked).toBe(false);
+  });
+});
+
+describe("clearLoginAttempts (operator unlock helper)", () => {
+  it("removes an active lock and reports that a row was cleared", () => {
+    for (let i = 1; i <= LOGIN_MAX_ATTEMPTS; i++) {
+      recordFailure("mom", MOCK_NOW, db);
+    }
+    expect(checkLock("mom", MOCK_NOW, db).isLocked).toBe(true);
+
+    expect(clearLoginAttempts("mom", db)).toBe(true);
+    expect(getLoginAttempt("mom", db)).toBeUndefined();
+    expect(checkLock("mom", MOCK_NOW, db).isLocked).toBe(false);
+  });
+
+  it("returns false when there is nothing to clear", () => {
+    expect(clearLoginAttempts("mom", db)).toBe(false);
+  });
+
+  it("normalizes the username (trim + lowercase) and rejects invalid ones", () => {
+    recordFailure("mom", MOCK_NOW, db);
+    expect(getLoginAttempt("mom", db)?.failedCount).toBe(1);
+
+    expect(clearLoginAttempts("  MOM  ", db)).toBe(true);
+    expect(getLoginAttempt("mom", db)).toBeUndefined();
+
+    // Invalid usernames are a no-op rather than a wildcard delete.
+    recordFailure("mom", MOCK_NOW, db);
+    expect(clearLoginAttempts("   ", db)).toBe(false);
+    expect(clearLoginAttempts("a".repeat(MAX_USERNAME_LENGTH + 1), db)).toBe(false);
+    expect(getLoginAttempt("mom", db)?.failedCount).toBe(1);
   });
 });

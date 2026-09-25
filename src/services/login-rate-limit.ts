@@ -302,6 +302,30 @@ export function recordFailure(
 }
 
 /**
+ * Clears the failed-attempt counter and any active lock for a username by
+ * deleting its attempts row (which also caps table growth).
+ * Shared by the successful-login path and the reset-password CLI, so an
+ * operator reset unlocks an account that is still inside its lock window.
+ * Returns true if a row was actually removed.
+ */
+export function clearLoginAttempts(
+  username: string,
+  optionsOrDb?: RateLimitOptions | Db,
+): boolean {
+  const normalized = normalizeUsername(username);
+  if (!normalized) return false;
+
+  const { db } = resolveSuccessArgs(optionsOrDb);
+
+  const result = db
+    .delete(loginAttempts)
+    .where(eq(loginAttempts.usernameLower, normalized))
+    .run();
+
+  return result.changes > 0;
+}
+
+/**
  * Resets the failed attempts counter on successful login.
  * Deletes the attempts row to cap table growth.
  */
@@ -309,14 +333,7 @@ export function recordSuccess(
   usernameLower: string,
   optionsOrDb?: RateLimitOptions | Db,
 ): void {
-  const normalized = normalizeUsername(usernameLower);
-  if (!normalized) return;
-
-  const { db } = resolveSuccessArgs(optionsOrDb);
-
-  db.delete(loginAttempts)
-    .where(eq(loginAttempts.usernameLower, normalized))
-    .run();
+  clearLoginAttempts(usernameLower, optionsOrDb);
 }
 
 /**

@@ -12,6 +12,14 @@ import { runMigrations } from "@/db/migrate";
 import { loginAttempts, users } from "@/db/schema";
 import { seedUsers } from "@/db/seed";
 import { resetPassword, readPassword } from "@/cli/reset-password";
+import {
+  checkLock,
+  clearLoginAttempts,
+  getLoginAttempt,
+  LOGIN_MAX_ATTEMPTS,
+  MAX_USERNAME_LENGTH,
+  recordFailure,
+} from "@/services/login-rate-limit";
 import { hashPassword, verifyPassword } from "./password";
 import { authConfig, SESSION_MAX_AGE, resolveCookieSecure } from "./config";
 import { authGuard, withAuth, isProtectedApiPath } from "./guard";
@@ -518,5 +526,112 @@ describe("CLI password reset", () => {
     const stream = Readable.from(["cli-piped-password\n"]);
     const password = await readPassword(stream);
     expect(password).toBe("cli-piped-password");
+  });
+
+  it("clears an existing login lock and reports it", async () => {
+    // Seed a real lock: 5 failed attempts inside the current 15-minute window.
+    const now = new Date();
+    for (let i = 1; i <= LOGIN_MAX_ATTEMPTS; i++) {
+      recordFailure("katte", now, db);
+    }
+    expect(checkLock("katte", now, db).isLocked).toBe(true);
+
+    const result = await resetPassword("katte", "post-lock-admin-pass", db);
+    expect(result.success).toBe(true);
+    expect(result.lockCleared).toBe(true);
+
+    // The attempts row is gone, so the account is no longer locked.
+    expect(getLoginAttempt("katte", db)).toBeUndefined();
+    expect(checkLock("katte", now, db).isLocked).toBe(false);
+  });
+
+  it("reports lockCleared = false when no lock was active", async () => {
+    clearLoginAttempts("katte", db);
+
+    const result = await resetPassword("katte", "no-lock-admin-pass", db);
+    expect(result.success).toBe(true);
+    expect(result.lockCleared).toBe(false);
+  });
+
+  it("normalizes the username exactly like the login path", async () => {
+    // Trimmed on both sides and case-insensitive — ' KATTE ' is the same account.
+    const padded = await resetPassword("  KATTE  ", "padded-lookup-pass", db);
+    expect(padded.success).toBe(true);
+    expect(padded.username).toBe("katte");
+
+    const stored = db.select().from(users).where(eq(users.username, "katte")).get()!;
+    expect(await verifyPassword("padded-lookup-pass", stored.passwordHash)).toBe(true);
+
+    // Whitespace-only and empty usernames are rejected, same as login.
+    await expect(resetPassword("   ", "password123", db)).rejects.toThrow(/required/i);
+    await expect(resetPassword("", "password123", db)).rejects.toThrow(/required/i);
+
+    // Over the 64-char cap is rejected; exactly 64 is accepted by the normalizer
+    // (and then fails the normal "not found" lookup, not the length check).
+    const tooLong = "a".repeat(MAX_USERNAME_LENGTH + 1);
+    await expect(resetPassword(tooLong, "password123", db)).rejects.toThrow(/required/i);
+
+    const exact64 = "a".repeat(MAX_USERNAME_LENGTH);
+    await expect(resetPassword(exact64, "password123", db)).rejects.toThrow(/not found/i);
+  });
+
+  it("lets a locked-out user log in again inside the lock window after a reset", async () => {
+    const lockedUsername = "reset_unlock_user";
+    const newPassword = "unlocked-secret-pass-321";
+
+    db.insert(users)
+      .values({
+        username: lockedUsername,
+        passwordHash: await hashPassword("original-secret-pass-123"),
+        role: "Operator",
+      })
+      .run();
+
+    try {
+      const csrfReq = new NextRequest("http://localhost:3000/api/auth/csrf");
+      const csrfRes = await handlers.GET(csrfReq);
+      const csrfData = (await csrfRes.json()) as { csrfToken: string };
+      const csrfCookie = csrfRes.headers.get("set-cookie")?.split(";")[0] ?? "";
+
+      const login = async (password: string) => {
+        const postReq = new NextRequest(
+          "http://localhost:3000/api/auth/callback/credentials",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              Cookie: csrfCookie,
+            },
+            body: new URLSearchParams({
+              username: lockedUsername,
+              password,
+              csrfToken: csrfData.csrfToken,
+            }).toString(),
+          },
+        );
+        return handlers.POST(postReq);
+      };
+
+      // Lock the account with 5 failed attempts.
+      for (let i = 1; i <= LOGIN_MAX_ATTEMPTS; i++) {
+        await login("wrong-password");
+      }
+      const lockedRes = await login("original-secret-pass-123");
+      expect(lockedRes.headers.get("location")).toContain("code=RateLimited");
+
+      // Reset the password — no waiting out the 15-minute window.
+      const result = await resetPassword(lockedUsername, newPassword, db);
+      expect(result.lockCleared).toBe(true);
+
+      // Immediately (still inside the original lock window) the user can log in.
+      const unlockedRes = await login(newPassword);
+      expect(unlockedRes.headers.get("location")).not.toContain("code=RateLimited");
+      expect(unlockedRes.headers.get("set-cookie") ?? "").toContain(
+        "authjs.session-token",
+      );
+    } finally {
+      clearLoginAttempts(lockedUsername, db);
+      db.delete(users).where(eq(users.username, lockedUsername)).run();
+    }
   });
 });
