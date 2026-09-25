@@ -245,6 +245,14 @@ describe("Dashboard Service - listMonthTiles", () => {
       expect(t.month <= "2025-01").toBe(true);
     }
   });
+
+  it("upToMonth returns exactly the unfiltered tiles at or before that month", async () => {
+    const all = await listMonthTiles({ db });
+    for (const cutoff of ["2000-01", "2025-01", TEST_MONTH, "9999-12"]) {
+      const bounded = await listMonthTiles({ upToMonth: cutoff, db });
+      expect(bounded).toEqual(all.filter((t) => t.month <= cutoff));
+    }
+  });
 });
 
 describe("Dashboard Service - getDashboard", () => {
