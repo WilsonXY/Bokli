@@ -3,11 +3,11 @@ import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { NextRequest } from "next/server";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 
 import { openDb, type Db } from "@/db";
 import { runMigrations } from "@/db/migrate";
-import { monthCloses } from "@/db/schema";
+import { monthCloseEvents, monthCloses } from "@/db/schema";
 import {
   addCostLine,
   getOrCreateSheet,
@@ -812,5 +812,206 @@ describe("9. Atomicity: close and reopen run in a single transaction", () => {
 
     expect(closeRowsFor(MONTH)).toHaveLength(0);
     expect(await getClose(MONTH, { db })).toBeNull();
+  });
+});
+
+describe("10. Month Close history (month_close_events)", () => {
+  function eventsFor(month: string) {
+    return db
+      .select()
+      .from(monthCloseEvents)
+      .where(eq(monthCloseEvents.month, month))
+      .orderBy(asc(monthCloseEvents.id))
+      .all();
+  }
+
+  /** Makes every month_close_events insert fail, so the event write is what aborts. */
+  async function withFailingEventInsert(fn: () => Promise<void>) {
+    sqlite.exec(`
+      CREATE TEMP TRIGGER fail_month_close_event_insert
+      BEFORE INSERT ON month_close_events
+      BEGIN SELECT RAISE(ABORT, 'simulated month_close_events failure'); END;
+    `);
+    try {
+      await fn();
+    } finally {
+      sqlite.exec("DROP TRIGGER temp.fail_month_close_event_insert");
+    }
+  }
+
+  it("records close -> reopen -> re-close as three events with snapshots and keeps month_closes as current state", async () => {
+    const MONTH = "2023-03";
+    const CLOSE_AT = new Date("2023-03-31T12:00:00Z");
+    const REOPEN_AT = new Date("2023-04-02T09:00:00Z");
+    const RECLOSE_AT = new Date("2023-04-03T10:00:00Z");
+
+    const sheet = await getOrCreateSheet(`${MONTH}-05`, { db, now: CLOSE_AT });
+    await setRevenue(sheet.id, 30000, 10000, { db });
+    await addCostLine(sheet.id, 5000, "restock", null, { db });
+    // Net = 40000 - 5000 = 35000 sen
+
+    await closeMonth(MONTH, 30000, 5000, null, { db, now: CLOSE_AT });
+    await reopenMonth(MONTH, "Missing gas receipt", {
+      role: "Admin",
+      db,
+      now: REOPEN_AT,
+    });
+    await addCostLine(sheet.id, 2000, "gas", null, { db });
+    // Net = 35000 - 2000 = 33000 sen; close with a mismatch + note
+    await closeMonth(MONTH, 30000, 2000, "Short RM10 in the tin", {
+      db,
+      now: RECLOSE_AT,
+    });
+
+    const events = eventsFor(MONTH);
+    expect(events.map((e) => e.action)).toEqual(["close", "reopen", "close"]);
+    expect(events.map((e) => e.at)).toEqual([
+      CLOSE_AT.toISOString(),
+      REOPEN_AT.toISOString(),
+      RECLOSE_AT.toISOString(),
+    ]);
+    expect(events.map((e) => e.reason)).toEqual([
+      null,
+      "Missing gas receipt",
+      "Short RM10 in the tin",
+    ]);
+
+    const [firstClose, reopen, reclose] = events.map((e) =>
+      JSON.parse(e.snapshot),
+    );
+    expect(firstClose).toMatchObject({
+      month: MONTH,
+      revenueSen: 40000,
+      dailyCostSen: 5000,
+      grossSen: 35000,
+      operatingSen: 0,
+      netSen: 35000,
+      cashOnHandSen: 30000,
+      tngOnHandSen: 5000,
+      note: null,
+      closedAt: CLOSE_AT.toISOString(),
+      reopenedAt: null,
+      reopenReason: null,
+    });
+    // The reopen event keeps the snapshot that was unlocked, plus the reopen fields.
+    expect(reopen).toMatchObject({
+      netSen: 35000,
+      closedAt: CLOSE_AT.toISOString(),
+      reopenedAt: REOPEN_AT.toISOString(),
+      reopenReason: "Missing gas receipt",
+    });
+    expect(reclose).toMatchObject({
+      dailyCostSen: 7000,
+      netSen: 33000,
+      cashOnHandSen: 30000,
+      tngOnHandSen: 2000,
+      note: "Short RM10 in the tin",
+      closedAt: RECLOSE_AT.toISOString(),
+      reopenedAt: null,
+      reopenReason: null,
+    });
+
+    // month_closes is still one current-state row, matching the latest event.
+    const rows = db
+      .select()
+      .from(monthCloses)
+      .where(eq(monthCloses.month, MONTH))
+      .all();
+    expect(rows).toHaveLength(1);
+    expect(reclose).toEqual(rows[0]);
+  });
+
+  it("writes no event for a rejected close or reopen", async () => {
+    const MONTH = "2023-05";
+    const MOCK_NOW = new Date("2023-05-31T12:00:00Z");
+
+    const sheet = await getOrCreateSheet(`${MONTH}-01`, { db, now: MOCK_NOW });
+    await setRevenue(sheet.id, 10000, 0, { db });
+
+    // Mismatch without a note is rejected.
+    await expect(
+      closeMonth(MONTH, 9000, 0, null, { db, now: MOCK_NOW }),
+    ).rejects.toThrow(ValidationError);
+    await closeMonth(MONTH, 10000, 0, null, { db, now: MOCK_NOW });
+    // Already closed.
+    await expect(
+      closeMonth(MONTH, 10000, 0, null, { db, now: MOCK_NOW }),
+    ).rejects.toThrow(ClosedMonthError);
+    // Operator cannot reopen.
+    await expect(
+      reopenMonth(MONTH, "Nope", { role: "Operator", db, now: MOCK_NOW }),
+    ).rejects.toThrow(ForbiddenError);
+
+    expect(eventsFor(MONTH).map((e) => e.action)).toEqual(["close"]);
+  });
+
+  it("rolls back the first close when the event insert fails", async () => {
+    const MONTH = "2023-06";
+    const MOCK_NOW = new Date("2023-06-30T12:00:00Z");
+
+    const sheet = await getOrCreateSheet(`${MONTH}-01`, { db, now: MOCK_NOW });
+    await setRevenue(sheet.id, 20000, 0, { db });
+
+    await withFailingEventInsert(async () => {
+      await expect(
+        closeMonth(MONTH, 20000, 0, null, { db, now: MOCK_NOW }),
+      ).rejects.toThrow(/simulated month_close_events failure/);
+    });
+
+    expect(await getClose(MONTH, { db })).toBeNull();
+    expect(eventsFor(MONTH)).toHaveLength(0);
+    // Month stays open.
+    const edited = await setRevenue(sheet.id, 21000, 0, { db });
+    expect(edited.cashSen).toBe(21000);
+  });
+
+  it("rolls back reopen and re-close when the event insert fails", async () => {
+    const MONTH = "2023-07";
+    const CLOSE_AT = new Date("2023-07-31T12:00:00Z");
+    const REOPEN_AT = new Date("2023-08-01T12:00:00Z");
+
+    const sheet = await getOrCreateSheet(`${MONTH}-01`, { db, now: CLOSE_AT });
+    await setRevenue(sheet.id, 15000, 0, { db });
+    await closeMonth(MONTH, 15000, 0, null, { db, now: CLOSE_AT });
+
+    // Failed reopen: the month stays closed and no reopen event exists.
+    await withFailingEventInsert(async () => {
+      await expect(
+        reopenMonth(MONTH, "Fix typo", { role: "Admin", db, now: REOPEN_AT }),
+      ).rejects.toThrow(/simulated month_close_events failure/);
+    });
+    const stillClosed = await getClose(MONTH, { db });
+    expect(stillClosed!.reopenedAt).toBeNull();
+    expect(stillClosed!.reopenReason).toBeNull();
+    expect(() => setRevenue(sheet.id, 99000, 0, { db })).toThrow(
+      ClosedMonthError,
+    );
+    expect(eventsFor(MONTH).map((e) => e.action)).toEqual(["close"]);
+
+    await reopenMonth(MONTH, "Fix typo", { role: "Admin", db, now: REOPEN_AT });
+    await setRevenue(sheet.id, 16000, 0, { db });
+
+    // Failed re-close: the row stays reopened with its reason and old snapshot.
+    await withFailingEventInsert(async () => {
+      await expect(
+        closeMonth(MONTH, 16000, 0, null, { db, now: REOPEN_AT }),
+      ).rejects.toThrow(/simulated month_close_events failure/);
+    });
+    const stillOpen = await getClose(MONTH, { db });
+    expect(stillOpen!.netSen).toBe(15000);
+    expect(stillOpen!.closedAt).toBe(CLOSE_AT.toISOString());
+    expect(stillOpen!.reopenedAt).toBe(REOPEN_AT.toISOString());
+    expect(stillOpen!.reopenReason).toBe("Fix typo");
+    expect(eventsFor(MONTH).map((e) => e.action)).toEqual(["close", "reopen"]);
+  });
+
+  it("rejects an unknown event action at the schema level", () => {
+    expect(() =>
+      sqlite
+        .prepare(
+          "INSERT INTO month_close_events (month, action, at, snapshot) VALUES ('2023-09', 'delete', 'x', '{}')",
+        )
+        .run(),
+    ).toThrow(/CHECK constraint failed/);
   });
 });

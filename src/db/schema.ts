@@ -134,6 +134,37 @@ export const monthCloses = sqliteTable(
 export type MonthClose = typeof monthCloses.$inferSelect;
 export type NewMonthClose = typeof monthCloses.$inferInsert;
 
+export type MonthCloseEventAction = "close" | "reopen";
+
+/**
+ * Append-only Month Close audit history. One row per successful close, reopen
+ * and re-close, written in the same transaction as the month_closes change.
+ * month_closes stays the current-state row; this table is never updated.
+ */
+export const monthCloseEvents = sqliteTable(
+  "month_close_events",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    /** "YYYY-MM" */
+    month: text("month").notNull(),
+    /** close | reopen */
+    action: text("action").$type<MonthCloseEventAction>().notNull(),
+    /** closedAt for close events, reopenedAt for reopen events. */
+    at: text("at").notNull(),
+    /** Reconciliation note for close events, reopen reason for reopen events. */
+    reason: text("reason"),
+    /** JSON of the month_closes row as it stood right after this event. */
+    snapshot: text("snapshot").notNull(),
+  },
+  (t) => [
+    index("ix_month_close_events_month").on(t.month),
+    check("chk_month_close_events_action", sql`${t.action} IN ('close', 'reopen')`),
+  ],
+);
+
+export type MonthCloseEvent = typeof monthCloseEvents.$inferSelect;
+export type NewMonthCloseEvent = typeof monthCloseEvents.$inferInsert;
+
 export const loginAttempts = sqliteTable(
   "login_attempts",
   {

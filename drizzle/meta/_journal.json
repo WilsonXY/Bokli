@@ -36,6 +36,13 @@
       "when": 1789202788840,
       "tag": "0004_melodic_amazoness",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1790364485084,
+      "tag": "0005_loud_solo",
+      "breakpoints": true
     }
   ]
 }
