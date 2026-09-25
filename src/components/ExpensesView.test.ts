@@ -14,6 +14,8 @@ import {
   ExpensesView,
   formatDeleteModalRecordCount,
   mergeOperatingExpenses,
+  resolveExpenseDraftAfterAdd,
+  type ExpenseDraftField,
   type OperatingExpenseItem,
 } from "./ExpensesView";
 
@@ -319,6 +321,42 @@ describe("ExpensesView frontend review fixes", () => {
       // Merged expense item: RM500000.00 (11 chars) -> keeps text-base (no text-xs)
       expect(html).toMatch(/class="[^"]*text-base font-bold text-slate-700 tabular-nums whitespace-nowrap"[^>]*>RM500000\.00/);
       expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
+    });
+  });
+});
+
+describe("in-flight edit rebase (resolveExpenseDraftAfterAdd)", () => {
+  const touched = (...fields: ExpenseDraftField[]) => new Set<ExpenseDraftField>(fields);
+
+  it("clears the whole draft and closes the card when nothing was typed during the flight", () => {
+    expect(resolveExpenseDraftAfterAdd(touched())).toEqual({
+      clearAmount: true,
+      clearNote: true,
+      closeDraft: true,
+    });
+  });
+
+  it("keeps a half-typed amount started during the add and leaves the card open", () => {
+    expect(resolveExpenseDraftAfterAdd(touched("amount"))).toEqual({
+      clearAmount: false,
+      clearNote: true,
+      closeDraft: false,
+    });
+  });
+
+  it("keeps a note typed during the add and leaves the card open", () => {
+    expect(resolveExpenseDraftAfterAdd(touched("note"))).toEqual({
+      clearAmount: true,
+      clearNote: false,
+      closeDraft: false,
+    });
+  });
+
+  it("keeps both fields when the Operator retyped the whole draft mid-flight", () => {
+    expect(resolveExpenseDraftAfterAdd(touched("amount", "note"))).toEqual({
+      clearAmount: false,
+      clearNote: false,
+      closeDraft: false,
     });
   });
 });
