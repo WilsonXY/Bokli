@@ -6,6 +6,7 @@ import { dailySheets, monthCloses } from "@/db/schema";
 import { listMonthTiles, type MonthTile } from "@/services/dashboard";
 import { getTodayInKualaLumpur } from "@/lib/datetime";
 import { isValidMonthStr } from "@/lib/money";
+import { resolveActiveMonthView } from "@/lib/months";
 import { describeLoadError } from "@/lib/page-load";
 import { getMonthPreview } from "@/services/operating-expense";
 import { getClose } from "@/services/month-close";
@@ -30,37 +31,17 @@ export default async function MonthClosePage(props: PageProps) {
   let loadError: string | null = null;
 
   try {
-    rawTiles = await listMonthTiles();
+    rawTiles = await listMonthTiles({ upToMonth: currentMonthInKL });
   } catch (err) {
     console.error("Failed to list month tiles for month close:", err);
     loadError = describeLoadError("month close");
   }
 
-  // Active month: requested valid month, or first existing non-future month, or current month
-  let activeMonth =
-    requestedMonth && isValidMonthStr(requestedMonth)
-      ? requestedMonth
-      : rawTiles.find((t) => t.month <= currentMonthInKL)?.month ?? currentMonthInKL;
-
-  // Disallow future months for month close
-  if (activeMonth > currentMonthInKL) {
-    activeMonth = currentMonthInKL;
-  }
-
-  // Available months: filter out any future months
-  const monthSet = new Set<string>([currentMonthInKL, activeMonth]);
-  const tileStatusMap = new Map<string, "open" | "closed" | "reopened">();
-  for (const t of rawTiles) {
-    if (t.month <= currentMonthInKL) {
-      monthSet.add(t.month);
-      tileStatusMap.set(t.month, t.status);
-    }
-  }
-  const availableMonths = Array.from(monthSet).sort().reverse();
-  const monthOptions = availableMonths.map((m) => ({
-    month: m,
-    status: tileStatusMap.get(m) ?? "open",
-  }));
+  const { activeMonth, availableMonths, monthOptions } = resolveActiveMonthView(
+    requestedMonth,
+    rawTiles,
+    currentMonthInKL,
+  );
 
   let financials: {
     revenueSen: number;

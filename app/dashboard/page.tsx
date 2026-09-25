@@ -11,6 +11,8 @@ import {
 } from "@/services/dashboard";
 import { getTodayInKualaLumpur } from "@/lib/datetime";
 import { isValidMonthStr } from "@/lib/money";
+import { resolveActiveMonthView } from "@/lib/months";
+import { serializeTile } from "@/lib/serialize";
 import {
   DashboardView,
   type SerializedMonthTile,
@@ -27,28 +29,22 @@ export default async function DashboardPage(props: PageProps) {
   const requestedMonth =
     typeof searchParams?.month === "string" ? searchParams.month : undefined;
 
+  const currentMonthInKL = getTodayInKualaLumpur().slice(0, 7);
   let rawTiles: MonthTile[] = [];
   let loadError: string | null = null;
 
   try {
-    rawTiles = await listMonthTiles();
+    rawTiles = await listMonthTiles({ upToMonth: currentMonthInKL });
   } catch (err) {
     console.error("Failed to load month tiles for dashboard:", err);
     loadError = "Failed to load dashboard data. Please refresh or try again later.";
   }
 
-  const currentMonthInKL = getTodayInKualaLumpur().slice(0, 7);
-
-  // Active month: requested valid month, or first existing non-future month tile, or current month
-  let activeMonth =
-    requestedMonth && isValidMonthStr(requestedMonth)
-      ? requestedMonth
-      : rawTiles.find((t) => t.month <= currentMonthInKL)?.month ?? currentMonthInKL;
-
-  // Disallow future months: clamp to current month in KL
-  if (activeMonth > currentMonthInKL) {
-    activeMonth = currentMonthInKL;
-  }
+  const { activeMonth } = resolveActiveMonthView(
+    requestedMonth,
+    rawTiles,
+    currentMonthInKL,
+  );
 
   let activeTile: MonthTile | null = null;
   let trend: DailyTrendRow[] = [];
@@ -88,28 +84,10 @@ export default async function DashboardPage(props: PageProps) {
         ...validTiles,
       ];
 
-  const serializedTiles: SerializedMonthTile[] = effectiveTiles.map((t) => ({
-    month: t.month,
-    revenueSen: Number(t.revenueSen),
-    dailyCostSen: Number(t.dailyCostSen),
-    grossSen: Number(t.grossSen),
-    operatingSen: Number(t.operatingSen),
-    netSen: Number(t.netSen),
-    status: t.status,
-    balanced: Boolean(t.balanced),
-  }));
+  const serializedTiles: SerializedMonthTile[] = effectiveTiles.map(serializeTile);
 
   const serializedActiveTile: SerializedMonthTile | null = activeTile
-    ? {
-        month: activeTile.month,
-        revenueSen: Number(activeTile.revenueSen),
-        dailyCostSen: Number(activeTile.dailyCostSen),
-        grossSen: Number(activeTile.grossSen),
-        operatingSen: Number(activeTile.operatingSen),
-        netSen: Number(activeTile.netSen),
-        status: activeTile.status,
-        balanced: Boolean(activeTile.balanced),
-      }
+    ? serializeTile(activeTile)
     : null;
 
   const serializedTrend: SerializedDailyTrendRow[] = trend.map((r) => ({
