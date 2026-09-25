@@ -11,8 +11,8 @@ import {
   assertMonthNotClosed,
   assertValidNote,
   assertValidSen,
-  getTodayInKualaLumpur,
 } from "./daily-sheet";
+import { getTodayInKualaLumpur } from "@/lib/datetime";
 import { ClosedMonthError, NotFoundError, ValidationError } from "./errors";
 
 export {

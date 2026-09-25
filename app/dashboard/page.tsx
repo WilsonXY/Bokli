@@ -9,7 +9,7 @@ import {
   type DailyTrendRow,
   type MonthTile,
 } from "@/services/dashboard";
-import { getTodayInKualaLumpur } from "@/services/daily-sheet";
+import { getTodayInKualaLumpur } from "@/lib/datetime";
 import { isValidMonthStr } from "@/lib/money";
 import {
   DashboardView,

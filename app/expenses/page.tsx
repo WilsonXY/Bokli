@@ -1,7 +1,8 @@
 import React from "react";
 import { getDb } from "@/db";
 import { listMonthTiles, type MonthTile } from "@/services/dashboard";
-import { getTodayInKualaLumpur, isMonthClosed } from "@/services/daily-sheet";
+import { getTodayInKualaLumpur } from "@/lib/datetime";
+import { isMonthClosed } from "@/services/daily-sheet";
 import {
   getMonthPreview,
   listOperatingExpenses,

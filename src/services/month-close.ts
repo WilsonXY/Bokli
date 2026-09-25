@@ -6,7 +6,8 @@ import {
   type MonthClose,
 } from "@/db/schema";
 import { isValidMonthStr, subSen, sumSen } from "@/lib/money";
-import { assertValidSen, getTodayInKualaLumpur } from "./daily-sheet";
+import { getTodayInKualaLumpur } from "@/lib/datetime";
+import { assertValidSen } from "./daily-sheet";
 import {
   ClosedMonthError,
   ForbiddenError,

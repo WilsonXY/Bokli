@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { AppShell } from "@/components/AppShell";
 import { I18nProvider } from "@/lib/i18n";
-import { getTodayInKualaLumpur } from "@/services/daily-sheet";
+import { getTodayInKualaLumpur } from "@/lib/datetime";
 import "./globals.css";
 
 export const metadata: Metadata = {

@@ -8,6 +8,7 @@ import {
   type DailySheet,
 } from "@/db/schema";
 export type { CostLine, DailySheet };
+import { getTodayInKualaLumpur, isFutureDateInKL } from "@/lib/datetime";
 import { isValidDateStr, subSen, sumSen } from "@/lib/money";
 import {
   ClosedMonthError,
@@ -26,27 +27,6 @@ export const COST_CATEGORIES = [
 ] as const;
 
 export type CostCategory = (typeof COST_CATEGORIES)[number];
-
-/**
- * Returns today's date in Asia/Kuala_Lumpur wall time as "YYYY-MM-DD".
- */
-export function getTodayInKualaLumpur(now: Date = new Date()): string {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Kuala_Lumpur",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  return formatter.format(now);
-}
-
-/**
- * Check whether a date string is in the future in Asia/Kuala_Lumpur.
- */
-export function isFutureDateInKL(date: string, now: Date = new Date()): boolean {
-  const today = getTodayInKualaLumpur(now);
-  return date > today;
-}
 
 /**
  * Checks whether a category is a valid Cost Category per CONTEXT.md.

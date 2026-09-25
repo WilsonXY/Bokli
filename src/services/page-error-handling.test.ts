@@ -65,7 +65,7 @@ import * as opexService from "@/services/operating-expense";
 import * as dashboardService from "@/services/dashboard";
 import * as monthCloseService from "@/services/month-close";
 import * as dbModule from "@/db";
-import { getTodayInKualaLumpur } from "@/services/daily-sheet";
+import { getTodayInKualaLumpur } from "@/lib/datetime";
 
 describe("Server page error handling regression tests", () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn>;
