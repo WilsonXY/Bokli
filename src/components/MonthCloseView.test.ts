@@ -13,9 +13,9 @@ vi.mock("next/navigation", () => ({
 import {
   MonthCloseView,
   computeReconciliationGating,
-  parseMoneyInputSen,
 } from "./MonthCloseView";
 import { DICTIONARY } from "@/lib/i18n";
+import { tryParseSen } from "@/lib/money";
 
 const t = DICTIONARY.zh;
 
@@ -129,10 +129,10 @@ describe("MonthCloseView variance-gating", () => {
 
   describe("invalid (unparseable) cash input shows inline error and blocks submit rather than counting RM0", () => {
     it("pure gating: invalid cash string returns null rather than 0n, blocks close with invalidAmount error", () => {
-      expect(parseMoneyInputSen("abc")).toBeNull();
-      expect(parseMoneyInputSen("12.34.56")).toBeNull();
-      expect(parseMoneyInputSen("--50")).toBeNull();
-      expect(parseMoneyInputSen("invalid-input")).toBeNull();
+      expect(tryParseSen("abc")).toBeNull();
+      expect(tryParseSen("12.34.56")).toBeNull();
+      expect(tryParseSen("--50")).toBeNull();
+      expect(tryParseSen("invalid-input")).toBeNull();
 
       const gating = computeReconciliationGating({
         cashInput: "invalid-cash",

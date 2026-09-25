@@ -29,36 +29,6 @@ function LoginForm() {
     }
   }, [urlError, urlCode, t]);
 
-  // Tactile wave / ripple effect on all .btn-wave interactive elements on the login page
-  React.useEffect(() => {
-    function handlePointerDown(e: PointerEvent) {
-      const target = (e.target as HTMLElement)?.closest(".btn-wave") as HTMLElement | null;
-      if (!target) return;
-
-      const rect = target.getBoundingClientRect();
-      const size = Math.max(rect.width, rect.height) * 2.2;
-      const x = e.clientX - rect.left - size / 2;
-      const y = e.clientY - rect.top - size / 2;
-
-      const wave = document.createElement("span");
-      wave.className = "ripple-wave";
-      wave.style.width = `${size}px`;
-      wave.style.height = `${size}px`;
-      wave.style.left = `${x}px`;
-      wave.style.top = `${y}px`;
-
-      target.appendChild(wave);
-      setTimeout(() => {
-        wave.remove();
-      }, 600);
-    }
-
-    window.addEventListener("pointerdown", handlePointerDown, { passive: true });
-    return () => {
-      window.removeEventListener("pointerdown", handlePointerDown);
-    };
-  }, []);
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);

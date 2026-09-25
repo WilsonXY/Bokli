@@ -2,7 +2,7 @@
 
 import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
+import { formatMyr, sanitizeMoneyInput, tryParseSen } from "@/lib/money";
 import { useI18n, translateApiError } from "@/lib/i18n";
 import { MonthSelectorDropdown, MonthOption } from "@/components/MonthSelectorDropdown";
 
@@ -45,17 +45,6 @@ export interface MonthCloseViewProps {
   initialErrorMessage?: string | null;
 }
 
-// Safe parsing helper: returns null for unparseable non-empty inputs
-export function parseMoneyInputSen(val: string): bigint | null {
-  const s = val.trim();
-  if (!s) return 0n;
-  try {
-    return parseSen(s);
-  } catch {
-    return null;
-  }
-}
-
 export interface ReconciliationGatingResult {
   cashOnHandSen: bigint | null;
   tngOnHandSen: bigint | null;
@@ -77,8 +66,8 @@ export function computeReconciliationGating(params: {
   hasSheetsInMonth: boolean;
   confirmEmpty: boolean;
 }): ReconciliationGatingResult {
-  const cashOnHandSen = parseMoneyInputSen(params.cashInput);
-  const tngOnHandSen = parseMoneyInputSen(params.tngInput);
+  const cashOnHandSen = tryParseSen(params.cashInput);
+  const tngOnHandSen = tryParseSen(params.tngInput);
   const cashError = params.cashInput.trim() !== "" && cashOnHandSen === null;
   const tngError = params.tngInput.trim() !== "" && tngOnHandSen === null;
   const hasParseError = cashError || tngError;

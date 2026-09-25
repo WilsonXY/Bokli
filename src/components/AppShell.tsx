@@ -18,7 +18,10 @@ export function AppShell({ children }: AppShellProps) {
   const [showConfirmSignOut, setShowConfirmSignOut] = React.useState(false);
   const [isSigningOut, setIsSigningOut] = React.useState(false);
 
-  // Tactile wave / ripple effect on all .btn-wave interactive elements
+  // Tactile wave / ripple effect on all .btn-wave interactive elements.
+  // Registered above the /login early return on purpose: the login page renders
+  // inside this shell, so this is the single listener that serves every page —
+  // the login page must not install its own or each press yields two ripples.
   React.useEffect(() => {
     function handlePointerDown(e: PointerEvent) {
       const target = (e.target as HTMLElement)?.closest(".btn-wave") as HTMLElement | null;

@@ -7,6 +7,9 @@ import { useI18n, translateApiError } from "@/lib/i18n";
 import { MonthSelectorDropdown, MonthOption } from "@/components/MonthSelectorDropdown";
 import type { OperatingExpenseType } from "@/services/operating-expense";
 
+// How long the add/delete success banner stays visible before it auto-dismisses.
+const SUCCESS_BANNER_MS = 3000;
+
 export interface OperatingExpenseItem {
   id: number;
   month: string;
@@ -163,6 +166,42 @@ export function ExpensesView({
   }
   const [inlineError, setInlineError] = useState<string | null>(initialInlineError);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
+
+  // Add and delete share one banner, so both share one timer: every show/dismiss
+  // cancels the pending expiry first, otherwise the timeout armed by an earlier
+  // action wipes the banner raised by a later one within SUCCESS_BANNER_MS.
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function clearSuccessTimer() {
+    if (successTimerRef.current !== null) {
+      clearTimeout(successTimerRef.current);
+      successTimerRef.current = null;
+    }
+  }
+
+  // Banner-only: deliberately touches no draft state.
+  function dismissSuccessBanner() {
+    clearSuccessTimer();
+    setSuccessBanner(null);
+  }
+
+  function showSuccessBanner(message: string) {
+    clearSuccessTimer();
+    setSuccessBanner(message);
+    successTimerRef.current = setTimeout(() => {
+      successTimerRef.current = null;
+      setSuccessBanner(null);
+    }, SUCCESS_BANNER_MS);
+  }
+
+  // Drop a pending expiry when the view unmounts
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current !== null) {
+        clearTimeout(successTimerRef.current);
+      }
+    };
+  }, []);
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
 
   // Confirmation modal state for batch deletion
@@ -199,7 +238,7 @@ export function ExpensesView({
     if (isClosed || adding) return;
 
     setInlineError(null);
-    setSuccessBanner(null);
+    dismissSuccessBanner();
 
     let parsedSen: bigint;
     try {
@@ -262,8 +301,7 @@ export function ExpensesView({
       setAmountError(false);
       setNoteError(false);
       if (rebase.closeDraft) setIsDraftOpen(false);
-      setSuccessBanner(t.addExpenseSuccess);
-      setTimeout(() => setSuccessBanner(null), 3000);
+      showSuccessBanner(t.addExpenseSuccess);
 
       startTransition(() => {
         router.refresh();
@@ -280,7 +318,7 @@ export function ExpensesView({
   async function handleDeleteExpense(key: string, ids: number[]) {
     if (isClosed || deletingKey !== null) return;
     setInlineError(null);
-    setSuccessBanner(null);
+    dismissSuccessBanner();
     setDeletingKey(key);
 
     const deletedIds: number[] = [];
@@ -296,8 +334,7 @@ export function ExpensesView({
         deletedIds.push(id);
       }
 
-      setSuccessBanner(t.deleteExpenseSuccess);
-      setTimeout(() => setSuccessBanner(null), 3000);
+      showSuccessBanner(t.deleteExpenseSuccess);
     } catch (err: any) {
       setInlineError(translateApiError(err.message, t));
     } finally {
@@ -401,7 +438,7 @@ export function ExpensesView({
               </div>
               <button
                 type="button"
-                onClick={() => setSuccessBanner(null)}
+                onClick={dismissSuccessBanner}
                 className="text-xs font-bold ml-2 text-ink-muted hover:text-brand-broccoli w-7 h-7 flex items-center justify-center rounded-md shrink-0 cursor-pointer"
                 aria-label="Close"
               >

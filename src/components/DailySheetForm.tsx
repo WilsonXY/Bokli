@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { amountSizeClass, formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
+import { amountSizeClass, formatMyr, sanitizeMoneyInput, tryParseSen } from "@/lib/money";
 import { useI18n, translateApiError } from "@/lib/i18n";
 import { CalendarPopover } from "@/components/CalendarPopover";
 import type { CostCategory } from "@/services/daily-sheet";
@@ -34,6 +34,9 @@ export interface DailySheetFormProps {
 }
 
 const MAX_SAFE_SEN = Number.MAX_SAFE_INTEGER; // 9007199254740991
+
+// How long the save-success banner stays visible before it auto-dismisses.
+const SUCCESS_BANNER_MS = 3500;
 
 export function normalizeNote(note?: unknown): string {
   if (typeof note !== "string") {
@@ -382,17 +385,6 @@ export function toggleCostLineExpansion(
   };
 }
 
-// Safe parsing helper: returns null for unparseable non-empty inputs
-export function toSen(val: string): bigint | null {
-  const s = val.trim();
-  if (!s) return 0n;
-  try {
-    return parseSen(s);
-  } catch {
-    return null;
-  }
-}
-
 // Fields of the visible draft that the in-flight rebase tracks independently.
 export type DraftField = "cash" | "tng" | "costLines";
 
@@ -506,6 +498,43 @@ export function DailySheetForm({
   }, [showConfirmModal, pendingDeleteIndex]);
   const [errorMessage, setErrorMessage] = useState<string | null>(initialErrorMessage);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // The success banner is owned by a single timer. Every show/dismiss cancels the
+  // pending expiry first, so a timeout armed by an earlier save can never wipe a
+  // banner raised by a later one (two saves inside SUCCESS_BANNER_MS).
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function clearSuccessTimer() {
+    if (successTimerRef.current !== null) {
+      clearTimeout(successTimerRef.current);
+      successTimerRef.current = null;
+    }
+  }
+
+  // Banner-only: deliberately touches no draft state, so dismissing it while a
+  // save is in flight cannot disturb the operator's in-flight edits.
+  function dismissSuccessMessage() {
+    clearSuccessTimer();
+    setSuccessMessage(null);
+  }
+
+  function showSuccessMessage(message: string) {
+    clearSuccessTimer();
+    setSuccessMessage(message);
+    successTimerRef.current = setTimeout(() => {
+      successTimerRef.current = null;
+      setSuccessMessage(null);
+    }, SUCCESS_BANNER_MS);
+  }
+
+  // Drop a pending expiry when the form unmounts
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current !== null) {
+        clearTimeout(successTimerRef.current);
+      }
+    };
+  }, []);
   const [noteErrorIndex, setNoteErrorIndex] = useState<number | null>(initialNoteErrorIndex);
   const [costAmountErrorIndex, setCostAmountErrorIndex] = useState<number | null>(initialCostAmountErrorIndex);
   const noteErrorRef = useRef<HTMLInputElement | null>(null);
@@ -628,8 +657,8 @@ export function DailySheetForm({
     setCostAmountErrorIndex(null);
   }
 
-  const cashSen = toSen(cashInput);
-  const tngSen = toSen(tngInput);
+  const cashSen = tryParseSen(cashInput);
+  const tngSen = tryParseSen(tngInput);
   const cashError = cashInput.trim() !== "" && cashSen === null;
   const tngError = tngInput.trim() !== "" && tngSen === null;
   const hasParseError = cashError || tngError;
@@ -677,6 +706,7 @@ export function DailySheetForm({
     ) {
       setCostAmountErrorIndex(null);
     }
+    if (successMessage) dismissSuccessMessage();
     setExpandedIndex(index);
     setCostLines((prev) =>
       prev.map((line, i) => (i === index ? { ...line, ...patch } : line))
@@ -747,7 +777,7 @@ export function DailySheetForm({
     }
     setNoteErrorIndex(null);
     setErrorMessage(null);
-    setSuccessMessage(null);
+    dismissSuccessMessage();
 
     // Open the touched-fields window for the duration of the flight.
     touchedDuringSaveRef.current = new Set<DraftField>();
@@ -820,10 +850,7 @@ export function DailySheetForm({
         }
       }
 
-      if (!navigatedAway) {
-        setSuccessMessage(t.saveSuccess);
-        setTimeout(() => setSuccessMessage(null), 3500);
-      }
+      if (!navigatedAway) showSuccessMessage(t.saveSuccess);
       startTransition(() => {
         router.refresh();
       });
@@ -973,6 +1000,7 @@ export function DailySheetForm({
                     markTouchedDuringSave("cash");
                     setCashInput(sanitized);
                     if (errorMessage) setErrorMessage(null);
+                    if (successMessage) dismissSuccessMessage();
                   }
                 }}
                 placeholder="0.00"
@@ -1020,6 +1048,7 @@ export function DailySheetForm({
                     markTouchedDuringSave("tng");
                     setTngInput(sanitized);
                     if (errorMessage) setErrorMessage(null);
+                    if (successMessage) dismissSuccessMessage();
                   }
                 }}
                 placeholder="0.00"
@@ -1192,7 +1221,7 @@ export function DailySheetForm({
                                   onChange={(e) => {
                                     const sanitized = sanitizeMoneyInput(e.target.value);
                                     if (sanitized !== null) {
-                                      const sen = toSen(sanitized);
+                                      const sen = tryParseSen(sanitized);
                                       handleUpdateCostLine(idx, {
                                         amountInput: sanitized,
                                         amountSen: Number(sen ?? 0n),
@@ -1325,7 +1354,7 @@ export function DailySheetForm({
                 </div>
                 <button
                   type="button"
-                  onClick={() => setSuccessMessage(null)}
+                  onClick={dismissSuccessMessage}
                   className="text-xs font-bold ml-2 text-ink-muted hover:text-brand-broccoli w-7 h-7 flex items-center justify-center rounded-md shrink-0"
                   aria-label="Close"
                 >

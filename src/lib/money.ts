@@ -48,6 +48,21 @@ export function parseSen(input: string): bigint {
   return assertRange(sign * (ringgit * 100n + BigInt(sen)));
 }
 
+/**
+ * Forgiving form-input variant of parseSen: blank input means 0 sen (an empty
+ * money field reads as zero), and an unparseable non-empty string returns null
+ * so callers can flag it instead of silently counting it as 0.
+ */
+export function tryParseSen(val: string): bigint | null {
+  const s = val.trim();
+  if (!s) return 0n;
+  try {
+    return parseSen(s);
+  } catch {
+    return null;
+  }
+}
+
 /** Format integer sen as a MYR display string, e.g. 1234n -> "RM12.34". */
 export function formatMyr(sen: bigint): string {
   assertRange(sen);

@@ -13,7 +13,6 @@ vi.mock("next/navigation", () => ({
 
 import {
   DailySheetForm,
-  toSen,
   mergeCostLines,
   appendOrMergeCostLine,
   consolidateCostLines,
@@ -26,22 +25,23 @@ import {
   type CostLineItem,
 } from "./DailySheetForm";
 import { DICTIONARY, translateApiError } from "@/lib/i18n";
+import { tryParseSen } from "@/lib/money";
 
 const t = DICTIONARY.zh;
 
-describe("DailySheetForm parse error handling and toSen helper", () => {
-  it("toSen helper returns bigint for valid inputs, 0n for empty, and null for invalid inputs", () => {
-    expect(toSen("")).toBe(0n);
-    expect(toSen("   ")).toBe(0n);
-    expect(toSen("12.34")).toBe(1234n);
-    expect(toSen("50")).toBe(5000n);
-    expect(toSen("0.5")).toBe(50n);
+describe("DailySheetForm parse error handling and tryParseSen helper", () => {
+  it("tryParseSen helper returns bigint for valid inputs, 0n for empty, and null for invalid inputs", () => {
+    expect(tryParseSen("")).toBe(0n);
+    expect(tryParseSen("   ")).toBe(0n);
+    expect(tryParseSen("12.34")).toBe(1234n);
+    expect(tryParseSen("50")).toBe(5000n);
+    expect(tryParseSen("0.5")).toBe(50n);
 
     // Invalid inputs must return null, NOT 0n
-    expect(toSen("12.")).toBeNull();
-    expect(toSen("abc")).toBeNull();
-    expect(toSen("12.34.56")).toBeNull();
-    expect(toSen(".")).toBeNull();
+    expect(tryParseSen("12.")).toBeNull();
+    expect(tryParseSen("abc")).toBeNull();
+    expect(tryParseSen("12.34.56")).toBeNull();
+    expect(tryParseSen(".")).toBeNull();
   });
 
   it("renders inline error message, error border, and dash preview rather than RM 0.00 for invalid cash input", () => {
