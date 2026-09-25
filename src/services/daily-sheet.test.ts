@@ -814,19 +814,18 @@ describe("7. Idempotent cost line replacement and hardening (Option A)", () => {
     // Neither rejected request wrote anything
     expect(linesFor(sheet.id)).toHaveLength(2);
 
-    // 3. Sheet-save flow with an extraneous sheetId still saves normally
-    const sheetSaveWithSheetIdReq = makeAuthReq("http://localhost:3000/api/sheets", {
+    // 3. The sheet-save contract on its own still saves normally
+    const sheetSaveReq = makeAuthReq("http://localhost:3000/api/sheets", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         date: "2026-09-07",
-        sheetId: sheet.id,
         costLines: [
           { amountSen: 2500, category: "maintenance" },
         ],
       }),
     });
-    const sheetSaveRes = await sheetsPost(sheetSaveWithSheetIdReq);
+    const sheetSaveRes = await sheetsPost(sheetSaveReq);
     expect(sheetSaveRes.status).toBe(201);
     const sheetSaveData = await sheetSaveRes.json();
     // It replaced the 2 lines with the 1 submitted line
@@ -834,26 +833,35 @@ describe("7. Idempotent cost line replacement and hardening (Option A)", () => {
     expect(sheetSaveData.costLines[0].category).toBe("maintenance");
     expect(linesFor(sheet.id)).toHaveLength(1);
 
-    // 4. Stray single-line fields alongside costLines are simply ignored now
-    // (the old ambiguity check is gone): costLines is the only source of truth
-    const strayFieldsReq = makeAuthReq("http://localhost:3000/api/sheets", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        date: "2026-09-07",
-        category: "gas",
-        amountSen: 9999,
-        costLines: [
-          { amountSen: 2500, category: "maintenance" },
-        ],
-      }),
-    });
-    const strayFieldsRes = await sheetsPost(strayFieldsReq);
-    expect(strayFieldsRes.status).toBe(201);
-    const strayFieldsData = await strayFieldsRes.json();
-    expect(strayFieldsData.costLines).toHaveLength(1);
-    expect(strayFieldsData.costLines[0].category).toBe("maintenance");
-    expect(strayFieldsData.totalCostSen).toBe(2500);
+    // 4. Stray legacy fields alongside a valid costLines save are rejected, not
+    // ignored: a client still sending them has a bug worth surfacing.
+    for (const stray of [
+      { sheetId: sheet.id },
+      { category: "gas", amountSen: 9999 },
+      { note: "petronas" },
+      { action: "addCostLine" },
+    ]) {
+      const strayReq = makeAuthReq("http://localhost:3000/api/sheets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: "2026-09-07",
+          ...stray,
+          costLines: [{ amountSen: 7777, category: "gas" }],
+        }),
+      });
+      const strayRes = await sheetsPost(strayReq);
+      expect(strayRes.status).toBe(400);
+      const strayBody = await strayRes.json();
+      expect(strayBody.error).toMatch(/Unexpected legacy field\(s\):/);
+      for (const field of Object.keys(stray)) {
+        expect(strayBody.error).toContain(field);
+      }
+    }
+
+    // None of the rejected requests touched the saved line
+    expect(linesFor(sheet.id)).toHaveLength(1);
+    expect(linesFor(sheet.id)[0].category).toBe("maintenance");
 
     // 5. Legacy single-line save (date + amountSen + category, no costLines) -> 400
     const legacySingleReq = makeAuthReq("http://localhost:3000/api/sheets", {

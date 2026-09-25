@@ -15,6 +15,8 @@ function formatSheetResponse(result: NonNullable<ReturnType<typeof getSheetWithC
   };
 }
 
+const LEGACY_FIELDS = ["sheetId", "category", "amountSen", "note", "action"] as const;
+
 /**
  * POST /api/sheets
  * Save a Daily Sheet for a date: create-or-get the sheet, optionally set revenue,
@@ -41,6 +43,16 @@ export const POST = withAuth(async (req: NextRequest) => {
     if (!Array.isArray(body.costLines)) {
       return NextResponse.json(
         { error: "Field 'costLines' is required and must be an array" },
+        { status: 400 },
+      );
+    }
+
+    // The legacy single-line / direct-add fields are retired. Rejecting them loudly
+    // beats ignoring them: a client still sending them has a bug we want surfaced.
+    const strayFields = LEGACY_FIELDS.filter((f) => body[f] !== undefined);
+    if (strayFields.length > 0) {
+      return NextResponse.json(
+        { error: `Unexpected legacy field(s): ${strayFields.join(", ")}` },
         { status: 400 },
       );
     }
