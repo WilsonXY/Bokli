@@ -7,8 +7,8 @@
 web
 
 ## Users
-- **Operator (Mom / Stall Operators)**: Records daily business figures (Cash Revenue, TnG Revenue, Daily Costs) at the stall, often one-handed on mobile during or after a busy shift.
-- **Admin (Katte)**: Reviews overall stall health, monitors gross/net profit, verifies reconciliation between cash/TnG and net profit, and locks/reopens monthly books.
+- **Operator (Mom / Stall Operators)**: Records daily business figures (Cash Revenue, TnG Revenue, Daily Costs) at the stall, often one-handed on mobile during or after a busy shift, and locks (closes) a completed month.
+- **Admin (Katte)**: Reviews overall stall health, monitors gross/net profit, verifies reconciliation between cash/TnG and net profit, may also lock a month, and is the only role that can reopen a locked month.
 
 ## Product Purpose
 Web-based bookkeeping for a Malaysian family food stall to replace the physical paper ledger ("簿里") and deliver clear business health insights. Success means effortless daily logging with zero arithmetic stress, clear revenue channel tracking, and trustworthy monthly close.
