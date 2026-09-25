@@ -3,6 +3,11 @@ import { eq, sql } from "drizzle-orm";
 import { hashPassword } from "@/auth/password";
 import { openDb, type Db } from "@/db";
 import { users } from "@/db/schema";
+import {
+  clearLoginAttempts,
+  MAX_USERNAME_LENGTH,
+  normalizeUsername,
+} from "@/services/login-rate-limit";
 
 /**
  * Reads the password from a stream (defaults to stdin).
@@ -73,15 +78,24 @@ export async function readPassword(
 }
 
 /**
- * Updates a user's password in the database.
+ * Updates a user's password in the database and clears any login lock.
+ *
+ * The username is normalized with the same rules as the login path
+ * (trim + lowercase, reject empty, reject >64 chars) so that ' Katte ' resolves
+ * to the same account here and at sign-in. Clearing login_attempts means an
+ * operator reset also unlocks a user who is mid-lockout, instead of leaving
+ * them locked for the rest of the 15-minute window.
  */
 export async function resetPassword(
   username: string,
   newPassword: string,
   customDb?: Db,
-): Promise<{ success: boolean; username: string }> {
-  if (!username) {
-    throw new Error("Username is required.");
+): Promise<{ success: boolean; username: string; lockCleared: boolean }> {
+  const normalized = normalizeUsername(username);
+  if (!normalized) {
+    throw new Error(
+      `Username is required (max ${MAX_USERNAME_LENGTH} characters after trimming).`,
+    );
   }
   if (!newPassword) {
     throw new Error("New password cannot be empty.");
@@ -91,11 +105,11 @@ export async function resetPassword(
   const target = db
     .select()
     .from(users)
-    .where(sql`lower(${users.username}) = ${username.toLowerCase()}`)
+    .where(sql`lower(${users.username}) = ${normalized}`)
     .get();
 
   if (!target) {
-    throw new Error(`User "${username}" not found.`);
+    throw new Error(`User "${normalized}" not found.`);
   }
 
   const newHash = await hashPassword(newPassword);
@@ -107,7 +121,9 @@ export async function resetPassword(
     .where(eq(users.id, target.id))
     .run();
 
-  return { success: true, username: target.username };
+  const lockCleared = clearLoginAttempts(normalized, db);
+
+  return { success: true, username: target.username, lockCleared };
 }
 
 /**
@@ -149,6 +165,11 @@ async function main() {
     }
     const result = await resetPassword(username, newPassword);
     console.log(`Password for user "${result.username}" reset successfully.`);
+    console.log(
+      result.lockCleared
+        ? "Login lock cleared — the account can sign in again immediately."
+        : "No login lock was active — nothing to clear.",
+    );
     printRotationReminder();
     // Interactive raw-mode stdin keeps the Node event loop alive after the
     // listener is removed (TTY stays open, prompt never returns). Fix verified
