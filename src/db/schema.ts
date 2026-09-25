@@ -1,5 +1,6 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import {
+  type AnySQLiteColumn,
   check,
   index,
   integer,
@@ -13,6 +14,15 @@ import {
  * Dates are TEXT "YYYY-MM-DD" in Asia/Kuala_Lumpur wall time;
  * months are TEXT "YYYY-MM".
  */
+
+/**
+ * SQL predicate: column holds a note that is not NULL, empty or whitespace-only.
+ * Trims space, tab, LF, VT, FF and CR; every one of those is also stripped by the
+ * services' String.prototype.trim(), so the DB never rejects a note they accept.
+ */
+function notBlank(column: AnySQLiteColumn): SQL {
+  return sql`(${column} IS NOT NULL AND trim(${column}, char(32, 9, 10, 11, 12, 13)) <> '')`;
+}
 
 export type UserRole = "Operator" | "Admin";
 
@@ -78,8 +88,12 @@ export const costLines = sqliteTable(
       "chk_cost_lines_category",
       sql`${t.category} IN ('restock','gas','transport','wages-daily','maintenance','other')`,
     ),
-    check("chk_cost_lines_other_note", sql`${t.category} <> 'other' OR ${t.note} IS NOT NULL`),
-    check("chk_cost_lines_amount_nonneg", sql`${t.amountSen} >= 0`),
+    check(
+      "chk_cost_lines_other_note",
+      sql`${t.category} <> 'other' OR ${notBlank(t.note)}`,
+    ),
+    // Zero-amount Cost Lines are not allowed (see assertPositiveCostAmount).
+    check("chk_cost_lines_amount_positive", sql`${t.amountSen} > 0`),
   ],
 );
 
@@ -111,6 +125,7 @@ export const operatingExpenses = sqliteTable(
       .on(t.month, t.type)
       .where(sql`${t.note} IS NULL`),
     check("chk_opex_type", sql`${t.type} IN ('rental','utilities','wages','other')`),
+    check("chk_opex_other_note", sql`${t.type} <> 'other' OR ${notBlank(t.note)}`),
     check("chk_opex_amount_nonneg", sql`${t.amountSen} >= 0`),
   ],
 );
@@ -137,7 +152,18 @@ export const monthCloses = sqliteTable(
     reopenedAt: text("reopened_at"),
     reopenReason: text("reopen_reason"),
   },
-  (t) => [uniqueIndex("uq_month_closes_month").on(t.month)],
+  (t) => [
+    uniqueIndex("uq_month_closes_month").on(t.month),
+    // NULL stays legal: legacy closes may predate the Reconciliation inputs.
+    check(
+      "chk_month_closes_cash_on_hand_nonneg",
+      sql`${t.cashOnHandSen} IS NULL OR ${t.cashOnHandSen} >= 0`,
+    ),
+    check(
+      "chk_month_closes_tng_on_hand_nonneg",
+      sql`${t.tngOnHandSen} IS NULL OR ${t.tngOnHandSen} >= 0`,
+    ),
+  ],
 );
 
 export type MonthClose = typeof monthCloses.$inferSelect;
