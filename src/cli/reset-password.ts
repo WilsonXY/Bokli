@@ -110,6 +110,30 @@ export async function resetPassword(
   return { success: true, username: target.username };
 }
 
+/**
+ * Sessions are JWTs (ADR-0003), so changing the password hash does NOT log out
+ * anyone who already holds a session cookie. Only rotating the signing secret
+ * does. Audit decision #6 (2026-09-25): rotate AUTH_SECRET after every reset.
+ * Full procedure: docs/runbook-password-reset.md
+ */
+function printRotationReminder() {
+  console.log(
+    [
+      "",
+      "Sessions are JWTs — the old password's sessions are still valid.",
+      "To actually log everyone out, rotate the signing secret on prod:",
+      "",
+      "  1. openssl rand -base64 32",
+      "  2. set BOTH AUTH_SECRET and NEXTAUTH_SECRET to that value in prod .env",
+      "  3. systemctl --user restart bokli",
+      "  4. smoke-test the login (see runbook §4.5)",
+      "",
+      "Note: this logs out EVERY user (mom included). That is expected.",
+      "Runbook: docs/runbook-password-reset.md",
+    ].join("\n"),
+  );
+}
+
 async function main() {
   const username = process.argv[2];
   if (!username) {
@@ -125,6 +149,7 @@ async function main() {
     }
     const result = await resetPassword(username, newPassword);
     console.log(`Password for user "${result.username}" reset successfully.`);
+    printRotationReminder();
     // Interactive raw-mode stdin keeps the Node event loop alive after the
     // listener is removed (TTY stays open, prompt never returns). Fix verified
     // 2026-09-09 via PTY repro: unref() lets the process exit naturally.
