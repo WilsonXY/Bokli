@@ -12,7 +12,7 @@ export interface SeedOptions {
 /**
  * Seeds the two family users ('mom' as Operator and 'katte' as Admin).
  * Passwords are taken from env vars BOKLI_MOM_PASSWORD and BOKLI_ADMIN_PASSWORD,
- * falling back to local defaults if unset.
+ * which are REQUIRED — seed.ts throws when either is unset (no defaults, ever).
  * Idempotently upserts using ON CONFLICT DO UPDATE.
  */
 export async function seedUsers(db: Db, options: SeedOptions = {}) {

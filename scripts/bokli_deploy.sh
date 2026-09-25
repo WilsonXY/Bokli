@@ -17,6 +17,9 @@
 #      - If --allow-rollback is specified, tag commit may differ from origin/main
 #        tip, but MUST be a direct ancestor of origin/main (git merge-base --is-ancestor).
 #   6. Refuses if tracked files are modified (git status --porcelain --untracked-files=no).
+#   7. Single-deploy lock: holds an exclusive flock on <repo>/.deploy.lock for the
+#      whole run and refuses to start if another deploy already holds it.
+#   8. BOKLI_DEPLOY_BUILD_CMD (build override) is refused unless BOKLI_DEPLOY_TEST_MODE=1.
 #
 # Deploy Actions:
 #   - Check out tag (git checkout <tag>)
@@ -24,7 +27,8 @@
 #     from the environment or the repo .env (refuses if neither sets it)
 #     (skippable via BOKLI_DEPLOY_SKIP_MIGRATE=1)
 #   - Build production artifacts: BOKLI_BUILD_DIR=.next-prod npm run build
-#     (skippable via BOKLI_DEPLOY_SKIP_BUILD=1, custom command via BOKLI_DEPLOY_BUILD_CMD)
+#     (skippable via BOKLI_DEPLOY_SKIP_BUILD=1; the BOKLI_DEPLOY_BUILD_CMD override is
+#      a TEST-ONLY seam and requires BOKLI_DEPLOY_TEST_MODE=1)
 #   - Stamp the build manifest: .next-prod/BUILD_MANIFEST (verified by ExecStartPre)
 #   - Restart systemd user service: systemctl --user restart bokli
 #     (skippable via BOKLI_DEPLOY_SKIP_RESTART=1)
@@ -82,6 +86,38 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="${BOKLI_REPO_DIR:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 cd "$REPO_ROOT"
+
+# Gate: BOKLI_DEPLOY_BUILD_CMD is a TEST-ONLY seam.
+# It replaces the real production build, so on its own it lets a deploy write a
+# fresh .next-prod/BUILD_MANIFEST stamp for a build that never actually ran —
+# prod would then pass the ExecStartPre stamp check while serving stale artifacts.
+# Honour it only when the caller also opts in with BOKLI_DEPLOY_TEST_MODE=1.
+if [ -n "${BOKLI_DEPLOY_BUILD_CMD:-}" ] && [ "${BOKLI_DEPLOY_TEST_MODE:-0}" != "1" ]; then
+  echo "❌ Refusing deploy: BOKLI_DEPLOY_BUILD_CMD is set but BOKLI_DEPLOY_TEST_MODE=1 is not." >&2
+  echo "    BOKLI_DEPLOY_BUILD_CMD replaces the real production build and would stamp a build that never ran." >&2
+  echo "    It is a test-only seam: re-run with BOKLI_DEPLOY_TEST_MODE=1, or unset BOKLI_DEPLOY_BUILD_CMD for a real deploy." >&2
+  exit 1
+fi
+
+if [ "${BOKLI_DEPLOY_TEST_MODE:-0}" = "1" ]; then
+  echo "################################################################"
+  echo "##  ⚠️  BOKLI_DEPLOY_TEST_MODE=1 — THIS IS NOT A REAL DEPLOY  ##"
+  echo "##  Build override: BOKLI_DEPLOY_BUILD_CMD='${BOKLI_DEPLOY_BUILD_CMD:-<unset>}'"
+  echo "##  Any build stamp written by this run is NOT from a real build."
+  echo "################################################################"
+fi
+
+# Single-deploy lock: two concurrent deploys would race on the same checkout,
+# .next-prod build output, build stamp and service restart, and could leave prod
+# running artifacts from one tag stamped with another. Take an exclusive,
+# non-blocking lock before anything mutates the repo; the lock is held on fd 9
+# for the rest of the run and released automatically when the script exits.
+exec 9>"$REPO_ROOT/.deploy.lock"
+if ! flock -n 9; then
+  echo "❌ Refusing deploy: another deploy is already running (lock held on $REPO_ROOT/.deploy.lock)." >&2
+  echo "    Wait for it to finish, or check with: fuser -v $REPO_ROOT/.deploy.lock" >&2
+  exit 1
+fi
 
 # Fetch latest refs and tags from origin
 if [ "${BOKLI_DEPLOY_SKIP_FETCH:-0}" = "1" ]; then
@@ -162,6 +198,8 @@ if [ "${BOKLI_DEPLOY_SKIP_BUILD:-0}" = "1" ]; then
 else
   echo "==> Building production release..."
   if [ -n "${BOKLI_DEPLOY_BUILD_CMD:-}" ]; then
+    # Test-only override; already gated on BOKLI_DEPLOY_TEST_MODE=1 above.
+    echo "⚠️  TEST MODE: running BOKLI_DEPLOY_BUILD_CMD instead of the real build."
     $BOKLI_DEPLOY_BUILD_CMD
   else
     BOKLI_BUILD_DIR=.next-prod npm run build
