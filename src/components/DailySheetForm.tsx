@@ -6,6 +6,12 @@ import { amountSizeClass, formatMyr, sanitizeMoneyInput, tryParseSen } from "@/l
 import { useI18n, translateApiError } from "@/lib/i18n";
 import { CalendarPopover } from "@/components/CalendarPopover";
 import { isOtherNoteMissing, type CostCategory } from "@/lib/vocab";
+import {
+  CostLineAmountOverflowError,
+  costLineIdentityKey,
+  groupCostLines,
+  type CostLineGroup,
+} from "@/lib/cost-line-group";
 import type { CostLine } from "@/db/schema";
 
 export interface CostLineItem {
@@ -32,8 +38,6 @@ export interface DailySheetFormProps {
   initialErrorMessage?: string | null;
   initialExpandedIndex?: number | null;
 }
-
-const MAX_SAFE_SEN = Number.MAX_SAFE_INTEGER; // 9007199254740991
 
 // How long the save-success banner stays visible before it auto-dismisses.
 const SUCCESS_BANNER_MS = 3500;
@@ -81,101 +85,6 @@ export function getCostLineKey(line: CostLineItem, fallbackIndex?: number): stri
   return `cost-line-${line.category}-${fallbackIndex ?? "new"}`;
 }
 
-export function mergeCostLines(lines: CostLineItem[]): CostLineItem[] {
-  const merged: CostLineItem[] = [];
-  for (const line of lines) {
-    const normNote = normalizeNote(line.note);
-    const existingIndex = merged.findIndex(
-      (m) => m.category === line.category && normalizeNote(m.note) === normNote
-    );
-    const lineIds: number[] = [
-      ...(line.ids ?? []),
-      ...(line.id !== undefined && (!line.ids || !line.ids.includes(line.id)) ? [line.id] : []),
-    ];
-
-    if (existingIndex !== -1) {
-      const existing = merged[existingIndex];
-      const combinedIds = [...(existing.ids ?? []), ...lineIds];
-      const mergedTotal = existing.amountSen + line.amountSen;
-      const safeAmount =
-        Number.isSafeInteger(mergedTotal) && mergedTotal >= 0 && mergedTotal <= MAX_SAFE_SEN
-          ? mergedTotal
-          : MAX_SAFE_SEN;
-      merged[existingIndex] = {
-        category: existing.category,
-        note: existing.note,
-        amountSen: safeAmount,
-        amountInput: safeAmount > 0 ? senToDecimalStr(safeAmount) : "",
-        ids: combinedIds,
-        clientId: existing.clientId,
-      };
-    } else {
-      const safeAmount =
-        Number.isSafeInteger(line.amountSen) && line.amountSen >= 0 && line.amountSen <= MAX_SAFE_SEN
-          ? line.amountSen
-          : Math.min(Math.max(0, line.amountSen), MAX_SAFE_SEN);
-      merged.push({
-        category: line.category,
-        note: normNote || null,
-        amountSen: safeAmount,
-        amountInput: line.amountInput ?? (safeAmount > 0 ? senToDecimalStr(safeAmount) : ""),
-        ids: lineIds,
-        clientId: line.clientId,
-      });
-    }
-  }
-  return merged;
-}
-
-export function appendOrMergeCostLine(
-  prev: CostLineItem[],
-  newCat: CostCategory,
-  amountVal: number,
-  normNote: string | null,
-): { lines: CostLineItem[]; error?: string } {
-  const existingIndex = prev.findIndex(
-    (l) => l.category === newCat && normalizeNote(l.note) === normalizeNote(normNote)
-  );
-
-  if (existingIndex !== -1) {
-    const existing = prev[existingIndex];
-    const mergedTotal = existing.amountSen + amountVal;
-    if (mergedTotal > MAX_SAFE_SEN) {
-      return { lines: prev, error: "invalidAmount" };
-    }
-    const safeAmount =
-      Number.isSafeInteger(mergedTotal) && mergedTotal >= 0 && mergedTotal <= MAX_SAFE_SEN
-        ? mergedTotal
-        : MAX_SAFE_SEN;
-    const updated = prev.map((line, idx) =>
-      idx === existingIndex
-        ? {
-            category: line.category,
-            note: line.note,
-            amountSen: safeAmount,
-            amountInput: safeAmount > 0 ? senToDecimalStr(safeAmount) : "",
-            ids: line.ids ?? (line.id !== undefined ? [line.id] : []),
-            clientId: line.clientId,
-          }
-        : line
-    );
-    return { lines: updated };
-  }
-
-  return {
-    lines: [
-      ...prev,
-      {
-        category: newCat,
-        amountSen: amountVal,
-        amountInput: amountVal > 0 ? senToDecimalStr(amountVal) : "",
-        note: normNote,
-        ids: [],
-      },
-    ],
-  };
-}
-
 function senToDecimalStr(sen: number): string {
   if (!sen) return "";
   const ringgit = Math.floor(sen / 100);
@@ -190,54 +99,119 @@ function extractCostLineIds(line: CostLineItem): number[] {
   ];
 }
 
-export function consolidateCostLines(lines: CostLineItem[]): CostLineItem[] {
-  const firstSeen = new Map<string, number>();
-  const result: CostLineItem[] = [];
-
-  for (const line of lines) {
-    if (line.amountSen <= 0) {
-      result.push(line);
-      continue;
-    }
-
-    const key = `${line.category}::${normalizeNote(line.note)}`;
-    const targetIdx = firstSeen.get(key);
-
-    if (targetIdx !== undefined) {
-      const target = result[targetIdx];
-      const mergedTotal = target.amountSen + line.amountSen;
-      const safeAmount =
-        Number.isSafeInteger(mergedTotal) && mergedTotal >= 0 && mergedTotal <= MAX_SAFE_SEN
-          ? mergedTotal
-          : MAX_SAFE_SEN;
-
-      const targetIds = extractCostLineIds(target);
-      const incomingIds = extractCostLineIds(line);
-      const combinedIds = [...targetIds, ...incomingIds.filter((id) => !targetIds.includes(id))];
-
-      result[targetIdx] = {
-        category: target.category,
-        note: target.note,
-        amountSen: safeAmount,
-        amountInput: safeAmount > 0 ? senToDecimalStr(safeAmount) : "",
-        ids: combinedIds,
-        clientId: target.clientId,
-      };
-    } else {
-      firstSeen.set(key, result.length);
-      result.push(line);
+// Folds a merged group back into one form row: first-seen category/note/position,
+// exact summed amount, every underlying id once (so deleting the row drops the
+// whole group), and the first clientId that exists.
+function toMergedCostLine(group: CostLineGroup<CostLineItem>): CostLineItem {
+  const first = group.members[0];
+  const ids: number[] = [];
+  for (const member of group.members) {
+    for (const id of extractCostLineIds(member)) {
+      if (!ids.includes(id)) ids.push(id);
     }
   }
+  return {
+    category: first.category,
+    note: first.note,
+    amountSen: group.amountSen,
+    amountInput: senToDecimalStr(group.amountSen),
+    ids,
+    clientId: group.members.find((m) => m.clientId !== undefined)?.clientId,
+  };
+}
 
+// Merges the draft by the shared Cost Line identity (groupCostLines). Rows with
+// amount <= 0 are unsaved drafts: they are never merged and keep their position,
+// so the save gate can flag them. A row that is not merged is returned as the
+// same object, so its in-progress input is untouched. Throws
+// CostLineAmountOverflowError (index into `lines`) instead of clamping.
+export function consolidateCostLines(lines: CostLineItem[]): CostLineItem[] {
+  const positiveIdx: number[] = [];
+  lines.forEach((line, i) => {
+    if (line.amountSen > 0) positiveIdx.push(i);
+  });
+
+  let groups: CostLineGroup<CostLineItem>[];
+  try {
+    groups = groupCostLines(positiveIdx.map((i) => lines[i]));
+  } catch (err) {
+    if (err instanceof CostLineAmountOverflowError) {
+      throw new CostLineAmountOverflowError(positiveIdx[err.index], err.message);
+    }
+    throw err;
+  }
+
+  const groupAt = new Map<number, CostLineGroup<CostLineItem>>();
+  for (const group of groups) groupAt.set(positiveIdx[group.indexes[0]], group);
+
+  const result: CostLineItem[] = [];
+  lines.forEach((line, i) => {
+    if (line.amountSen <= 0) {
+      result.push(line);
+      return;
+    }
+    const group = groupAt.get(i);
+    if (!group) return; // merged into an earlier row
+    result.push(group.members.length === 1 ? line : toMergedCostLine(group));
+  });
   return result;
+}
+
+function normalizeLoadedCostLine(line: CostLineItem): CostLineItem {
+  return {
+    category: line.category,
+    note: normalizeNote(line.note) || null,
+    amountSen: line.amountSen,
+    amountInput: line.amountInput ?? senToDecimalStr(line.amountSen),
+    ids: extractCostLineIds(line),
+    clientId: line.clientId,
+  };
+}
+
+// Load path (server props / save response): normalizes each row (trimmed note,
+// id folded into ids, amountInput derived) and then applies the same merge.
+export function mergeCostLines(lines: CostLineItem[]): CostLineItem[] {
+  return consolidateCostLines(lines.map(normalizeLoadedCostLine));
+}
+
+// Non-throwing consolidate for draft paths (add, expand, save): on overflow
+// the draft is kept exactly as-is (never merged, never clamped) and the index of
+// the row that could not be merged is reported; the save gate then blocks it.
+export function tryConsolidateCostLines(lines: CostLineItem[]): {
+  lines: CostLineItem[];
+  overflowIndex: number | null;
+} {
+  try {
+    return { lines: consolidateCostLines(lines), overflowIndex: null };
+  } catch (err) {
+    if (err instanceof CostLineAmountOverflowError) {
+      return { lines, overflowIndex: err.index };
+    }
+    throw err;
+  }
+}
+
+// Save-gate helper: consolidates the draft and returns the index of the first
+// row that blocks saving on its amount (a merge that would overflow, or an
+// unsaved <= 0 draft), or null.
+export function consolidateCostLinesForSave(lines: CostLineItem[]): {
+  lines: CostLineItem[];
+  amountErrorIndex: number | null;
+} {
+  const result = tryConsolidateCostLines(lines);
+  if (result.overflowIndex !== null) {
+    return { lines: result.lines, amountErrorIndex: result.overflowIndex };
+  }
+  const zeroIdx = findZeroCostLineIndex(result.lines);
+  return { lines: result.lines, amountErrorIndex: zeroIdx === -1 ? null : zeroIdx };
 }
 
 export function createNewCostLine(
   costLines: CostLineItem[],
   newLineFactory?: () => CostLineItem
 ): { lines: CostLineItem[]; expandedIndex: number } {
-  // (1) consolidate existing lines as today
-  const consolidated = consolidateCostLines(costLines);
+  // (1) consolidate existing lines (kept unmerged if a merge would overflow)
+  const consolidated = tryConsolidateCostLines(costLines).lines;
   // (2) REMOVE any cost line with amountSen <= 0 (the unfilled one)
   const filledOnly = consolidated.filter((line) => line.amountSen > 0);
   // (3) append one fresh empty row and expand it
@@ -288,12 +262,9 @@ export function findConsolidatedLineIndex(
       if (mergedWithIdsIdx !== -1) return mergedWithIdsIdx;
     }
 
-    const norm = normalizeNote(targetLine.note);
+    const targetKey = costLineIdentityKey(targetLine.category, targetLine.note);
     const keyIdx = consolidated.findIndex(
-      (l) =>
-        l.amountSen > 0 &&
-        l.category === targetLine.category &&
-        normalizeNote(l.note) === norm
+      (l) => l.amountSen > 0 && costLineIdentityKey(l.category, l.note) === targetKey
     );
     if (keyIdx !== -1) return keyIdx;
   }
@@ -330,7 +301,16 @@ export function toggleCostLineExpansion(
     };
   }
 
-  const consolidated = consolidateCostLines(lines);
+  const { lines: consolidated, overflowIndex } = tryConsolidateCostLines(lines);
+  if (overflowIndex !== null) {
+    // Merging would overflow: leave the draft untouched and just toggle.
+    return {
+      lines,
+      expandedIndex: currentExpandedIndex === clickedIndex ? null : clickedIndex,
+      noteErrorIndex: options?.noteErrorIndex ?? null,
+      costAmountErrorIndex: options?.costAmountErrorIndex ?? null,
+    };
+  }
 
   let noteErrorIndex: number | null = null;
   if (options?.noteErrorIndex !== undefined && options.noteErrorIndex !== null) {
@@ -357,13 +337,11 @@ export function toggleCostLineExpansion(
     }
   }
 
+  const clickedKey = costLineIdentityKey(clickedLine.category, clickedLine.note);
   const wasMergedAway =
     clickedLine.amountSen > 0 &&
     lines.slice(0, clickedIndex).some(
-      (l) =>
-        l.amountSen > 0 &&
-        l.category === clickedLine.category &&
-        normalizeNote(l.note) === normalizeNote(clickedLine.note)
+      (l) => l.amountSen > 0 && costLineIdentityKey(l.category, l.note) === clickedKey
     );
 
   const targetIdx = findConsolidatedLineIndex(clickedLine, consolidated);
@@ -751,13 +729,12 @@ export function DailySheetForm({
       setErrorMessage(t.invalidAmount);
       return;
     }
-    const consolidated = consolidateCostLines(costLines);
+    const { lines: consolidated, amountErrorIndex } = consolidateCostLinesForSave(costLines);
     setCostLines(consolidated);
 
-    const zeroCostLineIdx = findZeroCostLineIndex(consolidated);
-    if (zeroCostLineIdx !== -1) {
-      setExpandedIndex(zeroCostLineIdx);
-      setCostAmountErrorIndex(zeroCostLineIdx);
+    if (amountErrorIndex !== null) {
+      setExpandedIndex(amountErrorIndex);
+      setCostAmountErrorIndex(amountErrorIndex);
       setNoteErrorIndex(null);
       setErrorMessage(null);
       requestAnimationFrame(() => costAmountErrorRef.current?.focus());

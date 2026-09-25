@@ -14,8 +14,9 @@ vi.mock("next/navigation", () => ({
 import {
   DailySheetForm,
   mergeCostLines,
-  appendOrMergeCostLine,
   consolidateCostLines,
+  consolidateCostLinesForSave,
+  tryConsolidateCostLines,
   findConsolidatedLineIndex,
   toggleCostLineExpansion,
   createNewCostLine,
@@ -25,6 +26,7 @@ import {
   type CostLineItem,
 } from "./DailySheetForm";
 import { DICTIONARY, translateApiError } from "@/lib/i18n";
+import { CostLineAmountOverflowError } from "@/lib/cost-line-group";
 import { tryParseSen } from "@/lib/money";
 
 const t = DICTIONARY.zh;
@@ -161,7 +163,7 @@ describe("DailySheetForm parse error handling and tryParseSen helper", () => {
   });
 });
 
-describe("mergeCostLines, appendOrMergeCostLine, getCostLineKey, and deletion logic", () => {
+describe("mergeCostLines, getCostLineKey, and deletion logic", () => {
   it("getCostLineKey produces stable unique keys for lines by id, ids, clientId, and category+note", () => {
     expect(getCostLineKey({ id: 42, category: "restock", amountSen: 1000 })).toBe("cost-line-42");
     expect(getCostLineKey({ ids: [103, 101, 102], category: "gas", amountSen: 2000 })).toBe("cost-line-101-102-103");
@@ -223,30 +225,6 @@ describe("mergeCostLines, appendOrMergeCostLine, getCostLineKey, and deletion lo
     expect(merged[0].amountSen).toBe(7500);
   });
 
-  it("appendOrMergeCostLine (handleAddCostLine path) merges matching line and preserves existing ids", () => {
-    const existing: CostLineItem[] = [
-      { category: "restock", amountSen: 5000, note: "Rice", ids: [101, 102] },
-      { category: "gas", amountSen: 2000, note: "Shell", ids: [103] },
-    ];
-
-    // Adding new amount to restock + Rice
-    const result = appendOrMergeCostLine(existing, "restock", 3000, "Rice");
-    expect(result.error).toBeUndefined();
-    expect(result.lines).toHaveLength(2);
-
-    const restockLine = result.lines.find((l) => l.category === "restock");
-    expect(restockLine).toBeDefined();
-    expect(restockLine?.amountSen).toBe(8000);
-    // Crucial: existing ids array [101, 102] is preserved!
-    expect(restockLine?.ids).toEqual([101, 102]);
-
-    // Adding brand new line gets ids: []
-    const resultNew = appendOrMergeCostLine(result.lines, "other", 1500, "Boxes");
-    expect(resultNew.lines).toHaveLength(3);
-    const otherLine = resultNew.lines.find((l) => l.category === "other");
-    expect(otherLine?.ids).toEqual([]);
-  });
-
   it("delete-merged-row drops whole group of underlying records", () => {
     const mergedItems: CostLineItem[] = mergeCostLines([
       { id: 101, category: "restock", amountSen: 2000, note: "Rice" },
@@ -264,15 +242,22 @@ describe("mergeCostLines, appendOrMergeCostLine, getCostLineKey, and deletion lo
     expect(afterDelete.some((l) => l.ids?.includes(101) || l.ids?.includes(102))).toBe(false);
   });
 
-  it("guards runaway totals and safely handles non-string notes", () => {
+  it("rejects runaway totals instead of clamping and safely handles non-string notes", () => {
     const runaway = Number.MAX_SAFE_INTEGER;
     const items: CostLineItem[] = [
       { id: 1, category: "restock", amountSen: runaway, note: 123 as unknown as string },
       { id: 2, category: "restock", amountSen: 1000, note: null },
     ];
-    const merged = mergeCostLines(items);
+    expect(() => mergeCostLines(items)).toThrow(CostLineAmountOverflowError);
+
+    // A non-string note is treated as "no note" and still groups with null
+    const merged = mergeCostLines([
+      { id: 1, category: "restock", amountSen: 500, note: 123 as unknown as string },
+      { id: 2, category: "restock", amountSen: 1000, note: null },
+    ]);
     expect(merged).toHaveLength(1);
-    expect(merged[0].amountSen).toBe(Number.MAX_SAFE_INTEGER);
+    expect(merged[0].note).toBeNull();
+    expect(merged[0].amountSen).toBe(1500);
   });
 
   it("DailySheetForm renders duplicate initialCostLines as a single merged row (not false positive)", () => {
@@ -498,16 +483,16 @@ describe("cost line consolidation on add/save only (consolidateCostLines)", () =
     expect(result[0].amountSen).toBe(5000);
   });
 
-  it("caps merged amount at MAX_SAFE_SEN upon overflow", () => {
+  it("throws on merged overflow instead of capping at MAX_SAFE_INTEGER", () => {
     const lines: CostLineItem[] = [
       { clientId: "line-1", category: "restock", amountSen: Number.MAX_SAFE_INTEGER, note: "Rice" },
       { clientId: "line-2", category: "restock", amountSen: 1000, note: "Rice" },
     ];
 
-    const result = consolidateCostLines(lines);
-
-    expect(result).toHaveLength(1);
-    expect(result[0].amountSen).toBe(Number.MAX_SAFE_INTEGER);
+    expect(() => consolidateCostLines(lines)).toThrow(CostLineAmountOverflowError);
+    // Input draft is not mutated
+    expect(lines[0].amountSen).toBe(Number.MAX_SAFE_INTEGER);
+    expect(lines[1].amountSen).toBe(1000);
   });
 
   // (c) zero lines pass through untouched and keep position
@@ -1172,5 +1157,158 @@ describe("in-flight edit rebase (rebaseCostLinesAfterSave)", () => {
     ];
 
     expect(rebaseCostLinesAfterSave(local, savedLines, true)[0].ids).toEqual([11]);
+  });
+});
+
+describe("shared merge rule in the form (Phase 7)", () => {
+  const MAX = Number.MAX_SAFE_INTEGER;
+
+  it("merged row carries every underlying id once, including a bare id, so deleting it drops the group", () => {
+    const merged = consolidateCostLines([
+      { id: 7, clientId: "c-7", category: "restock", amountSen: 1000, note: "Rice" },
+      { id: 8, ids: [8, 9], category: "restock", amountSen: 2000, note: " Rice " },
+      { ids: [7], category: "restock", amountSen: 500, note: "Rice" },
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].ids).toEqual([7, 8, 9]);
+    expect(merged[0].id).toBeUndefined();
+    expect(merged[0].amountSen).toBe(3500);
+    expect(merged[0].amountInput).toBe("35");
+    expect(merged[0].clientId).toBe("c-7");
+
+    const afterDelete = merged.filter((_, i) => i !== 0);
+    expect(afterDelete.flatMap((l) => l.ids ?? [])).toEqual([]);
+  });
+
+  it("keeps the first clientId that exists when the first member has none", () => {
+    const merged = consolidateCostLines([
+      { id: 1, category: "gas", amountSen: 100 },
+      { clientId: "c-new", category: "gas", amountSen: 200, note: "  " },
+    ]);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].clientId).toBe("c-new");
+    expect(merged[0].ids).toEqual([1]);
+  });
+
+  it("an unmerged row keeps its object identity so in-progress input (e.g. '12.50') is untouched", () => {
+    const typing: CostLineItem = { clientId: "c-1", category: "gas", amountSen: 1250, amountInput: "12.50", note: "Shell " };
+    const result = consolidateCostLines([typing]);
+    expect(result[0]).toBe(typing);
+    expect(result[0].amountInput).toBe("12.50");
+  });
+
+  it("load path no longer merges unsaved zero drafts, only positive rows", () => {
+    const loaded = mergeCostLines([
+      { category: "restock", amountSen: 0, note: "Rice" },
+      { id: 1, category: "restock", amountSen: 1000, note: "Rice" },
+      { category: "restock", amountSen: 0, note: "Rice " },
+      { id: 2, category: "restock", amountSen: 500, note: "Rice" },
+    ]);
+    expect(loaded.map((l) => l.amountSen)).toEqual([0, 1500, 0]);
+    expect(loaded[1].ids).toEqual([1, 2]);
+    expect(loaded[2].note).toBe("Rice");
+  });
+
+  it("matches the server merge output for the same submitted lines", () => {
+    // Same fixture as the service parity test in daily-sheet.test.ts
+    const lines: CostLineItem[] = [
+      { category: "restock", amountSen: 2000, note: " rice " },
+      { category: "gas", amountSen: 700, note: null },
+      { category: "restock", amountSen: 3000, note: "rice" },
+      { category: "gas", amountSen: 300, note: "   " },
+      { category: "other", amountSen: 900, note: "rice" },
+    ];
+    const client = consolidateCostLines(lines).map((l) => ({
+      category: l.category,
+      note: (l.note ?? "").trim() || null,
+      amountSen: l.amountSen,
+    }));
+    expect(client).toEqual([
+      { category: "restock", note: "rice", amountSen: 5000 },
+      { category: "gas", note: null, amountSen: 1000 },
+      { category: "other", note: "rice", amountSen: 900 },
+    ]);
+  });
+
+  it("consolidate throws with the draft index of the overflowing row (zero drafts do not shift it)", () => {
+    let caught: unknown;
+    try {
+      consolidateCostLines([
+        { clientId: "z", category: "gas", amountSen: 0 },
+        { clientId: "a", category: "restock", amountSen: MAX, note: "Rice" },
+        { clientId: "b", category: "restock", amountSen: 1, note: "Rice" },
+      ]);
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(CostLineAmountOverflowError);
+    expect((caught as CostLineAmountOverflowError).index).toBe(2);
+  });
+
+  it("save gate blocks an overflowing merge on the offending row and keeps the draft unmerged", () => {
+    const draft: CostLineItem[] = [
+      { clientId: "a", category: "restock", amountSen: MAX, note: "Rice" },
+      { clientId: "b", category: "restock", amountSen: 1, note: "Rice" },
+    ];
+    const result = consolidateCostLinesForSave(draft);
+    expect(result.amountErrorIndex).toBe(1);
+    expect(result.lines).toBe(draft);
+    expect(result.lines.map((l) => l.amountSen)).toEqual([MAX, 1]);
+  });
+
+  it("save gate still flags an unsaved zero draft after merging, and passes a clean draft", () => {
+    const withZero = consolidateCostLinesForSave([
+      { clientId: "a", category: "gas", amountSen: 100 },
+      { clientId: "b", category: "gas", amountSen: 200 },
+      { clientId: "c", category: "restock", amountSen: 0 },
+    ]);
+    expect(withZero.amountErrorIndex).toBe(1);
+    expect(withZero.lines.map((l) => l.amountSen)).toEqual([300, 0]);
+
+    const clean = consolidateCostLinesForSave([
+      { clientId: "a", category: "gas", amountSen: 100 },
+      { clientId: "b", category: "gas", amountSen: 200 },
+    ]);
+    expect(clean.amountErrorIndex).toBeNull();
+    expect(clean.lines).toHaveLength(1);
+    expect(clean.lines[0].amountSen).toBe(300);
+  });
+
+  it("tryConsolidateCostLines reports overflow without throwing or mutating", () => {
+    const draft: CostLineItem[] = [
+      { category: "gas", amountSen: MAX },
+      { category: "gas", amountSen: MAX },
+    ];
+    const result = tryConsolidateCostLines(draft);
+    expect(result.overflowIndex).toBe(1);
+    expect(result.lines).toBe(draft);
+  });
+
+  it("expand on an overflowing draft toggles without merging and keeps error indexes", () => {
+    const draft: CostLineItem[] = [
+      { clientId: "a", category: "gas", amountSen: MAX },
+      { clientId: "b", category: "gas", amountSen: 5 },
+      { clientId: "c", category: "other", amountSen: 100, note: "" },
+    ];
+    const opened = toggleCostLineExpansion(draft, 1, null, { noteErrorIndex: 2, costAmountErrorIndex: 1 });
+    expect(opened.lines).toBe(draft);
+    expect(opened.expandedIndex).toBe(1);
+    expect(opened.noteErrorIndex).toBe(2);
+    expect(opened.costAmountErrorIndex).toBe(1);
+
+    const closed = toggleCostLineExpansion(draft, 1, 1);
+    expect(closed.expandedIndex).toBeNull();
+  });
+
+  it("add on an overflowing draft appends a fresh row without merging or clamping", () => {
+    const draft: CostLineItem[] = [
+      { clientId: "a", category: "gas", amountSen: MAX },
+      { clientId: "b", category: "gas", amountSen: 5 },
+      { clientId: "z", category: "gas", amountSen: 0 },
+    ];
+    const result = createNewCostLine(draft, () => ({ clientId: "new", category: "restock", amountSen: 0 }));
+    expect(result.lines.map((l) => l.clientId)).toEqual(["a", "b", "new"]);
+    expect(result.lines.map((l) => l.amountSen)).toEqual([MAX, 5, 0]);
+    expect(result.expandedIndex).toBe(2);
   });
 });
