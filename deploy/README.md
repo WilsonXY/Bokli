@@ -185,83 +185,218 @@ curl -I http://localhost:5000/
 Production may only run builds produced by `scripts/bokli_deploy.sh`. The service refuses to start otherwise.
 
 **How it works:**
-- At the end of a deploy (after build, before restart), `scripts/bokli_deploy.sh` writes `.next-prod/BUILD_MANIFEST` containing:
+- The deploy script builds the release in a staging directory and writes `.next-prod/BUILD_MANIFEST` into that build before it is moved into the production checkout:
   ```
   TAG=<release tag>
-  COMMIT=<full sha of checked-out HEAD>
+  COMMIT=<full sha of the tag commit>
   BUILT_AT=<UTC ISO8601>
   DEPLOYED_BY=bokli_deploy.sh
+  BUILD_ID=<Next.js build id>
   ```
-  The deploy script refuses to restart if any field would be empty.
 - `deploy/bokli.service` declares `ExecStartPre=%h/projects/bokli/scripts/verify_build_stamp.sh` before `ExecStart`. On every start (or crash-restart), systemd first runs `scripts/verify_build_stamp.sh`, which fails (non-zero, with a clear stderr message) if the stamp file is missing, any field is empty/missing, `DEPLOYED_BY` is not `bokli_deploy.sh`, `COMMIT` does not match the currently checked-out `git rev-parse HEAD`, or `TAG` does not exist as a tag in the repo. systemd then never runs the server.
 
 **If the service refuses to start** (`systemctl --user status bokli` shows the ExecStartPre failure):
 1. Read the failure reason: `journalctl --user -u bokli -n 20 --no-pager`.
-2. Re-run a full deploy for the release tag you want: `./scripts/bokli_deploy.sh <tag>` — this rebuilds and re-stamps so the stamp matches the checked-out commit/tag.
-3. Then start again: `systemctl --user start bokli`.
+2. If `~/projects/.bokli-deploy-bokli/ACTIVE_CUTOVER` exists, a deploy was interrupted: run `--recover` (see [Recovery](#recovery-after-a-failed-or-interrupted-deploy)).
+3. Otherwise re-run a full deploy for the release tag you want, **from the deployer checkout** (see [Deploying a release](#deploying-a-release-owner-procedure)).
 Do NOT hand-edit or forge the stamp file; it is the audit trail that prod runs script-produced builds only.
+(`verify_build_stamp.sh` still prints the older remediation hint `./scripts/bokli_deploy.sh <tag>`; follow this section instead.)
 
 ---
 
 ## Deployment (release-tag flow)
 
-Bokli follows a release-tag-gated deployment flow to ensure that production always matches an audited, immutable release tag pointing to the current tip of `origin/main`.
+Production only ever runs an audited release tag that points at the tip of `origin/main`
+(or, for rollbacks, an ancestor of it). Design rationale: [ADR-0005](../docs/adr/0005-staged-production-deploy.md).
 
-### Workflow
-1. **Merge PR**: Merge the approved pull request into `main` on GitHub.
-2. **Tag (owner-only)**: A tag ruleset restricts `v*` tag creation to the repo owner, so the owner creates the release tag via the GitHub Releases web UI:
-   1. Go to https://github.com/WilsonXY/Bokli/releases → **Draft a new release**.
-   2. Create a new tag `vX.Y.Z` on publish (target: `main`), add release notes, and publish.
-3. **Deploy via Script**: On the deployment host, execute the release deploy script:
+### How a deploy works
+
+`scripts/bokli_deploy.sh` runs in two phases.
+
+**Phase 1 — prepare (production untouched, the old service keeps serving):**
+1. Refusal gates (see below), then `git fetch origin --tags --prune` in the production checkout.
+2. `git archive <tag>` into a fresh staging directory `~/projects/.bokli-deploy-bokli/runs/<id>/src`.
+3. Consistent online SQLite backup of the live DB (read-only connection, WAL-aware).
+4. `npm ci` in staging, then **rehearse the pending migrations on the backup copy**
+   (`tsx src/db/migrate.ts`) plus `PRAGMA integrity_check` and `foreign_key_check`.
+5. `npm run build` in staging (`BOKLI_BUILD_DIR=.next-prod`); verify `BUILD_ID`,
+   `standalone/server.js` and the standalone static assets
+   (`standalone/.next-prod/static/<BUILD_ID>/_buildManifest.js`).
+6. Smoke-test the candidate standalone server on a loopback port against a DB copy
+   (throwaway `AUTH_SECRET`; the production `.env` is never read): `/login` must be 200 and the
+   new build's static manifest must be served.
+7. Write the build stamp into the staged build.
+
+Any failure here exits `1` with *"production was not touched"*.
+
+**Phase 2 — cutover (downtime starts at the stop):**
+1. `systemctl --user stop bokli` and confirm it is stopped.
+2. Fresh snapshot of the live DB → `runs/<id>/snapshot.db`, integrity-checked and
+   content-compared with the live DB.
+3. Migrate a *copy* of that snapshot, check it, fold its WAL in.
+4. Swap DB files by rename: the original `bokli.db` (+ `-wal`/`-shm`) moves to
+   `runs/<id>/prev-db/`, the migrated file takes its place.
+5. Swap `.next-prod` and `node_modules` by rename (old ones kept in `runs/<id>/prev/`),
+   then `git checkout --detach <tag>`; verify the stamp with the release's own `verify_build_stamp.sh`.
+6. Smoke-test the build **at its live path** on a loopback port against a DB copy.
+7. `systemctl --user start bokli`; success only when the unit is active, its main
+   process runs from `<repo>/.next-prod/standalone`, `/login` is 200 on the service port
+   and the **new** `BUILD_ID`'s static manifest is served (an old build cannot pass).
+
+Each cutover step is recorded in the journal `~/projects/.bokli-deploy-bokli/ACTIVE_CUTOVER`
+so an interrupted deploy (Ctrl-C, SSH drop, SIGKILL, power loss) can be recovered.
+
+### Refusal gates (all before any production change)
+- Tag required, `^[A-Za-z0-9._-]+$`; must exist after fetch; must equal `origin/main`, or be
+  an ancestor of it with `--allow-rollback`.
+- The script must **not** live inside the production checkout, and its own checkout must be
+  clean and exactly `origin/main` (so the newest released script always runs, including for rollbacks).
+- `BOKLI_REPO_DIR` must be the `bokli` unit's `WorkingDirectory`, and the unit must run
+  `<repo>/scripts/verify_build_stamp.sh` as `ExecStartPre` and `<node> .next-prod/standalone/server.js`.
+- `BOKLI_DB_PATH` must be set explicitly and equal the DB the unit really uses (`.env` overrides
+  the unit's `Environment=`); anything under `data-dev/` is refused.
+- `node` on `PATH` must be the same version as the unit's node (native modules).
+- Production checkout: clean tracked files (untracked files are fine), and the **current**
+  build stamp must verify — that release is what a failed cutover rolls back to.
+- Single-deploy `flock` on `<repo>/.deploy.lock`; refused while a cutover journal is pending.
+- The old test/skip seams (`BOKLI_DEPLOY_SKIP_*`, `BOKLI_DEPLOY_BUILD_CMD`,
+  `BOKLI_DEPLOY_TEST_MODE`, `BOKLI_DEPLOY_HEALTHCHECK_URL`) are **refused**: they could report a
+  success without a real migrate/build/restart/health check. The only accepted override is
+  `BOKLI_DEPLOY_HEALTH_TIMEOUT_SECS` (1–600, default 60).
+
+### Deploying a release (owner procedure)
+
+**One-time setup — the deployer checkout.** Deploys never run the script that sits inside
+`~/projects/bokli`. Create a separate plain clone (do not use `git worktree add` from the
+production repo):
+```bash
+git clone https://github.com/WilsonXY/Bokli.git ~/projects/bokli-deployer
+```
+It needs no `npm install`; the deploy installs dependencies in its own staging directory.
+
+**Every release:**
+1. Merge the approved PR into `main` on GitHub.
+2. Tag (owner-only): https://github.com/WilsonXY/Bokli/releases → **Draft a new release** →
+   create tag `vX.Y.Z` on publish (target `main`), add notes, publish.
+3. Move the deployer checkout to the new `origin/main` and confirm it is the tag:
    ```bash
-   ./scripts/bokli_deploy.sh v1.2.0
+   git -C ~/projects/bokli-deployer fetch origin --tags --prune
+   git -C ~/projects/bokli-deployer checkout --detach origin/main
+   git -C ~/projects/bokli-deployer describe --tags --exact-match   # must print vX.Y.Z
    ```
-   The script enforces safety gates before touching anything:
-   - Fetches origin (`git fetch origin --tags --prune`).
-   - Verifies the specified tag exists locally.
-   - Verifies `git rev-parse $TAG^{commit}` equals `git rev-parse origin/main` (or ancestor if `--allow-rollback` is specified).
-   - Verifies tracked files are clean (`git status --porcelain --untracked-files=no` is empty; prints dirty tracked files).
-   - Checks out the validated tag (`git checkout $TAG`).
-   - Runs database schema migrations (`BOKLI_DB_PATH="$REPO_ROOT/data/bokli.db" npx tsx src/db/migrate.ts`).
-   - Builds production artifacts (`BOKLI_BUILD_DIR=.next-prod npm run build`).
-   - Restarts the user service (`systemctl --user restart bokli`).
-   - Performs post-restart health check against `http://localhost:5000/login` (verifying HTTP 200 with retries and timeout).
+4. Deploy (the old service keeps serving while phase 1 runs, typically a few minutes):
+   ```bash
+   BOKLI_REPO_DIR=$HOME/projects/bokli \
+   BOKLI_DB_PATH=$HOME/projects/bokli/data/bokli.db \
+   ~/projects/bokli-deployer/scripts/bokli_deploy.sh vX.Y.Z
+   ```
+5. Read the result by exit code:
+   | Exit | Meaning | Action |
+   | :--- | :--- | :--- |
+   | `0` | `✅ deployed vX.Y.Z …` — new build verified on the service port | Log in and check as usual. |
+   | `1` | Refused, or failed in phase 1. Production was not touched. | Fix the cause, re-run. |
+   | `2` | Cutover failed before the new release could accept writes; **ROLLED BACK** to the previous release and verified (HEAD, stamp, DB content = snapshot, old build serving). | Investigate, re-run later. |
+   | `3` | **MANUAL RECOVERY REQUIRED** — see below. Further deploys are refused until resolved. | Follow [Recovery](#recovery-after-a-failed-or-interrupted-deploy). |
 
-### Single-deploy lock (`.deploy.lock`)
-Immediately after resolving the repo root — before the fetch, checkout, migrations,
-build, stamp or restart — the script takes an exclusive non-blocking `flock` on
-`<repo>/.deploy.lock` (held on fd 9 for the whole run, released automatically on
-exit). If another deploy already holds it, the second deploy refuses with
-`❌ Refusing deploy: another deploy is already running` and exits 1 without
-touching anything. This prevents two concurrent deploys from racing on the same
-checkout, `.next-prod` output, build stamp and service restart — a race that could
-leave prod serving one tag's artifacts stamped with another tag.
-
-The lock file is untracked (and never blocks the clean-tracked-files gate, which
-runs with `--untracked-files=no`). To see who holds it: `fuser -v <repo>/.deploy.lock`.
-
-### Test-only seams (`BOKLI_DEPLOY_TEST_MODE`)
-`BOKLI_DEPLOY_BUILD_CMD` replaces the real production build command. On its own it
-would let a deploy write a fresh `.next-prod/BUILD_MANIFEST` for a build that never
-ran, so prod would pass the `ExecStartPre` stamp check while serving stale
-artifacts. It is therefore gated:
-
-- `BOKLI_DEPLOY_BUILD_CMD` is honoured **only** when `BOKLI_DEPLOY_TEST_MODE=1` is
-  also set. Without it the script prints an error and exits 1 before any mutation.
-- When `BOKLI_DEPLOY_TEST_MODE=1` is set, the script prints a loud
-  `THIS IS NOT A REAL DEPLOY` banner. Never set it on the production host.
-
-The remaining seams (`BOKLI_DEPLOY_SKIP_FETCH`, `BOKLI_DEPLOY_SKIP_MIGRATE`,
-`BOKLI_DEPLOY_SKIP_BUILD`, `BOKLI_DEPLOY_SKIP_RESTART`, `BOKLI_DEPLOY_SKIP_SLEEP`,
-`BOKLI_DEPLOY_SKIP_HEALTHCHECK`, `BOKLI_DEPLOY_HEALTHCHECK_URL`, `BOKLI_REPO_DIR`)
-are unchanged. Note that `BOKLI_DEPLOY_SKIP_BUILD=1` never writes a new stamp: it
-re-verifies the existing one against the checked-out HEAD/tag and refuses the
-restart if it does not match.
+**First release after this change (the "first hop").** Production currently runs v1.1.1,
+whose `~/projects/bokli/scripts/bokli_deploy.sh` is the old in-place script. **Never run that
+file.** Use exactly the procedure above: the new script from `~/projects/bokli-deployer`,
+with `BOKLI_REPO_DIR` pinned to `~/projects/bokli`. Before any change it checks that this
+path is the `bokli` unit's `WorkingDirectory`, that `BOKLI_DB_PATH` is the unit's DB, and that
+the current v1.1.1 stamp verifies. After the first hop, the copy inside `~/projects/bokli`
+is the new script and refuses to run from there.
 
 ### Rollbacks
-- **Redeploy Previous Tag**: To roll back an application release, deploy the previously known-good release tag using the `--allow-rollback` flag:
+- **Application rollback** = deploy an earlier release tag, still with the newest script:
   ```bash
-  ./scripts/bokli_deploy.sh --allow-rollback v1.1.0
+  BOKLI_REPO_DIR=$HOME/projects/bokli BOKLI_DB_PATH=$HOME/projects/bokli/data/bokli.db \
+  ~/projects/bokli-deployer/scripts/bokli_deploy.sh --allow-rollback v1.1.0
   ```
-  The `--allow-rollback` flag is required whenever deploying a tag whose commit does not match the current tip of `origin/main`. The script verifies that the tag commit is a valid ancestor of `origin/main` via `git merge-base --is-ancestor` before allowing the checkout.
-- **Database Migrations Only Move Forward**: SQLite schema migrations (`drizzle-kit migrate` / `npx tsx src/db/migrate.ts`) run automatically against `data/bokli.db` before the service restart and are strictly forward-only. Always design database schema evolutions using the expand-and-contract pattern to ensure backwards compatibility with previous application releases.
+  `--allow-rollback` is required whenever the tag is not the tip of `origin/main`; the tag must
+  be an ancestor of `origin/main` (`git merge-base --is-ancestor`).
+- **Database migrations only move forward.** A rollback keeps the migrated schema; design
+  schema changes expand-and-contract so the previous release keeps working on it.
+
+### Recovery after a failed or interrupted deploy
+
+**Interrupted deploy** (terminal closed, SIGKILL, power loss — `ACTIVE_CUTOVER` exists):
+```bash
+BOKLI_REPO_DIR=$HOME/projects/bokli BOKLI_DB_PATH=$HOME/projects/bokli/data/bokli.db \
+~/projects/bokli-deployer/scripts/bokli_deploy.sh --recover
+```
+`--recover` reads the journal. If the service's main process has **not** run since the cutover
+stopped it (same boot and unchanged `ExecMainStartTimestampMonotonic`, or not started since a
+reboot), it restores the previous checkout, `.next-prod`, `node_modules` and the original DB
+files, proves it and restarts the old release (exit `0`). Otherwise it changes nothing and
+exits `3`.
+
+**Exit `3` — MANUAL RECOVERY REQUIRED.** The script found that the new release's service may
+have accepted writes (or it could not prove a rollback). It never restores the DB then, because
+that would silently drop those writes. Katte decides; the options, in order of preference:
+
+The run directory named in the message (`~/projects/.bokli-deploy-bokli/runs/<id>/`) holds
+`snapshot.db` (verified, pre-migration, taken after the stop), `prev-db/` (the original DB
+files), `prev/` (previous `.next-prod`, `node_modules`) and `phases.log`. The journal holds
+`OLD_HEAD`, `OLD_TAG`, `TAG`.
+
+1. Diagnose: `systemctl --user status bokli`, `journalctl --user -u bokli -n 100 --no-pager`,
+   `cat ~/projects/.bokli-deploy-bokli/ACTIVE_CUTOVER`.
+2. **A. Keep the new release** (it works, or the fix is a quick follow-up release):
+   verify `(cd ~/projects/bokli && ./scripts/verify_build_stamp.sh)` and that the site works.
+3. **B. Code-only rollback, keep the DB and its new writes** (needs the previous release to
+   work on the migrated schema — the expand-and-contract rule):
+   ```bash
+   RUN=~/projects/.bokli-deploy-bokli/runs/<id>
+   systemctl --user stop bokli
+   mv ~/projects/bokli/.next-prod    $RUN/manual-new-next-prod  && mv $RUN/prev/.next-prod    ~/projects/bokli/.next-prod
+   mv ~/projects/bokli/node_modules  $RUN/manual-new-node_modules && mv $RUN/prev/node_modules ~/projects/bokli/node_modules
+   git -C ~/projects/bokli checkout --detach <OLD_HEAD>
+   (cd ~/projects/bokli && ./scripts/verify_build_stamp.sh) && systemctl --user start bokli
+   ```
+4. **C. Restore the pre-deploy DB** — **discards every write since the snapshot.** Only on
+   Katte's explicit decision, after the new writes are recorded elsewhere (e.g. copied onto paper):
+   ```bash
+   systemctl --user stop bokli
+   mkdir $RUN/manual-discarded-db
+   for s in -wal -shm ""; do [ -e ~/projects/bokli/data/bokli.db$s ] && mv ~/projects/bokli/data/bokli.db$s $RUN/manual-discarded-db/; done
+   cp $RUN/snapshot.db ~/projects/bokli/data/bokli.db.restore && mv ~/projects/bokli/data/bokli.db.restore ~/projects/bokli/data/bokli.db
+   sqlite3 ~/projects/bokli/data/bokli.db 'PRAGMA integrity_check;'   # must print ok
+   ```
+   then do the code rollback in B.
+5. When production is in the chosen state, archive the journal so deploys are allowed again:
+   ```bash
+   mv ~/projects/.bokli-deploy-bokli/ACTIVE_CUTOVER $RUN/journal.manual
+   ```
+
+If `--recover` reports a stale `.git/index.lock` in `~/projects/bokli` (git was killed
+mid-checkout), confirm no git process is running (`pgrep -a git`), remove the lock and re-run `--recover`.
+
+### Housekeeping
+Each run directory keeps the snapshot, previous build and `node_modules` (hundreds of MB).
+The directory is mode 700 and contains production data. After a release has been confirmed
+good, delete older run directories, keeping at least the latest one:
+```bash
+ls -1d ~/projects/.bokli-deploy-bokli/runs/*
+```
+
+### Residual limitations (not zero downtime)
+- **Downtime** runs from the stop to the healthy start: snapshot, migration of the copy, file
+  swaps, live-path smoke test and start. Measured at about 7 s in a real-app rehearsal on a
+  small DB; it grows with DB size. Users see errors or the tunnel's error page meanwhile.
+- **A new release that accepts writes and then fails** cannot be rolled back automatically;
+  exit `3` hands the decision to Katte (see above).
+- **Reboot mid-cutover:** the enabled unit may start at boot with whatever is on disk and
+  passes `ExecStartPre`. `--recover` detects a main-process start and then refuses to touch
+  the DB.
+- **Build relocation:** the build is made in the staging path and moved. Next.js standalone
+  output embeds that path in some strings. This worked in the real-app rehearsal, and the
+  live-path smoke test runs before start, so a future Next.js version that breaks relocation
+  fails into an automatic rollback, not an outage.
+- **Phase 1 needs the npm registry** (`npm ci`) and roughly 1 GB RAM for `next build` while
+  the old service keeps running.
+- **The old in-place script** in the v1.1.1 checkout stays runnable until the first hop; only
+  discipline prevents running it (see "First release after this change").
+- Tests use a fake `systemctl`. The systemd behaviour the script relies on
+  (`show` output format, `ExecMainStartTimestampMonotonic` kept after stop and reset by reboot)
+  was checked read-only against the live unit and the systemd docs, not with a real
+  systemd integration test.
