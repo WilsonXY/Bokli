@@ -87,7 +87,15 @@ describe("scripts/verify_build_stamp.sh behavior on temp fixture repo", () => {
     const res = runVerify(repoDir);
     expect(res.status).not.toBe(0);
     expect(res.stderr).toContain("build stamp file not found");
-    expect(res.stderr).toContain("run ./scripts/bokli_deploy.sh <tag>");
+    expect(res.stderr).toContain("scripts/bokli_deploy.sh <tag>");
+  });
+
+  it("remediation hint points to the separate deployer checkout, not the prod checkout's own script", () => {
+    const res = runVerify(repoDir);
+    expect(res.status).not.toBe(0);
+    expect(res.stderr).toContain("from the separate deployer checkout");
+    expect(res.stderr).toContain("deploy/README.md");
+    expect(res.stderr).not.toContain("run ./scripts/bokli_deploy.sh");
   });
 
   it("passes with a valid stamp matching HEAD and existing tag", () => {

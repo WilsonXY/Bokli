@@ -200,7 +200,6 @@ Production may only run builds produced by `scripts/bokli_deploy.sh`. The servic
 2. If `~/projects/.bokli-deploy-bokli/ACTIVE_CUTOVER` exists, a deploy was interrupted: run `--recover` (see [Recovery](#recovery-after-a-failed-or-interrupted-deploy)).
 3. Otherwise re-run a full deploy for the release tag you want, **from the deployer checkout** (see [Deploying a release](#deploying-a-release-owner-procedure)).
 Do NOT hand-edit or forge the stamp file; it is the audit trail that prod runs script-produced builds only.
-(`verify_build_stamp.sh` still prints the older remediation hint `./scripts/bokli_deploy.sh <tag>`; follow this section instead.)
 
 ---
 
@@ -324,11 +323,17 @@ is the new script and refuses to run from there.
 BOKLI_REPO_DIR=$HOME/projects/bokli BOKLI_DB_PATH=$HOME/projects/bokli/data/bokli.db \
 ~/projects/bokli-deployer/scripts/bokli_deploy.sh --recover
 ```
-`--recover` reads the journal. If the service's main process has **not** run since the cutover
-stopped it (same boot and unchanged `ExecMainStartTimestampMonotonic`, or not started since a
-reboot), it restores the previous checkout, `.next-prod`, `node_modules` and the original DB
-files, proves it and restarts the old release (exit `0`). Otherwise it changes nothing and
-exits `3`.
+`--recover` reads the journal.
+- Interrupted **before the DB swap** (phases `stopping`/`stopped`): nothing was changed; it
+  restarts the old release (exit `0`), also after a reboot.
+- Interrupted **after the DB swap**: it rolls back automatically only if it can prove the
+  service's main process has not run since the cutover stopped it, i.e. **same boot** and
+  unchanged `ExecMainStartTimestampMonotonic`. It then restores the previous checkout,
+  `.next-prod`, `node_modules` and the original DB files, proves it and restarts the old
+  release (exit `0`).
+- Otherwise, **including any reboot after the DB swap**, it changes nothing and exits `3`.
+  After a reboot systemd only knows about starts in the current boot, so a new release that ran
+  and accepted writes before the reboot would be invisible.
 
 **Exit `3` — MANUAL RECOVERY REQUIRED.** The script found that the new release's service may
 have accepted writes (or it could not prove a rollback). It never restores the DB then, because
@@ -371,13 +376,22 @@ files), `prev/` (previous `.next-prod`, `node_modules`) and `phases.log`. The jo
 If `--recover` reports a stale `.git/index.lock` in `~/projects/bokli` (git was killed
 mid-checkout), confirm no git process is running (`pgrep -a git`), remove the lock and re-run `--recover`.
 
-### Housekeeping
-Each run directory keeps the snapshot, previous build and `node_modules` (hundreds of MB).
-The directory is mode 700 and contains production data. After a release has been confirmed
-good, delete older run directories, keeping at least the latest one:
-```bash
-ls -1d ~/projects/.bokli-deploy-bokli/runs/*
-```
+### Retention of run directories (they contain production data)
+Each run directory holds DB copies (`snapshot.db`, `prev-db/`) plus the previous build and
+`node_modules`. `~/projects/.bokli-deploy-bokli/` is mode 700.
+- **Automatic:** after each **successful** deploy the script keeps this run and **one prior
+  successful run** (runs containing `journal.done`), and deletes older successful runs
+  (`Pruned old completed run <id>`). Nothing is pruned after a failed deploy, or while a
+  cutover journal is pending.
+- **Never pruned automatically:** runs that rolled back (`journal.rolled-back`), runs you
+  archived after manual recovery (`journal.manual`), and runs without a journal (failed in
+  phase 1, or incomplete). Phase-1 failures already delete their DB copies and staging tree.
+  Delete rolled-back or manual runs by hand once they are no longer needed:
+  ```bash
+  ls -1 ~/projects/.bokli-deploy-bokli/runs/*/journal.*
+  ```
+- Pruning only ever touches `~/projects/.bokli-deploy-bokli/runs/<timestamp>-<pid>/`.
+  The nightly DB backups and everything else outside that directory are never touched.
 
 ### Residual limitations (not zero downtime)
 - **Downtime** runs from the stop to the healthy start: snapshot, migration of the copy, file
@@ -386,8 +400,9 @@ ls -1d ~/projects/.bokli-deploy-bokli/runs/*
 - **A new release that accepts writes and then fails** cannot be rolled back automatically;
   exit `3` hands the decision to Katte (see above).
 - **Reboot mid-cutover:** the enabled unit may start at boot with whatever is on disk and
-  passes `ExecStartPre`. `--recover` detects a main-process start and then refuses to touch
-  the DB.
+  passes `ExecStartPre`. After a reboot past the DB swap, `--recover` always refuses to touch
+  the DB (exit `3`), even when the new release never actually ran. This is deliberately
+  conservative, and those cases then need the manual procedure.
 - **Build relocation:** the build is made in the staging path and moved. Next.js standalone
   output embeds that path in some strings. This worked in the real-app rehearsal, and the
   live-path smoke test runs before start, so a future Next.js version that breaks relocation

@@ -12,7 +12,8 @@
 #   BUILT_AT=<UTC ISO8601 timestamp, must be non-empty>
 #   DEPLOYED_BY=bokli_deploy.sh
 #
-# On failure the remediation is always: run ./scripts/bokli_deploy.sh <tag>
+# On failure the remediation is always a full release deploy from the SEPARATE
+# deployer checkout (never this checkout's own script), see deploy/README.md.
 # ==============================================================================
 set -euo pipefail
 
@@ -31,7 +32,7 @@ STAMP_FILE="$REPO_ROOT/.next-prod/BUILD_MANIFEST"
 
 fail() {
   echo "❌ bokli build stamp verification FAILED: $1" >&2
-  echo "Remediation: run ./scripts/bokli_deploy.sh <tag> to rebuild and stamp, then start the service again." >&2
+  echo "Remediation: re-run the release deploy from the separate deployer checkout (BOKLI_REPO_DIR=<this checkout> BOKLI_DB_PATH=<prod db> <deployer>/scripts/bokli_deploy.sh <tag>, or --recover if a cutover was interrupted); see deploy/README.md." >&2
   exit 1
 }
 

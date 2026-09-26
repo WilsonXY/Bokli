@@ -381,6 +381,74 @@ describe("scripts/bokli_deploy.sh (fixture production)", () => {
     expectUntouched(f, before);
   }, T);
 
+  it("reboot after the new service wrote, unit now down: --recover refuses the DB restore (fails closed on boot change)", async () => {
+    release(f, "v1.1.1-writes", { writeOnStart: true });
+    // The new service starts (and writes), then the deployer dies before the journal reaches done.
+    inject(f, "start-after", "kill9-deployer");
+    expect(runDeploy(f, ["v1.1.1-writes"]).signal).toBe("SIGKILL");
+    const newRow = "SELECT count(*) FROM sheets WHERE note LIKE 'written-by-v1.1.1-writes-%'";
+    await waitFor(() => sqlite(f.db, newRow) !== "0");
+
+    // Simulate the reboot: journal was written in a previous boot, the unit has not
+    // started in this boot (ExecMainStartTimestampMonotonic=0) and is down.
+    expect(systemctl(f, "stop", "bokli").status).toBe(0);
+    fs.writeFileSync(path.join(f.sd, "mainstart"), "0\n");
+    const journal = fs.readFileSync(f.journal, "utf-8");
+    expect(journal).toMatch(/^BOOT_ID=.+$/m);
+    fs.writeFileSync(f.journal, journal.replace(/^BOOT_ID=.*$/m, "BOOT_ID=00000000-0000-0000-0000-previous-boot"));
+
+    const dbBefore = dbDump(f.db);
+    const rec = runDeploy(f, ["--recover"]);
+    expect(rec.status).toBe(3);
+    expect(rec.stderr).toContain("MANUAL RECOVERY REQUIRED");
+    expect(sqlite(f.db, newRow)).not.toBe("0");
+    expect(dbDump(f.db)).toBe(dbBefore);
+    expect(fs.existsSync(f.journal)).toBe(true);
+  }, T);
+
+  it("retention: after the 3rd successful deploy only the current and one prior completed run remain; other runs untouched", () => {
+    const runsDir = path.join(f.stateDir, "runs");
+    const doneRuns = () =>
+      fs.readdirSync(runsDir).filter((d) => fs.existsSync(path.join(runsDir, d, "journal.done"))).sort();
+
+    expect(runDeploy(f, ["v1.1.0"]).status).toBe(0);
+    const [first] = doneRuns();
+    // Runs that must never be pruned: rolled back, manual recovery, incomplete (no journal).
+    const keepers = {
+      "20200101T000000Z-11": "journal.rolled-back",
+      "20200101T000001Z-12": "journal.manual",
+      "20200101T000002Z-13": null,
+    };
+    for (const [dir, marker] of Object.entries(keepers)) {
+      fs.mkdirSync(path.join(runsDir, dir, "prev-db"), { recursive: true });
+      fs.writeFileSync(path.join(runsDir, dir, "snapshot.db"), "x");
+      if (marker) fs.writeFileSync(path.join(runsDir, dir, marker), "PHASE=x\n");
+    }
+    // A backup outside the deploy state dir (e.g. the nightly job's) is never touched.
+    const nightly = path.join(f.root, "prod", "bokli", "data", "nightly-backup.db");
+    fs.copyFileSync(f.db, nightly);
+
+    release(f, "v1.1.1");
+    expect(runDeploy(f, ["v1.1.1"]).status).toBe(0);
+    expect(doneRuns()).toHaveLength(2); // nothing pruned yet
+    release(f, "v1.1.2");
+    const third = runDeploy(f, ["v1.1.2"]);
+    expect(third.status).toBe(0);
+
+    const remaining = doneRuns();
+    expect(remaining).toHaveLength(2);
+    expect(remaining).not.toContain(first);
+    expect(fs.existsSync(path.join(runsDir, first))).toBe(false);
+    expect(third.stdout).toContain(`Pruned old completed run ${first}`);
+    for (const dir of Object.keys(keepers)) {
+      expect(fs.existsSync(path.join(runsDir, dir, "snapshot.db")), dir).toBe(true);
+    }
+    expect(fs.existsSync(nightly)).toBe(true);
+    // The kept prior run still has what a manual rollback needs.
+    expect(fs.existsSync(path.join(runsDir, remaining[0], "snapshot.db"))).toBe(true);
+    expect(fs.existsSync(path.join(runsDir, remaining[0], "prev-db"))).toBe(true);
+  }, T);
+
   it("--recover with no pending cutover is a no-op", () => {
     const before = liveState(f);
     const res = runDeploy(f, ["--recover"]);

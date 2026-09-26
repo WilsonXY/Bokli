@@ -56,6 +56,8 @@
 #
 # State dir: <parent of repo>/.bokli-deploy-<repo name>/ (mode 700), holding
 # runs/<id>/ with the snapshot, previous build/node_modules and previous DB files.
+# After a success only this run and one prior successful run are kept; runs that
+# rolled back, need manual recovery or never finished are never pruned.
 # SQLite migrations are forward-only; see deploy/README.md for the runbook.
 # ==============================================================================
 
@@ -262,16 +264,16 @@ boot_id() { cat /proc/sys/kernel/random/boot_id 2>/dev/null || echo unknown; }
 
 # 0 (true) if the unit's main process may have run since we stopped it — i.e. the
 # live DB may contain writes made after the snapshot. Unknown counts as "may".
+# Any boot change counts as "may": after a reboot the start timestamp only covers
+# the current boot, so a main process that ran (and wrote) before the reboot is
+# invisible. Only called once the DB may have been swapped.
 writes_possible() {
   local ts
   if [ -z "${MAIN_TS:-}" ] || [ -z "${BOOT_ID:-}" ]; then return 0; fi
+  [ "$(boot_id)" = "$BOOT_ID" ] || return 0
   ts=$(svc_prop ExecMainStartTimestampMonotonic 2>/dev/null) || return 0
   [ -n "$ts" ] || return 0
-  if [ "$(boot_id)" = "$BOOT_ID" ]; then
-    [ "$ts" != "$MAIN_TS" ]
-  else
-    [ "$ts" != "0" ]
-  fi
+  [ "$ts" != "$MAIN_TS" ]
 }
 
 # ------------------------------------------------------------------------------
@@ -805,6 +807,26 @@ cutover() {
   journal_archive done
   IN_CUTOVER=0
   rm -rf "$RUN_DIR/src"
+  prune_old_runs || echo "⚠️  Could not prune old runs in $STATE_DIR/runs (deploy itself succeeded)." >&2
+}
+
+# Retention: after a successful deploy keep this run and one prior SUCCESSFUL run
+# (journal.done); delete older successful runs, which hold DB snapshots. Runs that
+# rolled back, need/needed manual recovery or never finished are never pruned, and
+# nothing outside $STATE_DIR/runs is touched (nightly backups live elsewhere).
+readonly KEEP_DONE_RUNS=2
+prune_old_runs() {
+  local d n=0
+  [ ! -e "$JOURNAL" ] || return 0
+  while IFS= read -r d; do
+    [ -f "$d/journal.done" ] || continue
+    [ ! -e "$d/journal.manual" ] && [ ! -e "$d/journal.rolled-back" ] || continue
+    n=$((n + 1))
+    [ "$n" -gt "$KEEP_DONE_RUNS" ] || continue
+    [ "$d" != "$RUN_DIR" ] || continue
+    rm -rf -- "$d" && say "Pruned old completed run $(basename "$d")"
+  done < <(find "$STATE_DIR/runs" -mindepth 1 -maxdepth 1 -type d -regextype posix-extended \
+    -regex '.*/[0-9]{8}T[0-9]{6}Z-[0-9]+' | LC_ALL=C sort -r)
 }
 
 do_recover() {
