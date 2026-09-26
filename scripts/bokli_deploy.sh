@@ -21,8 +21,9 @@
 #     SKIP_*/BUILD_CMD/TEST_MODE/HEALTHCHECK_URL seams could fake a success)
 #   - BOKLI_REPO_DIR must be the `bokli` user unit's WorkingDirectory, and the unit
 #     must run <repo>/scripts/verify_build_stamp.sh as ExecStartPre
-#   - BOKLI_DB_PATH must be the DB the unit actually uses (.env overrides unit env)
-#     and must not be under data-dev/
+#   - BOKLI_DB_PATH must be the DB the unit actually uses (.env overrides unit env,
+#     even with an empty value, which is refused), both paths absolute, and must not
+#     be under data-dev/
 #   - single-deploy flock on <repo>/.deploy.lock; refuses if an earlier cutover
 #     journal is pending (run --recover)
 #   - fetches origin; tag must exist; tag commit must equal origin/main tip, or be
@@ -53,7 +54,8 @@
 #     the DB automatically (it may hold new writes); exit 3 "MANUAL RECOVERY
 #     REQUIRED", journal kept, further deploys refused until resolved.
 #   - SIGKILL/power loss: the journal at <state>/ACTIVE_CUTOVER survives; run
-#     --recover, which applies the same rules.
+#     --recover, which applies the same rules. Each phase is fsync'd (file and
+#     directory entry) before its step starts; an fsync error fails closed.
 #
 # State dir: <parent of repo>/.bokli-deploy-<repo name>/ (mode 700), holding
 # runs/<id>/ with the snapshot, previous build/node_modules and previous DB files.
@@ -102,6 +104,9 @@ fail() {
 }
 
 svc_prop() { systemctl --user show "$SERVICE" --property="$1" --value; }
+
+# 0 if a dotenv file assigns KEY at all, even to an empty value.
+env_file_has() { grep -qE "^[[:space:]]*(export[[:space:]]+)?$1[[:space:]]*=" "$2"; }
 
 # Value of KEY in a dotenv file (only that line is read; nothing else is printed).
 env_file_value() {
@@ -231,20 +236,60 @@ service_stopped() {
 }
 
 # ------------------------------------------------------------------------------
+# Durability. fsync(2) flushes a file's data and inode, but "does not necessarily
+# ensure that the entry in the directory containing the file has also reached disk.
+# For that an explicit fsync() on a file descriptor for the directory is also
+# needed." So every rename recovery depends on is followed by an fsync of the
+# directories involved. `sync FILE` is not used: uutils coreutils' sync ignores the
+# file and calls sync(2), which reports no errors. Any fsync error fails closed, with
+# no retry: after a failed writeback Linux may drop the dirty pages, so a later
+# fsync that succeeds proves nothing.
+# ------------------------------------------------------------------------------
+readonly DURABLE_JS='const fs = require("fs"), path = require("path");
+const fsync = (p) => { const fd = fs.openSync(p, "r"); try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); } };
+const [mode, ...args] = process.argv.slice(1);
+let p;
+try {
+  if (mode === "rename") {
+    p = args[0]; fsync(p);
+    p = args[1]; fs.renameSync(args[0], p);
+    p = path.dirname(p); fsync(p);
+  } else {
+    for (p of args) fsync(p);
+  }
+} catch (e) { console.error("   " + e.syscall + " " + p + ": " + e.code); process.exit(1); }'
+
+# fsync(2) each file or directory.
+fsync_paths() { "$SERVICE_NODE" -e "$DURABLE_JS" fsync "$@" 9>&-; }
+
+# fsync SRC, rename(2) it over DST, fsync DST's directory: DST is durable on return 0.
+durable_rename() { "$SERVICE_NODE" -e "$DURABLE_JS" rename "$1" "$2" 9>&-; }
+
+# ------------------------------------------------------------------------------
 # Cutover journal (survives SIGKILL/power loss; read back by --recover)
 # ------------------------------------------------------------------------------
-J_KEYS=(RUN_DIR REPO_ROOT LIVE_DB OLD_HEAD OLD_TAG OLD_BUILD_ID TAG TAG_COMMIT NEW_BUILD_ID PID BOOT_ID MAIN_TS SNAP_DIGEST PHASE)
+J_KEYS=(RUN_DIR REPO_ROOT LIVE_DB OLD_HEAD OLD_TAG OLD_BUILD_ID TAG TAG_COMMIT NEW_BUILD_ID PID BOOT_ID MAIN_TS SNAP_DIGEST
+  ORIG_DB_INO ORIG_WAL_INO ORIG_SHM_INO PHASE)
 
-journal_write() {
-  local k tmp="$JOURNAL.tmp"
-  for k in "${J_KEYS[@]}"; do printf '%s=%s\n' "$k" "${!k:-}"; done >"$tmp"
-  sync "$tmp" 2>/dev/null || true
-  mv -f "$tmp" "$JOURNAL"
+# Before the first journal write: every directory entry on the path to the run dir
+# (the state dir and runs/ may have been created by this deploy) must be on disk, so a
+# journal that survives a crash never points at a run directory that did not.
+journal_begin() {
+  fsync_paths "$RUN_DIR" "$STATE_DIR/runs" "$STATE_DIR" "$(dirname "$STATE_DIR")"
 }
 
+# Returns 0 only once the new journal is durable: content fsync'd, atomically
+# renamed over the old one, and the rename's directory entry fsync'd.
+journal_write() {
+  local k tmp="$JOURNAL.tmp"
+  for k in "${J_KEYS[@]}"; do printf '%s=%s\n' "$k" "${!k:-}"; done >"$tmp" &&
+    durable_rename "$tmp" "$JOURNAL"
+}
+
+# Records PHASE durably BEFORE the step it names starts.
 journal_phase() {
   PHASE="$1"
-  journal_write
+  journal_write || fail "could not durably record cutover phase $PHASE in $JOURNAL."
   echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $PHASE" >>"$RUN_DIR/phases.log"
   say "PHASE $PHASE"
 }
@@ -259,6 +304,8 @@ journal_read() {
 
 journal_archive() {
   mv -f "$JOURNAL" "$RUN_DIR/journal.$1" 2>/dev/null || true
+  # If this is lost to a power cut the journal reappears; --recover then fails closed.
+  fsync_paths "$STATE_DIR" "$RUN_DIR" || echo "⚠️  could not fsync the archived journal in $STATE_DIR." >&2
 }
 
 boot_id() { cat /proc/sys/kernel/random/boot_id 2>/dev/null || echo unknown; }
@@ -292,27 +339,49 @@ restore_dir() {
   return 0
 }
 
+ino_of() { stat -c %i -- "$1" 2>/dev/null || true; }
+
+# Inode the original DB file with suffix $1 ("", -wal, -shm) had before the swap; empty if absent.
+orig_ino() {
+  case "$1" in
+    -wal) echo "${ORIG_WAL_INO:-}" ;;
+    -shm) echo "${ORIG_SHM_INO:-}" ;;
+    *) echo "${ORIG_DB_INO:-}" ;;
+  esac
+}
+
+# Puts the original DB files back at the live path. They are identified by the inode
+# recorded before the swap (a rename keeps it), not by where they happen to be, so
+# this resumes correctly after an interruption at any single move: only files that are
+# NOT originals leave the live path (never onto an existing file), so an original -wal
+# already moved back, holding committed rows, stays next to its main file.
 restore_db() {
-  local base prev s
+  local base prev s want dest
   base=$(basename "$LIVE_DB")
   prev="$RUN_DIR/prev-db/$base"
+  [ -n "${ORIG_DB_INO:-}" ] || { echo "   journal records no inode for the original DB; cannot tell it from the migrated one" >&2; return 1; }
   mkdir -p "$RUN_DIR/rolled-back-db" || return 1
-  # The original main file only reaches prev-db after its sidecars; if it is there,
-  # whatever sits at the live path now is the migrated candidate.
-  if [ -e "$prev" ]; then db_move_set "$LIVE_DB" "$RUN_DIR/rolled-back-db/$base" || return 1; fi
   for s in -wal -shm ""; do
-    if [ -e "$prev$s" ]; then
-      if [ -e "$LIVE_DB$s" ]; then
-        echo "   restore conflict: both $prev$s and $LIVE_DB$s exist" >&2
-        return 1
-      fi
-      mv -T "$prev$s" "$LIVE_DB$s" || return 1
-    fi
+    [ -e "$LIVE_DB$s" ] || continue
+    want=$(orig_ino "$s")
+    if [ -n "$want" ] && [ "$(ino_of "$LIVE_DB$s")" = "$want" ]; then continue; fi
+    dest="$RUN_DIR/rolled-back-db/$base$s"
+    [ ! -e "$dest" ] || dest="$dest.$(date +%s%N)"
+    mv -T "$LIVE_DB$s" "$dest" || return 1
   done
-  if [ ! -e "$LIVE_DB" ] && [ -f "$RUN_DIR/snapshot.db" ]; then
-    cp "$RUN_DIR/snapshot.db" "$LIVE_DB.restore-tmp" && mv -T "$LIVE_DB.restore-tmp" "$LIVE_DB" || return 1
-  fi
-  return 0
+  for s in -wal -shm ""; do
+    [ -e "$prev$s" ] || continue
+    want=$(orig_ino "$s")
+    if [ -z "$want" ] || [ "$(ino_of "$prev$s")" != "$want" ]; then
+      echo "   $prev$s is not one of the original DB files" >&2
+      return 1
+    fi
+    mv -T "$prev$s" "$LIVE_DB$s" || return 1
+  done
+  for s in "" -wal -shm; do
+    want=$(orig_ino "$s")
+    [ -z "$want" ] || [ "$(ino_of "$LIVE_DB$s")" = "$want" ] || { echo "   original $base$s is not back at $LIVE_DB$s" >&2; return 1; }
+  done
 }
 
 # Full rollback + proof. Returns 0 only if the old release is verifiably back.
@@ -366,6 +435,13 @@ rollback_all() {
       ;;
   esac
   [ "$ok" = 0 ] || return 1
+
+  # The restored renames must be on disk before the old release may write again.
+  local d dirs=()
+  for d in "$(dirname "$LIVE_DB")" "$RUN_DIR/prev-db" "$RUN_DIR/rolled-back-db" "$REPO_ROOT" "$RUN_DIR/prev" "$RUN_DIR/rolled-back" "$RUN_DIR"; do
+    [ ! -d "$d" ] || dirs+=("$d")
+  done
+  fsync_paths "${dirs[@]}" || { echo "   could not make the restored files durable" >&2; return 1; }
 
   systemctl --user start "$SERVICE" || { echo "   systemctl --user start $SERVICE failed" >&2; return 1; }
   if ! wait_for_service "$OLD_BUILD_ID"; then
@@ -437,6 +513,9 @@ on_exit() {
     rc=$?
   elif [ "$IN_PREPARE" = 1 ] && [ "$rc" != 0 ]; then
     echo "❌ Deploy failed before cutover; production was not touched (service, checkout, build, node_modules and DB unchanged)." >&2
+    # A journal here can only be this run's first record (PHASE=stopping, written
+    # before the stop and not proven durable): main() refuses to start while one exists.
+    rm -f "$JOURNAL" "$JOURNAL.tmp"
     if [ -n "$RUN_DIR" ]; then rm -rf "$RUN_DIR/src" "$RUN_DIR"/*.db "$RUN_DIR"/*.db-wal "$RUN_DIR"/*.db-shm; fi
   fi
   exit "$rc"
@@ -539,6 +618,8 @@ resolve_targets() {
   [ -n "${BOKLI_DB_PATH:-}" ] && [ -n "$(printf '%s' "$BOKLI_DB_PATH" | tr -d '[:space:]')" ] ||
     refuse "BOKLI_DB_PATH is not set." \
       "Set it explicitly to the production database the $SERVICE service uses (there is no default and no .env fallback)."
+  [[ "$BOKLI_DB_PATH" == /* ]] ||
+    refuse "BOKLI_DB_PATH ($BOKLI_DB_PATH) must be an absolute path; a relative path depends on the caller's directory."
   # --recover alone may find the live DB absent: a kill between moving the original
   # aside and moving the migrated DB in. do_recover then requires a pending journal.
   LIVE_DB_ABSENT=0
@@ -558,7 +639,7 @@ resolve_targets() {
 }
 
 check_service_identity() {
-  local load wd pre start envfiles envfile="" line unit_env eff_db eff_port v
+  local load wd pre start envfiles envfile="" line unit_env eff_db eff_port
   load=$(svc_prop LoadState 2>/dev/null || true)
   [ "$load" = "loaded" ] || refuse "systemd user unit '$SERVICE' is not loaded (LoadState=${load:-?})."
 
@@ -593,13 +674,22 @@ check_service_identity() {
   unit_env=$(svc_prop Environment)
   eff_db=$(unit_env_value BOKLI_DB_PATH "$unit_env")
   eff_port=$(unit_env_value PORT "$unit_env")
+  # An assignment there wins even when empty (the service then gets an empty value),
+  # so an empty one is refused rather than falling back to Environment=.
   if [ -n "$envfile" ] && [ -f "$envfile" ]; then
-    v=$(env_file_value BOKLI_DB_PATH "$envfile")
-    [ -z "$v" ] || eff_db="$v"
-    v=$(env_file_value PORT "$envfile")
-    [ -z "$v" ] || eff_port="$v"
+    if env_file_has BOKLI_DB_PATH "$envfile"; then
+      eff_db=$(env_file_value BOKLI_DB_PATH "$envfile")
+      [ -n "$eff_db" ] || refuse "$envfile sets BOKLI_DB_PATH to an empty value; the $SERVICE service would run without a database path."
+    fi
+    if env_file_has PORT "$envfile"; then
+      eff_port=$(env_file_value PORT "$envfile")
+      [ -n "$eff_port" ] || refuse "$envfile sets PORT to an empty value; cannot tell which port the $SERVICE service listens on."
+    fi
   fi
   [ -n "$eff_db" ] || refuse "cannot determine which database the $SERVICE service uses."
+  # The app resolves a relative path from its own cwd (.next-prod/standalone), not ours.
+  [[ "$eff_db" == /* ]] ||
+    refuse "the $SERVICE service's BOKLI_DB_PATH ($eff_db) must be an absolute path; cannot prove which file a relative path names."
   [ "$(realpath -m "$eff_db")" = "$LIVE_DB" ] ||
     refuse "BOKLI_DB_PATH ($LIVE_DB) is not the database the $SERVICE service uses ($eff_db)."
   [[ "$eff_port" =~ ^[0-9]+$ ]] || refuse "cannot determine the $SERVICE service PORT."
@@ -745,7 +835,6 @@ prepare() {
     "$TAG" "$TAG_COMMIT" "$built_at" "$NEW_BUILD_ID" >"$b/BUILD_MANIFEST.tmp"
   mv -f "$b/BUILD_MANIFEST.tmp" "$b/BUILD_MANIFEST"
   rm -f "$RUN_DIR"/rehearsal.db* "$RUN_DIR"/build.db* "$RUN_DIR"/smoke-*.db*
-  IN_PREPARE=0
 }
 
 # ------------------------------------------------------------------------------
@@ -768,8 +857,11 @@ cutover() {
   BOOT_ID=$(boot_id)
   MAIN_TS=""
   SNAP_DIGEST=""
-  IN_CUTOVER=1
+  # Still "prepare" until the first phase is durable: a failure here leaves production untouched.
+  journal_begin || fail "could not fsync the deploy state directories."
   journal_phase stopping
+  IN_CUTOVER=1
+  IN_PREPARE=0
   systemctl --user stop "$SERVICE" || fail "systemctl --user stop $SERVICE failed."
   service_stopped || fail "$SERVICE is still running after stop."
   MAIN_TS=$(svc_prop ExecMainStartTimestampMonotonic)
@@ -779,7 +871,8 @@ cutover() {
   db_integrity_ok "$RUN_DIR/snapshot.db" || fail "snapshot integrity_check failed."
   SNAP_DIGEST=$(db_digest "$RUN_DIR/snapshot.db")
   [ "$(db_digest "$LIVE_DB")" = "$SNAP_DIGEST" ] || fail "snapshot content differs from $LIVE_DB."
-  journal_write
+  fsync_paths "$RUN_DIR/snapshot.db" "$RUN_DIR" || fail "could not make the snapshot durable."
+  journal_write || fail "could not durably record the snapshot digest in $JOURNAL."
   say "Verified snapshot: $RUN_DIR/snapshot.db"
 
   say "Migrating a copy of the snapshot..."
@@ -790,13 +883,20 @@ cutover() {
   # Last touch before the swap: fold the WAL in so exactly one self-contained file moves.
   db_finalize "$RUN_DIR/candidate.db" || fail "could not checkpoint the migrated DB."
   chmod --reference="$LIVE_DB" "$RUN_DIR/candidate.db"
+  fsync_paths "$RUN_DIR/candidate.db" || fail "could not make the migrated DB durable."
 
+  # Identify the original DB files by inode so a rollback can always tell them apart.
+  ORIG_DB_INO=$(ino_of "$LIVE_DB")
+  ORIG_WAL_INO=$(ino_of "$LIVE_DB-wal")
+  ORIG_SHM_INO=$(ino_of "$LIVE_DB-shm")
+  [ -n "$ORIG_DB_INO" ] || fail "cannot read the inode of $LIVE_DB."
   journal_phase db-swapping
   db_move_set "$LIVE_DB" "$RUN_DIR/prev-db/$base" || fail "could not move the old DB files aside."
   for s in "" -wal -shm; do
     [ ! -e "$LIVE_DB$s" ] || fail "$LIVE_DB$s still exists after moving the old DB aside."
   done
   mv -T "$RUN_DIR/candidate.db" "$LIVE_DB" || fail "could not move the migrated DB into place."
+  fsync_paths "$(dirname "$LIVE_DB")" "$RUN_DIR/prev-db" "$RUN_DIR" || fail "could not make the DB swap durable."
   journal_phase db-swapped
 
   journal_phase code-switching
@@ -804,6 +904,7 @@ cutover() {
   swap_in node_modules || fail "could not switch node_modules."
   echo "==> Checking out $TAG..."
   git -C "$REPO_ROOT" checkout --quiet --detach "$TAG_COMMIT" || fail "git checkout $TAG failed."
+  fsync_paths "$REPO_ROOT" "$RUN_DIR/prev" "$RUN_DIR/src" || fail "could not make the code switch durable."
   journal_phase code-switched
 
   [ "$(git -C "$REPO_ROOT" rev-parse HEAD)" = "$TAG_COMMIT" ] || fail "HEAD is not $TAG_COMMIT after checkout."

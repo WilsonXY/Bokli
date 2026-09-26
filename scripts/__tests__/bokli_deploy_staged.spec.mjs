@@ -244,6 +244,39 @@ describe("scripts/bokli_deploy.sh (fixture production)", () => {
     expectUntouched(f, before);
   }, T);
 
+  it("journal durability: a failing fsync(2) of the journal file, its directory entry or the state dir chain aborts before any production change", () => {
+    // Real fsync(2) failures injected at the syscall level (strace -P scopes them to one path;
+    // the kernel returns EIO to the deploy's own fsync call). No seam in the script.
+    expect(spawnSync("strace", ["-V"]).status, "strace is required for fsync fault injection").toBe(0);
+    const stateDir = path.join(fs.realpathSync(path.dirname(f.live)), ".bokli-deploy-bokli");
+    const journal = path.join(stateDir, "ACTIVE_CUTOVER");
+    const before = liveState(f);
+    // [what, fsync that fails, strace -P paths, nth matching fsync in one process]
+    const targets = [
+      ["state dir parent (first-time creation)", path.dirname(stateDir), [path.dirname(stateDir)], 1],
+      ["state dir (first-time runs/ entry)", stateDir, [stateDir], 1],
+      ["journal file", `${journal}.tmp`, [`${journal}.tmp`], 1],
+      // The journal's fsync(tmp) → rename → fsync(dir) run in one process: the 2nd match there
+      // is the directory fsync after the rename (the first-time fsync above is its own process).
+      ["journal directory entry (after rename)", stateDir, [`${journal}.tmp`, stateDir], 2],
+    ];
+    for (const [what, target, paths, nth] of targets) {
+      // timeout: strace -f would otherwise wait on a service a (buggy) successful deploy started.
+      const prefix = ["timeout", "-s", "KILL", "100", "strace", "-f", "-qq", "-o", "/dev/null", "--seccomp-bpf",
+        "-e", "trace=fsync", "-e", `inject=fsync:error=EIO:when=${nth}`, ...paths.flatMap((p) => ["-P", p]), "--"];
+      const res = runDeploy(f, ["v1.1.0"], { prefix });
+      expect(res.status, `${what}: ${res.stderr}`).toBe(1);
+      expect(res.stderr, what).toContain(`fsync ${target}: EIO`);
+      expect(res.stderr, what).toContain("production was not touched");
+      expect(fs.existsSync(journal), what).toBe(false);
+      expect(fs.existsSync(`${journal}.tmp`), what).toBe(false);
+      expectUntouched(f, before);
+    }
+    expect(calls(f).filter((c) => /^(stop|start|restart)/.test(c))).toEqual(["start bokli"]); // never stopped
+    // Nothing left behind blocks the next deploy.
+    expect(runDeploy(f, ["v1.1.0"]).status).toBe(0);
+  }, 4 * T);
+
   it("SIGKILL mid-cutover leaves a journal; deploys are refused until --recover restores and verifies the old release", () => {
     inject(f, "start-before", "kill9-deployer");
     const before = liveState(f);
@@ -311,6 +344,57 @@ exit "$rc"
     expect(noJournal.stderr).toContain("does not exist");
     expect(noJournal.stdout).not.toContain("nothing to recover");
     expectUntouched(f, before);
+  }, T);
+
+  it("SIGKILL mid-rollback right after the original WAL was restored: a second --recover restores the old release with every committed row, incl. WAL-held ones", () => {
+    // A committed row that lives only in the original DB's WAL when the service stops
+    // (writer killed without checkpoint, like an unclean shutdown).
+    const writer = spawnSync(
+      process.execPath,
+      [
+        "-e",
+        `const { DatabaseSync } = require("node:sqlite");
+const db = new DatabaseSync(${JSON.stringify(f.db)});
+db.exec("PRAGMA wal_autocheckpoint=0");
+db.prepare("INSERT INTO sheets (note) VALUES ('wal-held')").run();
+process.kill(process.pid, "SIGKILL");`,
+      ],
+      { env: f.env }
+    );
+    expect(writer.signal).toBe("SIGKILL");
+    expect(fs.statSync(`${f.db}-wal`).size).toBeGreaterThan(0);
+    const before = liveState(f);
+    expect(before.db).toContain("wal-held");
+
+    // One-shot mv wrapper: during the rollback, kill -9 the deployer right after the ORIGINAL
+    // -wal is back at the live path (original main file and -shm still in prev-db/).
+    const realMv = spawnSync("bash", ["-c", "command -v mv"], { encoding: "utf-8" }).stdout.trim();
+    const liveDb = fs.realpathSync(f.db);
+    fs.writeFileSync(path.join(f.sd, "inject.wal-restored"), "kill9-deployer");
+    fs.writeFileSync(
+      path.join(f.bin, "mv"),
+      `#!/usr/bin/env bash
+"${realMv}" "$@"; rc=$?
+if [ "$rc" = 0 ] && [ -f "${f.sd}/inject.wal-restored" ] && [ "$1" = -T ] && [[ "$2" == */prev-db/bokli.db-wal ]] && [ "$3" = "${liveDb}-wal" ]; then
+  rm -f "${f.sd}/inject.wal-restored"
+  kill -9 "$(sed -n 's/^PID=//p' "${f.journal}" | tail -n 1)"
+fi
+exit "$rc"
+`,
+      { mode: 0o755 }
+    );
+    inject(f, "start-before", "fail"); // new service never runs → in-process automatic rollback
+    const res = runDeploy(f, ["v1.1.0"]);
+    expect(res.signal).toBe("SIGKILL");
+    expect(fs.existsSync(path.join(f.sd, "inject.wal-restored"))).toBe(false); // the kill really happened mid-rollback
+    expect(fs.existsSync(f.journal)).toBe(true);
+    expect(servesBuild(f, f.oldBuildId)).toBe(false);
+
+    const rec = runDeploy(f, ["--recover"]);
+    expect(rec.stdout + rec.stderr).toContain("ROLLED BACK");
+    expect(rec.status).toBe(0);
+    expectUntouched(f, before); // HEAD, stamp, build, node_modules, full DB content, old service serving
+    expect(sqlite(f.db, "SELECT group_concat(note) FROM (SELECT note FROM sheets ORDER BY id)")).toBe("day-1,day-2,dup,wal-held");
   }, T);
 
   it("SIGKILL after the verified snapshot, reboot auto-starts the OLD release which writes: --recover keeps the write and restores service", async () => {
@@ -458,6 +542,56 @@ exec "${realCp}" "$@"
       expect(res.status, msg).toBe(1);
       expect(res.stderr, msg).toContain(msg);
     }
+    expectUntouched(f, before);
+    expect(fs.existsSync(f.stateDir)).toBe(false);
+  }, T);
+
+  it("refuses an explicitly empty BOKLI_DB_PATH or PORT in .env (EnvironmentFile overrides the unit's Environment=)", () => {
+    const before = liveState(f);
+    const envFile = path.join(f.live, ".env");
+    const good = fs.readFileSync(envFile, "utf-8");
+    const cases = [
+      [`PORT=${f.port}\nBOKLI_DB_PATH=\n`, "BOKLI_DB_PATH"],
+      [`PORT=${f.port}\nBOKLI_DB_PATH=""\n`, "BOKLI_DB_PATH"],
+      [`PORT=\nBOKLI_DB_PATH=${f.db}\n`, "PORT"],
+    ];
+    for (const [content, key] of cases) {
+      fs.writeFileSync(envFile, content);
+      const res = runDeploy(f, ["v1.1.0"]);
+      expect(res.status, content).toBe(1);
+      expect(res.stderr, content).toContain(`sets ${key} to an empty value`);
+    }
+    fs.writeFileSync(envFile, good);
+    expectUntouched(f, before);
+    expect(fs.existsSync(f.stateDir)).toBe(false);
+  }, T);
+
+  it("refuses relative service or caller BOKLI_DB_PATH, even when the caller's cwd holds a matching (decoy) DB", () => {
+    const before = liveState(f);
+    const envFile = path.join(f.live, ".env");
+    // Decoy: a caller cwd whose data/bokli.db would "match" a relative path resolved there.
+    const decoy = path.join(f.root, "decoy");
+    fs.mkdirSync(path.join(decoy, "data"), { recursive: true });
+    const decoyDb = path.join(decoy, "data", "bokli.db");
+    fs.copyFileSync(f.db, decoyDb);
+    const decoyBefore = dbDump(decoyDb);
+
+    const cases = [
+      // Service path relative (the app resolves it from .next-prod/standalone); caller cwd = the checkout.
+      [`PORT=${f.port}\nBOKLI_DB_PATH=data/bokli.db\n`, { cwd: f.live }, "service"],
+      // Both relative, caller in the decoy dir: the old check resolved both to the decoy DB.
+      [`PORT=${f.port}\nBOKLI_DB_PATH=data/bokli.db\n`, { cwd: decoy, env: { BOKLI_DB_PATH: "data/bokli.db" } }, "caller"],
+      // Caller path relative, service path absolute.
+      [`PORT=${f.port}\nBOKLI_DB_PATH=${f.db}\n`, { cwd: f.live, env: { BOKLI_DB_PATH: "data/bokli.db" } }, "caller"],
+    ];
+    for (const [content, opts, who] of cases) {
+      fs.writeFileSync(envFile, content);
+      const res = runDeploy(f, ["v1.1.0"], opts);
+      expect(res.status, `${who}: ${content}`).toBe(1);
+      expect(res.stderr, `${who}: ${content}`).toContain("must be an absolute path");
+      expect(dbDump(decoyDb)).toBe(decoyBefore);
+    }
+    fs.writeFileSync(envFile, `PORT=${f.port}\nBOKLI_DB_PATH=${f.db}\n`);
     expectUntouched(f, before);
     expect(fs.existsSync(f.stateDir)).toBe(false);
   }, T);

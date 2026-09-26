@@ -243,7 +243,11 @@ Any failure here exits `1` with *"production was not touched"*.
    and the **new** `BUILD_ID`'s static manifest is served (an old build cannot pass).
 
 Each cutover step is recorded in the journal `~/projects/.bokli-deploy-bokli/ACTIVE_CUTOVER`
-so an interrupted deploy (Ctrl-C, SSH drop, SIGKILL, power loss) can be recovered.
+so an interrupted deploy (Ctrl-C, SSH drop, SIGKILL, power loss) can be recovered. Every
+journal record is `fsync`ed, renamed into place and its directory `fsync`ed **before** the
+step it names starts, and the DB/code swaps are `fsync`ed before the next phase is recorded.
+If any `fsync` fails, the deploy stops. Before the service stop that means exit `1` with
+production untouched; after it, the usual rollback rules apply.
 
 ### Refusal gates (all before any production change)
 - Tag required, `^[A-Za-z0-9._-]+$`; must exist after fetch; must equal `origin/main`, or be
@@ -252,8 +256,11 @@ so an interrupted deploy (Ctrl-C, SSH drop, SIGKILL, power loss) can be recovere
   clean and exactly `origin/main` (so the newest released script always runs, including for rollbacks).
 - `BOKLI_REPO_DIR` must be the `bokli` unit's `WorkingDirectory`, and the unit must run
   `<repo>/scripts/verify_build_stamp.sh` as `ExecStartPre` and `<node> .next-prod/standalone/server.js`.
-- `BOKLI_DB_PATH` must be set explicitly and equal the DB the unit really uses (`.env` overrides
-  the unit's `Environment=`); anything under `data-dev/` is refused.
+- `BOKLI_DB_PATH` must be set explicitly as an **absolute** path and equal the DB the unit really
+  uses (`.env` overrides the unit's `Environment=`); anything under `data-dev/` is refused. The
+  unit's path must be absolute too: the app resolves a relative one from `.next-prod/standalone`,
+  not from where the deploy runs. An empty `BOKLI_DB_PATH=` or `PORT=` line in `.env` is refused
+  (systemd passes the empty value; it does not fall back to `Environment=`).
 - `node` on `PATH` must be the same version as the unit's node (native modules).
 - Production checkout: clean tracked files (untracked files are fine), and the **current**
   build stamp must verify — that release is what a failed cutover rolls back to.
@@ -411,6 +418,10 @@ Each run directory holds DB copies (`snapshot.db`, `prev-db/`) plus the previous
   the old service keeps running.
 - **The old in-place script** in the v1.1.1 checkout stays runnable until the first hop; only
   discipline prevents running it (see "First release after this change").
+- **Power loss** is covered by `fsync` ordering, not by a power-cut test. The tests inject real
+  `fsync` errors (strace) but cannot simulate a lost disk cache. Files that `git checkout` writes
+  are not `fsync`ed one by one. A rollback repairs a torn checkout with `git checkout --force`,
+  as long as the git objects themselves survived.
 - Tests use a fake `systemctl`. The systemd behaviour the script relies on
   (`show` output format, `ExecMainStartTimestampMonotonic` kept after stop and reset by reboot)
   was checked read-only against the live unit and the systemd docs, not with a real

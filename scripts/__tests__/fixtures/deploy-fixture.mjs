@@ -466,9 +466,17 @@ export function syncDeployer(f) {
   git(["checkout", "--quiet", "--detach", "origin/main"], f.deployer);
 }
 
-/** Runs the deploy script from the deployer checkout (the first-hop path). */
-export function runDeploy(f, args, { env = {}, script = path.join(f.deployer, "scripts/bokli_deploy.sh"), cwd = f.deployer } = {}) {
-  const res = spawnSync(script, args, {
+/**
+ * Runs the deploy script from the deployer checkout (the first-hop path).
+ * `prefix` runs it under a wrapper command, e.g. strace fault injection.
+ */
+export function runDeploy(
+  f,
+  args,
+  { env = {}, script = path.join(f.deployer, "scripts/bokli_deploy.sh"), cwd = f.deployer, prefix = [] } = {}
+) {
+  const [cmd, ...cmdArgs] = [...prefix, script, ...args];
+  const res = spawnSync(cmd, cmdArgs, {
     cwd,
     env: { ...f.env, BOKLI_REPO_DIR: f.live, BOKLI_DB_PATH: f.db, BOKLI_DEPLOY_HEALTH_TIMEOUT_SECS: "8", ...env },
     encoding: "utf-8",
