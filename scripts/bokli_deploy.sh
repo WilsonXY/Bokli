@@ -346,6 +346,7 @@ rollback_all() {
   esac
 
   # Proof
+  [ -f "$LIVE_DB" ] || { echo "   database $LIVE_DB is missing" >&2; ok=1; }
   [ "$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null)" = "$OLD_HEAD" ] || { echo "   HEAD is not $OLD_HEAD" >&2; ok=1; }
   [ -z "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=no 2>/dev/null)" ] || { echo "   tracked files are modified" >&2; ok=1; }
   [ "$(cat "$REPO_ROOT/.next-prod/BUILD_ID" 2>/dev/null)" = "$OLD_BUILD_ID" ] || { echo "   .next-prod is not the previous build $OLD_BUILD_ID" >&2; ok=1; }
@@ -526,7 +527,14 @@ resolve_targets() {
   [ -n "${BOKLI_DB_PATH:-}" ] && [ -n "$(printf '%s' "$BOKLI_DB_PATH" | tr -d '[:space:]')" ] ||
     refuse "BOKLI_DB_PATH is not set." \
       "Set it explicitly to the production database the $SERVICE service uses (there is no default and no .env fallback)."
-  [ -f "$BOKLI_DB_PATH" ] || refuse "database $BOKLI_DB_PATH does not exist (a deploy never creates the production DB)."
+  # --recover alone may find the live DB absent: a kill between moving the original
+  # aside and moving the migrated DB in. do_recover then requires a pending journal.
+  LIVE_DB_ABSENT=0
+  if [ "$RECOVER" = 1 ] && [ ! -e "$BOKLI_DB_PATH" ] && [ -d "$(dirname "$BOKLI_DB_PATH")" ]; then
+    LIVE_DB_ABSENT=1
+  else
+    [ -f "$BOKLI_DB_PATH" ] || refuse "database $BOKLI_DB_PATH does not exist (a deploy never creates the production DB)."
+  fi
   LIVE_DB=$(realpath "$BOKLI_DB_PATH")
   safe_path "$LIVE_DB"
   case "$LIVE_DB" in
@@ -831,6 +839,9 @@ prune_old_runs() {
 
 do_recover() {
   if [ ! -e "$JOURNAL" ]; then
+    [ "$LIVE_DB_ABSENT" = 0 ] ||
+      refuse "database $LIVE_DB does not exist and there is no cutover journal ($JOURNAL) to restore it from." \
+        "Nothing was changed. Restore the DB manually (deploy/README.md → Manual recovery)."
     echo "No incomplete cutover (no journal at $JOURNAL); nothing to recover."
     exit 0
   fi
@@ -840,6 +851,7 @@ do_recover() {
     refuse "journal $JOURNAL belongs to $REPO_ROOT / $LIVE_DB, not $want_repo / $want_db."
   [ -d "$RUN_DIR" ] || refuse "journal points at missing run directory $RUN_DIR."
   if [ "$PHASE" = "done" ]; then
+    [ "$LIVE_DB_ABSENT" = 0 ] || refuse "database $LIVE_DB does not exist although the journal says the cutover completed."
     journal_archive done
     echo "Cutover of $TAG had completed (phase done); journal archived, nothing to recover."
     exit 0

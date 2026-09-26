@@ -263,6 +263,56 @@ describe("scripts/bokli_deploy.sh (fixture production)", () => {
     expectUntouched(f, before);
   }, T);
 
+  it("SIGKILL after the live DB was moved aside but before the migrated DB moved in: --recover restores the old DB and release", () => {
+    // One-shot mv wrapper: right after the original live DB main file lands in prev-db/,
+    // kill -9 the deployer (the live DB path is now empty).
+    const realMv = spawnSync("bash", ["-c", "command -v mv"], { encoding: "utf-8" }).stdout.trim();
+    const liveDb = fs.realpathSync(f.db);
+    fs.writeFileSync(path.join(f.sd, "inject.db-aside"), "kill9-deployer");
+    fs.writeFileSync(
+      path.join(f.bin, "mv"),
+      `#!/usr/bin/env bash
+"${realMv}" "$@"; rc=$?
+if [ "$rc" = 0 ] && [ -f "${f.sd}/inject.db-aside" ] && [ "$1" = -T ] && [ "$2" = "${liveDb}" ] && [[ "$3" == */prev-db/bokli.db ]]; then
+  rm -f "${f.sd}/inject.db-aside"
+  kill -9 "$(sed -n 's/^PID=//p' "${f.journal}" | tail -n 1)"
+fi
+exit "$rc"
+`,
+      { mode: 0o755 }
+    );
+    const before = liveState(f);
+    const res = runDeploy(f, ["v1.1.0"]);
+    expect(res.signal).toBe("SIGKILL");
+    expect(fs.readFileSync(f.journal, "utf-8")).toMatch(/^PHASE=db-swapping$/m);
+    expect(fs.existsSync(f.db)).toBe(false);
+    expect(servesBuild(f, f.oldBuildId)).toBe(false);
+
+    // Ordinary deploys still refuse a missing DB (and never create it); so does a wrong DB path.
+    const deploy = runDeploy(f, ["v1.1.0"]);
+    expect(deploy.status).toBe(1);
+    expect(deploy.stderr).toContain("does not exist");
+    const wrong = runDeploy(f, ["--recover"], { env: { BOKLI_DB_PATH: path.join(path.dirname(f.db), "other.db") } });
+    expect(wrong.status).toBe(1);
+    expect(wrong.stderr).toContain("is not the database the bokli service uses");
+    expect(fs.existsSync(f.db)).toBe(false);
+
+    const rec = runDeploy(f, ["--recover"]);
+    expect(rec.stdout + rec.stderr).toContain("ROLLED BACK");
+    expect(rec.status).toBe(0);
+    expectUntouched(f, before);
+
+    // Missing DB without a cutover journal: --recover fails closed.
+    const aside = `${f.db}.aside`;
+    fs.renameSync(f.db, aside);
+    const noJournal = runDeploy(f, ["--recover"]);
+    fs.renameSync(aside, f.db);
+    expect(noJournal.status).toBe(1);
+    expect(noJournal.stderr).toContain("does not exist");
+    expect(noJournal.stdout).not.toContain("nothing to recover");
+    expectUntouched(f, before);
+  }, T);
+
   // -------------------------------------------------------------------------
   // After the new service may have accepted writes: never auto-restore the DB
   // -------------------------------------------------------------------------
