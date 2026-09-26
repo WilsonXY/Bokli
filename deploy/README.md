@@ -225,6 +225,12 @@ Production only ever runs an audited release tag that points at the tip of `orig
    (throwaway `AUTH_SECRET`; the production `.env` is never read): `/login` must be 200 and the
    new build's static manifest must be served.
 7. Write the build stamp into the staged build.
+8. `fsync` every file and directory of the staged `.next-prod` and `node_modules`, and the
+   fetched git `objects/`, `refs/` and `packed-refs` (the stamp check reads the tag from them).
+   Cutover only *renames* these into place, which does not flush their contents. Takes a few
+   seconds when the data has already been written back, up to ~30 s right after a build
+   (measured: ~20k entries, a prod-sized build + `node_modules`, 3.6 s written back vs 29 s
+   freshly written; git objects ~1 s), all while the old service still serves.
 
 Any failure here exits `1` with *"production was not touched"*.
 
@@ -236,7 +242,8 @@ Any failure here exits `1` with *"production was not touched"*.
 4. Swap DB files by rename: the original `bokli.db` (+ `-wal`/`-shm`) moves to
    `runs/<id>/prev-db/`, the migrated file takes its place.
 5. Swap `.next-prod` and `node_modules` by rename (old ones kept in `runs/<id>/prev/`),
-   then `git checkout --detach <tag>`; verify the stamp with the release's own `verify_build_stamp.sh`.
+   then `git checkout --detach <tag>`; `fsync` the files the tag changed, their directories,
+   `.git/HEAD` and `.git/index`; verify the stamp with the release's own `verify_build_stamp.sh`.
 6. Smoke-test the build **at its live path** on a loopback port against a DB copy.
 7. `systemctl --user start bokli`; success only when the unit is active, its main
    process runs from `<repo>/.next-prod/standalone`, `/login` is 200 on the service port
@@ -248,6 +255,13 @@ journal record is `fsync`ed, renamed into place and its directory `fsync`ed **be
 step it names starts, and the DB/code swaps are `fsync`ed before the next phase is recorded.
 If any `fsync` fails, the deploy stops. Before the service stop that means exit `1` with
 production untouched; after it, the usual rollback rules apply.
+
+Completion is recorded with a marker: once the new release is healthy, the deploy creates and
+`fsync`s `runs/<id>/completion-pending`, then writes `PHASE=done`, and only after that record
+is durable removes the marker (and `fsync`s the removal). While the marker exists, `--recover`
+refuses (exit `3`) even when the journal reads `PHASE=done`: a failed `fsync` can leave that
+record visible without it being on disk. If recording completion fails, the deploy exits `3`
+(the new release may already hold writes) and never rolls the DB back.
 
 ### Refusal gates (all before any production change)
 - Tag required, `^[A-Za-z0-9._-]+$`; must exist after fetch; must equal `origin/main`, or be
@@ -338,6 +352,8 @@ BOKLI_REPO_DIR=$HOME/projects/bokli BOKLI_DB_PATH=$HOME/projects/bokli/data/bokl
   unchanged `ExecMainStartTimestampMonotonic`. It then restores the previous checkout,
   `.next-prod`, `node_modules` and the original DB files, proves it and restarts the old
   release (exit `0`).
+- Journal at `PHASE=done` and no `completion-pending` marker in the run directory: the
+  cutover had completed; it archives the journal (exit `0`). With the marker it exits `3`.
 - Otherwise, **including any reboot after the DB swap**, it changes nothing and exits `3`.
   After a reboot systemd only knows about starts in the current boot, so a new release that ran
   and accepted writes before the reboot would be invisible.
@@ -375,9 +391,11 @@ files), `prev/` (previous `.next-prod`, `node_modules`) and `phases.log`. The jo
    sqlite3 ~/projects/bokli/data/bokli.db 'PRAGMA integrity_check;'   # must print ok
    ```
    then do the code rollback in B.
-5. When production is in the chosen state, archive the journal so deploys are allowed again:
+5. When production is in the chosen state, archive the journal so deploys are allowed again
+   (and remove the completion marker, if the message named it):
    ```bash
    mv ~/projects/.bokli-deploy-bokli/ACTIVE_CUTOVER $RUN/journal.manual
+   rm -f $RUN/completion-pending
    ```
 
 If `--recover` reports a stale `.git/index.lock` in `~/projects/bokli` (git was killed
@@ -419,9 +437,10 @@ Each run directory holds DB copies (`snapshot.db`, `prev-db/`) plus the previous
 - **The old in-place script** in the v1.1.1 checkout stays runnable until the first hop; only
   discipline prevents running it (see "First release after this change").
 - **Power loss** is covered by `fsync` ordering, not by a power-cut test. The tests inject real
-  `fsync` errors (strace) but cannot simulate a lost disk cache. Files that `git checkout` writes
-  are not `fsync`ed one by one. A rollback repairs a torn checkout with `git checkout --force`,
-  as long as the git objects themselves survived.
+  `fsync` errors (strace) but cannot simulate a lost disk cache. Of the checkout, only the files
+  the tag changed (plus their directories, `HEAD` and `index`) are `fsync`ed; unchanged tracked
+  files are assumed durable from earlier deploys. A rollback repairs a torn checkout with
+  `git checkout --force`, as long as the git objects themselves survived.
 - Tests use a fake `systemctl`. The systemd behaviour the script relies on
   (`show` output format, `ExecMainStartTimestampMonotonic` kept after stop and reset by reboot)
   was checked read-only against the live unit and the systemd docs, not with a real

@@ -277,6 +277,241 @@ describe("scripts/bokli_deploy.sh (fixture production)", () => {
     expect(runDeploy(f, ["v1.1.0"]).status).toBe(0);
   }, 4 * T);
 
+  // The deploy's durability steps run `<unit node> -e <js> <mode> <paths...>`. These tests swap
+  // the unit's node binary for a pass-through wrapper that runs ONLY those processes under
+  // strace (real fsync(2) syscalls), so the service it starts is never traced. `body` sees the
+  // node arguments as "$@" and the real binary as $REAL.
+  function useNodeWrapper(f, body) {
+    const wrapper = path.join(f.sd, "node-wrapper");
+    fs.writeFileSync(
+      wrapper,
+      `#!/usr/bin/env bash
+REAL="${f.nodeBin}"
+SD="${f.sd}"
+if [ "\${1:-}" = -e ]; then
+${body}
+fi
+exec "$REAL" "$@"
+`,
+      { mode: 0o755 }
+    );
+    const unitConf = path.join(f.sd, "unit.conf");
+    fs.writeFileSync(unitConf, fs.readFileSync(unitConf, "utf-8").replace(/^NODE_BIN=.*$/m, `NODE_BIN='${wrapper}'`));
+  }
+  // exec "$REAL" "$@" under strace, failing fsync(2) of path $1 (first time, per process) with EIO.
+  const INJECT_EIO = `inject_eio() { local t="$1"; shift; exec strace -f -qq -o /dev/null --seccomp-bpf -e trace=fsync -e inject=fsync:error=EIO:when=1 -P "$t" -- "$REAL" "$@"; }`;
+
+  it("artifact durability: staged build/node_modules, git objects/refs and the checked-out tag are fsync'd (files and directories) before the stop / the new start", () => {
+    expect(spawnSync("strace", ["-V"]).status, "strace is required").toBe(0);
+    // Each traced fsync line is prefixed with how many stop/start calls the service had seen.
+    useNodeWrapper(
+      f,
+      `  n=$(grep -cE '^(stop|start) bokli' "$SD/calls.log")
+  strace -f -qq -y -o "$SD/trace.$$" --seccomp-bpf -e trace=fsync -- "$REAL" "$@"; rc=$?
+  sed "s|^|$n |" "$SD/trace.$$" >>"$SD/fsync.log"; rm -f "$SD/trace.$$"
+  exit $rc`
+    );
+    const res = runDeploy(f, ["v1.1.0"]);
+    expect(res.status, res.stderr).toBe(0);
+    expect(calls(f).filter((c) => /^(stop|start) bokli/.test(c))).toEqual(["start bokli", "stop bokli", "start bokli"]);
+    // Successful fsyncs as [n, path]; concurrent ones are logged as "<unfinished ...>" + "resumed" per thread.
+    const done = [];
+    const pending = new Map();
+    for (const l of fs.readFileSync(path.join(f.sd, "fsync.log"), "utf-8").split("\n")) {
+      let m = l.match(/^(\d+) (\d+) +fsync\(\d+<(.*)>\) += (-?\d+)/);
+      if (m) {
+        if (m[4] === "0") done.push([m[1], m[3]]);
+      } else if ((m = l.match(/^(\d+) (\d+) +fsync\(\d+<(.*)> <unfinished \.\.\.>$/))) {
+        pending.set(m[2], [m[1], m[3]]);
+      } else if ((m = l.match(/^\d+ (\d+) +<\.\.\. fsync resumed>\) += (-?\d+)/))) {
+        if (m[2] === "0") done.push(pending.get(m[1]));
+        pending.delete(m[1]);
+      }
+    }
+    const esc = (p) => p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // n=1: only the fixture boot start → the old service still serves (before the stop).
+    // n=2: after the stop, before the new service's start.
+    const fsyncedAt = (n, re) => done.some(([k, p]) => k === String(n) && new RegExp(`^${re}$`).test(p));
+    const live = fs.realpathSync(f.live);
+    const staged = "[^>]*/runs/[^/>]+/src/";
+    for (const rel of [
+      ".next-prod/BUILD_MANIFEST",
+      ".next-prod/BUILD_ID",
+      ".next-prod/standalone/server.js",
+      ".next-prod/standalone/.next-prod/static/[^/>]+/_buildManifest\\.js",
+      ".next-prod/standalone/.next-prod/static",
+      ".next-prod/standalone",
+      ".next-prod",
+      "node_modules/tsx/cli\\.js",
+      "node_modules/tsx",
+      "node_modules/\\.bin",
+      "node_modules",
+    ]) {
+      expect(fsyncedAt(1, staged + rel), `staged ${rel}`).toBe(true);
+    }
+    // What verify_build_stamp.sh (ExecStartPre) needs from git: the fetched tag ref and objects.
+    expect(fsyncedAt(1, esc(`${live}/.git/refs/tags/v1.1.0`)), "tag ref").toBe(true);
+    expect(fsyncedAt(1, `${esc(live)}/\\.git/objects/[0-9a-f]{2}/[0-9a-f]+`), "git objects").toBe(true);
+    // The checkout written during cutover: changed/new tracked files, their directories, HEAD, index.
+    for (const p of [
+      `${live}/release.json`,
+      `${live}/drizzle/0001_unique_notes.sql`,
+      `${live}/drizzle`,
+      `${live}/.git/HEAD`,
+      `${live}/.git/index`,
+      `${live}/.git`,
+      live,
+    ]) {
+      expect(fsyncedAt(2, esc(p)), p).toBe(true);
+    }
+    // n=3 (new service started): completion-pending marker durable (file, then run dir) BEFORE
+    // the done record's journal write; its removal made durable (run dir) after it.
+    const after = done.filter(([k]) => k === "3").map(([, p]) => p);
+    const marker = after.findIndex((p) => p.endsWith("/completion-pending"));
+    expect(marker, "completion-pending fsync").toBeGreaterThanOrEqual(0);
+    const runDir = path.dirname(after[marker]);
+    const doneWrite = after.findIndex((p) => p.endsWith("/ACTIVE_CUTOVER.tmp"));
+    expect(doneWrite).toBeGreaterThan(marker);
+    expect(after.slice(marker + 1, doneWrite)).toContain(runDir);
+    expect(after.slice(doneWrite + 1)).toContain(runDir);
+    expect(fs.existsSync(path.join(runDir, "completion-pending"))).toBe(false);
+    expect(fs.existsSync(path.join(runDir, "journal.done"))).toBe(true);
+  }, 2 * T);
+
+  it("artifact durability: an fsync(2) error on a staged build file or directory aborts before the stop; production untouched", () => {
+    expect(spawnSync("strace", ["-V"]).status, "strace is required for fsync fault injection").toBe(0);
+    // Target is relative to the staging dir ($RUN_DIR/src), which the test cannot know in advance.
+    useNodeWrapper(
+      f,
+      `  ${INJECT_EIO}
+  if [ -f "$SD/inject.stage-fsync" ]; then
+    for a in "$@"; do
+      case "$a" in */src/.next-prod) t="\${a%/.next-prod}/$(cat "$SD/inject.stage-fsync")"; rm -f "$SD/inject.stage-fsync"; inject_eio "$t" "$@" ;; esac
+    done
+  fi`
+    );
+    const before = liveState(f);
+    for (const rel of [".next-prod/BUILD_MANIFEST", ".next-prod/standalone", "node_modules/tsx/cli.js", "node_modules/.bin"]) {
+      fs.writeFileSync(path.join(f.sd, "inject.stage-fsync"), rel);
+      const res = runDeploy(f, ["v1.1.0"]);
+      expect(fs.existsSync(path.join(f.sd, "inject.stage-fsync")), `${rel}: injection never ran`).toBe(false);
+      expect(res.status, `${rel}: ${res.stderr}`).toBe(1);
+      expect(res.stderr, rel).toMatch(new RegExp(`fsync \\S+/runs/[^/ ]+/src/${rel.replace(/\./g, "\\.")}: EIO`));
+      expect(res.stderr, rel).toContain("production was not touched");
+      expect(res.stdout, rel).not.toContain("PHASE stopping");
+      expectUntouched(f, before);
+    }
+    expect(calls(f).filter((c) => /^(stop|start|restart)/.test(c))).toEqual(["start bokli"]); // never stopped
+    expect(runDeploy(f, ["v1.1.0"]).status).toBe(0); // nothing left behind blocks the next deploy
+  }, 6 * T);
+
+  it("checkout durability: an fsync(2) error on a checked-out tracked file rolls back before the new service starts", () => {
+    expect(spawnSync("strace", ["-V"]).status, "strace is required for fsync fault injection").toBe(0);
+    const target = path.join(fs.realpathSync(f.live), "release.json");
+    useNodeWrapper(f, `  ${INJECT_EIO}\n  inject_eio "${target}" "$@"`);
+    const before = liveState(f);
+    const res = runDeploy(f, ["v1.1.0"]);
+    expect(res.status, res.stderr).toBe(2);
+    expect(res.stderr).toContain(`fsync ${target}: EIO`);
+    expect(res.stderr).toContain("could not make the code switch durable");
+    expect(res.stderr).toContain("ROLLED BACK");
+    expectUntouched(f, before);
+    // Never started the new release: stop for cutover, (idempotent) stop in rollback, start of the old one.
+    expect(calls(f).filter((c) => /^(stop|start|restart)/.test(c))).toEqual(["start bokli", "stop bokli", "stop bokli", "start bokli"]);
+  }, 2 * T);
+
+  // Completion protocol faults, all after the new service started and wrote a row.
+  //   tmp:     fsync(2) of the done record fails (one-shot) → rename never happens
+  //   dir:     the done record is renamed in, then fsync(2) of its directory fails, and from then on
+  //            EVERY fsync(2) fails (persistent EIO), so nothing written afterwards can be made durable
+  //   marker:  fsync(2) of the completion-pending marker fails → the done record is never attempted
+  //   unmark:  the done record is durable, but the marker removal's directory fsync(2) fails
+  for (const [spec, what] of [
+    ["tmp", "the done record's fsync(2)"],
+    ["dir", "the directory fsync(2) after the done record was renamed in, then persistent EIO"],
+    ["marker", "the completion-pending marker's fsync(2), before the done record"],
+    ["unmark", "the directory fsync(2) removing the completion-pending marker"],
+  ]) {
+    it(`completion protocol: an error on ${what} → exit 3 manual recovery, write kept, no false success`, () => {
+      expect(spawnSync("strace", ["-V"]).status, "strace is required for fsync fault injection").toBe(0);
+      release(f, "v1.1.1-writes", { writeOnStart: true });
+      const stateDir = path.join(fs.realpathSync(path.dirname(f.live)), ".bokli-deploy-bokli");
+      const journal = path.join(stateDir, "ACTIVE_CUTOVER");
+      useNodeWrapper(
+        f,
+        `  ${INJECT_EIO}
+  [ ! -f "$SD/eio-all" ] || exec strace -f -qq -o /dev/null --seccomp-bpf -e trace=fsync -e inject=fsync:error=EIO:when=1+ -- "$REAL" "$@"
+  if [ -f "$SD/inject.done-fsync" ]; then
+    done_write() { [ "\${3:-}" = rename ] && [ "\${5:-}" = "${journal}" ] && grep -qx 'PHASE=done' "\${4:-/nonexistent}"; }
+    case "$(cat "$SD/inject.done-fsync")" in
+      tmp) if done_write "$@"; then rm -f "$SD/inject.done-fsync"; inject_eio "${journal}.tmp" "$@"; fi ;;
+      dir) if done_write "$@"; then rm -f "$SD/inject.done-fsync"; : >"$SD/eio-all"; inject_eio "${stateDir}" "$@"; fi ;;
+      marker) if [ "\${3:-}" = fsync ] && [[ "\${4:-}" == */completion-pending ]]; then rm -f "$SD/inject.done-fsync"; inject_eio "$4" "$@"; fi ;;
+      unmark) if [ "\${3:-}" = fsync ] && [ $# = 4 ] && [ -d "$4" ] && [ ! -e "$4/completion-pending" ] && grep -qx 'PHASE=done' "${journal}" 2>/dev/null; then
+          rm -f "$SD/inject.done-fsync"; inject_eio "$4" "$@"
+        fi ;;
+    esac
+  fi`
+      );
+      fs.writeFileSync(path.join(f.sd, "inject.done-fsync"), spec);
+
+      const newRow = "SELECT count(*) FROM sheets WHERE note LIKE 'written-by-v1.1.1-writes-%'";
+      const res = runDeploy(f, ["v1.1.1-writes"]);
+      expect(fs.existsSync(path.join(f.sd, "inject.done-fsync")), "injection never ran").toBe(false);
+      expect(res.status, res.stderr).toBe(3);
+      const failed = {
+        tmp: `fsync ${journal}.tmp: EIO`,
+        dir: `fsync ${stateDir}: EIO`,
+        marker: /fsync \S+\/runs\/[^/ ]+\/completion-pending: EIO/,
+        unmark: /fsync \S+\/runs\/[^/ ]+: EIO/,
+      }[spec];
+      expect(res.stderr).toMatch(failed);
+      expect(res.stderr).toContain("MANUAL RECOVERY REQUIRED");
+      expect(res.stderr).not.toContain("ROLLED BACK");
+      expect(res.stdout).not.toContain("✅ deployed");
+      expect(sqlite(f.db, newRow)).not.toBe("0"); // the new service's write is kept
+      expect(sqlite(f.db, "SELECT count(*) FROM pragma_table_info('sheets') WHERE name='amount'")).toBe("1");
+      expect(fs.existsSync(journal)).toBe(true);
+      const runDir = fs.readFileSync(journal, "utf-8").match(/^RUN_DIR=(.*)$/m)[1];
+      const markerFile = path.join(runDir, "completion-pending");
+      if (spec === "unmark") {
+        expect(fs.readFileSync(journal, "utf-8")).toMatch(/^PHASE=done$/m); // proven durable before removal
+        expect(res.stdout).toContain("PHASE done");
+      } else {
+        expect(res.stderr).toContain("could not durably record");
+        expect(res.stdout).not.toContain("PHASE done");
+        // dir: the done record IS visible, but never proven durable; tmp/marker: never renamed in.
+        expect(fs.readFileSync(journal, "utf-8")).toMatch(spec === "dir" ? /^PHASE=done$/m : /^PHASE=start-invoked$/m);
+        expect(fs.existsSync(markerFile)).toBe(true);
+      }
+      if (spec === "marker") expect(fs.existsSync(`${journal}.tmp`)).toBe(false); // done write never attempted
+
+      const again = runDeploy(f, ["v1.1.1-writes"]);
+      expect(again.status).toBe(1);
+      expect(again.stderr).toContain("--recover");
+
+      const dbBefore = dbDump(f.db);
+      if (spec === "unmark") {
+        // PHASE=done was durable before the removal was attempted; the marker is gone from view,
+        // so --recover correctly reports completion (had it survived, --recover would refuse).
+        const rec = runDeploy(f, ["--recover"]);
+        expect(rec.status, rec.stdout + rec.stderr).toBe(0);
+        expect(rec.stdout).toContain("had completed (phase done)");
+        expect(dbDump(f.db)).toBe(dbBefore);
+        return;
+      }
+      for (let i = 0; i < 2; i++) {
+        const rec = runDeploy(f, ["--recover"]);
+        expect(rec.status, rec.stdout + rec.stderr).toBe(3);
+        expect(rec.stderr).toContain("MANUAL RECOVERY REQUIRED");
+        expect(rec.stderr).toContain("completion-pending");
+        expect(rec.stdout).not.toContain("nothing to recover");
+        expect(dbDump(f.db)).toBe(dbBefore);
+        expect(fs.existsSync(journal)).toBe(true);
+      }
+    }, 2 * T);
+  }
+
   it("SIGKILL mid-cutover leaves a journal; deploys are refused until --recover restores and verifies the old release", () => {
     inject(f, "start-before", "kill9-deployer");
     const before = liveState(f);

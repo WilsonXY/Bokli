@@ -36,12 +36,15 @@
 #   git archive <tag> into a staging dir → consistent online SQLite backup →
 #   npm ci → rehearse migrations on the copy (+ integrity/foreign-key checks) →
 #   npm run build → verify standalone server + static assets → smoke-test the
-#   candidate server on a loopback port against a DB copy → write the stamp.
+#   candidate server on a loopback port against a DB copy → write the stamp →
+#   fsync every staged build/node_modules file and directory and the fetched git
+#   refs/objects (cutover only renames them in).
 # Phase 2 — cutover (downtime from stop to healthy start):
 #   stop service → fresh snapshot (verified) → migrate a copy of it → swap the
 #   migrated DB file in (original DB set kept) → swap .next-prod + node_modules in
-#   (old kept) → checkout tag → verify stamp → smoke-test the build at its live
-#   path against a DB copy → start service → verify it serves the NEW build id.
+#   (old kept) → checkout tag (changed files, HEAD, index fsync'd) → verify stamp →
+#   smoke-test the build at its live path against a DB copy → start service →
+#   verify it serves the NEW build id.
 #
 # Failure handling:
 #   - before cutover: exit 1, production untouched.
@@ -52,7 +55,10 @@
 #     the old service; exit 2. If that cannot be proven: exit 3, journal kept.
 #   - once the service's main process may have run on the new DB: NEVER restore
 #     the DB automatically (it may hold new writes); exit 3 "MANUAL RECOVERY
-#     REQUIRED", journal kept, further deploys refused until resolved.
+#     REQUIRED", journal kept, further deploys refused until resolved. This includes
+#     a healthy new release whose PHASE=done record could not be made durable: a
+#     durable <run>/completion-pending marker spans that write, and --recover refuses
+#     while it exists, even if the journal reads PHASE=done.
 #   - SIGKILL/power loss: the journal at <state>/ACTIVE_CUTOVER survives; run
 #     --recover, which applies the same rules. Each phase is fsync'd (file and
 #     directory entry) before its step starts; an fsync error fails closed.
@@ -75,6 +81,8 @@ TAG=""
 IN_PREPARE=0
 IN_CUTOVER=0
 PHASE="none"
+NEW_SERVING=0
+readonly DONE_PENDING="completion-pending"
 SMOKE_PID=""
 RUN_DIR=""
 JOURNAL=""
@@ -243,24 +251,68 @@ service_stopped() {
 # directories involved. `sync FILE` is not used: uutils coreutils' sync ignores the
 # file and calls sync(2), which reports no errors. Any fsync error fails closed, with
 # no retry: after a failed writeback Linux may drop the dirty pages, so a later
-# fsync that succeeds proves nothing.
+# fsync that succeeds proves nothing. Symlinks are not followed: they live in their
+# directory, which is fsync'd.
 # ------------------------------------------------------------------------------
 readonly DURABLE_JS='const fs = require("fs"), path = require("path");
 const fsync = (p) => { const fd = fs.openSync(p, "r"); try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); } };
 const [mode, ...args] = process.argv.slice(1);
 let p;
+const die = (e) => { console.error("   " + e.syscall + " " + p + ": " + e.code); process.exit(1); };
+const isFileOrDir = (q) => {
+  try { const st = fs.lstatSync(q); return st.isFile() || st.isDirectory(); }
+  catch (e) { if (e.code === "ENOENT") return false; throw e; }
+};
 try {
   if (mode === "rename") {
     p = args[0]; fsync(p);
     p = args[1]; fs.renameSync(args[0], p);
     p = path.dirname(p); fsync(p);
+  } else if (mode === "tree") {
+    const all = [];
+    const walk = (d) => {
+      p = d;
+      if (!fs.lstatSync(d).isDirectory()) { all.push(d); return; }
+      for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+        const c = path.join(d, e.name);
+        if (e.isDirectory()) walk(c); else if (e.isFile()) all.push(c);
+      }
+      all.push(d);
+    };
+    for (const r of args) walk(r);
+    // Concurrent fsyncs share journal commits: much faster than one at a time.
+    let i = 0;
+    const worker = async () => {
+      while (i < all.length) {
+        const q = all[i++];
+        let fh;
+        try { fh = await fs.promises.open(q, "r"); await fh.sync(); } catch (e) { p = q; die(e); } finally { if (fh) await fh.close(); }
+      }
+    };
+    Promise.all(Array.from({ length: 16 }, worker));
+  } else if (mode === "under") {
+    const root = args[0], todo = new Set();
+    for (const rel of args.slice(1)) {
+      for (let q = path.join(root, rel); q.startsWith(root + "/"); q = path.dirname(q)) {
+        p = q; if (isFileOrDir(q)) todo.add(q);
+      }
+    }
+    todo.add(root);
+    for (p of todo) fsync(p);
   } else {
     for (p of args) fsync(p);
   }
-} catch (e) { console.error("   " + e.syscall + " " + p + ": " + e.code); process.exit(1); }'
+} catch (e) { die(e); }'
 
 # fsync(2) each file or directory.
 fsync_paths() { "$SERVICE_NODE" -e "$DURABLE_JS" fsync "$@" 9>&-; }
+
+# fsync(2) every regular file and directory under each root (a root may be a file).
+fsync_tree() { UV_THREADPOOL_SIZE=16 "$SERVICE_NODE" -e "$DURABLE_JS" tree "$@" 9>&-; }
+
+# fsync(2) each existing ROOT-relative path and every directory from it up to ROOT, so
+# new, changed and deleted entries are all on disk.
+fsync_under() { "$SERVICE_NODE" -e "$DURABLE_JS" under "$@" 9>&-; }
 
 # fsync SRC, rename(2) it over DST, fsync DST's directory: DST is durable on return 0.
 durable_rename() { "$SERVICE_NODE" -e "$DURABLE_JS" rename "$1" "$2" 9>&-; }
@@ -286,10 +338,15 @@ journal_write() {
     durable_rename "$tmp" "$JOURNAL"
 }
 
-# Records PHASE durably BEFORE the step it names starts.
+# Records a phase durably BEFORE the step it names starts. PHASE, which recovery acts
+# on, only moves once the record is durable.
 journal_phase() {
+  local prev="$PHASE"
   PHASE="$1"
-  journal_write || fail "could not durably record cutover phase $PHASE in $JOURNAL."
+  if ! journal_write; then
+    PHASE="$prev"
+    fail "could not durably record cutover phase $1 in $JOURNAL."
+  fi
   echo "$(date -u +%Y-%m-%dT%H:%M:%SZ) $PHASE" >>"$RUN_DIR/phases.log"
   say "PHASE $PHASE"
 }
@@ -473,6 +530,11 @@ EOF
 # Decide and perform recovery for an interrupted cutover. Returns the exit code.
 recover_cutover() {
   ROLLBACK_BLOCKED_BY_WRITES=0
+  if [ "$NEW_SERVING" = 1 ]; then
+    # The new release is serving and may hold writes; only recording completion failed.
+    manual_recovery_message "the new release ($TAG, build $NEW_BUILD_ID) started and may have accepted writes, but the completion of the cutover could not be recorded durably."
+    return 3
+  fi
   case "$PHASE" in
     done)
       return 0
@@ -835,6 +897,20 @@ prepare() {
     "$TAG" "$TAG_COMMIT" "$built_at" "$NEW_BUILD_ID" >"$b/BUILD_MANIFEST.tmp"
   mv -f "$b/BUILD_MANIFEST.tmp" "$b/BUILD_MANIFEST"
   rm -f "$RUN_DIR"/rehearsal.db* "$RUN_DIR"/build.db* "$RUN_DIR"/smoke-*.db*
+
+  # Cutover only renames these into place, which moves names, not data: every file and
+  # directory must already be on disk, or a power cut after PHASE=done could leave a
+  # "completed" release without its stamp, server or dependencies. Likewise the tag ref
+  # and objects fetched above, which the ExecStartPre stamp check reads. Done here, while
+  # the old service still serves.
+  local gitdir t0=$SECONDS roots
+  gitdir=$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-common-dir)
+  roots=("$b" "$RUN_DIR/src/node_modules" "$gitdir/objects" "$gitdir/refs")
+  [ ! -e "$gitdir/packed-refs" ] || roots+=("$gitdir/packed-refs")
+  say "Flushing the staged build, node_modules and fetched git objects to disk..."
+  fsync_tree "${roots[@]}" || fail "could not make the staged release durable."
+  fsync_paths "$gitdir" || fail "could not make the staged release durable."
+  say "Flushed in $((SECONDS - t0))s"
 }
 
 # ------------------------------------------------------------------------------
@@ -904,7 +980,14 @@ cutover() {
   swap_in node_modules || fail "could not switch node_modules."
   echo "==> Checking out $TAG..."
   git -C "$REPO_ROOT" checkout --quiet --detach "$TAG_COMMIT" || fail "git checkout $TAG failed."
-  fsync_paths "$REPO_ROOT" "$RUN_DIR/prev" "$RUN_DIR/src" || fail "could not make the code switch durable."
+  # git does not fsync the work tree it writes (nor, by default, HEAD and the index).
+  local gitdir changed=()
+  gitdir=$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-dir) || fail "cannot resolve the git dir of $REPO_ROOT."
+  git -C "$REPO_ROOT" diff -z --name-only "$OLD_HEAD" "$TAG_COMMIT" >"$RUN_DIR/changed-paths" || fail "cannot list the files $TAG changed."
+  mapfile -d '' -t changed <"$RUN_DIR/changed-paths"
+  fsync_under "$REPO_ROOT" "${changed[@]}" || fail "could not make the code switch durable."
+  fsync_paths "$gitdir/HEAD" "$gitdir/index" "$gitdir" "$REPO_ROOT" "$RUN_DIR/prev" "$RUN_DIR/src" ||
+    fail "could not make the code switch durable."
   journal_phase code-switched
 
   [ "$(git -C "$REPO_ROOT" rev-parse HEAD)" = "$TAG_COMMIT" ] || fail "HEAD is not $TAG_COMMIT after checkout."
@@ -924,7 +1007,18 @@ cutover() {
     echo "Hint: check service logs with 'journalctl --user -u bokli' or 'journalctl --user -u bokli -n 50 --no-pager'." >&2
     exit 1
   fi
+  NEW_SERVING=1
+  # Completion protocol. A failed journal write can still leave the PHASE=done record
+  # visible (renamed in, directory fsync failed), so a durable completion-pending marker
+  # exists from before that write until after it proved durable; --recover refuses
+  # while it exists. A visible done record without the marker was therefore durable.
+  { : >"$RUN_DIR/$DONE_PENDING" && fsync_paths "$RUN_DIR/$DONE_PENDING" "$RUN_DIR"; } ||
+    fail "could not durably record $RUN_DIR/$DONE_PENDING."
   journal_phase done
+  if ! { rm -f "$RUN_DIR/$DONE_PENDING" && fsync_paths "$RUN_DIR"; }; then
+    manual_recovery_message "PHASE=done is durable and the new release ($TAG, build $NEW_BUILD_ID) is serving, but $RUN_DIR/$DONE_PENDING could not be removed durably."
+    exit 3
+  fi
   journal_archive done
   IN_CUTOVER=0
   rm -rf "$RUN_DIR/src"
@@ -963,6 +1057,10 @@ do_recover() {
   [ "$REPO_ROOT" = "$want_repo" ] && [ "$LIVE_DB" = "$want_db" ] ||
     refuse "journal $JOURNAL belongs to $REPO_ROOT / $LIVE_DB, not $want_repo / $want_db."
   [ -d "$RUN_DIR" ] || refuse "journal points at missing run directory $RUN_DIR."
+  if [ -e "$RUN_DIR/$DONE_PENDING" ]; then
+    manual_recovery_message "the new release ($TAG) started and may have accepted writes, but its completion was never proven durable ($RUN_DIR/$DONE_PENDING exists); the journal's phase ($PHASE) cannot be trusted."
+    exit 3
+  fi
   if [ "$PHASE" = "done" ]; then
     [ "$LIVE_DB_ABSENT" = 0 ] || refuse "database $LIVE_DB does not exist although the journal says the cutover completed."
     journal_archive done
