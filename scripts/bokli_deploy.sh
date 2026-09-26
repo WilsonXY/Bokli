@@ -46,8 +46,9 @@
 #   - before cutover: exit 1, production untouched.
 #   - during cutover, before the new service could have accepted writes (also on
 #     INT/TERM/HUP): restore old checkout, build, node_modules and the original DB
-#     files, prove it (HEAD, stamp, DB content digest = snapshot), restart the old
-#     service; exit 2. If that cannot be proven: exit 3, journal kept.
+#     files, prove it (HEAD, stamp, DB content digest = snapshot; before the DB swap
+#     only integrity, so writes the unchanged old release made are kept), restart
+#     the old service; exit 2. If that cannot be proven: exit 3, journal kept.
 #   - once the service's main process may have run on the new DB: NEVER restore
 #     the DB automatically (it may hold new writes); exit 3 "MANUAL RECOVERY
 #     REQUIRED", journal kept, further deploys refused until resolved.
@@ -351,10 +352,19 @@ rollback_all() {
   [ -z "$(git -C "$REPO_ROOT" status --porcelain --untracked-files=no 2>/dev/null)" ] || { echo "   tracked files are modified" >&2; ok=1; }
   [ "$(cat "$REPO_ROOT/.next-prod/BUILD_ID" 2>/dev/null)" = "$OLD_BUILD_ID" ] || { echo "   .next-prod is not the previous build $OLD_BUILD_ID" >&2; ok=1; }
   (cd "$REPO_ROOT" && BOKLI_REPO_DIR="$REPO_ROOT" ./scripts/verify_build_stamp.sh >/dev/null) || { echo "   previous build stamp does not verify" >&2; ok=1; }
-  if [ -n "${SNAP_DIGEST:-}" ]; then
-    [ "$(db_digest "$LIVE_DB" 2>/dev/null)" = "$SNAP_DIGEST" ] || { echo "   database content does not match the verified snapshot" >&2; ok=1; }
-    db_integrity_ok "$LIVE_DB" || { echo "   database integrity_check failed" >&2; ok=1; }
-  fi
+  case "$PHASE" in
+    stopping | stopped)
+      # Never swapped: this is the original DB. The unchanged old release may have
+      # written to it since (e.g. auto-started after a reboot); keep those writes.
+      db_integrity_ok "$LIVE_DB" || { echo "   database integrity_check failed" >&2; ok=1; }
+      ;;
+    *)
+      if [ -n "${SNAP_DIGEST:-}" ]; then
+        [ "$(db_digest "$LIVE_DB" 2>/dev/null)" = "$SNAP_DIGEST" ] || { echo "   database content does not match the verified snapshot" >&2; ok=1; }
+        db_integrity_ok "$LIVE_DB" || { echo "   database integrity_check failed" >&2; ok=1; }
+      fi
+      ;;
+  esac
   [ "$ok" = 0 ] || return 1
 
   systemctl --user start "$SERVICE" || { echo "   systemctl --user start $SERVICE failed" >&2; return 1; }
@@ -403,7 +413,9 @@ recover_cutover() {
   esac
   if rollback_all; then
     journal_archive rolled-back
-    echo "❌ Deploy of ${TAG} did not complete; production was ROLLED BACK to ${OLD_TAG} and verified (HEAD, build stamp, DB content = snapshot, service serving build ${OLD_BUILD_ID})." >&2
+    local db_proof="DB content = snapshot"
+    case "$PHASE" in stopping | stopped) db_proof="original DB never swapped, integrity ok" ;; esac
+    echo "❌ Deploy of ${TAG} did not complete; production was ROLLED BACK to ${OLD_TAG} and verified (HEAD, build stamp, ${db_proof}, service serving build ${OLD_BUILD_ID})." >&2
     return 2
   fi
   if [ "$ROLLBACK_BLOCKED_BY_WRITES" = 1 ]; then

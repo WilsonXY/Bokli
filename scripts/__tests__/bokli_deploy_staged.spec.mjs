@@ -313,6 +313,70 @@ exit "$rc"
     expectUntouched(f, before);
   }, T);
 
+  it("SIGKILL after the verified snapshot, reboot auto-starts the OLD release which writes: --recover keeps the write and restores service", async () => {
+    // One-shot cp wrapper: kill -9 the deployer just before it copies the verified snapshot
+    // (PHASE=stopped, SNAP_DIGEST journaled, DB and code not yet touched).
+    const realCp = spawnSync("bash", ["-c", "command -v cp"], { encoding: "utf-8" }).stdout.trim();
+    fs.writeFileSync(path.join(f.sd, "inject.snap-copy"), "kill9-deployer");
+    fs.writeFileSync(
+      path.join(f.bin, "cp"),
+      `#!/usr/bin/env bash
+if [ -f "${f.sd}/inject.snap-copy" ] && [[ "$1" == */snapshot.db ]] && [[ "$2" == */candidate.db ]]; then
+  rm -f "${f.sd}/inject.snap-copy"
+  kill -9 "$(sed -n 's/^PID=//p' "${f.journal}" | tail -n 1)"
+fi
+exec "${realCp}" "$@"
+`,
+      { mode: 0o755 }
+    );
+    const before = liveState(f);
+    expect(runDeploy(f, ["v1.1.0"]).signal).toBe("SIGKILL");
+    const journal = fs.readFileSync(f.journal, "utf-8");
+    expect(journal).toMatch(/^PHASE=stopped$/m);
+    expect(journal).toMatch(/^SNAP_DIGEST=[0-9a-f]{64}$/m);
+
+    // Reboot: the enabled unit auto-starts the unchanged old release, which accepts a real write.
+    fs.writeFileSync(f.journal, journal.replace(/^BOOT_ID=.*$/m, "BOOT_ID=00000000-0000-0000-0000-previous-boot"));
+    expect(systemctl(f, "start", "bokli").status).toBe(0);
+    await waitFor(() => servesBuild(f, f.oldBuildId));
+    sqlite(f.db, "INSERT INTO sheets (note) VALUES ('written-after-reboot')");
+
+    const rec = runDeploy(f, ["--recover"]);
+    expect(rec.stdout + rec.stderr).toContain("ROLLED BACK");
+    expect(rec.status).toBe(0);
+    expect(sqlite(f.db, "SELECT count(*) FROM sheets WHERE note='written-after-reboot'")).toBe("1");
+    const after = liveState(f);
+    expect({ ...after, db: null }).toEqual({ ...before, db: null }); // HEAD, stamp, build, node_modules
+    expect(verifyLiveStamp(f).status).toBe(0);
+    expect(servesBuild(f, f.oldBuildId)).toBe(true);
+    expect(fs.existsSync(f.journal)).toBe(false);
+  }, T);
+
+  it("SIGKILL before the service stopped (PHASE=stopping): --recover fails closed on a missing DB, then keeps new writes", () => {
+    inject(f, "stop-before", "kill9-deployer");
+    const before = liveState(f);
+    expect(runDeploy(f, ["v1.1.0"]).signal).toBe("SIGKILL");
+    expect(fs.readFileSync(f.journal, "utf-8")).toMatch(/^PHASE=stopping$/m);
+    sqlite(f.db, "INSERT INTO sheets (note) VALUES ('written-while-stopping')");
+
+    const aside = `${f.db}.aside`;
+    systemctl(f, "stop", "bokli");
+    fs.renameSync(f.db, aside);
+    const missing = runDeploy(f, ["--recover"]);
+    expect(missing.status).toBe(3);
+    expect(missing.stderr).toContain("MANUAL RECOVERY REQUIRED");
+    expect(fs.existsSync(f.db)).toBe(false); // never recreated from the snapshot
+    expect(fs.existsSync(f.journal)).toBe(true);
+    fs.renameSync(aside, f.db);
+
+    const rec = runDeploy(f, ["--recover"]);
+    expect(rec.status).toBe(0);
+    expect(sqlite(f.db, "SELECT count(*) FROM sheets WHERE note='written-while-stopping'")).toBe("1");
+    expect({ ...liveState(f), db: null }).toEqual({ ...before, db: null });
+    expect(servesBuild(f, f.oldBuildId)).toBe(true);
+    expect(fs.existsSync(f.journal)).toBe(false);
+  }, T);
+
   // -------------------------------------------------------------------------
   // After the new service may have accepted writes: never auto-restore the DB
   // -------------------------------------------------------------------------
