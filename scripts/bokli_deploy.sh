@@ -68,7 +68,10 @@
 # State dir: <parent of repo>/.bokli-deploy-<repo name>/ (mode 700), holding
 # runs/<id>/ with the snapshot, previous build/node_modules and previous DB files.
 # After a success only this run and one prior successful run are kept; runs that
-# rolled back, need manual recovery or never finished are never pruned.
+# rolled back, need manual recovery or never finished are never pruned. Once a run's
+# outcome is final (journal archived as done or rolled-back, also via --recover) its
+# staging tree src/ and temporary test DB copies are removed; a manual-recovery or
+# unfinished run keeps everything.
 # SQLite migrations are forward-only; see deploy/README.md for the runbook.
 # ==============================================================================
 
@@ -586,6 +589,7 @@ recover_cutover() {
   esac
   if rollback_all; then
     journal_archive rolled-back
+    cleanup_run_scratch "the rollback itself is complete and verified" || true
     local db_proof="DB content = snapshot"
     case "$PHASE" in stopping | stopped) db_proof="original DB never swapped, integrity ok" ;; esac
     echo "❌ Deploy of ${TAG} did not complete; production was ROLLED BACK to ${OLD_TAG} and verified (HEAD, build stamp, ${db_proof}, service serving build ${OLD_BUILD_ID})." >&2
@@ -1059,7 +1063,7 @@ cutover() {
   fi
   journal_archive done
   IN_CUTOVER=0
-  rm -rf "$RUN_DIR/src"
+  cleanup_run_scratch "the deploy itself succeeded" || true
   prune_old_runs || echo "⚠️  Could not prune old runs in $STATE_DIR/runs (deploy itself succeeded)." >&2
 }
 
@@ -1068,6 +1072,45 @@ cutover() {
 # rolled back, need/needed manual recovery or never finished are never pruned, and
 # nothing outside $STATE_DIR/runs is touched (nightly backups live elsewhere).
 readonly KEEP_DONE_RUNS=2
+readonly RUN_ID_RE='^[0-9]{8}T[0-9]{6}Z-[0-9]+$'
+
+# 0 if $RUN_DIR is a real, canonical $STATE_DIR/runs/<id> directory (no symlinks) whose
+# outcome is final: journal archived as done or rolled-back, no cutover journal pending,
+# no completion marker, not a manual-recovery run. Otherwise warns ($1: what is unaffected).
+run_dir_final() {
+  local id runs="$STATE_DIR/runs"
+  id=$(basename -- "${RUN_DIR:-/}")
+  if ! [[ "$id" =~ $RUN_ID_RE ]] || [ "$RUN_DIR" != "$runs/$id" ] || [ -L "$STATE_DIR" ] || [ -L "$runs" ] ||
+    [ -L "$RUN_DIR" ] || [ ! -d "$RUN_DIR" ] || [ "$(realpath -e -- "$RUN_DIR" 2>/dev/null)" != "$RUN_DIR" ]; then
+    echo "⚠️  Not cleaning $RUN_DIR: not a run directory under $runs ($1)." >&2
+    return 1
+  fi
+  if [ -e "$JOURNAL" ] || [ -e "$RUN_DIR/$DONE_PENDING" ] || [ -e "$RUN_DIR/journal.manual" ] ||
+    { [ ! -f "$RUN_DIR/journal.done" ] && [ ! -f "$RUN_DIR/journal.rolled-back" ]; }; then
+    echo "⚠️  Not cleaning $RUN_DIR: its outcome is not final ($1)." >&2
+    return 1
+  fi
+}
+
+# Removes the disposable leftovers of a final run — the staging tree src/ and temporary
+# test DB copies. The snapshot, prev/, prev-db/, rolled-back*/, candidate DB, journal and
+# phases.log are never touched. If anything is left it is named in a warning; returns 1.
+cleanup_run_scratch() {
+  local id p left=()
+  run_dir_final "$1" || return 1
+  id=$(basename -- "$RUN_DIR")
+  rm -rf -- "$RUN_DIR/src"
+  rm -f -- "$RUN_DIR"/rehearsal.db* "$RUN_DIR"/build.db* "$RUN_DIR"/smoke-*.db*
+  for p in "$RUN_DIR/src" "$RUN_DIR"/rehearsal.db* "$RUN_DIR"/build.db* "$RUN_DIR"/smoke-*.db*; do
+    if [ -e "$p" ] || [ -L "$p" ]; then left+=("$p"); fi
+  done
+  if [ "${#left[@]}" != 0 ]; then
+    echo "⚠️  Could not remove disposable leftovers of run $id: ${left[*]} ($1). Remove them by hand." >&2
+    return 1
+  fi
+  say "Removed staging tree and temporary test DBs of run $id"
+}
+
 prune_old_runs() {
   local d n=0
   [ ! -e "$JOURNAL" ] || return 0
@@ -1103,6 +1146,10 @@ do_recover() {
     [ "$LIVE_DB_ABSENT" = 0 ] || refuse "database $LIVE_DB does not exist although the journal says the cutover completed."
     journal_archive done
     echo "Cutover of $TAG had completed (phase done); journal archived, nothing to recover."
+    cleanup_run_scratch "the completed cutover is unaffected" || true
+    if run_dir_final "the completed cutover is unaffected" 2>/dev/null; then
+      prune_old_runs || echo "⚠️  Could not prune old runs in $STATE_DIR/runs (the completed cutover is unaffected)." >&2
+    fi
     exit 0
   fi
   echo "==> Recovering interrupted cutover of $TAG (phase $PHASE, run $RUN_DIR)"

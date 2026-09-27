@@ -419,8 +419,22 @@ Each run directory holds DB copies (`snapshot.db`, `prev-db/`) plus the previous
   ```bash
   ls -1 ~/projects/.bokli-deploy-bokli/runs/*/journal.*
   ```
-- Pruning only ever touches `~/projects/.bokli-deploy-bokli/runs/<timestamp>-<pid>/`.
-  The nightly DB backups and everything else outside that directory are never touched.
+- **Disposable leftovers:** once a run's outcome is final — the journal is archived as
+  `journal.done` or `journal.rolled-back` (by the deploy itself or by `--recover`) and no
+  `ACTIVE_CUTOVER` exists — the script removes that run's staging tree `src/` and temporary
+  test DB copies (`rehearsal.db`, `build.db`, `smoke-*.db`)
+  (`Removed staging tree and temporary test DBs of run <id>`). `snapshot.db`, `prev/`,
+  `prev-db/`, `rolled-back*/`, any `candidate.db`, `phases.log` and the journal are kept.
+  A `--recover` that finds `PHASE=done` also applies the two-successful-run retention above;
+  a rollback run is never pruned. Runs needing manual recovery (journal still pending, or
+  `journal.manual`) are not cleaned at all. If a removal fails, the script prints
+  `⚠️ Could not remove disposable leftovers of run <id>: <paths>`; the deploy/recovery
+  outcome is unaffected — delete the named paths by hand. If the script is interrupted
+  after archiving the journal but before this cleanup, `--recover` finds no journal and
+  does nothing; remove that run's `src/` by hand.
+- Pruning and cleanup only ever touch `~/projects/.bokli-deploy-bokli/runs/<timestamp>-<pid>/`
+  (a real directory, never a symlink or a path outside `runs/`). The nightly DB backups and
+  everything else outside that directory are never touched.
 
 ### Residual limitations (not zero downtime)
 - **Downtime** runs from the stop to the healthy start: snapshot, migration of the copy, file

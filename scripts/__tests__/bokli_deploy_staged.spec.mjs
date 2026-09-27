@@ -1120,6 +1120,200 @@ exec "${realCp}" "$@"
     expect(fs.existsSync(path.join(runsDir, remaining[0], "prev-db"))).toBe(true);
   }, T);
 
+  // -------------------------------------------------------------------------
+  // Cleanup of a run's disposable leftovers (src/ staging tree, temporary test DB copies)
+  // once its outcome is final; evidence (snapshot, prev/, prev-db/, rolled-back*/, journal,
+  // phases.log) is always kept.
+  // -------------------------------------------------------------------------
+  const runDirOf = (f) => fs.readFileSync(f.journal, "utf-8").match(/^RUN_DIR=(.*)$/m)[1];
+  const RUN_EVIDENCE = ["snapshot.db", "prev", "prev-db", "phases.log"];
+
+  // kill -9 the deployer right after PHASE=done proved durable and the completion-pending
+  // marker's removal was fsync'd: the journal is not yet archived, src/ not yet removed.
+  function killAfterDone(f) {
+    const journal = path.join(fs.realpathSync(path.dirname(f.live)), ".bokli-deploy-bokli", "ACTIVE_CUTOVER");
+    useNodeWrapper(
+      f,
+      `  if [ -f "$SD/inject.done-kill" ] && [ "\${3:-}" = fsync ] && [ $# = 4 ] && [ -d "$4" ] && [ ! -e "$4/completion-pending" ] && grep -qx 'PHASE=done' "${journal}" 2>/dev/null; then
+    rm -f "$SD/inject.done-kill"; "$REAL" "$@"; rc=$?
+    kill -9 "$(sed -n 's/^PID=//p' "${journal}" | tail -n 1)"; exit $rc
+  fi`
+    );
+    fs.writeFileSync(path.join(f.sd, "inject.done-kill"), "");
+  }
+
+  it("cleanup: --recover after a kill between PHASE=done and cleanup removes src/ and temp DBs, keeps evidence, applies two-success retention; idempotent", () => {
+    const runsDir = path.join(f.stateDir, "runs");
+    // Two older completed runs (the older one must be pruned) and runs that are never pruned.
+    const seeded = {
+      "20200101T000000Z-11": "journal.done",
+      "20200101T000001Z-12": "journal.done",
+      "20200101T000002Z-13": "journal.rolled-back",
+      "20200101T000003Z-14": "journal.manual",
+      "20200101T000004Z-15": null,
+    };
+    for (const [dir, marker] of Object.entries(seeded)) {
+      fs.mkdirSync(path.join(runsDir, dir, "src"), { recursive: true });
+      fs.writeFileSync(path.join(runsDir, dir, "snapshot.db"), "x");
+      if (marker) fs.writeFileSync(path.join(runsDir, dir, marker), "PHASE=x\n");
+    }
+    killAfterDone(f);
+    const res = runDeploy(f, ["v1.1.0"]);
+    expect(res.signal, res.stdout + res.stderr).toBe("SIGKILL");
+    expect(fs.readFileSync(f.journal, "utf-8")).toMatch(/^PHASE=done$/m);
+    const runDir = runDirOf(f);
+    expect(fs.existsSync(path.join(runDir, "src"))).toBe(true);
+    expect(fs.existsSync(path.join(runDir, "completion-pending"))).toBe(false);
+    fs.writeFileSync(path.join(runDir, "smoke-live.db"), "temp"); // a temp test DB copy left behind
+    const newBuildId = fs.readFileSync(path.join(f.live, ".next-prod/BUILD_ID"), "utf-8").trim();
+
+    const rec = runDeploy(f, ["--recover"]);
+    expect(rec.status, rec.stdout + rec.stderr).toBe(0);
+    expect(rec.stdout).toContain("had completed (phase done)");
+    expect(rec.stderr).not.toContain("⚠️");
+    expect(fs.existsSync(f.journal)).toBe(false);
+    expect(fs.existsSync(path.join(runDir, "src"))).toBe(false);
+    expect(fs.existsSync(path.join(runDir, "smoke-live.db"))).toBe(false);
+    for (const e of [...RUN_EVIDENCE, "journal.done", "prev/.next-prod/OLD-ARTIFACT-SENTINEL"]) {
+      expect(fs.existsSync(path.join(runDir, e)), e).toBe(true);
+    }
+    expect(rec.stdout).toContain("Pruned old completed run 20200101T000000Z-11");
+    expect(fs.existsSync(path.join(runsDir, "20200101T000000Z-11"))).toBe(false);
+    for (const dir of Object.keys(seeded).slice(1)) {
+      // Other runs are left exactly as they were (their src/ too).
+      expect(fs.existsSync(path.join(runsDir, dir, "snapshot.db")), dir).toBe(true);
+      expect(fs.existsSync(path.join(runsDir, dir, "src")), dir).toBe(true);
+    }
+    expect(servesBuild(f, newBuildId)).toBe(true);
+
+    // Idempotent: with no journal, --recover touches nothing and claims no cleanup.
+    const listing = () => fs.readdirSync(runsDir).sort().map((d) => [d, fs.readdirSync(path.join(runsDir, d)).sort()]);
+    const snapshot = listing();
+    const again = runDeploy(f, ["--recover"]);
+    expect(again.status).toBe(0);
+    expect(again.stdout).toContain("No incomplete cutover");
+    expect(again.stdout).not.toMatch(/Removed|Pruned/);
+    expect(listing()).toEqual(snapshot);
+  }, 2 * T);
+
+  it("cleanup: a verified rollback (--recover and in-process) removes src/ and temp DBs but keeps snapshot, prev/, prev-db/, rolled-back*/ and the journal; never pruned", () => {
+    const runsDir = path.join(f.stateDir, "runs");
+    const before = liveState(f);
+    inject(f, "start-before", "kill9-deployer");
+    expect(runDeploy(f, ["v1.1.0"]).signal).toBe("SIGKILL");
+    const runDir = runDirOf(f);
+    expect(fs.existsSync(path.join(runDir, "src"))).toBe(true);
+    fs.writeFileSync(path.join(runDir, "smoke-live.db"), "temp");
+
+    const rec = runDeploy(f, ["--recover"]);
+    expect(rec.status, rec.stdout + rec.stderr).toBe(0);
+    expect(rec.stdout + rec.stderr).toContain("ROLLED BACK");
+    expect(rec.stderr).not.toContain("⚠️");
+    expectUntouched(f, before);
+    const evidence = [...RUN_EVIDENCE, "journal.rolled-back", "rolled-back/.next-prod", "rolled-back-db/bokli.db"];
+    for (const e of evidence) expect(fs.existsSync(path.join(runDir, e)), e).toBe(true);
+    expect(fs.existsSync(path.join(runDir, "src"))).toBe(false);
+    expect(fs.existsSync(path.join(runDir, "smoke-live.db"))).toBe(false);
+
+    // In-process rollback (the new release's ExecStartPre fails) cleans up the same way.
+    inject(f, "start-before", "fail");
+    const res = runDeploy(f, ["v1.1.0"]);
+    expect(res.status, res.stderr).toBe(2);
+    expect(res.stderr).toContain("ROLLED BACK");
+    expectUntouched(f, before);
+    const second = fs.readdirSync(runsDir).map((d) => path.join(runsDir, d)).find((d) => d !== runDir);
+    for (const e of evidence) expect(fs.existsSync(path.join(second, e)), e).toBe(true);
+    expect(fs.existsSync(path.join(second, "src"))).toBe(false);
+
+    // Three successful deploys later, both rolled-back runs (and their snapshots) are still there.
+    for (const tag of ["v1.1.0", "v1.1.1", "v1.1.2"]) {
+      if (tag !== "v1.1.0") release(f, tag);
+      expect(runDeploy(f, [tag]).status, tag).toBe(0);
+    }
+    for (const d of [runDir, second]) expect(fs.existsSync(path.join(d, "snapshot.db")), d).toBe(true);
+  }, 5 * T);
+
+  it("cleanup: a manual-recovery outcome keeps src/, the snapshot and the journal, also after --recover and after the journal is archived by hand", () => {
+    release(f, "v1.1.1-writes", { writeOnStart: true, failOnDbName: "bokli.db" });
+    const res = runDeploy(f, ["v1.1.1-writes"], { env: { BOKLI_DEPLOY_HEALTH_TIMEOUT_SECS: "3" } });
+    expect(res.status).toBe(3);
+    const runDir = runDirOf(f);
+    const kept = () => {
+      for (const e of [...RUN_EVIDENCE, "src"]) expect(fs.existsSync(path.join(runDir, e)), e).toBe(true);
+    };
+    kept();
+    const rec = runDeploy(f, ["--recover"]);
+    expect(rec.status).toBe(3);
+    expect(rec.stdout).not.toMatch(/Removed/);
+    expect(fs.existsSync(f.journal)).toBe(true);
+    kept();
+    // Katte resolves it by hand and archives the journal: --recover then touches nothing.
+    fs.renameSync(f.journal, path.join(runDir, "journal.manual"));
+    const after = runDeploy(f, ["--recover"]);
+    expect(after.status).toBe(0);
+    expect(after.stdout).toContain("No incomplete cutover");
+    kept();
+  }, 2 * T);
+
+  it("cleanup: a failure to remove src/ is a warning, not a failed recovery; nothing else is removed", () => {
+    killAfterDone(f);
+    expect(runDeploy(f, ["v1.1.0"]).signal).toBe("SIGKILL");
+    const runDir = runDirOf(f);
+    const src = path.join(runDir, "src");
+    fs.chmodSync(src, 0o555); // its entries cannot be unlinked
+    let rec;
+    try {
+      rec = runDeploy(f, ["--recover"]);
+    } finally {
+      fs.chmodSync(src, 0o755);
+    }
+    expect(rec.status, rec.stdout + rec.stderr).toBe(0);
+    expect(rec.stdout).toContain("had completed (phase done)");
+    expect(rec.stderr).toMatch(/⚠️ .*could not remove.*src/i);
+    expect(rec.stderr).not.toMatch(/❌|MANUAL RECOVERY|failed/);
+    expect(rec.stdout).not.toMatch(/Removed/);
+    expect(fs.existsSync(src)).toBe(true);
+    expect(fs.existsSync(f.journal)).toBe(false);
+    for (const e of [...RUN_EVIDENCE, "journal.done"]) expect(fs.existsSync(path.join(runDir, e)), e).toBe(true);
+  }, 2 * T);
+
+  it("cleanup: never follows a journal's RUN_DIR outside <state>/runs/<id> (foreign dir, symlinked run dir, non-canonical path)", () => {
+    const stateDir = fs.realpathSync(path.dirname(f.live)) + "/.bokli-deploy-bokli";
+    const runsDir = path.join(stateDir, "runs");
+    fs.mkdirSync(runsDir, { recursive: true, mode: 0o700 });
+    const decoy = (name) => {
+      const d = path.join(f.root, name);
+      fs.mkdirSync(path.join(d, "src"), { recursive: true });
+      fs.writeFileSync(path.join(d, "src", "SENTINEL"), "keep");
+      fs.writeFileSync(path.join(d, "smoke-live.db"), "keep");
+      return d;
+    };
+    const real = path.join(runsDir, "20200101T000000Z-8");
+    fs.mkdirSync(path.join(real, "src"), { recursive: true });
+    fs.writeFileSync(path.join(real, "src", "SENTINEL"), "keep");
+    const linked = path.join(runsDir, "20200101T000000Z-9");
+    const linkTarget = decoy("decoy-linked");
+    fs.symlinkSync(linkTarget, linked);
+    const foreign = decoy("decoy-foreign");
+    const cases = [
+      [foreign, foreign],
+      [linked, linkTarget],
+      [path.join(runsDir, ".", "20200101T000000Z-8").replace("/runs/", "/runs/./"), real],
+    ];
+    for (const [runDirField, target] of cases) {
+      fs.writeFileSync(
+        path.join(stateDir, "ACTIVE_CUTOVER"),
+        `RUN_DIR=${runDirField}\nREPO_ROOT=${fs.realpathSync(f.live)}\nLIVE_DB=${fs.realpathSync(f.db)}\nTAG=v1.1.0\nPHASE=done\n`
+      );
+      const rec = runDeploy(f, ["--recover"]);
+      expect(rec.status, runDirField + rec.stdout + rec.stderr).toBe(0);
+      expect(rec.stdout).not.toMatch(/Removed|Pruned/);
+      expect(rec.stderr, runDirField).toContain("Not cleaning");
+      expect(fs.existsSync(path.join(target, "src", "SENTINEL")), runDirField).toBe(true);
+      if (target !== real) expect(fs.existsSync(path.join(target, "smoke-live.db")), runDirField).toBe(true);
+    }
+  }, 2 * T);
+
   it("--recover with no pending cutover is a no-op", () => {
     const before = liveState(f);
     const res = runDeploy(f, ["--recover"]);
