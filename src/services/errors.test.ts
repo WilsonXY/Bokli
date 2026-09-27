@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   ClosedMonthError,
+  ConflictError,
   ForbiddenError,
   FutureDateError,
   NotFoundError,
@@ -32,6 +33,7 @@ describe("error codes: code -> i18n key mapping record", () => {
     ["varianceNoteRequired", "varianceNoteRequired"],
     ["reopenReasonRequired", "reopenReasonRequired"],
     ["invalidAmount", "invalidAmount"],
+    ["sheetChanged", "sheetChangedError"],
     // No dedicated user-facing case: these fall back to the generic save error.
     ["notFound", "saveError"],
     ["futureDate", "saveError"],
@@ -94,6 +96,7 @@ describe("domain error classes carry a default code", () => {
     expect(new ValidationError("nope").code).toBe("saveError");
     expect(new NotFoundError("nope").code).toBe("notFound");
     expect(new ClosedMonthError("nope").code).toBe("monthClosed");
+    expect(new ConflictError("nope").code).toBe("sheetChanged");
     expect(new FutureDateError("nope").code).toBe("futureDate");
     expect(new ForbiddenError().code).toBe("forbidden");
   });
@@ -109,6 +112,7 @@ describe("handleError response bodies carry status + code", () => {
   const cases: Array<[string, Error, number, ApiErrorCode]> = [
     ["ForbiddenError", new ForbiddenError(), 403, "forbidden"],
     ["ClosedMonthError", new ClosedMonthError("closed"), 409, "monthClosed"],
+    ["ConflictError", new ConflictError("changed"), 409, "sheetChanged"],
     ["ValidationError", new ValidationError("bad"), 400, "saveError"],
     ["FutureDateError", new FutureDateError("future"), 400, "futureDate"],
     ["NotFoundError", new NotFoundError("missing"), 404, "notFound"],

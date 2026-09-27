@@ -31,8 +31,9 @@ export interface DailySheetFormProps {
   initialCostLines: CostLineItem[];
   isClosed: boolean;
   todayKl: string;
-  // Whether a Daily Sheet is saved for `date` (gates the delete-sheet button)
-  hasSavedSheet?: boolean;
+  // The saved Daily Sheet for `date`, or null if none (gates the delete-sheet
+  // button; the delete sends it so the server can refuse if it changed since)
+  savedSheet?: { id: number; updatedAt: string } | null;
   initialCashInput?: string;
   initialTngInput?: string;
   initialNoteErrorIndex?: number | null;
@@ -407,7 +408,7 @@ export function DailySheetForm({
   initialCostLines,
   isClosed,
   todayKl,
-  hasSavedSheet = false,
+  savedSheet: initialSavedSheet = null,
   initialCashInput,
   initialTngInput,
   initialNoteErrorIndex = null,
@@ -451,10 +452,79 @@ export function DailySheetForm({
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
   const [showDeleteSheetModal, setShowDeleteSheetModal] = useState(false);
   const [deletingSheet, setDeletingSheet] = useState(false);
-  const [sheetExists, setSheetExists] = useState(hasSavedSheet);
+  const [savedSheet, setSavedSheet] = useState(initialSavedSheet);
+  const savedSheetId = initialSavedSheet?.id ?? null;
+  const savedSheetUpdatedAt = initialSavedSheet?.updatedAt ?? null;
   useEffect(() => {
-    setSheetExists(hasSavedSheet);
-  }, [hasSavedSheet]);
+    setSavedSheet(
+      savedSheetId !== null && savedSheetUpdatedAt !== null
+        ? { id: savedSheetId, updatedAt: savedSheetUpdatedAt }
+        : null,
+    );
+    // Nothing left to delete (e.g. removed elsewhere): drop a stale modal
+    if (savedSheetId === null) setShowDeleteSheetModal(false);
+  }, [savedSheetId, savedSheetUpdatedAt]);
+  const sheetExists = savedSheet !== null;
+  const deleteSheetBtnRef = useRef<HTMLButtonElement>(null);
+  const deleteSheetModalRef = useRef<HTMLDivElement>(null);
+
+  // One in-flight mutation at a time: a save may not start while a delete is
+  // pending (it would recreate the day being deleted), nor a delete during a
+  // save. A ref, not state, so a second call in the same tick is also refused.
+  const mutationInFlightRef = useRef<"save" | "delete" | null>(null);
+
+  // The delete-sheet modal is truly modal: everything outside it is inert, Tab
+  // and Shift+Tab cycle between its buttons, and focus returns to the
+  // delete-sheet button when it closes.
+  useEffect(() => {
+    if (!showDeleteSheetModal) return;
+    const modal = deleteSheetModalRef.current;
+    if (!modal) return;
+
+    // Inert every sibling on the path from the modal up to <body>: the form,
+    // the sticky bar and the app's nav all leave the focus and click order.
+    const inerted: HTMLElement[] = [];
+    for (let node: HTMLElement | null = modal; node && node !== document.body; node = node.parentElement) {
+      for (const sibling of Array.from(node.parentElement?.children ?? [])) {
+        if (sibling !== node && sibling instanceof HTMLElement && !sibling.inert) {
+          sibling.inert = true;
+          inerted.push(sibling);
+        }
+      }
+    }
+
+    const focusableInModal = () =>
+      Array.from(modal.querySelectorAll<HTMLElement>("button:not(:disabled)"));
+    if (!modal.contains(document.activeElement)) focusableInModal()[0]?.focus();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const focusable = focusableInModal();
+      if (focusable.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      const outside = !modal.contains(active);
+      if (e.shiftKey && (active === first || outside)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || outside)) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+
+    const returnFocusTo = deleteSheetBtnRef.current;
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      for (const el of inerted) el.inert = false;
+      returnFocusTo?.focus();
+    };
+  }, [showDeleteSheetModal]);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(() => {
     if (initialExpandedIndex !== undefined) {
       return initialExpandedIndex;
@@ -741,7 +811,7 @@ export function DailySheetForm({
 
   // Save full sheet
   async function handleSave() {
-    if (saving) return;
+    if (saving || mutationInFlightRef.current !== null) return;
     if (isClosed) return;
     if (hasParseError || cashSen === null || tngSen === null) {
       setErrorMessage(t.invalidAmount);
@@ -775,6 +845,7 @@ export function DailySheetForm({
 
     // Open the touched-fields window for the duration of the flight.
     touchedDuringSaveRef.current = new Set<DraftField>();
+    mutationInFlightRef.current = "save";
     setSaving(true);
     const savedDate = date;
     let navigatedAway = false;
@@ -845,7 +916,9 @@ export function DailySheetForm({
       }
 
       if (!navigatedAway) {
-        setSheetExists(true);
+        if (data.sheet) {
+          setSavedSheet({ id: data.sheet.id, updatedAt: data.sheet.updatedAt });
+        }
         showSuccessMessage(t.saveSuccess);
       }
       startTransition(() => {
@@ -855,19 +928,31 @@ export function DailySheetForm({
       setErrorMessage(translateApiError({ error: err.message, code: err.code }, t));
     } finally {
       touchedDuringSaveRef.current = null;
+      mutationInFlightRef.current = null;
       setSaving(false);
     }
   }
 
   // Delete the whole Daily Sheet for this date, then reset to a clean empty day
   async function handleDeleteSheet() {
-    if (deletingSheet || saving || isClosed) return;
+    if (deletingSheet || isClosed || !savedSheet) return;
+    if (mutationInFlightRef.current !== null) return;
+    mutationInFlightRef.current = "delete";
     setDeletingSheet(true);
     setErrorMessage(null);
     dismissSuccessMessage();
+    const savedDate = date;
+    let navigatedAway = false;
 
     try {
-      const res = await fetch(`/api/sheets?date=${encodeURIComponent(date)}`, {
+      // The confirmed record's identity: the server refuses (409 sheetChanged)
+      // if the stored sheet was changed or replaced since this snapshot loaded.
+      const params = new URLSearchParams({
+        date,
+        id: String(savedSheet.id),
+        updatedAt: savedSheet.updatedAt,
+      });
+      const res = await fetch(`/api/sheets?${params.toString()}`, {
         method: "DELETE",
       });
       const data = await res.json().catch(() => ({}));
@@ -875,23 +960,38 @@ export function DailySheetForm({
         throw Object.assign(new Error(data.error ?? ""), { code: data.code });
       }
 
-      draftEverTouchedRef.current = false;
-      setCashInput("");
-      setTngInput("");
-      setCostLines([]);
-      setBaseline({ cashInput: "", tngInput: "", costLines: [] });
-      setExpandedIndex(null);
-      setNoteErrorIndex(null);
-      setCostAmountErrorIndex(null);
-      setSheetExists(false);
-      showSuccessMessage(t.deleteSheetSuccess);
+      // Cross-date guard, same as handleSave: if she navigated to another date
+      // while the delete was in flight, the form already holds the new date.
+      const navigatedAwayNow = prevDateRef.current !== savedDate;
+      navigatedAway = navigatedAwayNow;
+
+      if (!navigatedAway) {
+        draftEverTouchedRef.current = false;
+        setCashInput("");
+        setTngInput("");
+        setCostLines([]);
+        setBaseline({ cashInput: "", tngInput: "", costLines: [] });
+        setExpandedIndex(null);
+        setNoteErrorIndex(null);
+        setCostAmountErrorIndex(null);
+        setSavedSheet(null);
+        showSuccessMessage(t.deleteSheetSuccess);
+      }
+      setShowDeleteSheetModal(false);
       startTransition(() => {
         router.refresh();
       });
     } catch (err: any) {
+      // Failure keeps the modal open with the error shown, so she can retry or
+      // cancel. On a conflict, reload so the modal shows the current figures.
       setErrorMessage(translateApiError({ error: err.message, code: err.code }, t));
+      if (err.code === "sheetChanged") {
+        startTransition(() => {
+          router.refresh();
+        });
+      }
     } finally {
-      setShowDeleteSheetModal(false);
+      mutationInFlightRef.current = null;
       setDeletingSheet(false);
     }
   }
@@ -1486,9 +1586,13 @@ export function DailySheetForm({
       {sheetExists && (
         <div className="pt-6 pb-4">
           <button
+            ref={deleteSheetBtnRef}
             type="button"
-            disabled={isClosed || saving}
-            onClick={() => setShowDeleteSheetModal(true)}
+            disabled={isClosed || saving || deletingSheet}
+            onClick={() => {
+              setErrorMessage(null);
+              setShowDeleteSheetModal(true);
+            }}
             className="w-full h-12 rounded-xl border-2 border-finance-loss bg-white hover:bg-finance-loss-light btn-wave text-finance-loss font-semibold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
           >
             <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -1502,6 +1606,7 @@ export function DailySheetForm({
       {/* Delete Daily Sheet Confirmation Modal */}
       {showDeleteSheetModal && (
         <div
+          ref={deleteSheetModalRef}
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-delete-sheet-title"
@@ -1535,18 +1640,25 @@ export function DailySheetForm({
                 <span className="font-bold text-ink-primary tabular-nums">{date}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-ink-secondary font-medium">{t.totalRevenue}</span>
+                <span className="text-ink-secondary font-medium">{t.savedTotalRevenue}</span>
                 <span className="font-bold text-ink-primary tabular-nums">
                   {formatMyr(savedRevenueSen)}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-ink-secondary font-medium">{t.totalCosts}</span>
+                <span className="text-ink-secondary font-medium">{t.savedTotalCosts}</span>
                 <span className="font-bold text-finance-loss tabular-nums">
                   {formatMyr(savedCostSen)}
                 </span>
               </div>
             </div>
+
+            {/* The page's error banner sits behind the modal: repeat it here */}
+            {errorMessage && (
+              <p role="alert" className="text-sm font-semibold text-finance-loss text-center">
+                {errorMessage}
+              </p>
+            )}
 
             {/* Modal Actions */}
             <div className="flex items-center gap-2.5 pt-1">

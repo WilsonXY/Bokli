@@ -56,7 +56,11 @@ export default async function HomePage(props: PageProps) {
           }
           isClosed={isClosed}
           todayKl={todayKl}
-          hasSavedSheet={sheetData !== null}
+          savedSheet={
+            sheetData
+              ? { id: sheetData.sheet.id, updatedAt: sheetData.sheet.updatedAt }
+              : null
+          }
         />
       </div>
     );

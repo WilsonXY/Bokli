@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { and, eq } from "drizzle-orm";
 
-import { openDb, type Db } from "@/db";
+import { getDb, openDb, type Db } from "@/db";
 import { runMigrations } from "@/db/migrate";
 import {
   dailySheets,
@@ -28,6 +28,7 @@ import {
 } from "./daily-sheet";
 import {
   ClosedMonthError,
+  ConflictError,
   FutureDateError,
   NotFoundError,
   ValidationError,
@@ -1644,8 +1645,23 @@ describe("11. deleteSheet() and DELETE /api/sheets", () => {
     return req;
   }
 
-  it("foreign keys are enforced on the app DB connection (cascade precondition)", () => {
-    expect(sqlite.pragma("foreign_keys", { simple: true })).toBe(1);
+  // The stored sheet's current identity, as the client would send it
+  function identityOf(sheetId: number) {
+    const row = db.select().from(dailySheets).where(eq(dailySheets.id, sheetId)).get()!;
+    return { id: row.id, updatedAt: row.updatedAt };
+  }
+
+  function deleteUrl(date: string, expected: { id: number; updatedAt: string }) {
+    const params = new URLSearchParams({
+      date,
+      id: String(expected.id),
+      updatedAt: expected.updatedAt,
+    });
+    return `http://localhost:3000/api/sheets?${params.toString()}`;
+  }
+
+  it("foreign keys are enforced on the getDb() connection the route uses (cascade precondition)", () => {
+    expect(getDb().sqlite.pragma("foreign_keys", { simple: true })).toBe(1);
   });
 
   it("removes the Daily Sheet and its Cost Lines (FK cascade fires)", () => {
@@ -1654,7 +1670,8 @@ describe("11. deleteSheet() and DELETE /api/sheets", () => {
     addCostLine(sheet.id, 1500, "restock", null, { db });
     addCostLine(sheet.id, 500, "gas", null, { db });
 
-    const result = deleteSheet(sheet.id, { db });
+    // Succeeds when the expected id + updatedAt match the stored sheet
+    const result = deleteSheet(sheet.id, identityOf(sheet.id), { db });
     expect(result.success).toBe(true);
     expect(result.deletedSheet.id).toBe(sheet.id);
     expect(result.deletedSheet.date).toBe("2026-09-13");
@@ -1669,7 +1686,36 @@ describe("11. deleteSheet() and DELETE /api/sheets", () => {
   });
 
   it("throws NotFoundError for a missing sheet id", () => {
-    expect(() => deleteSheet(999999, { db })).toThrow(NotFoundError);
+    expect(() =>
+      deleteSheet(999999, { id: 999999, updatedAt: "2026-09-01T00:00:00.000Z" }, { db }),
+    ).toThrow(NotFoundError);
+  });
+
+  it("throws ConflictError when the sheet changed since the expected snapshot, deleting nothing", () => {
+    const sheet = getOrCreateSheet("2026-09-16", { db });
+    addCostLine(sheet.id, 700, "gas", null, { db });
+    const stale = identityOf(sheet.id);
+
+    // Another device saves the day after the Operator's snapshot loaded
+    setRevenue(sheet.id, 9900, 0, { db });
+    expect(identityOf(sheet.id).updatedAt).not.toBe(stale.updatedAt);
+
+    expect(() => deleteSheet(sheet.id, stale, { db })).toThrow(ConflictError);
+    // A matching updatedAt on a different id is a conflict too
+    expect(() =>
+      deleteSheet(sheet.id, { ...identityOf(sheet.id), id: sheet.id + 1000 }, { db }),
+    ).toThrow(ConflictError);
+
+    expect(
+      db.select().from(dailySheets).where(eq(dailySheets.id, sheet.id)).get(),
+    ).toBeDefined();
+    expect(
+      db.select().from(costLines).where(eq(costLines.dailySheetId, sheet.id)).all(),
+    ).toHaveLength(1);
+
+    // With the current identity the same delete goes through
+    expect(deleteSheet(sheet.id, identityOf(sheet.id), { db }).success).toBe(true);
+    expect(getSheetWithCosts("2026-09-16", { db })).toBeNull();
   });
 
   it("throws ClosedMonthError in a closed Month and leaves the sheet and its Cost Lines intact", () => {
@@ -1694,7 +1740,9 @@ describe("11. deleteSheet() and DELETE /api/sheets", () => {
       })
       .run();
 
-    expect(() => deleteSheet(sheet.id, { db })).toThrow(ClosedMonthError);
+    expect(() => deleteSheet(sheet.id, identityOf(sheet.id), { db })).toThrow(
+      ClosedMonthError,
+    );
 
     expect(
       db.select().from(dailySheets).where(eq(dailySheets.id, sheet.id)).get(),
@@ -1713,12 +1761,12 @@ describe("11. deleteSheet() and DELETE /api/sheets", () => {
     expect(res.status).toBe(401);
   });
 
-  it("DELETE /api/sheets deletes by date and echoes { deleted, date }", async () => {
+  it("DELETE /api/sheets deletes by date and returns the deleted row's date", async () => {
     const sheet = getOrCreateSheet("2026-09-14", { db });
     addCostLine(sheet.id, 1200, "transport", null, { db });
 
     const res = await sheetsDelete(
-      makeAuthReq("http://localhost:3000/api/sheets?date=2026-09-14", {
+      makeAuthReq(deleteUrl("2026-09-14", identityOf(sheet.id)), {
         method: "DELETE",
       }),
     );
@@ -1738,9 +1786,10 @@ describe("11. deleteSheet() and DELETE /api/sheets", () => {
     expect((await missing.json()).code).toBe("saveError");
 
     const bad = await sheetsDelete(
-      makeAuthReq("http://localhost:3000/api/sheets?date=2026-13-40", {
-        method: "DELETE",
-      }),
+      makeAuthReq(
+        deleteUrl("2026-13-40", { id: 1, updatedAt: "2026-09-01T00:00:00.000Z" }),
+        { method: "DELETE" },
+      ),
     );
     expect(bad.status).toBe(400);
     const badBody = await bad.json();
@@ -1748,19 +1797,58 @@ describe("11. deleteSheet() and DELETE /api/sheets", () => {
     expect(badBody.error).toMatch(/Invalid date format/);
   });
 
-  it("DELETE /api/sheets returns 404 when no sheet exists for the date", async () => {
-    const res = await sheetsDelete(
-      makeAuthReq("http://localhost:3000/api/sheets?date=2026-09-15", {
+  it("DELETE /api/sheets returns 400 when the expected id or updatedAt is missing", async () => {
+    const sheet = getOrCreateSheet("2026-09-17", { db });
+
+    const noId = await sheetsDelete(
+      makeAuthReq(
+        `http://localhost:3000/api/sheets?date=2026-09-17&updatedAt=${encodeURIComponent(identityOf(sheet.id).updatedAt)}`,
+        { method: "DELETE" },
+      ),
+    );
+    expect(noId.status).toBe(400);
+    expect((await noId.json()).code).toBe("saveError");
+
+    const noUpdatedAt = await sheetsDelete(
+      makeAuthReq(`http://localhost:3000/api/sheets?date=2026-09-17&id=${sheet.id}`, {
         method: "DELETE",
       }),
+    );
+    expect(noUpdatedAt.status).toBe(400);
+    expect((await noUpdatedAt.json()).code).toBe("saveError");
+
+    expect(getSheetWithCosts("2026-09-17", { db })).not.toBeNull();
+  });
+
+  it("DELETE /api/sheets returns 409 sheetChanged when the sheet changed since it was confirmed", async () => {
+    const sheet = getOrCreateSheet("2026-09-18", { db });
+    addCostLine(sheet.id, 400, "restock", null, { db });
+    const stale = identityOf(sheet.id);
+    setRevenue(sheet.id, 1234, 0, { db });
+
+    const res = await sheetsDelete(
+      makeAuthReq(deleteUrl("2026-09-18", stale), { method: "DELETE" }),
+    );
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("sheetChanged");
+    expect(getSheetWithCosts("2026-09-18", { db })?.costLines).toHaveLength(1);
+  });
+
+  it("DELETE /api/sheets returns 404 when no sheet exists for the date", async () => {
+    const res = await sheetsDelete(
+      makeAuthReq(
+        deleteUrl("2026-09-15", { id: 1, updatedAt: "2026-09-01T00:00:00.000Z" }),
+        { method: "DELETE" },
+      ),
     );
     expect(res.status).toBe(404);
     expect((await res.json()).code).toBe("notFound");
   });
 
   it("DELETE /api/sheets returns 409 monthClosed in a closed Month", async () => {
+    const closedSheet = getSheetWithCosts("2026-06-10", { db })!.sheet;
     const res = await sheetsDelete(
-      makeAuthReq("http://localhost:3000/api/sheets?date=2026-06-10", {
+      makeAuthReq(deleteUrl("2026-06-10", identityOf(closedSheet.id)), {
         method: "DELETE",
       }),
     );

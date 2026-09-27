@@ -3,7 +3,7 @@ import { withAuth } from "@/auth/guard";
 import { getDb } from "@/db";
 import * as dailySheetService from "@/services/daily-sheet";
 import { handleError, NotFoundError } from "@/services/errors";
-import { parseJsonBody } from "@/lib/parse";
+import { parseJsonBody, parsePositiveId } from "@/lib/parse";
 
 function formatSheetResponse(
   result: NonNullable<ReturnType<typeof dailySheetService.getSheetWithCosts>>,
@@ -102,12 +102,19 @@ export const POST = withAuth(async (req: NextRequest) => {
 });
 
 /**
- * DELETE /api/sheets?date=YYYY-MM-DD
+ * DELETE /api/sheets?date=YYYY-MM-DD&id=<sheet id>&updatedAt=<sheet updatedAt>
  * Delete the Daily Sheet for a date, together with its Cost Lines.
+ *
+ * `id` and `updatedAt` are the saved sheet the Operator confirmed in the modal.
+ * They travel as query params alongside `date` (like DELETE /api/expenses?id=),
+ * so the whole target is in the URL and the request has no body. If the stored
+ * sheet no longer matches them the delete is refused with 409 `sheetChanged`.
+ * Responds with the deleted row's own `date`.
  */
 export const DELETE = withAuth(async (req: NextRequest) => {
   try {
-    const date = new URL(req.url).searchParams.get("date");
+    const { searchParams } = new URL(req.url);
+    const date = searchParams.get("date");
     if (!date) {
       return NextResponse.json(
         {
@@ -118,15 +125,38 @@ export const DELETE = withAuth(async (req: NextRequest) => {
       );
     }
 
-    // Throws ValidationError (400) on a malformed date
+    const expectedId = parsePositiveId(searchParams.get("id"), "'id'");
+    if (!expectedId.ok) {
+      return NextResponse.json(
+        { error: expectedId.error, code: expectedId.code },
+        { status: 400 },
+      );
+    }
+
+    const expectedUpdatedAt = searchParams.get("updatedAt");
+    if (!expectedUpdatedAt) {
+      return NextResponse.json(
+        { error: "Query parameter 'updatedAt' is required", code: "saveError" },
+        { status: 400 },
+      );
+    }
+
+    // Pre-lookup is only for date validation (400) and the 404; the authoritative
+    // guards (Month Close + the id/updatedAt conflict check) run inside deleteSheet.
     const sheet = dailySheetService.getSheetByDate(date);
     if (!sheet) {
       throw new NotFoundError(`Daily Sheet for date "${date}" not found`);
     }
 
-    dailySheetService.deleteSheet(sheet.id);
+    const { deletedSheet } = dailySheetService.deleteSheet(sheet.id, {
+      id: expectedId.id,
+      updatedAt: expectedUpdatedAt,
+    });
 
-    return NextResponse.json({ deleted: true, date }, { status: 200 });
+    return NextResponse.json(
+      { deleted: true, date: deletedSheet.date },
+      { status: 200 },
+    );
   } catch (err) {
     return handleError(err);
   }

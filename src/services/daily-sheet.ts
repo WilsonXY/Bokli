@@ -23,6 +23,7 @@ import {
 } from "@/lib/vocab";
 import {
   ClosedMonthError,
+  ConflictError,
   FutureDateError,
   NotFoundError,
   ValidationError,
@@ -626,18 +627,28 @@ export function removeCostLine(
 /**
  * Delete a whole Daily Sheet (e.g. one recorded on the wrong date).
  * - Month must not be closed
+ * - `expected` is the sheet identity (id + updatedAt) the Operator confirmed;
+ *   if the stored row no longer matches it, throws ConflictError and deletes
+ *   nothing (optimistic concurrency, checked inside the transaction)
  * - Its Cost Lines are removed by the cost_lines.daily_sheet_id ON DELETE CASCADE FK
  *   (openDb enables PRAGMA foreign_keys)
  * - Returns the deleted sheet row
  */
 export function deleteSheet(
   sheetId: number,
+  expected: { id: number; updatedAt: string },
   options?: { db?: DbLike },
 ): { success: boolean; deletedSheet: DailySheet } {
   const db = options?.db ?? getDb().db;
 
   return db.transaction((tx) => {
     const sheet = getEditableSheet(sheetId, tx);
+
+    if (sheet.id !== expected.id || sheet.updatedAt !== expected.updatedAt) {
+      throw new ConflictError(
+        `Daily Sheet for date "${sheet.date}" changed since it was loaded`,
+      );
+    }
 
     tx.delete(dailySheets).where(eq(dailySheets.id, sheetId)).run();
 

@@ -1322,6 +1322,7 @@ describe("Delete Daily Sheet button and sticky summary bar", () => {
     isClosed: false,
     todayKl: "2026-05-15",
   };
+  const SAVED = { id: 1, updatedAt: "2026-05-15T10:00:00.000Z" };
 
   function render(props: Partial<React.ComponentProps<typeof DailySheetForm>>) {
     return ReactDOMServer.renderToStaticMarkup(
@@ -1338,12 +1339,12 @@ describe("Delete Daily Sheet button and sticky summary bar", () => {
   }
 
   it("is hidden when no saved Daily Sheet exists for the date", () => {
-    expect(deleteSheetButton(render({ hasSavedSheet: false }))).toBeNull();
+    expect(deleteSheetButton(render({ savedSheet: null }))).toBeNull();
     expect(deleteSheetButton(render({}))).toBeNull();
   });
 
   it("is shown, enabled, and red-outlined (not filled) when a saved Daily Sheet exists", () => {
-    const btn = deleteSheetButton(render({ hasSavedSheet: true }));
+    const btn = deleteSheetButton(render({ savedSheet: SAVED }));
     expect(btn).not.toBeNull();
     expect(btn).not.toContain('disabled=""');
     expect(btn).toContain("border-finance-loss");
@@ -1352,19 +1353,19 @@ describe("Delete Daily Sheet button and sticky summary bar", () => {
   });
 
   it("is shown for a saved sheet with zero Cost Lines (short day)", () => {
-    const html = render({ hasSavedSheet: true, initialCashSen: 0, initialTngSen: 0 });
+    const html = render({ savedSheet: SAVED, initialCashSen: 0, initialTngSen: 0 });
     expect(deleteSheetButton(html)).not.toBeNull();
   });
 
   it("is disabled when the Month is closed", () => {
-    const btn = deleteSheetButton(render({ hasSavedSheet: true, isClosed: true }));
+    const btn = deleteSheetButton(render({ savedSheet: SAVED, isClosed: true }));
     expect(btn).not.toBeNull();
     expect(btn).toMatch(/disabled=""/);
   });
 
   it("comes after the sticky summary bar in the DOM, with its own bottom spacing", () => {
     const html = render({
-      hasSavedSheet: true,
+      savedSheet: SAVED,
       initialCostLines: [
         { id: 1, category: "restock", amountSen: 1000 },
         { id: 2, category: "gas", amountSen: 500 },
@@ -1379,8 +1380,8 @@ describe("Delete Daily Sheet button and sticky summary bar", () => {
   });
 
   it("summary bar keeps its sticky positioning class (not fixed)", () => {
-    for (const hasSavedSheet of [false, true]) {
-      const html = render({ hasSavedSheet });
+    for (const savedSheet of [null, SAVED]) {
+      const html = render({ savedSheet });
       expect(html).toContain('class="sticky bottom-16 z-30 space-y-2"');
     }
   });
@@ -1393,6 +1394,9 @@ describe("Delete Daily Sheet button and sticky summary bar", () => {
       expect(d.confirmDeleteSheetDesc).toBeTruthy();
       expect(d.sheetDate).toBeTruthy();
       expect(d.deleteSheetSuccess).toBeTruthy();
+      expect(d.savedTotalRevenue).toBeTruthy();
+      expect(d.savedTotalCosts).toBeTruthy();
+      expect(d.sheetChangedError).toBeTruthy();
     }
   });
 });
