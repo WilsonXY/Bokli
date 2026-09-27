@@ -408,7 +408,14 @@ exec "$REAL" "$@"
   it("checkout durability: an fsync(2) error on a checked-out tracked file rolls back before the new service starts", () => {
     expect(spawnSync("strace", ["-V"]).status, "strace is required for fsync fault injection").toBe(0);
     const target = path.join(fs.realpathSync(f.live), "release.json");
-    useNodeWrapper(f, `  ${INJECT_EIO}\n  inject_eio "${target}" "$@"`);
+    // One-shot (the cutover's fsync of the checked-out files): the rollback's own fsync of
+    // the restored file must succeed.
+    useNodeWrapper(
+      f,
+      `  ${INJECT_EIO}
+  if [ -f "$SD/inject.checkout-fsync" ] && [ "\${3:-}" = under ]; then rm -f "$SD/inject.checkout-fsync"; inject_eio "${target}" "$@"; fi`
+    );
+    fs.writeFileSync(path.join(f.sd, "inject.checkout-fsync"), "");
     const before = liveState(f);
     const res = runDeploy(f, ["v1.1.0"]);
     expect(res.status, res.stderr).toBe(2);
@@ -418,6 +425,75 @@ exec "$REAL" "$@"
     expectUntouched(f, before);
     // Never started the new release: stop for cutover, (idempotent) stop in rollback, start of the old one.
     expect(calls(f).filter((c) => /^(stop|start|restart)/.test(c))).toEqual(["start bokli", "stop bokli", "stop bokli", "start bokli"]);
+  }, 2 * T);
+
+  // Rollbacks below: the new release's ExecStartPre fails (it never ran), so the deploy rolls
+  // back. The 2nd `stop bokli` is the rollback's; the old release is then started once more.
+  it("rollback durability: the restored checkout (tracked files, HEAD, index) is fsync'd before the old service starts", () => {
+    expect(spawnSync("strace", ["-V"]).status, "strace is required").toBe(0);
+    useNodeWrapper(
+      f,
+      `  n=$(grep -cE '^(stop|start) bokli' "$SD/calls.log")
+  strace -f -qq -y -o "$SD/trace.$$" --seccomp-bpf -e trace=fsync -- "$REAL" "$@"; rc=$?
+  sed "s|^|$n |" "$SD/trace.$$" >>"$SD/fsync.log"; rm -f "$SD/trace.$$"
+  exit $rc`
+    );
+    inject(f, "start-before", "fail");
+    const before = liveState(f);
+    const res = runDeploy(f, ["v1.1.0"]);
+    expect(res.status, res.stderr).toBe(2);
+    expect(res.stderr).toContain("ROLLED BACK");
+    expectUntouched(f, before);
+    expect(calls(f).filter((c) => /^(stop|start) bokli/.test(c))).toEqual([
+      "start bokli", "stop bokli", "start bokli", "stop bokli", "start bokli",
+    ]);
+    // n=4: after the rollback's stop, before the old release's start.
+    const done = fs
+      .readFileSync(path.join(f.sd, "fsync.log"), "utf-8")
+      .split("\n")
+      .map((l) => l.match(/^(\d+) \d+ +fsync\(\d+<(.*)>\) += 0$/))
+      .filter(Boolean)
+      .map((m) => [m[1], m[2]]);
+    const live = fs.realpathSync(f.live);
+    for (const p of [
+      `${live}/release.json`,
+      `${live}/drizzle`, // 0001_unique_notes.sql removed again
+      `${live}/.git/HEAD`,
+      `${live}/.git/index`,
+      `${live}/.git`,
+      live,
+    ]) {
+      expect(done.some(([k, q]) => k === "4" && q === p), p).toBe(true);
+    }
+  }, 2 * T);
+
+  it("rollback durability: an fsync(2) error on a restored tracked file → exit 3 manual recovery, journal and DB kept, old service not started", () => {
+    expect(spawnSync("strace", ["-V"]).status, "strace is required for fsync fault injection").toBe(0);
+    const target = path.join(fs.realpathSync(f.live), "release.json");
+    // Only once the rollback has stopped the service (the cutover's own fsync of it succeeds).
+    useNodeWrapper(
+      f,
+      `  ${INJECT_EIO}
+  if [ -f "$SD/inject.rollback-fsync" ] && [ "$(grep -c '^stop bokli' "$SD/calls.log")" -ge 2 ]; then inject_eio "${target}" "$@"; fi`
+    );
+    fs.writeFileSync(path.join(f.sd, "inject.rollback-fsync"), "");
+    inject(f, "start-before", "fail");
+    const before = liveState(f);
+    const res = runDeploy(f, ["v1.1.0"]);
+    expect(res.status, res.stderr).toBe(3);
+    expect(res.stderr).toContain(`fsync ${target}: EIO`);
+    expect(res.stderr).toContain("MANUAL RECOVERY REQUIRED");
+    expect(res.stderr).not.toContain("ROLLED BACK");
+    expect(fs.existsSync(f.journal)).toBe(true);
+    expect(dbDump(f.db)).toBe(before.db);
+    expect(calls(f).filter((c) => /^(stop|start) bokli/.test(c))).toEqual(["start bokli", "stop bokli", "start bokli", "stop bokli"]);
+
+    // Once the disk is healthy again, --recover finishes the rollback.
+    fs.rmSync(path.join(f.sd, "inject.rollback-fsync"));
+    const rec = runDeploy(f, ["--recover"]);
+    expect(rec.status, rec.stdout + rec.stderr).toBe(0);
+    expect(rec.stdout).toContain("Recovery complete");
+    expectUntouched(f, before);
   }, 2 * T);
 
   // Completion protocol faults, all after the new service started and wrote a row.
@@ -830,6 +906,35 @@ exec "${realCp}" "$@"
     expectUntouched(f, before);
     expect(fs.existsSync(f.stateDir)).toBe(false);
   }, T);
+
+  it("refuses `export KEY=` lines for BOKLI_DB_PATH or PORT in .env (systemd's EnvironmentFile does not accept them)", () => {
+    const before = liveState(f);
+    const envFile = path.join(f.live, ".env");
+    // A second, distinct existing DB. The unit's Environment= names f.db (A); systemd skips the
+    // `export` line as an invalid assignment, so the service keeps using A — never B.
+    const otherDb = path.join(f.root, "other", "bokli.db");
+    fs.mkdirSync(path.dirname(otherDb));
+    fs.copyFileSync(f.db, otherDb);
+    sqlite(otherDb, "INSERT INTO sheets (note) VALUES ('only-in-B');");
+    const otherBefore = dbDump(otherDb);
+
+    const cases = [
+      [`PORT=${f.port}\nexport BOKLI_DB_PATH=${otherDb}\n`, otherDb, "BOKLI_DB_PATH"],
+      [`PORT=${f.port}\n  export\tBOKLI_DB_PATH = ${otherDb}\n`, otherDb, "BOKLI_DB_PATH"],
+      [`PORT=${f.port}\nexport BOKLI_DB_PATH=${otherDb}\n`, f.db, "BOKLI_DB_PATH"],
+      [`export PORT=${f.port}\nBOKLI_DB_PATH=${f.db}\n`, f.db, "PORT"],
+    ];
+    for (const [content, callerDb, key] of cases) {
+      fs.writeFileSync(envFile, content);
+      const res = runDeploy(f, ["v1.1.0"], { env: { BOKLI_DB_PATH: callerDb } });
+      expect(res.status, `${content}: ${res.stderr}`).toBe(1);
+      expect(res.stderr, content).toContain(`\`export ${key}=\``);
+      expect(dbDump(otherDb)).toBe(otherBefore);
+    }
+    fs.writeFileSync(envFile, `PORT=${f.port}\nBOKLI_DB_PATH=${f.db}\n`);
+    expectUntouched(f, before);
+    expect(fs.existsSync(f.stateDir)).toBe(false);
+  }, 4 * T);
 
   it("refuses removed test/skip seams that could fake success", () => {
     const before = liveState(f);

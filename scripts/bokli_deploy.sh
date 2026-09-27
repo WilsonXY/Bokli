@@ -22,8 +22,8 @@
 #   - BOKLI_REPO_DIR must be the `bokli` user unit's WorkingDirectory, and the unit
 #     must run <repo>/scripts/verify_build_stamp.sh as ExecStartPre
 #   - BOKLI_DB_PATH must be the DB the unit actually uses (.env overrides unit env,
-#     even with an empty value, which is refused), both paths absolute, and must not
-#     be under data-dev/
+#     even with an empty value, which is refused; `export KEY=` lines, which systemd
+#     ignores, are refused too), both paths absolute, and must not be under data-dev/
 #   - single-deploy flock on <repo>/.deploy.lock; refuses if an earlier cutover
 #     journal is pending (run --recover)
 #   - fetches origin; tag must exist; tag commit must equal origin/main tip, or be
@@ -52,7 +52,8 @@
 #     INT/TERM/HUP): restore old checkout, build, node_modules and the original DB
 #     files, prove it (HEAD, stamp, DB content digest = snapshot; before the DB swap
 #     only integrity, so writes the unchanged old release made are kept), restart
-#     the old service; exit 2. If that cannot be proven: exit 3, journal kept.
+#     the old service (restored checkout fsync'd first); exit 2. If that cannot be
+#     proven or made durable: exit 3, journal kept.
 #   - once the service's main process may have run on the new DB: NEVER restore
 #     the DB automatically (it may hold new writes); exit 3 "MANUAL RECOVERY
 #     REQUIRED", journal kept, further deploys refused until resolved. This includes
@@ -113,13 +114,19 @@ fail() {
 
 svc_prop() { systemctl --user show "$SERVICE" --property="$1" --value; }
 
-# 0 if a dotenv file assigns KEY at all, even to an empty value.
-env_file_has() { grep -qE "^[[:space:]]*(export[[:space:]]+)?$1[[:space:]]*=" "$2"; }
+# systemd EnvironmentFile= syntax, not shell: an `export KEY=...` line is an invalid
+# assignment that systemd skips, so the service never sees that value.
 
-# Value of KEY in a dotenv file (only that line is read; nothing else is printed).
+# 0 if an EnvironmentFile assigns KEY at all, even to an empty value.
+env_file_has() { grep -qE "^[[:space:]]*$1[[:space:]]*=" "$2"; }
+
+# 0 if an EnvironmentFile has an `export KEY=` line.
+env_file_exports() { grep -qE "^[[:space:]]*export[[:space:]]+$1[[:space:]]*=" "$2"; }
+
+# Value of KEY in an EnvironmentFile (only that line is read; nothing else is printed).
 env_file_value() {
   local raw
-  raw=$(grep -E "^[[:space:]]*(export[[:space:]]+)?$1[[:space:]]*=" "$2" | tail -n 1 || true)
+  raw=$(grep -E "^[[:space:]]*$1[[:space:]]*=" "$2" | tail -n 1 || true)
   printf '%s' "$raw" | cut -d= -f2- |
     sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/"
 }
@@ -314,6 +321,18 @@ fsync_tree() { UV_THREADPOOL_SIZE=16 "$SERVICE_NODE" -e "$DURABLE_JS" tree "$@" 
 # new, changed and deleted entries are all on disk.
 fsync_under() { "$SERVICE_NODE" -e "$DURABLE_JS" under "$@" 9>&-; }
 
+# fsync(2) what `git checkout` between commits $1 and $2 may have written in the
+# production checkout: tracked files that differ (and their directories), HEAD, the
+# index and the git dir. git itself fsyncs none of the work tree.
+fsync_checkout() {
+  local gitdir paths=()
+  gitdir=$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-dir) || return 1
+  git -C "$REPO_ROOT" diff -z --name-only "$1" "$2" >"$RUN_DIR/changed-paths" || return 1
+  mapfile -d '' -t paths <"$RUN_DIR/changed-paths"
+  fsync_under "$REPO_ROOT" "${paths[@]}" &&
+    fsync_paths "$gitdir/HEAD" "$gitdir/index" "$gitdir" "$REPO_ROOT"
+}
+
 # fsync SRC, rename(2) it over DST, fsync DST's directory: DST is durable on return 0.
 durable_rename() { "$SERVICE_NODE" -e "$DURABLE_JS" rename "$1" "$2" 9>&-; }
 
@@ -493,7 +512,10 @@ rollback_all() {
   esac
   [ "$ok" = 0 ] || return 1
 
-  # The restored renames must be on disk before the old release may write again.
+  # The restored checkout and renames must be on disk before the old release may write
+  # again (and before the journal is archived). The checkout is flushed even if this run
+  # did not redo it: an earlier, interrupted rollback may have.
+  fsync_checkout "$OLD_HEAD" "$TAG_COMMIT" || { echo "   could not make the restored checkout durable" >&2; return 1; }
   local d dirs=()
   for d in "$(dirname "$LIVE_DB")" "$RUN_DIR/prev-db" "$RUN_DIR/rolled-back-db" "$REPO_ROOT" "$RUN_DIR/prev" "$RUN_DIR/rolled-back" "$RUN_DIR"; do
     [ ! -d "$d" ] || dirs+=("$d")
@@ -701,7 +723,7 @@ resolve_targets() {
 }
 
 check_service_identity() {
-  local load wd pre start envfiles envfile="" line unit_env eff_db eff_port
+  local load wd pre start envfiles envfile="" line unit_env eff_db eff_port key
   load=$(svc_prop LoadState 2>/dev/null || true)
   [ "$load" = "loaded" ] || refuse "systemd user unit '$SERVICE' is not loaded (LoadState=${load:-?})."
 
@@ -739,6 +761,12 @@ check_service_identity() {
   # An assignment there wins even when empty (the service then gets an empty value),
   # so an empty one is refused rather than falling back to Environment=.
   if [ -n "$envfile" ] && [ -f "$envfile" ]; then
+    # Fail closed: whoever wrote it expected the value to apply; systemd ignores it.
+    for key in BOKLI_DB_PATH PORT; do
+      ! env_file_exports "$key" "$envfile" ||
+        refuse "$envfile has an \`export $key=\` line, which systemd's EnvironmentFile= ignores;" \
+          "cannot prove which $key the $SERVICE service uses. Remove the 'export' (escalate if unsure)."
+    done
     if env_file_has BOKLI_DB_PATH "$envfile"; then
       eff_db=$(env_file_value BOKLI_DB_PATH "$envfile")
       [ -n "$eff_db" ] || refuse "$envfile sets BOKLI_DB_PATH to an empty value; the $SERVICE service would run without a database path."
@@ -980,13 +1008,7 @@ cutover() {
   swap_in node_modules || fail "could not switch node_modules."
   echo "==> Checking out $TAG..."
   git -C "$REPO_ROOT" checkout --quiet --detach "$TAG_COMMIT" || fail "git checkout $TAG failed."
-  # git does not fsync the work tree it writes (nor, by default, HEAD and the index).
-  local gitdir changed=()
-  gitdir=$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-dir) || fail "cannot resolve the git dir of $REPO_ROOT."
-  git -C "$REPO_ROOT" diff -z --name-only "$OLD_HEAD" "$TAG_COMMIT" >"$RUN_DIR/changed-paths" || fail "cannot list the files $TAG changed."
-  mapfile -d '' -t changed <"$RUN_DIR/changed-paths"
-  fsync_under "$REPO_ROOT" "${changed[@]}" || fail "could not make the code switch durable."
-  fsync_paths "$gitdir/HEAD" "$gitdir/index" "$gitdir" "$REPO_ROOT" "$RUN_DIR/prev" "$RUN_DIR/src" ||
+  { fsync_checkout "$OLD_HEAD" "$TAG_COMMIT" && fsync_paths "$RUN_DIR/prev" "$RUN_DIR/src"; } ||
     fail "could not make the code switch durable."
   journal_phase code-switched
 

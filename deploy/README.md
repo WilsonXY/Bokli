@@ -274,7 +274,9 @@ record visible without it being on disk. If recording completion fails, the depl
   uses (`.env` overrides the unit's `Environment=`); anything under `data-dev/` is refused. The
   unit's path must be absolute too: the app resolves a relative one from `.next-prod/standalone`,
   not from where the deploy runs. An empty `BOKLI_DB_PATH=` or `PORT=` line in `.env` is refused
-  (systemd passes the empty value; it does not fall back to `Environment=`).
+  (systemd passes the empty value; it does not fall back to `Environment=`). So is an
+  `export BOKLI_DB_PATH=` or `export PORT=` line: `.env` is read with systemd's `EnvironmentFile=`
+  syntax, not by a shell, and systemd skips such a line, so the service would not use that value.
 - `node` on `PATH` must be the same version as the unit's node (native modules).
 - Production checkout: clean tracked files (untracked files are fine), and the **current**
   build stamp must verify — that release is what a failed cutover rolls back to.
@@ -440,7 +442,9 @@ Each run directory holds DB copies (`snapshot.db`, `prev-db/`) plus the previous
   `fsync` errors (strace) but cannot simulate a lost disk cache. Of the checkout, only the files
   the tag changed (plus their directories, `HEAD` and `index`) are `fsync`ed; unchanged tracked
   files are assumed durable from earlier deploys. A rollback repairs a torn checkout with
-  `git checkout --force`, as long as the git objects themselves survived.
+  `git checkout --force`, as long as the git objects themselves survived, and `fsync`s the same
+  set (files that differ between the two releases, their directories, `HEAD`, `index`) before it
+  restarts the old service and archives the journal; if that fails it exits `3`.
 - Tests use a fake `systemctl`. The systemd behaviour the script relies on
   (`show` output format, `ExecMainStartTimestampMonotonic` kept after stop and reset by reboot)
   was checked read-only against the live unit and the systemd docs, not with a real
