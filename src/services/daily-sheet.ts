@@ -624,6 +624,28 @@ export function removeCostLine(
 }
 
 /**
+ * Delete a whole Daily Sheet (e.g. one recorded on the wrong date).
+ * - Month must not be closed
+ * - Its Cost Lines are removed by the cost_lines.daily_sheet_id ON DELETE CASCADE FK
+ *   (openDb enables PRAGMA foreign_keys)
+ * - Returns the deleted sheet row
+ */
+export function deleteSheet(
+  sheetId: number,
+  options?: { db?: DbLike },
+): { success: boolean; deletedSheet: DailySheet } {
+  const db = options?.db ?? getDb().db;
+
+  return db.transaction((tx) => {
+    const sheet = getEditableSheet(sheetId, tx);
+
+    tx.delete(dailySheets).where(eq(dailySheets.id, sheetId)).run();
+
+    return { success: true, deletedSheet: sheet };
+  });
+}
+
+/**
  * Get Daily Sheet by date with its Cost Lines and computed totals.
  * - Uses Money helpers (sumSen, subSen) for arithmetic (no floats)
  * - Returns null if no sheet exists for the given date

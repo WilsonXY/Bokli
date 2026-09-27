@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { withAuth } from "@/auth/guard";
 import { getDb } from "@/db";
 import * as dailySheetService from "@/services/daily-sheet";
-import { handleError } from "@/services/errors";
+import { handleError, NotFoundError } from "@/services/errors";
 import { parseJsonBody } from "@/lib/parse";
 
 function formatSheetResponse(
@@ -96,6 +96,37 @@ export const POST = withAuth(async (req: NextRequest) => {
     }
 
     return NextResponse.json(formatSheetResponse(withCosts), { status: 201 });
+  } catch (err) {
+    return handleError(err);
+  }
+});
+
+/**
+ * DELETE /api/sheets?date=YYYY-MM-DD
+ * Delete the Daily Sheet for a date, together with its Cost Lines.
+ */
+export const DELETE = withAuth(async (req: NextRequest) => {
+  try {
+    const date = new URL(req.url).searchParams.get("date");
+    if (!date) {
+      return NextResponse.json(
+        {
+          error: "Query parameter 'date' is required (format: YYYY-MM-DD)",
+          code: "saveError",
+        },
+        { status: 400 },
+      );
+    }
+
+    // Throws ValidationError (400) on a malformed date
+    const sheet = dailySheetService.getSheetByDate(date);
+    if (!sheet) {
+      throw new NotFoundError(`Daily Sheet for date "${date}" not found`);
+    }
+
+    dailySheetService.deleteSheet(sheet.id);
+
+    return NextResponse.json({ deleted: true, date }, { status: 200 });
   } catch (err) {
     return handleError(err);
   }

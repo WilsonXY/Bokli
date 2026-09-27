@@ -56,6 +56,7 @@ export default async function HomePage(props: PageProps) {
           }
           isClosed={isClosed}
           todayKl={todayKl}
+          hasSavedSheet={sheetData !== null}
         />
       </div>
     );

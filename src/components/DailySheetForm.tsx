@@ -31,6 +31,8 @@ export interface DailySheetFormProps {
   initialCostLines: CostLineItem[];
   isClosed: boolean;
   todayKl: string;
+  // Whether a Daily Sheet is saved for `date` (gates the delete-sheet button)
+  hasSavedSheet?: boolean;
   initialCashInput?: string;
   initialTngInput?: string;
   initialNoteErrorIndex?: number | null;
@@ -405,6 +407,7 @@ export function DailySheetForm({
   initialCostLines,
   isClosed,
   todayKl,
+  hasSavedSheet = false,
   initialCashInput,
   initialTngInput,
   initialNoteErrorIndex = null,
@@ -446,6 +449,12 @@ export function DailySheetForm({
   // Feedback states
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
+  const [showDeleteSheetModal, setShowDeleteSheetModal] = useState(false);
+  const [deletingSheet, setDeletingSheet] = useState(false);
+  const [sheetExists, setSheetExists] = useState(hasSavedSheet);
+  useEffect(() => {
+    setSheetExists(hasSavedSheet);
+  }, [hasSavedSheet]);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(() => {
     if (initialExpandedIndex !== undefined) {
       return initialExpandedIndex;
@@ -463,16 +472,17 @@ export function DailySheetForm({
 
   // Close modals on Escape key
   useEffect(() => {
-    if (!showConfirmModal && pendingDeleteIndex === null) return;
+    if (!showConfirmModal && pendingDeleteIndex === null && !showDeleteSheetModal) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setShowConfirmModal(false);
         setPendingDeleteIndex(null);
+        if (!deletingSheet) setShowDeleteSheetModal(false);
       }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [showConfirmModal, pendingDeleteIndex]);
+  }, [showConfirmModal, pendingDeleteIndex, showDeleteSheetModal, deletingSheet]);
   const [errorMessage, setErrorMessage] = useState<string | null>(initialErrorMessage);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -654,6 +664,14 @@ export function DailySheetForm({
   const grossProfitSen =
     totalRevenueSen !== null ? totalRevenueSen - totalCostSen : null;
 
+  // Delete-sheet snapshot: the saved figures (baseline), i.e. what is destroyed
+  const savedRevenueSen =
+    (tryParseSen(baseline.cashInput) ?? 0n) + (tryParseSen(baseline.tngInput) ?? 0n);
+  const savedCostSen = baseline.costLines.reduce(
+    (acc, line) => acc + BigInt(line.amountSen),
+    0n,
+  );
+
   // Create and expand a new empty cost line with stable clientId
   function handleCreateNewCostLine() {
     if (isClosed) return;
@@ -826,7 +844,10 @@ export function DailySheetForm({
         }
       }
 
-      if (!navigatedAway) showSuccessMessage(t.saveSuccess);
+      if (!navigatedAway) {
+        setSheetExists(true);
+        showSuccessMessage(t.saveSuccess);
+      }
       startTransition(() => {
         router.refresh();
       });
@@ -835,6 +856,43 @@ export function DailySheetForm({
     } finally {
       touchedDuringSaveRef.current = null;
       setSaving(false);
+    }
+  }
+
+  // Delete the whole Daily Sheet for this date, then reset to a clean empty day
+  async function handleDeleteSheet() {
+    if (deletingSheet || saving || isClosed) return;
+    setDeletingSheet(true);
+    setErrorMessage(null);
+    dismissSuccessMessage();
+
+    try {
+      const res = await fetch(`/api/sheets?date=${encodeURIComponent(date)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw Object.assign(new Error(data.error ?? ""), { code: data.code });
+      }
+
+      draftEverTouchedRef.current = false;
+      setCashInput("");
+      setTngInput("");
+      setCostLines([]);
+      setBaseline({ cashInput: "", tngInput: "", costLines: [] });
+      setExpandedIndex(null);
+      setNoteErrorIndex(null);
+      setCostAmountErrorIndex(null);
+      setSheetExists(false);
+      showSuccessMessage(t.deleteSheetSuccess);
+      startTransition(() => {
+        router.refresh();
+      });
+    } catch (err: any) {
+      setErrorMessage(translateApiError({ error: err.message, code: err.code }, t));
+    } finally {
+      setShowDeleteSheetModal(false);
+      setDeletingSheet(false);
     }
   }
 
@@ -1419,6 +1477,100 @@ export function DailySheetForm({
               )}
             </div>
           </div>
+
+      {/* Delete Daily Sheet button: after the sticky bar in the DOM, so it is only
+          reached at the true bottom of the page. At full scroll the sticky bar
+          sits in normal flow above it (sticky only shifts upward), and the
+          bottom padding here plus AppShell's main pb-24 keeps it clear of the
+          fixed bottom nav even on a short day that barely scrolls. */}
+      {sheetExists && (
+        <div className="pt-6 pb-4">
+          <button
+            type="button"
+            disabled={isClosed || saving}
+            onClick={() => setShowDeleteSheetModal(true)}
+            className="w-full h-12 rounded-xl border-2 border-finance-loss bg-white hover:bg-finance-loss-light btn-wave text-finance-loss font-semibold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+          >
+            <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            <span>{t.deleteSheetBtn}</span>
+          </button>
+        </div>
+      )}
+
+      {/* Delete Daily Sheet Confirmation Modal */}
+      {showDeleteSheetModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-delete-sheet-title"
+          aria-describedby="confirm-delete-sheet-desc"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-slide-down"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !deletingSheet) setShowDeleteSheetModal(false);
+          }}
+        >
+          <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
+            <div className="flex flex-col items-center text-center gap-3">
+              <div className="w-16 h-16 rounded-full bg-finance-loss-light border border-finance-loss-border/60 text-finance-loss flex items-center justify-center shrink-0 select-none">
+                <svg aria-hidden="true" className="w-10 h-10" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v9m0 5h.01" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <h3 id="confirm-delete-sheet-title" className="text-lg font-bold text-ink-primary">
+                  {t.confirmDeleteSheetTitle}
+                </h3>
+                <p id="confirm-delete-sheet-desc" className="text-xs text-ink-muted mt-1 leading-relaxed">
+                  {t.confirmDeleteSheetDesc}
+                </p>
+              </div>
+            </div>
+
+            {/* Daily Sheet snapshot: what is being destroyed */}
+            <div className="p-3.5 rounded-xl bg-surface-subtle border border-surface-border space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-ink-secondary font-medium">{t.sheetDate}</span>
+                <span className="font-bold text-ink-primary tabular-nums">{date}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-ink-secondary font-medium">{t.totalRevenue}</span>
+                <span className="font-bold text-ink-primary tabular-nums">
+                  {formatMyr(savedRevenueSen)}
+                </span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-ink-secondary font-medium">{t.totalCosts}</span>
+                <span className="font-bold text-finance-loss tabular-nums">
+                  {formatMyr(savedCostSen)}
+                </span>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex items-center gap-2.5 pt-1">
+              <button
+                type="button"
+                autoFocus
+                disabled={deletingSheet}
+                onClick={() => setShowDeleteSheetModal(false)}
+                className="flex-1 h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary font-semibold text-sm transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer disabled:opacity-50"
+              >
+                {t.cancel}
+              </button>
+              <button
+                type="button"
+                disabled={deletingSheet}
+                onClick={handleDeleteSheet}
+                className="flex-1 h-11 rounded-xl bg-finance-loss hover:bg-finance-loss/90 btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer disabled:opacity-50"
+              >
+                {t.confirmDeleteBtn}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Cost Line Confirmation Modal */}
       {pendingDeleteIndex !== null && costLines[pendingDeleteIndex] && (

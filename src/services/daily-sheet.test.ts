@@ -18,6 +18,7 @@ import * as dailySheetService from "./daily-sheet";
 import {
   addCostLine,
   assertValidNote,
+  deleteSheet,
   getOrCreateSheet,
   getSheetWithCosts,
   removeCostLine,
@@ -31,7 +32,7 @@ import {
   NotFoundError,
   ValidationError,
 } from "./errors";
-import { POST as sheetsPost } from "../../app/api/sheets/route";
+import { DELETE as sheetsDelete, POST as sheetsPost } from "../../app/api/sheets/route";
 import { consolidateCostLines } from "@/components/DailySheetForm";
 
 vi.mock("next/navigation", () => ({
@@ -1628,5 +1629,143 @@ describe("10. Zero-amount Cost Lines rejected server-side (policy 2026-09-25)", 
     const cashOnly = setRevenue(sheet.id, 15000, 0, { db });
     expect(cashOnly.cashSen).toBe(15000);
     expect(cashOnly.tngSen).toBe(0);
+  });
+});
+
+describe("11. deleteSheet() and DELETE /api/sheets", () => {
+  const operatorSession = {
+    user: { id: "1", username: "operator1", role: "Operator" as const },
+    expires: new Date(Date.now() + 86400000).toISOString(),
+  };
+
+  function makeAuthReq(url: string, init?: any) {
+    const req = new NextRequest(url, init as any);
+    (req as any).auth = operatorSession;
+    return req;
+  }
+
+  it("foreign keys are enforced on the app DB connection (cascade precondition)", () => {
+    expect(sqlite.pragma("foreign_keys", { simple: true })).toBe(1);
+  });
+
+  it("removes the Daily Sheet and its Cost Lines (FK cascade fires)", () => {
+    const sheet = getOrCreateSheet("2026-09-13", { db });
+    setRevenue(sheet.id, 8000, 2000, { db });
+    addCostLine(sheet.id, 1500, "restock", null, { db });
+    addCostLine(sheet.id, 500, "gas", null, { db });
+
+    const result = deleteSheet(sheet.id, { db });
+    expect(result.success).toBe(true);
+    expect(result.deletedSheet.id).toBe(sheet.id);
+    expect(result.deletedSheet.date).toBe("2026-09-13");
+
+    expect(
+      db.select().from(dailySheets).where(eq(dailySheets.id, sheet.id)).get(),
+    ).toBeUndefined();
+    expect(
+      db.select().from(costLines).where(eq(costLines.dailySheetId, sheet.id)).all(),
+    ).toHaveLength(0);
+    expect(getSheetWithCosts("2026-09-13", { db })).toBeNull();
+  });
+
+  it("throws NotFoundError for a missing sheet id", () => {
+    expect(() => deleteSheet(999999, { db })).toThrow(NotFoundError);
+  });
+
+  it("throws ClosedMonthError in a closed Month and leaves the sheet and its Cost Lines intact", () => {
+    const sheet = db
+      .insert(dailySheets)
+      .values({ date: "2026-06-10", cashSen: 1000, tngSen: 500 })
+      .returning()
+      .get();
+    db.insert(costLines)
+      .values({ dailySheetId: sheet.id, amountSen: 300, category: "gas" })
+      .run();
+    db.insert(monthCloses)
+      .values({
+        month: "2026-06",
+        revenueSen: 1500,
+        dailyCostSen: 300,
+        grossSen: 1200,
+        operatingSen: 0,
+        netSen: 1200,
+        closedAt: "2026-07-01T00:00:00.000Z",
+        reopenedAt: null,
+      })
+      .run();
+
+    expect(() => deleteSheet(sheet.id, { db })).toThrow(ClosedMonthError);
+
+    expect(
+      db.select().from(dailySheets).where(eq(dailySheets.id, sheet.id)).get(),
+    ).toBeDefined();
+    expect(
+      db.select().from(costLines).where(eq(costLines.dailySheetId, sheet.id)).all(),
+    ).toHaveLength(1);
+  });
+
+  it("DELETE /api/sheets rejects anonymous requests with 401", async () => {
+    const res = await sheetsDelete(
+      new NextRequest("http://localhost:3000/api/sheets?date=2026-09-01", {
+        method: "DELETE",
+      }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("DELETE /api/sheets deletes by date and echoes { deleted, date }", async () => {
+    const sheet = getOrCreateSheet("2026-09-14", { db });
+    addCostLine(sheet.id, 1200, "transport", null, { db });
+
+    const res = await sheetsDelete(
+      makeAuthReq("http://localhost:3000/api/sheets?date=2026-09-14", {
+        method: "DELETE",
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ deleted: true, date: "2026-09-14" });
+    expect(getSheetWithCosts("2026-09-14", { db })).toBeNull();
+    expect(
+      db.select().from(costLines).where(eq(costLines.dailySheetId, sheet.id)).all(),
+    ).toHaveLength(0);
+  });
+
+  it("DELETE /api/sheets returns 400 for a missing or malformed date", async () => {
+    const missing = await sheetsDelete(
+      makeAuthReq("http://localhost:3000/api/sheets", { method: "DELETE" }),
+    );
+    expect(missing.status).toBe(400);
+    expect((await missing.json()).code).toBe("saveError");
+
+    const bad = await sheetsDelete(
+      makeAuthReq("http://localhost:3000/api/sheets?date=2026-13-40", {
+        method: "DELETE",
+      }),
+    );
+    expect(bad.status).toBe(400);
+    const badBody = await bad.json();
+    expect(badBody.code).toBe("saveError");
+    expect(badBody.error).toMatch(/Invalid date format/);
+  });
+
+  it("DELETE /api/sheets returns 404 when no sheet exists for the date", async () => {
+    const res = await sheetsDelete(
+      makeAuthReq("http://localhost:3000/api/sheets?date=2026-09-15", {
+        method: "DELETE",
+      }),
+    );
+    expect(res.status).toBe(404);
+    expect((await res.json()).code).toBe("notFound");
+  });
+
+  it("DELETE /api/sheets returns 409 monthClosed in a closed Month", async () => {
+    const res = await sheetsDelete(
+      makeAuthReq("http://localhost:3000/api/sheets?date=2026-06-10", {
+        method: "DELETE",
+      }),
+    );
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("monthClosed");
+    expect(getSheetWithCosts("2026-06-10", { db })).not.toBeNull();
   });
 });

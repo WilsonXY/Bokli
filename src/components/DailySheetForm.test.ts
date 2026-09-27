@@ -1312,3 +1312,87 @@ describe("shared merge rule in the form (Phase 7)", () => {
     expect(result.expandedIndex).toBe(2);
   });
 });
+
+describe("Delete Daily Sheet button and sticky summary bar", () => {
+  const baseProps = {
+    date: "2026-05-15",
+    initialCashSen: 5000,
+    initialTngSen: 2000,
+    initialCostLines: [] as CostLineItem[],
+    isClosed: false,
+    todayKl: "2026-05-15",
+  };
+
+  function render(props: Partial<React.ComponentProps<typeof DailySheetForm>>) {
+    return ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, { ...baseProps, ...props })
+    );
+  }
+
+  // The <button ...> element whose label is the delete-sheet text
+  function deleteSheetButton(html: string): string | null {
+    const idx = html.indexOf(t.deleteSheetBtn);
+    if (idx === -1) return null;
+    const start = html.lastIndexOf("<button", idx);
+    return html.slice(start, html.indexOf(">", start) + 1);
+  }
+
+  it("is hidden when no saved Daily Sheet exists for the date", () => {
+    expect(deleteSheetButton(render({ hasSavedSheet: false }))).toBeNull();
+    expect(deleteSheetButton(render({}))).toBeNull();
+  });
+
+  it("is shown, enabled, and red-outlined (not filled) when a saved Daily Sheet exists", () => {
+    const btn = deleteSheetButton(render({ hasSavedSheet: true }));
+    expect(btn).not.toBeNull();
+    expect(btn).not.toContain('disabled=""');
+    expect(btn).toContain("border-finance-loss");
+    expect(btn).toContain("text-finance-loss");
+    expect(btn).not.toMatch(/(^|\s)bg-finance-loss(\s|")/);
+  });
+
+  it("is shown for a saved sheet with zero Cost Lines (short day)", () => {
+    const html = render({ hasSavedSheet: true, initialCashSen: 0, initialTngSen: 0 });
+    expect(deleteSheetButton(html)).not.toBeNull();
+  });
+
+  it("is disabled when the Month is closed", () => {
+    const btn = deleteSheetButton(render({ hasSavedSheet: true, isClosed: true }));
+    expect(btn).not.toBeNull();
+    expect(btn).toMatch(/disabled=""/);
+  });
+
+  it("comes after the sticky summary bar in the DOM, with its own bottom spacing", () => {
+    const html = render({
+      hasSavedSheet: true,
+      initialCostLines: [
+        { id: 1, category: "restock", amountSen: 1000 },
+        { id: 2, category: "gas", amountSen: 500 },
+      ],
+    });
+    const barIdx = html.indexOf('class="sticky bottom-16 z-30 space-y-2"');
+    const btnIdx = html.indexOf(t.deleteSheetBtn);
+    expect(barIdx).toBeGreaterThan(-1);
+    expect(btnIdx).toBeGreaterThan(barIdx);
+    const wrapperStart = html.lastIndexOf("<div", html.lastIndexOf("<button", btnIdx));
+    expect(html.slice(wrapperStart, html.indexOf(">", wrapperStart) + 1)).toContain("pb-4");
+  });
+
+  it("summary bar keeps its sticky positioning class (not fixed)", () => {
+    for (const hasSavedSheet of [false, true]) {
+      const html = render({ hasSavedSheet });
+      expect(html).toContain('class="sticky bottom-16 z-30 space-y-2"');
+    }
+  });
+
+  it("i18n has delete-sheet keys in both zh and en", () => {
+    for (const lang of ["zh", "en"] as const) {
+      const d = DICTIONARY[lang];
+      expect(d.deleteSheetBtn).toBeTruthy();
+      expect(d.confirmDeleteSheetTitle).toBeTruthy();
+      expect(d.confirmDeleteSheetDesc).toBeTruthy();
+      expect(d.sheetDate).toBeTruthy();
+      expect(d.deleteSheetSuccess).toBeTruthy();
+    }
+  });
+});
