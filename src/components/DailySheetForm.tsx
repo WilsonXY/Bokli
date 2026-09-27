@@ -401,6 +401,17 @@ export function rebaseCostLinesAfterSave(
   });
 }
 
+// The delete-sheet modal may only open while no other confirmation is open:
+// the save and Cost Line delete confirmations render later at the same z-50,
+// so they would sit visibly on top while the delete-sheet modal's inert/focus
+// trap made the hidden delete the one a keyboard confirm acts on.
+export function canOpenDeleteSheetModal(open: {
+  showConfirmModal: boolean;
+  pendingDeleteIndex: number | null;
+}): boolean {
+  return !open.showConfirmModal && open.pendingDeleteIndex === null;
+}
+
 export function DailySheetForm({
   date,
   initialCashSen,
@@ -452,6 +463,11 @@ export function DailySheetForm({
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
   const [showDeleteSheetModal, setShowDeleteSheetModal] = useState(false);
   const [deletingSheet, setDeletingSheet] = useState(false);
+  // The delete-sheet modal's own error, apart from the shared errorMessage: the
+  // router.refresh() after a refused (409) delete takes the prop-sync full-reset
+  // branch, which clears errorMessage, and the Operator would lose the only sign
+  // that nothing was deleted. Cleared only when she reopens or retries.
+  const [deleteSheetError, setDeleteSheetError] = useState<string | null>(null);
   const [savedSheet, setSavedSheet] = useState(initialSavedSheet);
   const savedSheetId = initialSavedSheet?.id ?? null;
   const savedSheetUpdatedAt = initialSavedSheet?.updatedAt ?? null;
@@ -939,7 +955,7 @@ export function DailySheetForm({
     if (mutationInFlightRef.current !== null) return;
     mutationInFlightRef.current = "delete";
     setDeletingSheet(true);
-    setErrorMessage(null);
+    setDeleteSheetError(null);
     dismissSuccessMessage();
     const savedDate = date;
     let navigatedAway = false;
@@ -984,7 +1000,7 @@ export function DailySheetForm({
     } catch (err: any) {
       // Failure keeps the modal open with the error shown, so she can retry or
       // cancel. On a conflict, reload so the modal shows the current figures.
-      setErrorMessage(translateApiError({ error: err.message, code: err.code }, t));
+      setDeleteSheetError(translateApiError({ error: err.message, code: err.code }, t));
       if (err.code === "sheetChanged") {
         startTransition(() => {
           router.refresh();
@@ -1588,9 +1604,16 @@ export function DailySheetForm({
           <button
             ref={deleteSheetBtnRef}
             type="button"
-            disabled={isClosed || saving || deletingSheet}
+            disabled={
+              isClosed ||
+              saving ||
+              deletingSheet ||
+              !canOpenDeleteSheetModal({ showConfirmModal, pendingDeleteIndex })
+            }
             onClick={() => {
+              if (!canOpenDeleteSheetModal({ showConfirmModal, pendingDeleteIndex })) return;
               setErrorMessage(null);
+              setDeleteSheetError(null);
               setShowDeleteSheetModal(true);
             }}
             className="w-full h-12 rounded-xl border-2 border-finance-loss bg-white hover:bg-finance-loss-light btn-wave text-finance-loss font-semibold text-sm flex items-center justify-center gap-2 transition-colors disabled:opacity-40 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
@@ -1653,10 +1676,9 @@ export function DailySheetForm({
               </div>
             </div>
 
-            {/* The page's error banner sits behind the modal: repeat it here */}
-            {errorMessage && (
+            {deleteSheetError && (
               <p role="alert" className="text-sm font-semibold text-finance-loss text-center">
-                {errorMessage}
+                {deleteSheetError}
               </p>
             )}
 

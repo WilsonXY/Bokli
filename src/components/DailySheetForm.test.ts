@@ -23,6 +23,7 @@ import {
   findZeroCostLineIndex,
   getCostLineKey,
   rebaseCostLinesAfterSave,
+  canOpenDeleteSheetModal,
   type CostLineItem,
 } from "./DailySheetForm";
 import { DICTIONARY, translateApiError } from "@/lib/i18n";
@@ -1384,6 +1385,13 @@ describe("Delete Daily Sheet button and sticky summary bar", () => {
       const html = render({ savedSheet });
       expect(html).toContain('class="sticky bottom-16 z-30 space-y-2"');
     }
+  });
+
+  it("the delete-sheet modal cannot open while the save or Cost Line delete confirmation is open", () => {
+    expect(canOpenDeleteSheetModal({ showConfirmModal: false, pendingDeleteIndex: null })).toBe(true);
+    expect(canOpenDeleteSheetModal({ showConfirmModal: true, pendingDeleteIndex: null })).toBe(false);
+    expect(canOpenDeleteSheetModal({ showConfirmModal: false, pendingDeleteIndex: 0 })).toBe(false);
+    expect(canOpenDeleteSheetModal({ showConfirmModal: true, pendingDeleteIndex: 2 })).toBe(false);
   });
 
   it("i18n has delete-sheet keys in both zh and en", () => {

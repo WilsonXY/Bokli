@@ -1692,30 +1692,38 @@ describe("11. deleteSheet() and DELETE /api/sheets", () => {
   });
 
   it("throws ConflictError when the sheet changed since the expected snapshot, deleting nothing", () => {
-    const sheet = getOrCreateSheet("2026-09-16", { db });
-    addCostLine(sheet.id, 700, "gas", null, { db });
-    const stale = identityOf(sheet.id);
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-09-28T00:00:00.000Z"));
+      const sheet = getOrCreateSheet("2026-09-16", { db });
+      addCostLine(sheet.id, 700, "gas", null, { db });
+      const stale = identityOf(sheet.id);
 
-    // Another device saves the day after the Operator's snapshot loaded
-    setRevenue(sheet.id, 9900, 0, { db });
-    expect(identityOf(sheet.id).updatedAt).not.toBe(stale.updatedAt);
+      // Ordinary distinct-version rejection, not collision safety (ADR 0006).
+      // Another device saves the day after the Operator's snapshot loaded.
+      vi.setSystemTime(new Date("2026-09-28T00:00:00.001Z"));
+      setRevenue(sheet.id, 9900, 0, { db });
+      expect(identityOf(sheet.id).updatedAt).not.toBe(stale.updatedAt);
 
-    expect(() => deleteSheet(sheet.id, stale, { db })).toThrow(ConflictError);
-    // A matching updatedAt on a different id is a conflict too
-    expect(() =>
-      deleteSheet(sheet.id, { ...identityOf(sheet.id), id: sheet.id + 1000 }, { db }),
-    ).toThrow(ConflictError);
+      expect(() => deleteSheet(sheet.id, stale, { db })).toThrow(ConflictError);
+      // A matching updatedAt on a different id is a conflict too
+      expect(() =>
+        deleteSheet(sheet.id, { ...identityOf(sheet.id), id: sheet.id + 1000 }, { db }),
+      ).toThrow(ConflictError);
 
-    expect(
-      db.select().from(dailySheets).where(eq(dailySheets.id, sheet.id)).get(),
-    ).toBeDefined();
-    expect(
-      db.select().from(costLines).where(eq(costLines.dailySheetId, sheet.id)).all(),
-    ).toHaveLength(1);
+      expect(
+        db.select().from(dailySheets).where(eq(dailySheets.id, sheet.id)).get(),
+      ).toBeDefined();
+      expect(
+        db.select().from(costLines).where(eq(costLines.dailySheetId, sheet.id)).all(),
+      ).toHaveLength(1);
 
-    // With the current identity the same delete goes through
-    expect(deleteSheet(sheet.id, identityOf(sheet.id), { db }).success).toBe(true);
-    expect(getSheetWithCosts("2026-09-16", { db })).toBeNull();
+      // With the current identity the same delete goes through
+      expect(deleteSheet(sheet.id, identityOf(sheet.id), { db }).success).toBe(true);
+      expect(getSheetWithCosts("2026-09-16", { db })).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("throws ClosedMonthError in a closed Month and leaves the sheet and its Cost Lines intact", () => {
