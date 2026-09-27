@@ -277,6 +277,8 @@ record visible without it being on disk. If recording completion fails, the depl
   (systemd passes the empty value; it does not fall back to `Environment=`). So is an
   `export BOKLI_DB_PATH=` or `export PORT=` line: `.env` is read with systemd's `EnvironmentFile=`
   syntax, not by a shell, and systemd skips such a line, so the service would not use that value.
+  `.env` lines that systemd may join or split differently from a line-by-line reading (a trailing
+  backslash, a quoted value not closed on its own line, a bare carriage return) are refused too.
 - `node` on `PATH` must be the same version as the unit's node (native modules).
 - Production checkout: clean tracked files (untracked files are fine), and the **current**
   build stamp must verify — that release is what a failed cutover rolls back to.

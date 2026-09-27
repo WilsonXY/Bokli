@@ -23,7 +23,8 @@
 #     must run <repo>/scripts/verify_build_stamp.sh as ExecStartPre
 #   - BOKLI_DB_PATH must be the DB the unit actually uses (.env overrides unit env,
 #     even with an empty value, which is refused; `export KEY=` lines, which systemd
-#     ignores, are refused too), both paths absolute, and must not be under data-dev/
+#     ignores, and multi-line .env syntax are refused too), both paths absolute, and
+#     must not be under data-dev/
 #   - single-deploy flock on <repo>/.deploy.lock; refuses if an earlier cutover
 #     journal is pending (run --recover)
 #   - fetches origin; tag must exist; tag commit must equal origin/main tip, or be
@@ -119,6 +120,17 @@ svc_prop() { systemctl --user show "$SERVICE" --property="$1" --value; }
 
 # 0 if an EnvironmentFile assigns KEY at all, even to an empty value.
 env_file_has() { grep -qE "^[[:space:]]*$1[[:space:]]*=" "$2"; }
+
+# 0 if an EnvironmentFile has lines systemd does not end where a line matcher does: a
+# trailing backslash (joins the next line, also in a comment), a quoted value not closed
+# on its own line (may span lines), or a CR not ending the line (systemd ends one there).
+# A line inside such a span could fake or hide an assignment. Nothing is printed; no
+# `grep -q` in the pipeline (its early exit could fail an upstream grep under pipefail).
+env_file_multiline() {
+  LC_ALL=C grep -qE $'\\\\\r?$|\r.' "$1" && return 0
+  LC_ALL=C grep -vE '^[[:space:]]*[#;]' "$1" | LC_ALL=C grep -E "^[^=]*=[[:blank:]]*['\"]" |
+    LC_ALL=C grep -vE "^[^=]*=[[:blank:]]*('[^']*'|\"([^\"\\\\]|\\\\.)*\")[[:space:]]*\$" >/dev/null
+}
 
 # 0 if an EnvironmentFile has an `export KEY=` line.
 env_file_exports() { grep -qE "^[[:space:]]*export[[:space:]]+$1[[:space:]]*=" "$2"; }
@@ -327,7 +339,8 @@ fsync_under() { "$SERVICE_NODE" -e "$DURABLE_JS" under "$@" 9>&-; }
 fsync_checkout() {
   local gitdir paths=()
   gitdir=$(git -C "$REPO_ROOT" rev-parse --path-format=absolute --git-dir) || return 1
-  git -C "$REPO_ROOT" diff -z --name-only "$1" "$2" >"$RUN_DIR/changed-paths" || return 1
+  # --no-renames: a rename is listed under both names (the old one comes back on rollback).
+  git -C "$REPO_ROOT" diff -z --no-renames --name-only "$1" "$2" >"$RUN_DIR/changed-paths" || return 1
   mapfile -d '' -t paths <"$RUN_DIR/changed-paths"
   fsync_under "$REPO_ROOT" "${paths[@]}" &&
     fsync_paths "$gitdir/HEAD" "$gitdir/index" "$gitdir" "$REPO_ROOT"
@@ -761,6 +774,9 @@ check_service_identity() {
   # An assignment there wins even when empty (the service then gets an empty value),
   # so an empty one is refused rather than falling back to Environment=.
   if [ -n "$envfile" ] && [ -f "$envfile" ]; then
+    ! env_file_multiline "$envfile" ||
+      refuse "$envfile uses multi-line EnvironmentFile syntax (trailing backslash, quoted value spanning" \
+        "lines, or a bare carriage return); cannot prove which BOKLI_DB_PATH/PORT the $SERVICE service uses."
     # Fail closed: whoever wrote it expected the value to apply; systemd ignores it.
     for key in BOKLI_DB_PATH PORT; do
       ! env_file_exports "$key" "$envfile" ||

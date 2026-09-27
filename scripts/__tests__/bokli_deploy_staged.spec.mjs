@@ -29,6 +29,7 @@ import {
   waitFor,
   baseUrl,
   httpCode,
+  syncDeployer,
 } from "./fixtures/deploy-fixture.mjs";
 
 const T = 120_000; // per-test timeout (real npm ci/build/servers, run serially)
@@ -496,6 +497,41 @@ exec "$REAL" "$@"
     expectUntouched(f, before);
   }, 2 * T);
 
+  it("rollback durability: a file the release renamed is fsync'd under its restored old name (fault → exit 3, then --recover)", () => {
+    expect(spawnSync("strace", ["-V"]).status, "strace is required for fsync fault injection").toBe(0);
+    // A release whose only change past v1.1.0 is renaming README.md → NOTES.md (git sees a rename).
+    git(["mv", "README.md", "NOTES.md"], f.author);
+    git(["commit", "-m", "rename"], f.author);
+    git(["tag", "-a", "v1.1.1-rename", "-m", "v1.1.1-rename"], f.author);
+    git(["push", "origin", "main", "v1.1.1-rename"], f.author);
+    syncDeployer(f);
+    expect(git(["diff", "--name-only", "v1.0.0", "v1.1.1-rename"], f.author).split("\n")).not.toContain("README.md");
+
+    const target = path.join(fs.realpathSync(f.live), "README.md");
+    useNodeWrapper(
+      f,
+      `  ${INJECT_EIO}
+  if [ -f "$SD/inject.rollback-fsync" ] && [ "$(grep -c '^stop bokli' "$SD/calls.log")" -ge 2 ]; then inject_eio "${target}" "$@"; fi`
+    );
+    fs.writeFileSync(path.join(f.sd, "inject.rollback-fsync"), "");
+    inject(f, "start-before", "fail");
+    const before = liveState(f);
+    const res = runDeploy(f, ["v1.1.1-rename"]);
+    expect(res.status, res.stderr).toBe(3);
+    expect(res.stderr).toContain(`fsync ${target}: EIO`);
+    expect(res.stderr).toContain("MANUAL RECOVERY REQUIRED");
+    expect(res.stderr).not.toContain("ROLLED BACK");
+    expect(fs.existsSync(f.journal)).toBe(true);
+    expect(dbDump(f.db)).toBe(before.db);
+    expect(calls(f).filter((c) => /^(stop|start) bokli/.test(c))).toEqual(["start bokli", "stop bokli", "start bokli", "stop bokli"]);
+
+    fs.rmSync(path.join(f.sd, "inject.rollback-fsync"));
+    const rec = runDeploy(f, ["--recover"]);
+    expect(rec.status, rec.stdout + rec.stderr).toBe(0);
+    expect(rec.stdout).toContain("Recovery complete");
+    expectUntouched(f, before);
+  }, 2 * T);
+
   // Completion protocol faults, all after the new service started and wrote a row.
   //   tmp:     fsync(2) of the done record fails (one-shot) → rename never happens
   //   dir:     the done record is renamed in, then fsync(2) of its directory fails, and from then on
@@ -934,6 +970,53 @@ exec "${realCp}" "$@"
     fs.writeFileSync(envFile, `PORT=${f.port}\nBOKLI_DB_PATH=${f.db}\n`);
     expectUntouched(f, before);
     expect(fs.existsSync(f.stateDir)).toBe(false);
+  }, 4 * T);
+
+  it("refuses multi-line or continued EnvironmentFile syntax that could hide or fake a BOKLI_DB_PATH line; single-line quotes and CRLF still pass", () => {
+    const before = liveState(f);
+    const envFile = path.join(f.live, ".env");
+    // Unit Environment= names f.db (A). B is a second, distinct existing DB.
+    const otherDb = path.join(f.root, "other", "bokli.db");
+    fs.mkdirSync(path.dirname(otherDb));
+    fs.copyFileSync(f.db, otherDb);
+    sqlite(otherDb, "INSERT INTO sheets (note) VALUES ('only-in-B');");
+    const otherBefore = dbDump(otherDb);
+    const P = `PORT=${f.port}\n`;
+
+    const refused = [
+      // systemd: the fake line is inside NOISE's value; the service keeps A.
+      [`${P}NOISE='open\nBOKLI_DB_PATH=${otherDb}\nclose'\n`, otherDb],
+      [`${P}NOISE="open\nBOKLI_DB_PATH=${otherDb}\nclose"\n`, otherDb],
+      [`${P}bad key='open\nBOKLI_DB_PATH=${otherDb}\nclose'\n`, otherDb],
+      // systemd: a trailing backslash joins the next line into NOISE's value (or the comment).
+      [`${P}NOISE=open \\\nBOKLI_DB_PATH=${otherDb}\n`, otherDb],
+      [`${P}# note \\\nBOKLI_DB_PATH=${otherDb}\n`, otherDb],
+      // systemd ends a line at a bare CR too: the service would use B, a line matcher sees no assignment.
+      [`${P}NOISE=x\rBOKLI_DB_PATH=${otherDb}\n`, f.db],
+    ];
+    for (const [content, callerDb] of refused) {
+      fs.writeFileSync(envFile, content);
+      const res = runDeploy(f, ["v1.1.0"], { env: { BOKLI_DB_PATH: callerDb } });
+      expect(res.status, `${JSON.stringify(content)}: ${res.stderr}`).toBe(1);
+      expect(res.stderr, content).toContain("multi-line EnvironmentFile syntax");
+      expect(res.stderr, content).not.toContain(otherDb); // no value from the file is printed
+      expect(dbDump(otherDb)).toBe(otherBefore);
+    }
+
+    // Unambiguous syntax passes the identity gate (and then stops at the unknown tag).
+    const accepted = [
+      `PORT="${f.port}"\nBOKLI_DB_PATH='${f.db}'\nNOISE="a \\"b\\" c"\nOTHER='x=y'\n`,
+      `PORT=${f.port}\r\nBOKLI_DB_PATH=${f.db}\r\n`,
+    ];
+    for (const content of accepted) {
+      fs.writeFileSync(envFile, content);
+      const res = runDeploy(f, ["no-such-tag"]);
+      expect(res.status, `${JSON.stringify(content)}: ${res.stderr}`).toBe(1);
+      expect(res.stderr, content).toContain("tag 'no-such-tag' does not exist");
+    }
+
+    fs.writeFileSync(envFile, `PORT=${f.port}\nBOKLI_DB_PATH=${f.db}\n`);
+    expectUntouched(f, before);
   }, 4 * T);
 
   it("refuses removed test/skip seams that could fake success", () => {
