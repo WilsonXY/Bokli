@@ -40,13 +40,19 @@ export function git(args, cwd) {
   return sh("git", args, { cwd }).trim();
 }
 
+// sqlite3 waits up to this long for another process's lock (e.g. the fake
+// service switching the DB to WAL) instead of failing at once with
+// "database is locked". A ceiling, not an expected wait: past it, sqlite()
+// still throws, and a .dump still carries the error in its output.
+const SQLITE_BUSY_TIMEOUT = ["-cmd", ".timeout 5000"];
+
 export function sqlite(db, sql) {
-  return sh("sqlite3", ["-bail", db, sql]).trim();
+  return sh("sqlite3", ["-bail", ...SQLITE_BUSY_TIMEOUT, db, sql]).trim();
 }
 
 /** Logical DB content, read without modifying the files (read-only URI). */
 export function dbDump(db) {
-  return sh("sqlite3", [`file:${db}?mode=ro`, ".dump"]);
+  return sh("sqlite3", [...SQLITE_BUSY_TIMEOUT, `file:${db}?mode=ro`, ".dump"]);
 }
 
 function freePort() {
