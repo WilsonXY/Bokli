@@ -30,6 +30,7 @@ export type ApiErrorCode =
   | "invalidAmount"
   | "notFound"
   | "futureDate"
+  | "sheetChanged"
   | "saveError";
 
 /**
@@ -68,6 +69,13 @@ export class ClosedMonthError extends AppError {
   }
 }
 
+export class ConflictError extends AppError {
+  constructor(message: string, code: ApiErrorCode = "sheetChanged") {
+    super(message, code);
+    this.name = "ConflictError";
+  }
+}
+
 export class FutureDateError extends AppError {
   constructor(message: string, code: ApiErrorCode = "futureDate") {
     super(message, code);
@@ -93,6 +101,7 @@ export class ForbiddenError extends AppError {
  * - ForbiddenError -> 403
  * - NotFoundError -> 404
  * - ClosedMonthError -> 409
+ * - ConflictError -> 409
  * - SyntaxError -> 400
  * - Fallback -> 500 (logs error to console, returns generic message)
  *
@@ -106,7 +115,7 @@ export function handleError(err: unknown): NextResponse {
       { status: 403 },
     );
   }
-  if (err instanceof ClosedMonthError) {
+  if (err instanceof ClosedMonthError || err instanceof ConflictError) {
     return NextResponse.json(
       { error: err.message, code: err.code },
       { status: 409 },

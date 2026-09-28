@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { and, eq } from "drizzle-orm";
 
-import { openDb, type Db } from "@/db";
+import { getDb, openDb, type Db } from "@/db";
 import { runMigrations } from "@/db/migrate";
 import {
   dailySheets,
@@ -18,6 +18,7 @@ import * as dailySheetService from "./daily-sheet";
 import {
   addCostLine,
   assertValidNote,
+  deleteSheet,
   getOrCreateSheet,
   getSheetWithCosts,
   removeCostLine,
@@ -27,11 +28,12 @@ import {
 } from "./daily-sheet";
 import {
   ClosedMonthError,
+  ConflictError,
   FutureDateError,
   NotFoundError,
   ValidationError,
 } from "./errors";
-import { POST as sheetsPost } from "../../app/api/sheets/route";
+import { DELETE as sheetsDelete, POST as sheetsPost } from "../../app/api/sheets/route";
 import { consolidateCostLines } from "@/components/DailySheetForm";
 
 vi.mock("next/navigation", () => ({
@@ -1628,5 +1630,435 @@ describe("10. Zero-amount Cost Lines rejected server-side (policy 2026-09-25)", 
     const cashOnly = setRevenue(sheet.id, 15000, 0, { db });
     expect(cashOnly.cashSen).toBe(15000);
     expect(cashOnly.tngSen).toBe(0);
+  });
+});
+
+describe("11. deleteSheet() and DELETE /api/sheets", () => {
+  const operatorSession = {
+    user: { id: "1", username: "operator1", role: "Operator" as const },
+    expires: new Date(Date.now() + 86400000).toISOString(),
+  };
+
+  function makeAuthReq(url: string, init?: any) {
+    const req = new NextRequest(url, init as any);
+    (req as any).auth = operatorSession;
+    return req;
+  }
+
+  // The stored sheet's current identity, as the client would send it
+  function identityOf(sheetId: number) {
+    const row = db.select().from(dailySheets).where(eq(dailySheets.id, sheetId)).get()!;
+    return { id: row.id, updatedAt: row.updatedAt };
+  }
+
+  function deleteUrl(date: string, expected: { id: number; updatedAt: string }) {
+    const params = new URLSearchParams({
+      date,
+      id: String(expected.id),
+      updatedAt: expected.updatedAt,
+    });
+    return `http://localhost:3000/api/sheets?${params.toString()}`;
+  }
+
+  it("foreign keys are enforced on the getDb() connection the route uses (cascade precondition)", () => {
+    expect(getDb().sqlite.pragma("foreign_keys", { simple: true })).toBe(1);
+  });
+
+  it("removes the Daily Sheet and its Cost Lines (FK cascade fires)", () => {
+    const sheet = getOrCreateSheet("2026-09-13", { db });
+    setRevenue(sheet.id, 8000, 2000, { db });
+    addCostLine(sheet.id, 1500, "restock", null, { db });
+    addCostLine(sheet.id, 500, "gas", null, { db });
+
+    // Succeeds when the expected id + updatedAt match the stored sheet
+    const result = deleteSheet(sheet.id, identityOf(sheet.id), { db });
+    expect(result.success).toBe(true);
+    expect(result.deletedSheet.id).toBe(sheet.id);
+    expect(result.deletedSheet.date).toBe("2026-09-13");
+
+    expect(
+      db.select().from(dailySheets).where(eq(dailySheets.id, sheet.id)).get(),
+    ).toBeUndefined();
+    expect(
+      db.select().from(costLines).where(eq(costLines.dailySheetId, sheet.id)).all(),
+    ).toHaveLength(0);
+    expect(getSheetWithCosts("2026-09-13", { db })).toBeNull();
+  });
+
+  it("throws NotFoundError for a missing sheet id", () => {
+    expect(() =>
+      deleteSheet(999999, { id: 999999, updatedAt: "2026-09-01T00:00:00.000Z" }, { db }),
+    ).toThrow(NotFoundError);
+  });
+
+  it("throws ConflictError when the sheet changed since the expected snapshot, deleting nothing", () => {
+    const sheet = getOrCreateSheet("2026-09-16", { db });
+    addCostLine(sheet.id, 700, "gas", null, { db });
+    const stale = identityOf(sheet.id);
+
+    // Another device saves the day after the Operator's snapshot loaded, on
+    // the real clock, typically within the same millisecond (ADR 0006).
+    setRevenue(sheet.id, 9900, 0, { db });
+    expect(identityOf(sheet.id).updatedAt).not.toBe(stale.updatedAt);
+
+    expect(() => deleteSheet(sheet.id, stale, { db })).toThrow(ConflictError);
+    // A matching updatedAt on a different id is a conflict too
+    expect(() =>
+      deleteSheet(sheet.id, { ...identityOf(sheet.id), id: sheet.id + 1000 }, { db }),
+    ).toThrow(ConflictError);
+
+    expect(
+      db.select().from(dailySheets).where(eq(dailySheets.id, sheet.id)).get(),
+    ).toBeDefined();
+    expect(
+      db.select().from(costLines).where(eq(costLines.dailySheetId, sheet.id)).all(),
+    ).toHaveLength(1);
+
+    // With the current identity the same delete goes through
+    expect(deleteSheet(sheet.id, identityOf(sheet.id), { db }).success).toBe(true);
+    expect(getSheetWithCosts("2026-09-16", { db })).toBeNull();
+  });
+
+  it("throws ClosedMonthError in a closed Month and leaves the sheet and its Cost Lines intact", () => {
+    const sheet = db
+      .insert(dailySheets)
+      .values({ date: "2026-06-10", cashSen: 1000, tngSen: 500 })
+      .returning()
+      .get();
+    db.insert(costLines)
+      .values({ dailySheetId: sheet.id, amountSen: 300, category: "gas" })
+      .run();
+    db.insert(monthCloses)
+      .values({
+        month: "2026-06",
+        revenueSen: 1500,
+        dailyCostSen: 300,
+        grossSen: 1200,
+        operatingSen: 0,
+        netSen: 1200,
+        closedAt: "2026-07-01T00:00:00.000Z",
+        reopenedAt: null,
+      })
+      .run();
+
+    expect(() => deleteSheet(sheet.id, identityOf(sheet.id), { db })).toThrow(
+      ClosedMonthError,
+    );
+
+    expect(
+      db.select().from(dailySheets).where(eq(dailySheets.id, sheet.id)).get(),
+    ).toBeDefined();
+    expect(
+      db.select().from(costLines).where(eq(costLines.dailySheetId, sheet.id)).all(),
+    ).toHaveLength(1);
+  });
+
+  it("DELETE /api/sheets rejects anonymous requests with 401", async () => {
+    const res = await sheetsDelete(
+      new NextRequest("http://localhost:3000/api/sheets?date=2026-09-01", {
+        method: "DELETE",
+      }),
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("DELETE /api/sheets deletes by date and returns the deleted row's date", async () => {
+    const sheet = getOrCreateSheet("2026-09-14", { db });
+    addCostLine(sheet.id, 1200, "transport", null, { db });
+
+    const res = await sheetsDelete(
+      makeAuthReq(deleteUrl("2026-09-14", identityOf(sheet.id)), {
+        method: "DELETE",
+      }),
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ deleted: true, date: "2026-09-14" });
+    expect(getSheetWithCosts("2026-09-14", { db })).toBeNull();
+    expect(
+      db.select().from(costLines).where(eq(costLines.dailySheetId, sheet.id)).all(),
+    ).toHaveLength(0);
+  });
+
+  it("DELETE /api/sheets returns 400 for a missing or malformed date", async () => {
+    const missing = await sheetsDelete(
+      makeAuthReq("http://localhost:3000/api/sheets", { method: "DELETE" }),
+    );
+    expect(missing.status).toBe(400);
+    expect((await missing.json()).code).toBe("saveError");
+
+    const bad = await sheetsDelete(
+      makeAuthReq(
+        deleteUrl("2026-13-40", { id: 1, updatedAt: "2026-09-01T00:00:00.000Z" }),
+        { method: "DELETE" },
+      ),
+    );
+    expect(bad.status).toBe(400);
+    const badBody = await bad.json();
+    expect(badBody.code).toBe("saveError");
+    expect(badBody.error).toMatch(/Invalid date format/);
+  });
+
+  it("DELETE /api/sheets returns 400 when the expected id or updatedAt is missing", async () => {
+    const sheet = getOrCreateSheet("2026-09-17", { db });
+
+    const noId = await sheetsDelete(
+      makeAuthReq(
+        `http://localhost:3000/api/sheets?date=2026-09-17&updatedAt=${encodeURIComponent(identityOf(sheet.id).updatedAt)}`,
+        { method: "DELETE" },
+      ),
+    );
+    expect(noId.status).toBe(400);
+    expect((await noId.json()).code).toBe("saveError");
+
+    const noUpdatedAt = await sheetsDelete(
+      makeAuthReq(`http://localhost:3000/api/sheets?date=2026-09-17&id=${sheet.id}`, {
+        method: "DELETE",
+      }),
+    );
+    expect(noUpdatedAt.status).toBe(400);
+    expect((await noUpdatedAt.json()).code).toBe("saveError");
+
+    expect(getSheetWithCosts("2026-09-17", { db })).not.toBeNull();
+  });
+
+  it("DELETE /api/sheets returns 409 sheetChanged when the sheet changed since it was confirmed", async () => {
+    const sheet = getOrCreateSheet("2026-09-18", { db });
+    addCostLine(sheet.id, 400, "restock", null, { db });
+    const stale = identityOf(sheet.id);
+    setRevenue(sheet.id, 1234, 0, { db });
+
+    const res = await sheetsDelete(
+      makeAuthReq(deleteUrl("2026-09-18", stale), { method: "DELETE" }),
+    );
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("sheetChanged");
+    expect(getSheetWithCosts("2026-09-18", { db })?.costLines).toHaveLength(1);
+  });
+
+  it("DELETE /api/sheets returns 404 when no sheet exists for the date", async () => {
+    const res = await sheetsDelete(
+      makeAuthReq(
+        deleteUrl("2026-09-15", { id: 1, updatedAt: "2026-09-01T00:00:00.000Z" }),
+        { method: "DELETE" },
+      ),
+    );
+    expect(res.status).toBe(404);
+    expect((await res.json()).code).toBe("notFound");
+  });
+
+  it("DELETE /api/sheets returns 409 monthClosed in a closed Month", async () => {
+    const closedSheet = getSheetWithCosts("2026-06-10", { db })!.sheet;
+    const res = await sheetsDelete(
+      makeAuthReq(deleteUrl("2026-06-10", identityOf(closedSheet.id)), {
+        method: "DELETE",
+      }),
+    );
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe("monthClosed");
+    expect(getSheetWithCosts("2026-06-10", { db })).not.toBeNull();
+  });
+});
+
+describe("12. Daily Sheet updatedAt is strictly monotonic (ADR 0006)", () => {
+  const ISO_SHAPE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+  function storedUpdatedAt(sheetId: number): string {
+    return db.select().from(dailySheets).where(eq(dailySheets.id, sheetId)).get()!
+      .updatedAt;
+  }
+
+  function setStoredUpdatedAt(sheetId: number, value: string) {
+    db.update(dailySheets)
+      .set({ updatedAt: value })
+      .where(eq(dailySheets.id, sheetId))
+      .run();
+  }
+
+  // Every write path that touches daily_sheets.updated_at. Each gets its own
+  // sheet (with Cost Lines for the paths that need them); a test calls write()
+  // once or twice.
+  const writePaths: Array<{ name: string; date: string; write: (sheetId: number) => void }> = [
+    { name: "setRevenue", date: "2026-08-01", write: (id) => setRevenue(id, 1111, 22, { db }) },
+    {
+      name: "addCostLine",
+      date: "2026-08-02",
+      write: (id) => addCostLine(id, 300, "gas", null, { db }),
+    },
+    {
+      name: "updateCostLine",
+      date: "2026-08-03",
+      write: (id) => {
+        const line = db.select().from(costLines).where(eq(costLines.dailySheetId, id)).get()!;
+        updateCostLine(line.id, { amountSen: line.amountSen + 1 }, { db });
+      },
+    },
+    {
+      name: "removeCostLine",
+      date: "2026-08-04",
+      write: (id) => {
+        const line = db.select().from(costLines).where(eq(costLines.dailySheetId, id)).get()!;
+        removeCostLine(line.id, { db });
+      },
+    },
+    {
+      name: "replaceCostLines",
+      date: "2026-08-05",
+      write: (id) =>
+        replaceCostLines(id, [{ amountSen: 700, category: "restock" }], { db }),
+    },
+  ];
+
+  function freshSheet(date: string): number {
+    const sheet = getOrCreateSheet(date, { db });
+    // Enough Cost Lines for two update/remove writes per test
+    addCostLine(sheet.id, 100, "gas", null, { db });
+    addCostLine(sheet.id, 200, "transport", null, { db });
+    return sheet.id;
+  }
+
+  function resetSheet(date: string): number {
+    const existing = getSheetWithCosts(date, { db });
+    if (existing) {
+      deleteSheet(
+        existing.sheet.id,
+        { id: existing.sheet.id, updatedAt: existing.sheet.updatedAt },
+        { db },
+      );
+    }
+    return freshSheet(date);
+  }
+
+  it.each(writePaths)(
+    "$name: two writes in the same frozen millisecond yield distinct, strictly increasing updatedAt",
+    ({ date, write }) => {
+      const sheetId = resetSheet(date);
+      vi.useFakeTimers({ toFake: ["Date"] });
+      try {
+        const frozen = "2026-08-10T03:04:05.678Z";
+        vi.setSystemTime(new Date(frozen));
+        setStoredUpdatedAt(sheetId, "2026-08-10T03:04:05.000Z");
+
+        write(sheetId);
+        const first = storedUpdatedAt(sheetId);
+        write(sheetId);
+        const second = storedUpdatedAt(sheetId);
+
+        // First write takes the (later) clock; second, same ms, goes 1 ms past it
+        expect(first).toBe(frozen);
+        expect(second).toBe("2026-08-10T03:04:05.679Z");
+        expect(second > first).toBe(true);
+        expect(second).toMatch(ISO_SHAPE);
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
+
+  it.each(writePaths)(
+    "$name: a clock earlier than the stored updatedAt still yields a strictly greater value",
+    ({ date, write }) => {
+      const sheetId = resetSheet(date);
+      vi.useFakeTimers({ toFake: ["Date"] });
+      try {
+        const stored = "2026-08-20T12:00:00.500Z";
+        setStoredUpdatedAt(sheetId, stored);
+        // Clock stepped back an hour (e.g. NTP correction)
+        vi.setSystemTime(new Date("2026-08-20T11:00:00.000Z"));
+
+        write(sheetId);
+        const after = storedUpdatedAt(sheetId);
+
+        expect(after).toBe("2026-08-20T12:00:00.501Z");
+        expect(after > stored).toBe(true);
+        expect(after).toMatch(ISO_SHAPE);
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
+
+  it.each(writePaths)(
+    "$name: a legacy CURRENT_TIMESTAMP updatedAt ends up strictly later, in ISO shape",
+    ({ date, write }) => {
+      const sheetId = resetSheet(date);
+      vi.useFakeTimers({ toFake: ["Date"] });
+      try {
+        // Legacy shape is later in time than the clock, yet sorts before it as
+        // raw text (space < "T"), so a raw string max would go backwards.
+        const legacy = "2026-08-21 10:00:00";
+        setStoredUpdatedAt(sheetId, legacy);
+        vi.setSystemTime(new Date("2026-08-21T09:00:00.000Z"));
+
+        write(sheetId);
+        const after = storedUpdatedAt(sheetId);
+
+        expect(after).toBe("2026-08-21T10:00:00.001Z");
+        expect(after).toMatch(ISO_SHAPE);
+        expect(Date.parse(after)).toBeGreaterThan(Date.parse(legacy.replace(" ", "T") + "Z"));
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
+
+  it("a freshly created sheet's legacy-shaped updatedAt is replaced by a strictly later ISO value on the first write", () => {
+    // resetSheet() clears any leftover but adds Cost Lines (ISO updatedAt), so
+    // drop its sheet and insert a bare one to get the schema default
+    const cleanId = resetSheet("2026-08-22");
+    deleteSheet(cleanId, { id: cleanId, updatedAt: storedUpdatedAt(cleanId) }, { db });
+    const sheet = getOrCreateSheet("2026-08-22", { db });
+    // Inserted via the schema default, i.e. SQLite's own CURRENT_TIMESTAMP
+    expect(sheet.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    const insertedAt = sheet.updatedAt.replace(" ", "T") + ".000Z";
+
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      // Clock an hour behind the insert, so only the stored value can win
+      vi.setSystemTime(new Date(Date.parse(insertedAt) - 3_600_000));
+
+      const updated = setRevenue(sheet.id, 500, 0, { db });
+      expect(updated.updatedAt).toBe(sheet.updatedAt.replace(" ", "T") + ".001Z");
+      expect(updated.updatedAt).toMatch(ISO_SHAPE);
+      expect(Date.parse(updated.updatedAt)).toBeGreaterThan(Date.parse(insertedAt));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("an unparseable updatedAt (hand-edited DB) falls back to the clock, then is strictly later again", () => {
+    const sheetId = resetSheet("2026-08-24");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const frozen = "2026-08-24T05:06:07.890Z";
+      vi.setSystemTime(new Date(frozen));
+      setStoredUpdatedAt(sheetId, "garbage");
+
+      // Documented fallback: the plain clock, not a crash and not NULL
+      setRevenue(sheetId, 100, 0, { db });
+      expect(storedUpdatedAt(sheetId)).toBe(frozen);
+
+      // Guarantee is back on the very next write, same millisecond
+      setRevenue(sheetId, 200, 0, { db });
+      expect(storedUpdatedAt(sheetId)).toBe("2026-08-24T05:06:07.891Z");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("setRevenue returns the row carrying the new updatedAt", () => {
+    const sheetId = resetSheet("2026-08-23");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-08-23T01:00:00.000Z"));
+      setStoredUpdatedAt(sheetId, "2026-08-23T01:00:00.000Z");
+
+      const returned = setRevenue(sheetId, 4200, 100, { db });
+      expect(returned.updatedAt).toBe("2026-08-23T01:00:00.001Z");
+      expect(returned.updatedAt).toBe(storedUpdatedAt(sheetId));
+      expect(returned.cashSen).toBe(4200);
+      expect(returned.tngSen).toBe(100);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

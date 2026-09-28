@@ -23,6 +23,7 @@ import {
   findZeroCostLineIndex,
   getCostLineKey,
   rebaseCostLinesAfterSave,
+  canOpenDeleteSheetModal,
   type CostLineItem,
 } from "./DailySheetForm";
 import { DICTIONARY, translateApiError } from "@/lib/i18n";
@@ -1310,5 +1311,103 @@ describe("shared merge rule in the form (Phase 7)", () => {
     expect(result.lines.map((l) => l.clientId)).toEqual(["a", "b", "new"]);
     expect(result.lines.map((l) => l.amountSen)).toEqual([MAX, 5, 0]);
     expect(result.expandedIndex).toBe(2);
+  });
+});
+
+describe("Delete Daily Sheet button and sticky summary bar", () => {
+  const baseProps = {
+    date: "2026-05-15",
+    initialCashSen: 5000,
+    initialTngSen: 2000,
+    initialCostLines: [] as CostLineItem[],
+    isClosed: false,
+    todayKl: "2026-05-15",
+  };
+  const SAVED = { id: 1, updatedAt: "2026-05-15T10:00:00.000Z" };
+
+  function render(props: Partial<React.ComponentProps<typeof DailySheetForm>>) {
+    return ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DailySheetForm, { ...baseProps, ...props })
+    );
+  }
+
+  // The <button ...> element whose label is the delete-sheet text
+  function deleteSheetButton(html: string): string | null {
+    const idx = html.indexOf(t.deleteSheetBtn);
+    if (idx === -1) return null;
+    const start = html.lastIndexOf("<button", idx);
+    return html.slice(start, html.indexOf(">", start) + 1);
+  }
+
+  it("is hidden when no saved Daily Sheet exists for the date", () => {
+    expect(deleteSheetButton(render({ savedSheet: null }))).toBeNull();
+    expect(deleteSheetButton(render({}))).toBeNull();
+  });
+
+  it("is shown, enabled, and solid red with white text when a saved Daily Sheet exists", () => {
+    const btn = deleteSheetButton(render({ savedSheet: SAVED }));
+    expect(btn).not.toBeNull();
+    expect(btn).not.toContain('disabled=""');
+    expect(btn).toMatch(/(\s|")bg-finance-loss(\s|")/);
+    expect(btn).toContain("hover:bg-finance-loss/90");
+    expect(btn).toMatch(/(\s|")text-white(\s|")/);
+    expect(btn).not.toMatch(/(\s|")bg-white(\s|")/);
+    expect(btn).not.toMatch(/(\s|")border-finance-loss(\s|")/);
+    expect(btn).not.toContain("text-finance-loss");
+  });
+
+  it("is shown for a saved sheet with zero Cost Lines (short day)", () => {
+    const html = render({ savedSheet: SAVED, initialCashSen: 0, initialTngSen: 0 });
+    expect(deleteSheetButton(html)).not.toBeNull();
+  });
+
+  it("is disabled when the Month is closed", () => {
+    const btn = deleteSheetButton(render({ savedSheet: SAVED, isClosed: true }));
+    expect(btn).not.toBeNull();
+    expect(btn).toMatch(/disabled=""/);
+  });
+
+  it("comes after the sticky summary bar in the DOM, with its own bottom spacing", () => {
+    const html = render({
+      savedSheet: SAVED,
+      initialCostLines: [
+        { id: 1, category: "restock", amountSen: 1000 },
+        { id: 2, category: "gas", amountSen: 500 },
+      ],
+    });
+    const barIdx = html.indexOf('class="sticky bottom-16 z-30 space-y-2"');
+    const btnIdx = html.indexOf(t.deleteSheetBtn);
+    expect(barIdx).toBeGreaterThan(-1);
+    expect(btnIdx).toBeGreaterThan(barIdx);
+    const wrapperStart = html.lastIndexOf("<div", html.lastIndexOf("<button", btnIdx));
+    expect(html.slice(wrapperStart, html.indexOf(">", wrapperStart) + 1)).toContain("pb-4");
+  });
+
+  it("summary bar keeps its sticky positioning class (not fixed)", () => {
+    for (const savedSheet of [null, SAVED]) {
+      const html = render({ savedSheet });
+      expect(html).toContain('class="sticky bottom-16 z-30 space-y-2"');
+    }
+  });
+
+  it("the delete-sheet modal cannot open while the save or Cost Line delete confirmation is open", () => {
+    expect(canOpenDeleteSheetModal({ showConfirmModal: false, pendingDeleteIndex: null })).toBe(true);
+    expect(canOpenDeleteSheetModal({ showConfirmModal: true, pendingDeleteIndex: null })).toBe(false);
+    expect(canOpenDeleteSheetModal({ showConfirmModal: false, pendingDeleteIndex: 0 })).toBe(false);
+    expect(canOpenDeleteSheetModal({ showConfirmModal: true, pendingDeleteIndex: 2 })).toBe(false);
+  });
+
+  it("i18n has delete-sheet keys in both zh and en", () => {
+    for (const lang of ["zh", "en"] as const) {
+      const d = DICTIONARY[lang];
+      expect(d.deleteSheetBtn).toBeTruthy();
+      expect(d.confirmDeleteSheetTitle).toBeTruthy();
+      expect(d.confirmDeleteSheetDesc).toBeTruthy();
+      expect(d.sheetDate).toBeTruthy();
+      expect(d.deleteSheetSuccess).toBeTruthy();
+      expect(d.savedTotalRevenue).toBeTruthy();
+      expect(d.savedTotalCosts).toBeTruthy();
+      expect(d.sheetChangedError).toBeTruthy();
+    }
   });
 });

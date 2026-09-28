@@ -40,13 +40,28 @@ export function git(args, cwd) {
   return sh("git", args, { cwd }).trim();
 }
 
+// sqlite3 waits up to this long for another process's lock (e.g. the fake
+// service switching the DB to WAL) instead of failing at once with
+// "database is locked". A ceiling, not an expected wait: past it, sqlite()
+// and dbDump() still throw.
+const SQLITE_BUSY_TIMEOUT = ["-cmd", ".timeout 5000"];
+
 export function sqlite(db, sql) {
-  return sh("sqlite3", ["-bail", db, sql]).trim();
+  return sh("sqlite3", ["-bail", ...SQLITE_BUSY_TIMEOUT, db, sql]).trim();
 }
 
 /** Logical DB content, read without modifying the files (read-only URI). */
 export function dbDump(db) {
-  return sh("sqlite3", [`file:${db}?mode=ro`, ".dump"]);
+  // .dump exits 0 even when a lock outlasts the timeout: it prints an empty or
+  // truncated dump and reports the error only on stderr. Fail loudly instead.
+  const r = spawnSync("sqlite3", [...SQLITE_BUSY_TIMEOUT, `file:${db}?mode=ro`, ".dump"], {
+    encoding: "utf-8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (r.status !== 0 || r.stderr !== "" || !r.stdout.endsWith("\nCOMMIT;\n")) {
+    throw new Error(`dbDump failed for ${db} (status ${r.status}):\n${r.stderr}${r.stdout}`);
+  }
+  return r.stdout;
 }
 
 function freePort() {

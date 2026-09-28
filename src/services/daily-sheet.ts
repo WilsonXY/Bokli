@@ -1,4 +1,4 @@
-import { eq, like, type SQL } from "drizzle-orm";
+import { eq, like, sql, type SQL } from "drizzle-orm";
 import { getDb, type DbLike } from "@/db";
 import {
   costLines,
@@ -23,6 +23,7 @@ import {
 } from "@/lib/vocab";
 import {
   ClosedMonthError,
+  ConflictError,
   FutureDateError,
   NotFoundError,
   ValidationError,
@@ -209,11 +210,34 @@ function getEditableSheet(sheetId: number, db: DbLike): DailySheet {
 }
 
 /**
+ * The only source of a Daily Sheet's new updatedAt; every write of
+ * daily_sheets.updated_at must use it. Evaluated by SQLite inside the UPDATE,
+ * so it reads the stored value and writes the new one in a single statement.
+ *
+ * Yields, for values the app writes, the later of the current clock and the
+ * stored value + 1 ms, in toISOString() shape. updatedAt is deleteSheet()'s
+ * concurrency token, so it must change on every write even when two writes
+ * share a millisecond or the clock steps back (ADR 0006). The stored value goes through strftime() first
+ * because legacy CURRENT_TIMESTAMP rows ("YYYY-MM-DD HH:MM:SS") do not compare
+ * correctly against ISO strings as raw text.
+ *
+ * Strictly later holds for every value this app writes (legacy and ISO). A
+ * value strftime() cannot parse (only possible by editing the DB by hand)
+ * makes the write store the plain clock: still a different token, but not
+ * necessarily later. The next write, even in the same millisecond, is
+ * strictly later again.
+ */
+function nextSheetUpdatedAt(): SQL {
+  const now = new Date().toISOString();
+  return sql`max(${now}, coalesce(strftime('%Y-%m-%dT%H:%M:%fZ', ${dailySheets.updatedAt}, '+0.001 seconds'), ${now}))`;
+}
+
+/**
  * Bumps a Daily Sheet's updatedAt after one of its Cost Lines changed.
  */
 function touchSheetUpdatedAt(sheetId: number, db: DbLike): void {
   db.update(dailySheets)
-    .set({ updatedAt: new Date().toISOString() })
+    .set({ updatedAt: nextSheetUpdatedAt() })
     .where(eq(dailySheets.id, sheetId))
     .run();
 }
@@ -339,7 +363,7 @@ export function setRevenue(
     .set({
       cashSen: Number(validCash),
       tngSen: Number(validTng),
-      updatedAt: new Date().toISOString(),
+      updatedAt: nextSheetUpdatedAt(),
     })
     .where(eq(dailySheets.id, sheetId))
     .returning()
@@ -620,6 +644,38 @@ export function removeCostLine(
     touchSheetUpdatedAt(sheet.id, tx);
 
     return { success: true, removedLine: existingLine };
+  });
+}
+
+/**
+ * Delete a whole Daily Sheet (e.g. one recorded on the wrong date).
+ * - Month must not be closed
+ * - `expected` is the sheet identity (id + updatedAt) the Operator confirmed;
+ *   if the stored row no longer matches it, throws ConflictError and deletes
+ *   nothing (optimistic concurrency, checked inside the transaction)
+ * - Its Cost Lines are removed by the cost_lines.daily_sheet_id ON DELETE CASCADE FK
+ *   (openDb enables PRAGMA foreign_keys)
+ * - Returns the deleted sheet row
+ */
+export function deleteSheet(
+  sheetId: number,
+  expected: { id: number; updatedAt: string },
+  options?: { db?: DbLike },
+): { success: boolean; deletedSheet: DailySheet } {
+  const db = options?.db ?? getDb().db;
+
+  return db.transaction((tx) => {
+    const sheet = getEditableSheet(sheetId, tx);
+
+    if (sheet.id !== expected.id || sheet.updatedAt !== expected.updatedAt) {
+      throw new ConflictError(
+        `Daily Sheet for date "${sheet.date}" changed since it was loaded`,
+      );
+    }
+
+    tx.delete(dailySheets).where(eq(dailySheets.id, sheetId)).run();
+
+    return { success: true, deletedSheet: sheet };
   });
 }
 
