@@ -1875,7 +1875,8 @@ describe("12. Daily Sheet updatedAt is strictly monotonic (ADR 0006)", () => {
   }
 
   // Every write path that touches daily_sheets.updated_at. Each gets its own
-  // sheet (and a Cost Line where the path needs one) and performs one write.
+  // sheet (with Cost Lines for the paths that need them); a test calls write()
+  // once or twice.
   const writePaths: Array<{ name: string; date: string; write: (sheetId: number) => void }> = [
     { name: "setRevenue", date: "2026-08-01", write: (id) => setRevenue(id, 1111, 22, { db }) },
     {
@@ -2000,16 +2001,44 @@ describe("12. Daily Sheet updatedAt is strictly monotonic (ADR 0006)", () => {
     },
   );
 
-  it("a freshly created sheet's legacy-shaped updatedAt is replaced by ISO on the first write", () => {
+  it("a freshly created sheet's legacy-shaped updatedAt is replaced by a strictly later ISO value on the first write", () => {
     const sheet = getOrCreateSheet("2026-08-22", { db });
-    // Inserted via the schema default, i.e. CURRENT_TIMESTAMP
+    // Inserted via the schema default, i.e. SQLite's own CURRENT_TIMESTAMP
     expect(sheet.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    const insertedAt = sheet.updatedAt.replace(" ", "T") + ".000Z";
 
-    const updated = setRevenue(sheet.id, 500, 0, { db });
-    expect(updated.updatedAt).toMatch(ISO_SHAPE);
-    expect(Date.parse(updated.updatedAt)).toBeGreaterThan(
-      Date.parse(sheet.updatedAt.replace(" ", "T") + "Z"),
-    );
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      // Clock an hour behind the insert, so only the stored value can win
+      vi.setSystemTime(new Date(Date.parse(insertedAt) - 3_600_000));
+
+      const updated = setRevenue(sheet.id, 500, 0, { db });
+      expect(updated.updatedAt).toBe(sheet.updatedAt.replace(" ", "T") + ".001Z");
+      expect(updated.updatedAt).toMatch(ISO_SHAPE);
+      expect(Date.parse(updated.updatedAt)).toBeGreaterThan(Date.parse(insertedAt));
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("an unparseable updatedAt (hand-edited DB) falls back to the clock, then is strictly later again", () => {
+    const sheetId = resetSheet("2026-08-24");
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const frozen = "2026-08-24T05:06:07.890Z";
+      vi.setSystemTime(new Date(frozen));
+      setStoredUpdatedAt(sheetId, "garbage");
+
+      // Documented fallback: the plain clock, not a crash and not NULL
+      setRevenue(sheetId, 100, 0, { db });
+      expect(storedUpdatedAt(sheetId)).toBe(frozen);
+
+      // Guarantee is back on the very next write, same millisecond
+      setRevenue(sheetId, 200, 0, { db });
+      expect(storedUpdatedAt(sheetId)).toBe("2026-08-24T05:06:07.891Z");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("setRevenue returns the row carrying the new updatedAt", () => {

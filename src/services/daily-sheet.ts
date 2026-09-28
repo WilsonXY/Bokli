@@ -219,8 +219,13 @@ function getEditableSheet(sheetId: number, db: DbLike): DailySheet {
  * must change on every write even when two writes share a millisecond or the
  * clock steps back (ADR 0006). The stored value goes through strftime() first
  * because legacy CURRENT_TIMESTAMP rows ("YYYY-MM-DD HH:MM:SS") do not compare
- * correctly against ISO strings as raw text; an unparseable value falls back
- * to the clock.
+ * correctly against ISO strings as raw text.
+ *
+ * Strictly later holds for every value this app writes (legacy and ISO). A
+ * value strftime() cannot parse (only possible by editing the DB by hand)
+ * makes the write store the plain clock: still a different token, but not
+ * necessarily later. The next write, even in the same millisecond, is
+ * strictly later again.
  */
 function nextSheetUpdatedAt(): SQL {
   const now = new Date().toISOString();
