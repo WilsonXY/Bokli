@@ -214,10 +214,10 @@ function getEditableSheet(sheetId: number, db: DbLike): DailySheet {
  * daily_sheets.updated_at must use it. Evaluated by SQLite inside the UPDATE,
  * so it reads the stored value and writes the new one in a single statement.
  *
- * Yields the later of the current clock and the stored value + 1 ms, in
- * toISOString() shape. updatedAt is deleteSheet()'s concurrency token, so it
- * must change on every write even when two writes share a millisecond or the
- * clock steps back (ADR 0006). The stored value goes through strftime() first
+ * Yields, for values the app writes, the later of the current clock and the
+ * stored value + 1 ms, in toISOString() shape. updatedAt is deleteSheet()'s
+ * concurrency token, so it must change on every write even when two writes
+ * share a millisecond or the clock steps back (ADR 0006). The stored value goes through strftime() first
  * because legacy CURRENT_TIMESTAMP rows ("YYYY-MM-DD HH:MM:SS") do not compare
  * correctly against ISO strings as raw text.
  *

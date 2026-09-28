@@ -2002,6 +2002,10 @@ describe("12. Daily Sheet updatedAt is strictly monotonic (ADR 0006)", () => {
   );
 
   it("a freshly created sheet's legacy-shaped updatedAt is replaced by a strictly later ISO value on the first write", () => {
+    // resetSheet() clears any leftover but adds Cost Lines (ISO updatedAt), so
+    // drop its sheet and insert a bare one to get the schema default
+    const cleanId = resetSheet("2026-08-22");
+    deleteSheet(cleanId, { id: cleanId, updatedAt: storedUpdatedAt(cleanId) }, { db });
     const sheet = getOrCreateSheet("2026-08-22", { db });
     // Inserted via the schema default, i.e. SQLite's own CURRENT_TIMESTAMP
     expect(sheet.updatedAt).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
