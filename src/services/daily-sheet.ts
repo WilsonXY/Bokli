@@ -1,4 +1,4 @@
-import { eq, like, type SQL } from "drizzle-orm";
+import { eq, like, sql, type SQL } from "drizzle-orm";
 import { getDb, type DbLike } from "@/db";
 import {
   costLines,
@@ -210,11 +210,29 @@ function getEditableSheet(sheetId: number, db: DbLike): DailySheet {
 }
 
 /**
+ * The only source of a Daily Sheet's new updatedAt; every write of
+ * daily_sheets.updated_at must use it. Evaluated by SQLite inside the UPDATE,
+ * so it reads the stored value and writes the new one in a single statement.
+ *
+ * Yields the later of the current clock and the stored value + 1 ms, in
+ * toISOString() shape. updatedAt is deleteSheet()'s concurrency token, so it
+ * must change on every write even when two writes share a millisecond or the
+ * clock steps back (ADR 0006). The stored value goes through strftime() first
+ * because legacy CURRENT_TIMESTAMP rows ("YYYY-MM-DD HH:MM:SS") do not compare
+ * correctly against ISO strings as raw text; an unparseable value falls back
+ * to the clock.
+ */
+function nextSheetUpdatedAt(): SQL {
+  const now = new Date().toISOString();
+  return sql`max(${now}, coalesce(strftime('%Y-%m-%dT%H:%M:%fZ', ${dailySheets.updatedAt}, '+0.001 seconds'), ${now}))`;
+}
+
+/**
  * Bumps a Daily Sheet's updatedAt after one of its Cost Lines changed.
  */
 function touchSheetUpdatedAt(sheetId: number, db: DbLike): void {
   db.update(dailySheets)
-    .set({ updatedAt: new Date().toISOString() })
+    .set({ updatedAt: nextSheetUpdatedAt() })
     .where(eq(dailySheets.id, sheetId))
     .run();
 }
@@ -340,7 +358,7 @@ export function setRevenue(
     .set({
       cashSen: Number(validCash),
       tngSen: Number(validTng),
-      updatedAt: new Date().toISOString(),
+      updatedAt: nextSheetUpdatedAt(),
     })
     .where(eq(dailySheets.id, sheetId))
     .returning()
