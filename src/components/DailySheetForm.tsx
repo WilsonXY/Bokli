@@ -1031,7 +1031,7 @@ export function DailySheetForm({
   return (
     <div className="space-y-4">
       {/* Date Bar with Calendar Toggle Popover & Lock Notice */}
-      <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs flex flex-col gap-2.5">
+      <div className="bg-surface border border-surface-border rounded-xl p-3 shadow-xs flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -1123,7 +1123,7 @@ export function DailySheetForm({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {/* Cash Revenue Card */}
-          <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-cash transition-all">
+          <div className="bg-surface border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-cash transition-all">
             <div className="flex items-center gap-1.5 mb-1.5">
               <span className="w-2 h-2 rounded-full bg-channel-cash inline-block shrink-0" />
               <label
@@ -1156,7 +1156,7 @@ export function DailySheetForm({
                 placeholder="0.00"
                 className={`w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
                   cashError ? "border-finance-loss" : "border-surface-border"
-                } text-lg font-bold text-ink-primary focus:outline-none focus:bg-white ${
+                } text-lg font-bold text-ink-primary focus:outline-none focus:bg-surface ${
                   cashError
                     ? "focus:border-finance-loss focus-visible:ring-finance-loss/50"
                     : "focus:border-channel-cash focus-visible:ring-channel-cash/50"
@@ -1171,7 +1171,7 @@ export function DailySheetForm({
           </div>
 
           {/* TnG Revenue Card */}
-          <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-tng transition-all">
+          <div className="bg-surface border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-tng transition-all">
             <div className="flex items-center gap-1.5 mb-1.5">
               <span className="w-2 h-2 rounded-full bg-channel-tng inline-block shrink-0" />
               <label
@@ -1204,7 +1204,7 @@ export function DailySheetForm({
                 placeholder="0.00"
                 className={`w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
                   tngError ? "border-finance-loss" : "border-surface-border"
-                } text-lg font-bold text-ink-primary focus:outline-none focus:bg-white ${
+                } text-lg font-bold text-ink-primary focus:outline-none focus:bg-surface ${
                   tngError
                     ? "focus:border-finance-loss focus-visible:ring-finance-loss/50"
                     : "focus:border-channel-tng focus-visible:ring-channel-tng/50"
@@ -1243,10 +1243,10 @@ export function DailySheetForm({
               return (
                 <div
                   key={getCostLineKey(line, idx)}
-                  className={`bg-white border rounded-xl shadow-xs transition-all overflow-hidden ${
+                  className={`bg-surface border rounded-xl shadow-xs transition-all overflow-hidden ${
                         isExpanded
                           ? "border-brand-broccoli ring-2 ring-brand-broccoli/20"
-                          : "border-surface-border hover:border-slate-300"
+                          : "border-surface-border hover:border-surface-border-strong"
                       }`}
                     >
                   {/* Summary Row */}
@@ -1264,14 +1264,14 @@ export function DailySheetForm({
                             if (!isClosed) handleToggleCostLine(idx);
                           }
                         }}
-                        className={`w-full px-4 py-3 flex items-center justify-between gap-2 select-none bg-white transition-colors ${
+                        className={`w-full px-4 py-3 flex items-center justify-between gap-2 select-none bg-surface transition-colors ${
                           isClosed ? "cursor-default" : "cursor-pointer hover:bg-surface-subtle/50"
                         }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-5 h-5 flex items-center justify-center text-slate-400 shrink-0">
+                          <div className="w-5 h-5 flex items-center justify-center text-ink-faint shrink-0">
                             <svg
-                              className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
+                              className={`w-4 h-4 text-ink-faint transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
                               fill="none"
                               stroke="currentColor"
                               strokeWidth="2.5"
@@ -1296,7 +1296,7 @@ export function DailySheetForm({
                               formatMyr(BigInt(line.amountSen)),
                               "text-xs",
                               "text-base"
-                            )} font-bold text-slate-700 tabular-nums whitespace-nowrap`}
+                            )} font-bold text-ink-secondary tabular-nums whitespace-nowrap`}
                           >
                             {formatMyr(BigInt(line.amountSen))}
                           </span>
@@ -1339,7 +1339,7 @@ export function DailySheetForm({
                                     onClick={() => handleUpdateCostLine(idx, { category: cat.key })}
                                     className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold border btn-wave transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 disabled:opacity-50 ${
                                       isSelected
-                                        ? "bg-brand-broccoli text-white border-brand-broccoli shadow-xs"
+                                        ? "bg-brand-broccoli text-ink-on-accent border-brand-broccoli shadow-xs"
                                         : "bg-surface-canvas border-surface-border text-ink-secondary hover:border-ink-muted hover:text-ink-primary"
                                     }`}
                                   >
@@ -1380,7 +1380,7 @@ export function DailySheetForm({
                                   }}
                                   onFocus={() => setExpandedIndex(idx)}
                                   placeholder="0.00"
-                                  className={`w-full h-11 pl-10 pr-2.5 rounded-lg bg-surface-canvas border text-base font-semibold text-ink-primary tabular-nums focus:outline-none focus:bg-white focus-visible:ring-2 transition-colors ${
+                                  className={`w-full h-11 pl-10 pr-2.5 rounded-lg bg-surface-canvas border text-base font-semibold text-ink-primary tabular-nums focus:outline-none focus:bg-surface focus-visible:ring-2 transition-colors ${
                                     idx === costAmountErrorIndex
                                       ? "border-finance-loss focus:border-finance-loss focus-visible:ring-finance-loss/50"
                                       : "border-surface-border focus:border-ink-primary focus-visible:ring-brand-broccoli/50"
@@ -1414,7 +1414,7 @@ export function DailySheetForm({
                                 }}
                                 onFocus={() => setExpandedIndex(idx)}
                                 placeholder={line.category === "other" ? t.noteRequired : t.noteOptional}
-                                className={`w-full h-11 px-3 rounded-lg bg-surface-canvas border text-sm text-ink-primary focus:outline-none focus:bg-white focus-visible:ring-2 focus-visible:ring-brand-broccoli/50 transition-colors ${
+                                className={`w-full h-11 px-3 rounded-lg bg-surface-canvas border text-sm text-ink-primary focus:outline-none focus:bg-surface focus-visible:ring-2 focus-visible:ring-brand-broccoli/50 transition-colors ${
                                   idx === noteErrorIndex
                                     ? "border-finance-loss focus:border-finance-loss"
                                     : "border-surface-border focus:border-ink-primary"
@@ -1445,7 +1445,7 @@ export function DailySheetForm({
             type="button"
             disabled={saving}
             onClick={handleCreateNewCostLine}
-            className="relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-emerald-50/40 hover:bg-emerald-50/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden disabled:opacity-50"
+            className="relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-brand-broccoli-subtle/40 hover:bg-brand-broccoli-subtle/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden disabled:opacity-50"
           >
             <svg
               className="absolute inset-0 w-full h-full pointer-events-none rounded-xl"
@@ -1461,7 +1461,7 @@ export function DailySheetForm({
                 stroke="currentColor"
                 strokeWidth="2"
                 strokeDasharray="8 5"
-                className="text-emerald-400/90 group-hover:text-brand-broccoli transition-colors"
+                className="text-brand-broccoli-soft/90 group-hover:text-brand-broccoli transition-colors"
               />
             </svg>
             <span className="text-lg leading-none relative z-10">+</span>
@@ -1513,7 +1513,7 @@ export function DailySheetForm({
               </div>
             )}
 
-            <div className="bg-white/95 backdrop-blur-md border border-surface-border rounded-xl p-3 shadow-sm flex items-center justify-between gap-3">
+            <div className="bg-surface/95 backdrop-blur-md border border-surface-border rounded-xl p-3 shadow-sm flex items-center justify-between gap-3">
               <div>
                 <div className="text-[13px] text-ink-muted font-medium">
                   {t.grossProfit}
@@ -1540,7 +1540,7 @@ export function DailySheetForm({
                       disabled={saving}
                       title={t.undoChanges}
                       aria-label={t.undoChanges}
-                      className="h-12 w-12 shrink-0 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary hover:text-ink-primary shadow-xs flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 active:scale-95 cursor-pointer disabled:opacity-50 animate-in fade-in zoom-in-95 duration-150"
+                      className="h-12 w-12 shrink-0 rounded-lg border border-surface-border bg-surface hover:bg-surface-subtle text-ink-secondary hover:text-ink-primary shadow-xs flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 active:scale-95 cursor-pointer disabled:opacity-50 animate-in fade-in zoom-in-95 duration-150"
                     >
                       <svg
                         className="w-5 h-5 text-ink-secondary"
@@ -1581,7 +1581,7 @@ export function DailySheetForm({
                       setExpandedIndex(null);
                       setShowConfirmModal(true);
                     }}
-                    className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
+                    className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-ink-on-accent font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1 focus-visible:ring-offset-surface"
                   >
                     {saving ? (
                       <span>{t.saving}</span>
@@ -1616,7 +1616,7 @@ export function DailySheetForm({
               setDeleteSheetError(null);
               setShowDeleteSheetModal(true);
             }}
-            className="w-full h-12 rounded-xl bg-finance-loss hover:bg-finance-loss/90 btn-wave text-white font-bold text-sm flex items-center justify-center gap-2 transition-colors shadow-xs disabled:opacity-40 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+            className="w-full h-12 rounded-xl bg-finance-loss hover:bg-finance-loss/90 btn-wave text-ink-on-accent font-bold text-sm flex items-center justify-center gap-2 transition-colors shadow-xs disabled:opacity-40 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
           >
             <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1639,7 +1639,7 @@ export function DailySheetForm({
             if (e.target === e.currentTarget && !deletingSheet) setShowDeleteSheetModal(false);
           }}
         >
-          <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
+          <div className="w-full max-w-sm bg-surface rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
             <div className="flex flex-col items-center text-center gap-3">
               <div className="w-16 h-16 rounded-full bg-finance-loss-light border border-finance-loss-border/60 text-finance-loss flex items-center justify-center shrink-0 select-none">
                 <svg aria-hidden="true" className="w-10 h-10" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -1697,7 +1697,7 @@ export function DailySheetForm({
                 type="button"
                 disabled={deletingSheet}
                 onClick={handleDeleteSheet}
-                className="flex-1 h-11 rounded-xl bg-finance-loss hover:bg-finance-loss/90 btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer disabled:opacity-50"
+                className="flex-1 h-11 rounded-xl bg-finance-loss hover:bg-finance-loss/90 btn-wave text-ink-on-accent font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer disabled:opacity-50"
               >
                 {t.confirmDeleteBtn}
               </button>
@@ -1717,7 +1717,7 @@ export function DailySheetForm({
             if (e.target === e.currentTarget) setPendingDeleteIndex(null);
           }}
         >
-          <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
+          <div className="w-full max-w-sm bg-surface rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-finance-loss-light border border-finance-loss-border/60 text-finance-loss flex items-center justify-center shrink-0 select-none">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -1737,7 +1737,7 @@ export function DailySheetForm({
             {/* Item detail snapshot */}
             <div className="p-3 rounded-xl bg-surface-subtle border border-surface-border flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white border border-surface-border text-ink-secondary whitespace-nowrap">
+                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-surface border border-surface-border text-ink-secondary whitespace-nowrap">
                   {getCategoryLabel(costLines[pendingDeleteIndex].category)}
                 </span>
                 {costLines[pendingDeleteIndex].note && (
@@ -1772,7 +1772,7 @@ export function DailySheetForm({
                   handleRemoveCostLine(pendingDeleteIndex);
                   setPendingDeleteIndex(null);
                 }}
-                className="flex-1 h-11 rounded-xl bg-finance-loss hover:bg-finance-loss/90 btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+                className="flex-1 h-11 rounded-xl bg-finance-loss hover:bg-finance-loss/90 btn-wave text-ink-on-accent font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
               >
                 {t.confirmDeleteBtn}
               </button>
@@ -1793,7 +1793,7 @@ export function DailySheetForm({
             if (e.target === e.currentTarget && !saving) setShowConfirmModal(false);
           }}
         >
-          <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
+          <div className="w-full max-w-sm bg-surface rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
             <div className="space-y-1">
               <h3 id="confirm-modal-title" className="text-lg font-bold text-ink-primary">
                 {t.confirmSaveTitle}
@@ -1845,7 +1845,7 @@ export function DailySheetForm({
                   setShowConfirmModal(false);
                   await handleSave();
                 }}
-                className="flex-1 h-11 rounded-xl bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer disabled:opacity-50"
+                className="flex-1 h-11 rounded-xl bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-ink-on-accent font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer disabled:opacity-50"
               >
                 {saving ? t.saving : t.confirmSaveBtn}
               </button>

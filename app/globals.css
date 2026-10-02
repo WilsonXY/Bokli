@@ -3,14 +3,126 @@
 @tailwind utilities;
 
 @layer base {
+  /* Theme tokens as RGB channels (consumed by tailwind.config.ts via
+     rgb(var(--x) / <alpha-value>)). Light values are the original palette. */
   :root {
     color-scheme: light;
+
+    --surface: 255 255 255;
+    --surface-canvas: 248 250 252;
+    --surface-subtle: 241 245 249;
+    --surface-border: 226 232 240;
+    --surface-border-strong: 203 213 225;
+
+    --ink-primary: 15 23 42;
+    --ink-secondary: 51 65 85;
+    --ink-muted: 100 116 139;
+    --ink-faint: 148 163 184;
+    --ink-on-accent: 255 255 255;
+
+    --brand-broccoli: 21 128 61;
+    --brand-broccoli-light: 220 252 231;
+    --brand-broccoli-dark: 22 101 52;
+    --brand-broccoli-subtle: 236 253 245;
+    --brand-broccoli-soft: 52 211 153;
+
+    --channel-cash: 5 150 105;
+    --channel-cash-light: 236 253 245;
+    --channel-tng: 37 99 235;
+    --channel-tng-light: 239 246 255;
+
+    --finance-cost: 217 119 6;
+    --finance-cost-light: 255 251 235;
+    --finance-profit: 22 163 74;
+    --finance-profit-light: 240 253 244;
+    --finance-profit-border: 187 247 208;
+    --finance-profit-text: 4 120 87;
+    --finance-loss: 220 38 38;
+    --finance-loss-light: 254 242 242;
+    --finance-loss-border: 254 202 202;
+    --finance-loss-text: 225 29 72;
+
+    --status-closed: 22 101 52;
+    --status-closed-bg: 220 252 231;
+    --status-reopened: 133 77 14;
+    --status-reopened-bg: 254 249 195;
+    --status-open: 7 89 133;
+    --status-open-bg: 224 242 254;
+
+    --chart-line: 37 99 235;
+    --chart-line-strong: 29 78 216;
+    --chart-halo: 191 219 254;
+
+    --category-restock: 37 99 235;
+    --category-gas: 245 158 11;
+    --category-transport: 147 51 234;
+    --category-wages-daily: 244 63 94;
+    --category-maintenance: 13 148 136;
+    --category-other: 100 116 139;
+  }
+
+  /* Dark: slate canvas, lighter surfaces, light accents. Filled accents carry
+     dark text (--ink-on-accent) so both fill and text-on-surface meet AA. */
+  .dark {
+    color-scheme: dark;
+
+    --surface: 30 41 59;
+    --surface-canvas: 15 23 42;
+    --surface-subtle: 41 53 74;
+    --surface-border: 51 65 85;
+    --surface-border-strong: 71 85 105;
+
+    --ink-primary: 241 245 249;
+    --ink-secondary: 203 213 225;
+    --ink-muted: 148 163 184;
+    --ink-faint: 100 116 139;
+    --ink-on-accent: 15 23 42;
+
+    --brand-broccoli: 74 222 128;
+    --brand-broccoli-light: 20 83 45;
+    --brand-broccoli-dark: 134 239 172;
+    --brand-broccoli-subtle: 6 78 59;
+    --brand-broccoli-soft: 52 211 153;
+
+    --channel-cash: 52 211 153;
+    --channel-cash-light: 2 44 34;
+    --channel-tng: 96 165 250;
+    --channel-tng-light: 23 37 84;
+
+    --finance-cost: 251 191 36;
+    --finance-cost-light: 69 26 3;
+    --finance-profit: 74 222 128;
+    --finance-profit-light: 5 46 22;
+    --finance-profit-border: 22 101 52;
+    --finance-profit-text: 52 211 153;
+    --finance-loss: 248 113 113;
+    --finance-loss-light: 69 10 10;
+    --finance-loss-border: 127 29 29;
+    --finance-loss-text: 251 113 133;
+
+    --status-closed: 134 239 172;
+    --status-closed-bg: 20 83 45;
+    --status-reopened: 253 224 71;
+    --status-reopened-bg: 66 32 6;
+    --status-open: 125 211 252;
+    --status-open-bg: 8 47 73;
+
+    --chart-line: 96 165 250;
+    --chart-line-strong: 147 197 253;
+    --chart-halo: 30 58 138;
+
+    --category-restock: 96 165 250;
+    --category-gas: 251 191 36;
+    --category-transport: 192 132 252;
+    --category-wages-daily: 251 113 133;
+    --category-maintenance: 45 212 191;
+    --category-other: 148 163 184;
   }
 
   html,
   body {
-    background-color: #f8fafc;
-    color: #0f172a;
+    background-color: rgb(var(--surface-canvas));
+    color: rgb(var(--ink-primary));
     -webkit-tap-highlight-color: transparent;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
@@ -123,7 +235,7 @@
 .daily-sheet-canvas {
   padding: 1rem 1rem 6rem;
 }
-.daily-sheet-canvas .space-y-4 > .bg-white.border.border-surface-border:not(.cost-entry-card) {
+.daily-sheet-canvas .space-y-4 > .bg-surface.border.border-surface-border:not(.cost-entry-card) {
   border: none !important;
   box-shadow: none !important;
   background: transparent !important;
@@ -131,21 +243,21 @@
   padding: 0.5rem 0 !important;
 }
 .daily-sheet-canvas section {
-  border-bottom: 1px solid var(--surface-border, #e2e8f0);
+  border-bottom: 1px solid rgb(var(--surface-border));
   padding-bottom: 1.25rem;
   margin-bottom: 0.5rem;
 }
 .daily-sheet-canvas input {
-  background: #ffffff !important;
-  border: 1px solid #cbd5e1 !important;
+  background: rgb(var(--surface)) !important;
+  border: 1px solid rgb(var(--surface-border-strong)) !important;
   border-radius: 8px !important;
 }
 
 /* Modals and dialog overlays must always retain crisp solid surface and elevation */
-.daily-sheet-canvas [role="dialog"] .bg-white,
-.daily-sheet-canvas .fixed .bg-white {
-  background-color: #ffffff !important;
-  border: 1px solid var(--surface-border, #e2e8f0) !important;
+.daily-sheet-canvas [role="dialog"] .bg-surface,
+.daily-sheet-canvas .fixed .bg-surface {
+  background-color: rgb(var(--surface)) !important;
+  border: 1px solid rgb(var(--surface-border)) !important;
   border-radius: 1rem !important;
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
 }
@@ -160,9 +272,9 @@
 .expenses-canvas .space-y-3 {
   gap: 0.5rem !important;
 }
-.expenses-canvas .space-y-4 > .bg-white.border.border-surface-border:not([aria-label="Month Financial Summary"]),
-.expenses-canvas section > .bg-white.border.border-surface-border,
-.expenses-canvas section.bg-white.border.border-surface-border:not([aria-label="Month Financial Summary"]) {
+.expenses-canvas .space-y-4 > .bg-surface.border.border-surface-border:not([aria-label="Month Financial Summary"]),
+.expenses-canvas section > .bg-surface.border.border-surface-border,
+.expenses-canvas section.bg-surface.border.border-surface-border:not([aria-label="Month Financial Summary"]) {
   padding: 0.625rem 0.875rem !important;
   border-radius: 10px !important;
 }
@@ -195,7 +307,7 @@
 @media (hover: hover) and (pointer: fine) {
   .chart-point-interactive:hover .point-circle {
     r: 6 !important;
-    fill: #1d4ed8 !important;
+    fill: rgb(var(--chart-line-strong)) !important;
   }
   .chart-point-interactive:hover .point-guide {
     opacity: 1 !important;
@@ -204,7 +316,7 @@
 .chart-point-interactive:focus .point-circle,
 .chart-point-interactive:focus-visible .point-circle {
   r: 6 !important;
-  fill: #1d4ed8 !important;
+  fill: rgb(var(--chart-line-strong)) !important;
 }
 .chart-point-interactive:focus .point-guide,
 .chart-point-interactive:focus-visible .point-guide {

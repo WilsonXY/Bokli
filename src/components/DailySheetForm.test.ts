@@ -1034,7 +1034,7 @@ describe("DailySheetForm long money amount dynamic sizing", () => {
 
     // Cost line summary amount: RM1200000.00 (12 chars) -> replaces text-base with text-xs (no coexistence)
     expect(html).toContain("RM1200000.00");
-    expect(html).toMatch(/class="[^"]*text-xs font-bold text-slate-700 tabular-nums whitespace-nowrap"[^>]*>RM1200000\.00/);
+    expect(html).toMatch(/class="[^"]*text-xs font-bold text-ink-secondary tabular-nums whitespace-nowrap"[^>]*>RM1200000\.00/);
     expect(html).not.toMatch(/class="[^"]*text-base[^"]*"[^>]*>RM1200000\.00/);
 
     // Sticky bottom bar gross profit: 100568612 - 120000000 = -19431388 -> -RM194313.88 (13 chars) -> text-base
@@ -1063,7 +1063,7 @@ describe("DailySheetForm long money amount dynamic sizing", () => {
     );
 
     // Cost line summary amount: RM500000.00 (11 chars) -> no text-xs
-    expect(html).toMatch(/class="[^"]*text-base font-bold text-slate-700 tabular-nums whitespace-nowrap"[^>]*>RM500000\.00/);
+    expect(html).toMatch(/class="[^"]*text-base font-bold text-ink-secondary tabular-nums whitespace-nowrap"[^>]*>RM500000\.00/);
     expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
 
     // Sticky bottom bar gross profit: RM0.00 (6 chars) -> text-xl
@@ -1344,14 +1344,14 @@ describe("Delete Daily Sheet button and sticky summary bar", () => {
     expect(deleteSheetButton(render({}))).toBeNull();
   });
 
-  it("is shown, enabled, and solid red with white text when a saved Daily Sheet exists", () => {
+  it("is shown, enabled, and solid red with on-accent text when a saved Daily Sheet exists", () => {
     const btn = deleteSheetButton(render({ savedSheet: SAVED }));
     expect(btn).not.toBeNull();
     expect(btn).not.toContain('disabled=""');
     expect(btn).toMatch(/(\s|")bg-finance-loss(\s|")/);
     expect(btn).toContain("hover:bg-finance-loss/90");
-    expect(btn).toMatch(/(\s|")text-white(\s|")/);
-    expect(btn).not.toMatch(/(\s|")bg-white(\s|")/);
+    expect(btn).toMatch(/(\s|")text-ink-on-accent(\s|")/);
+    expect(btn).not.toMatch(/(\s|")bg-surface(\s|")/);
     expect(btn).not.toMatch(/(\s|")border-finance-loss(\s|")/);
     expect(btn).not.toContain("text-finance-loss");
   });
