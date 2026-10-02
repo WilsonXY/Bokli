@@ -1581,7 +1581,7 @@ export function DailySheetForm({
                       setExpandedIndex(null);
                       setShowConfirmModal(true);
                     }}
-                    className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-ink-on-accent font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
+                    className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-ink-on-accent font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1 focus-visible:ring-offset-surface"
                   >
                     {saving ? (
                       <span>{t.saving}</span>

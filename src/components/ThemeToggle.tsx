@@ -3,18 +3,14 @@
 import React from "react";
 import { useI18n } from "@/lib/i18n";
 import {
+  THEME_CANVAS_COLOR,
   THEME_STORAGE_KEY,
   applyTheme,
+  nextThemePreference,
   parseThemePreference,
   resolveTheme,
   type ThemePreference,
 } from "@/lib/theme";
-
-const NEXT_PREFERENCE: Record<ThemePreference, ThemePreference> = {
-  light: "dark",
-  dark: "system",
-  system: "light",
-};
 
 const ICON_PATHS: Record<ThemePreference, string> = {
   light:
@@ -45,11 +41,24 @@ export function ThemeToggle() {
   React.useEffect(() => {
     if (preference === null) return;
     const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const apply = () => applyTheme(resolveTheme(preference, media.matches), document.documentElement);
+    const apply = () => {
+      const theme = resolveTheme(preference, media.matches);
+      applyTheme(theme, document.documentElement);
+      // Keep the browser chrome in step with an explicit choice too, not just
+      // the OS preference the per-media meta tags encode.
+      document.querySelectorAll('meta[name="theme-color"]').forEach((meta) => {
+        meta.setAttribute("content", THEME_CANVAS_COLOR[theme]);
+      });
+    };
     apply();
     if (preference !== "system") return;
-    media.addEventListener("change", apply);
-    return () => media.removeEventListener("change", apply);
+    // Safari < 14 only supports the deprecated addListener/removeListener.
+    if (media.addEventListener) {
+      media.addEventListener("change", apply);
+      return () => media.removeEventListener("change", apply);
+    }
+    media.addListener(apply);
+    return () => media.removeListener(apply);
   }, [preference]);
 
   const current = preference ?? "system";
@@ -60,7 +69,7 @@ export function ThemeToggle() {
   };
 
   function handleClick() {
-    const next = NEXT_PREFERENCE[current];
+    const next = nextThemePreference(current);
     try {
       window.localStorage.setItem(THEME_STORAGE_KEY, next);
     } catch {

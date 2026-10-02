@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { THEME_INIT_SCRIPT, THEME_STORAGE_KEY, applyTheme, parseThemePreference, resolveTheme } from "./theme";
+import {
+  THEME_INIT_SCRIPT,
+  THEME_STORAGE_KEY,
+  applyTheme,
+  nextThemePreference,
+  parseThemePreference,
+  resolveTheme,
+} from "./theme";
 
 describe("resolveTheme", () => {
   it("returns the stored theme when it is light or dark, regardless of the system preference", () => {
@@ -36,7 +43,12 @@ describe("parseThemePreference", () => {
 });
 
 describe("THEME_INIT_SCRIPT (runs before first paint)", () => {
-  function runScript(stored: string | null, systemPrefersDark: boolean, storageThrows = false) {
+  function runScript(
+    stored: string | null,
+    systemPrefersDark: boolean,
+    storageThrows = false,
+    hasMatchMedia = true
+  ) {
     const classes = new Set<string>();
     const root = {
       classList: {
@@ -54,16 +66,17 @@ describe("THEME_INIT_SCRIPT (runs before first paint)", () => {
     const matchMedia = (query: string) => ({
       matches: query === "(prefers-color-scheme: dark)" && systemPrefersDark,
     });
-    new Function("document", "localStorage", "matchMedia", THEME_INIT_SCRIPT)(
+    new Function("window", "document", "localStorage", "matchMedia", THEME_INIT_SCRIPT)(
+      hasMatchMedia ? { matchMedia } : {},
       { documentElement: root },
       localStorage,
-      matchMedia
+      hasMatchMedia ? matchMedia : undefined
     );
     return { isDark: classes.has("dark"), colorScheme: root.style.colorScheme };
   }
 
   it("applies the same theme as resolveTheme for every stored value and system preference", () => {
-    for (const stored of ["light", "dark", "system", null, "junk"]) {
+    for (const stored of ["light", "dark", "system", null, "", "junk"]) {
       for (const systemPrefersDark of [true, false]) {
         const expected = resolveTheme(stored, systemPrefersDark);
         const result = runScript(stored, systemPrefersDark);
@@ -71,6 +84,15 @@ describe("THEME_INIT_SCRIPT (runs before first paint)", () => {
         expect(result.colorScheme).toBe(expected);
       }
     }
+  });
+
+  it("reads the bokli-theme localStorage key", () => {
+    expect(THEME_STORAGE_KEY).toBe("bokli-theme");
+  });
+
+  it("falls back to light without throwing when matchMedia is unavailable", () => {
+    expect(runScript(null, true, false, false)).toEqual({ isDark: false, colorScheme: "light" });
+    expect(runScript("dark", true, false, false)).toEqual({ isDark: true, colorScheme: "dark" });
   });
 
   it("follows the system preference when localStorage is unavailable", () => {
@@ -101,5 +123,13 @@ describe("applyTheme", () => {
     applyTheme("light", root);
     expect(root.classes.has("dark")).toBe(false);
     expect(root.style.colorScheme).toBe("light");
+  });
+});
+
+describe("nextThemePreference", () => {
+  it("cycles light → dark → system → light", () => {
+    expect(nextThemePreference("light")).toBe("dark");
+    expect(nextThemePreference("dark")).toBe("system");
+    expect(nextThemePreference("system")).toBe("light");
   });
 });

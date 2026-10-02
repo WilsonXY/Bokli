@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { AppShell } from "@/components/AppShell";
 import { I18nProvider } from "@/lib/i18n";
 import { getTodayInKualaLumpur } from "@/lib/datetime";
-import { THEME_INIT_SCRIPT } from "@/lib/theme";
+import { THEME_CANVAS_COLOR, THEME_INIT_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,11 +13,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  // Browser chrome colour cannot read CSS variables; these mirror
-  // --surface-canvas (light / dark) in app/globals.css.
+  // Follows the OS before hydration; ThemeToggle then syncs it to the app theme.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
-    { media: "(prefers-color-scheme: dark)", color: "#0f172a" },
+    { media: "(prefers-color-scheme: light)", color: THEME_CANVAS_COLOR.light },
+    { media: "(prefers-color-scheme: dark)", color: THEME_CANVAS_COLOR.dark },
   ],
 };
 
