@@ -160,6 +160,10 @@ export const DICTIONARY = {
     confirmSignOutTitle: "确认退出登录？",
     confirmSignOutBtn: "确认退出",
     signingOut: "退出中...",
+    themeToggle: "主题",
+    themeLight: "浅色",
+    themeDark: "深色",
+    themeSystem: "跟随系统",
   },
   en: {
     brandSubtitle: "Food Stall Ops",
@@ -316,6 +320,10 @@ export const DICTIONARY = {
     confirmSignOutTitle: "Sign out of Bokli?",
     confirmSignOutBtn: "Sign Out",
     signingOut: "Signing out...",
+    themeToggle: "Theme",
+    themeLight: "Light",
+    themeDark: "Dark",
+    themeSystem: "System",
   },
 };
 

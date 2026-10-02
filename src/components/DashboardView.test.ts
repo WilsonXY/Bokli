@@ -256,12 +256,12 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
 
       // Daily cost (11 chars): keeps base text-sm sm:text-xl (never includes text-xs)
       expect(html).toContain("RM500000.00");
-      expect(html).toMatch(/class="[^"]*text-sm sm:text-xl font-bold text-slate-700 tabular-nums"[^>]*>RM500000\.00/);
+      expect(html).toMatch(/class="[^"]*text-sm sm:text-xl font-bold text-ink-secondary tabular-nums"[^>]*>RM500000\.00/);
       expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
 
       // Operating expenses (12 chars): conditional replacement text-xs sm:text-xl (never coexists with text-sm)
       expect(html).toContain("RM1200000.00");
-      expect(html).toMatch(/class="[^"]*text-xs sm:text-xl font-bold text-slate-700 tabular-nums"[^>]*>RM1200000\.00/);
+      expect(html).toMatch(/class="[^"]*text-xs sm:text-xl font-bold text-ink-secondary tabular-nums"[^>]*>RM1200000\.00/);
       expect(html).not.toMatch(/class="[^"]*text-sm[^"]*"[^>]*>RM1200000\.00/);
     });
 
@@ -289,7 +289,7 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
       );
 
       expect(longHtml).toContain("-RM194313.88");
-      expect(longHtml).toMatch(/class="[^"]*text-2xl sm:text-4xl font-extrabold tracking-tight tabular-nums text-rose-600"[^>]*>-RM194313\.88/);
+      expect(longHtml).toMatch(/class="[^"]*text-2xl sm:text-4xl font-extrabold tracking-tight tabular-nums text-finance-loss-text"[^>]*>-RM194313\.88/);
       expect(longHtml).not.toMatch(/class="[^"]*text-3xl[^"]*"[^>]*>-RM194313\.88/);
 
       // Normal headline amount: RM5000.00 -> 9 characters <= 11
@@ -315,7 +315,7 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
       );
 
       expect(normalHtml).toContain("RM5000.00");
-      expect(normalHtml).toMatch(/class="[^"]*text-3xl sm:text-4xl font-extrabold tracking-tight tabular-nums text-emerald-700"[^>]*>RM5000\.00/);
+      expect(normalHtml).toMatch(/class="[^"]*text-3xl sm:text-4xl font-extrabold tracking-tight tabular-nums text-finance-profit-text"[^>]*>RM5000\.00/);
       expect(normalHtml).not.toMatch(/class="[^"]*text-2xl[^"]*"[^>]*>RM5000\.00/);
     });
   });

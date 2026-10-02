@@ -71,7 +71,7 @@ function LoginForm() {
 
   return (
     <div className="min-h-screen bg-surface-canvas flex flex-col justify-center items-center px-4 py-6">
-      <div className="w-full max-w-xs sm:max-w-sm bg-white border border-surface-border rounded-2xl p-6 sm:p-7 shadow-sm relative">
+      <div className="w-full max-w-xs sm:max-w-sm bg-surface border border-surface-border rounded-2xl p-6 sm:p-7 shadow-sm relative">
         {/* Language Switcher Top Right */}
         <div className="absolute top-4 right-4 flex items-center bg-surface-subtle border border-surface-border rounded-lg p-0.5 text-xs font-semibold">
           <button
@@ -80,7 +80,7 @@ function LoginForm() {
             aria-label="切换到中文 (Switch to Chinese)"
             className={`min-h-[30px] min-w-[38px] px-2.5 py-0.5 rounded-md btn-wave transition-all ${
               lang === "zh"
-                ? "bg-white text-brand-broccoli font-bold shadow-xs"
+                ? "bg-surface text-brand-broccoli font-bold shadow-xs"
                 : "text-ink-muted hover:text-ink-primary font-medium"
             }`}
           >
@@ -92,7 +92,7 @@ function LoginForm() {
             aria-label="Switch to English"
             className={`min-h-[30px] min-w-[38px] px-2.5 py-0.5 rounded-md btn-wave transition-all ${
               lang === "en"
-                ? "bg-white text-brand-broccoli font-bold shadow-xs"
+                ? "bg-surface text-brand-broccoli font-bold shadow-xs"
                 : "text-ink-muted hover:text-ink-primary font-medium"
             }`}
           >
@@ -133,7 +133,7 @@ function LoginForm() {
               onChange={(e) => setUsername(e.target.value)}
               placeholder={t.usernamePlaceholder}
               autoComplete="username"
-              className="w-full h-11 px-3.5 rounded-xl border border-surface-border-strong bg-white text-ink-primary text-base placeholder:text-ink-muted/50 focus:outline-none focus:border-brand-broccoli focus:ring-2 focus:ring-brand-broccoli/30 transition-colors"
+              className="w-full h-11 px-3.5 rounded-xl border border-surface-border-strong bg-surface text-ink-primary text-base placeholder:text-ink-muted/50 focus:outline-none focus:border-brand-broccoli focus:ring-2 focus:ring-brand-broccoli/30 transition-colors"
             />
           </div>
 
@@ -153,7 +153,7 @@ function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t.passwordPlaceholder}
                 autoComplete="current-password"
-                className="w-full h-11 pl-3.5 pr-11 rounded-xl border border-surface-border-strong bg-white text-ink-primary text-base placeholder:text-ink-muted/50 focus:outline-none focus:border-brand-broccoli focus:ring-2 focus:ring-brand-broccoli/30 transition-colors"
+                className="w-full h-11 pl-3.5 pr-11 rounded-xl border border-surface-border-strong bg-surface text-ink-primary text-base placeholder:text-ink-muted/50 focus:outline-none focus:border-brand-broccoli focus:ring-2 focus:ring-brand-broccoli/30 transition-colors"
               />
               <button
                 type="button"
@@ -203,7 +203,7 @@ function LoginForm() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full h-11 mt-2 rounded-xl bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-bold text-sm tracking-wide transition-colors flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+            className="w-full h-11 mt-2 rounded-xl bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-ink-on-accent font-bold text-sm tracking-wide transition-colors flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
           >
             {loading ? t.signingIn : t.signIn}
           </button>

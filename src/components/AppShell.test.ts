@@ -41,3 +41,18 @@ describe("AppShell bottom navigation order", () => {
     expect(dashIndex).toBeLessThan(sheetIndex);
   });
 });
+
+describe("AppShell theme toggle", () => {
+  it("renders a theme toggle button in the header, labelled with the current theme choice", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(
+        AppShell,
+        { userRole: "operator", children: React.createElement("div", null, "Child Content") }
+      )
+    );
+
+    const header = html.slice(html.indexOf("<header"), html.indexOf("</header>"));
+    // Before mount the stored choice is unknown, so the toggle shows "system".
+    expect(header).toContain(`aria-label="${DICTIONARY.zh.themeToggle}: ${DICTIONARY.zh.themeSystem}"`);
+  });
+});

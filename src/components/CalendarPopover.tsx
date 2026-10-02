@@ -122,7 +122,7 @@ export function CalendarPopover({
   return (
     <div
       ref={popoverRef}
-      className="absolute top-full mt-2 left-1/2 z-50 bg-white border border-surface-border rounded-2xl shadow-xl p-3.5 w-72 max-w-[calc(100vw-2rem)] select-none animate-popover"
+      className="absolute top-full mt-2 left-1/2 z-50 bg-surface border border-surface-border rounded-2xl shadow-xl p-3.5 w-72 max-w-[calc(100vw-2rem)] select-none animate-popover"
       role="dialog"
       aria-modal="true"
       aria-label="Date Picker"
@@ -199,7 +199,7 @@ export function CalendarPopover({
               aria-label={cellDate}
               className={`h-8 w-8 mx-auto rounded-lg btn-wave text-sm font-medium flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                 isSelected
-                  ? "bg-brand-broccoli text-white font-bold shadow-xs scale-105"
+                  ? "bg-brand-broccoli text-ink-on-accent font-bold shadow-xs scale-105"
                   : isFuture
                     ? "text-ink-muted/30 cursor-not-allowed"
                     : isToday
