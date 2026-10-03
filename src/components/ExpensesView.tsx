@@ -269,6 +269,9 @@ export function ExpensesView({
 
   // The Save whose outcome is unknown (no OK reply yet); see resolveExpenseAddRequest.
   const pendingAddRef = useRef<PendingExpenseAdd | null>(null);
+  // Set once the Operator saves on this page: from then on her own Save's
+  // reply decides, and a late status answer for an older key is ignored.
+  const addAttemptedRef = useRef(false);
 
   function markTouchedDuringAdd(field: ExpenseDraftField) {
     touchedDuringAddRef.current?.add(field);
@@ -349,9 +352,15 @@ export function ExpensesView({
     fetch(`/api/expenses?idempotencyKey=${encodeURIComponent(pending.key)}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data: { saved?: unknown } | null) => {
-        if (cancelled || typeof data?.saved !== "boolean") return;
+        if (
+          cancelled ||
+          addAttemptedRef.current ||
+          typeof data?.saved !== "boolean"
+        ) {
+          return;
+        }
         if (data.saved) {
-          if (pendingAddRef.current?.key === pending.key) pendingAddRef.current = null;
+          pendingAddRef.current = null;
           clearPendingExpenseAdd(storage, pending.key);
           // No auto-hide: this answers "did my last Save count?".
           clearSuccessTimer();
@@ -359,7 +368,9 @@ export function ExpensesView({
         } else {
           // Keep the key: re-adding the same values must still not double count
           // if the lost request lands late.
-          savePendingExpenseAdd(storage, { ...pending, reported: true });
+          const reported = { ...pending, reported: true };
+          pendingAddRef.current = reported;
+          savePendingExpenseAdd(storage, reported);
           setInlineError(`${t.lastAddNotSaved} · ${item}`);
         }
       })
@@ -419,6 +430,7 @@ export function ExpensesView({
     touchedDuringAddRef.current = new Set<ExpenseDraftField>();
     setAdding(true);
 
+    addAttemptedRef.current = true;
     const request = resolveExpenseAddRequest(
       pendingAddRef.current,
       JSON.stringify({
