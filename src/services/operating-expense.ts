@@ -256,6 +256,18 @@ export async function addOperatingExpense(
 }
 
 /**
+ * Whether an add with this idempotency key was saved. Lets a page reopened
+ * after a lost reply tell the Operator if that Save went through.
+ */
+export async function wasOperatingExpenseAddSaved(
+  idempotencyKey: string,
+  options?: { db?: Db },
+): Promise<boolean> {
+  const db = options?.db ?? getDb().db;
+  return findAddRequest(assertValidIdempotencyKey(idempotencyKey), db) !== undefined;
+}
+
+/**
  * List all Operating Expenses for a given month ("YYYY-MM").
  */
 export async function listOperatingExpenses(

@@ -14,8 +14,12 @@ import {
   ExpensesView,
   formatDeleteModalRecordCount,
   mergeOperatingExpenses,
+  clearPendingExpenseAdd,
   generateIdempotencyKey,
+  loadPendingExpenseAdd,
+  PENDING_EXPENSE_ADD_MAX_AGE_MS,
   resolveExpenseAddRequest,
+  savePendingExpenseAdd,
   resolveExpenseDraftAfterAdd,
   type ExpenseDraftField,
   type OperatingExpenseItem,
@@ -369,19 +373,19 @@ describe("add Save idempotency key (resolveExpenseAddRequest)", () => {
   const nextKey = () => `key-${++n}`;
 
   it("gives a fresh Save action a new key", () => {
-    const first = resolveExpenseAddRequest(null, body, nextKey);
-    expect(first).toEqual({ key: "key-1", body });
+    const first = resolveExpenseAddRequest(null, body, nextKey, 1000);
+    expect(first).toEqual({ key: "key-1", body, createdAt: 1000 });
   });
 
   it("reuses the unconfirmed save's key when the same values are saved again", () => {
-    const pending = { key: "key-lost", body };
-    expect(resolveExpenseAddRequest(pending, body, nextKey)).toBe(pending);
+    const pending = { key: "key-lost", body, createdAt: 1000 };
+    expect(resolveExpenseAddRequest(pending, body, nextKey, 2000)).toBe(pending);
   });
 
   it("gives a new key once the Operator changed what she is saving", () => {
-    const pending = { key: "key-lost", body };
+    const pending = { key: "key-lost", body, createdAt: 1000 };
     const changed = JSON.stringify({ month: "2026-05", type: "rental", amountSen: 6000 });
-    const next = resolveExpenseAddRequest(pending, changed, nextKey);
+    const next = resolveExpenseAddRequest(pending, changed, nextKey, 2000);
     expect(next.key).not.toBe("key-lost");
     expect(next.body).toBe(changed);
   });
@@ -391,5 +395,82 @@ describe("add Save idempotency key (resolveExpenseAddRequest)", () => {
     const b = generateIdempotencyKey();
     expect(a).toMatch(/^[0-9a-f]{32}$/);
     expect(a).not.toBe(b);
+  });
+});
+
+describe("unconfirmed Save kept across reloads (browser storage)", () => {
+  function memoryStorage() {
+    const map = new Map<string, string>();
+    return {
+      map,
+      getItem: (k: string) => map.get(k) ?? null,
+      setItem: (k: string, v: string) => void map.set(k, v),
+      removeItem: (k: string) => void map.delete(k),
+    };
+  }
+  const body = JSON.stringify({ month: "2026-05", type: "rental", amountSen: 5000 });
+  const entry = { key: "key-a", body, createdAt: 1_000 };
+
+  it("restores a saved entry after a reload", () => {
+    const storage = memoryStorage();
+    savePendingExpenseAdd(storage, entry);
+    expect(loadPendingExpenseAdd(storage, 2_000)).toEqual(entry);
+  });
+
+  it("keeps the reported flag so the not-saved notice shows once", () => {
+    const storage = memoryStorage();
+    savePendingExpenseAdd(storage, { ...entry, reported: true });
+    expect(loadPendingExpenseAdd(storage, 2_000)?.reported).toBe(true);
+  });
+
+  it("drops an entry older than the max age", () => {
+    const storage = memoryStorage();
+    savePendingExpenseAdd(storage, entry);
+    const late = entry.createdAt + PENDING_EXPENSE_ADD_MAX_AGE_MS + 1;
+    expect(loadPendingExpenseAdd(storage, late)).toBeNull();
+    expect(storage.map.size).toBe(0);
+  });
+
+  it("drops malformed entries instead of throwing", () => {
+    const storage = memoryStorage();
+    for (const raw of [
+      "not json",
+      JSON.stringify({ key: "", body, createdAt: 1 }),
+      JSON.stringify({ key: "k", body: "not json", createdAt: 1 }),
+      JSON.stringify({ key: "k", body: JSON.stringify({ type: "rental" }), createdAt: 1 }),
+      JSON.stringify({ key: "k", body }),
+    ]) {
+      storage.map.set("bokli.pendingExpenseAdd", raw);
+      expect(loadPendingExpenseAdd(storage, 2)).toBeNull();
+      expect(storage.map.size).toBe(0);
+    }
+  });
+
+  it("clears only the entry for the confirmed key", () => {
+    const storage = memoryStorage();
+    savePendingExpenseAdd(storage, entry);
+    clearPendingExpenseAdd(storage, "key-other");
+    expect(loadPendingExpenseAdd(storage, 2_000)).toEqual(entry);
+    clearPendingExpenseAdd(storage, "key-a");
+    expect(loadPendingExpenseAdd(storage, 2_000)).toBeNull();
+  });
+
+  it("never throws when storage is missing or blocked", () => {
+    const blocked = {
+      getItem: () => {
+        throw new Error("blocked");
+      },
+      setItem: () => {
+        throw new Error("blocked");
+      },
+      removeItem: () => {
+        throw new Error("blocked");
+      },
+    };
+    for (const storage of [null, blocked]) {
+      expect(() => savePendingExpenseAdd(storage, entry)).not.toThrow();
+      expect(() => clearPendingExpenseAdd(storage, "key-a")).not.toThrow();
+      expect(loadPendingExpenseAdd(storage, 2_000)).toBeNull();
+    }
   });
 });

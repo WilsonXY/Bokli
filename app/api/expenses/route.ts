@@ -5,6 +5,7 @@ import {
   deleteOperatingExpenses,
   type OperatingExpenseType,
   removeOperatingExpense,
+  wasOperatingExpenseAddSaved,
 } from "@/services/operating-expense";
 import { handleError } from "@/services/errors";
 import { parseJsonBody, parsePositiveId } from "@/lib/parse";
@@ -68,6 +69,20 @@ export const POST = withAuth(async (req: NextRequest) => {
       },
       { status: expense.merged || expense.alreadySaved ? 200 : 201 },
     );
+  } catch (err) {
+    return handleError(err);
+  }
+});
+
+/**
+ * GET /api/expenses?idempotencyKey=...
+ * Whether the add sent with that Idempotency-Key was saved -> { saved }.
+ */
+export const GET = withAuth(async (req: NextRequest) => {
+  try {
+    const key = new URL(req.url).searchParams.get("idempotencyKey") ?? "";
+    const saved = await wasOperatingExpenseAddSaved(key);
+    return NextResponse.json({ saved }, { status: 200 });
   } catch (err) {
     return handleError(err);
   }

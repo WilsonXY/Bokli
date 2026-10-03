@@ -22,10 +22,12 @@ import {
   listOperatingExpenses,
   removeOperatingExpense,
   updateOperatingExpense,
+  wasOperatingExpenseAddSaved,
 } from "./operating-expense";
 import { addCostLine, getOrCreateSheet, setRevenue } from "./daily-sheet";
 import {
   DELETE as expensesDelete,
+  GET as expensesGet,
   POST as expensesPost,
 } from "../../app/api/expenses/route";
 
@@ -1372,5 +1374,50 @@ describe("12. Idempotent add (Idempotency-Key)", () => {
 
     const rows = await listOperatingExpenses("2022-08", { db });
     expect(rows).toHaveLength(0);
+  });
+});
+
+describe("13. Add status check (GET /api/expenses?idempotencyKey=)", () => {
+  function getStatus(query: string, authed = true) {
+    const req = new NextRequest(`http://localhost:3000/api/expenses?${query}`, {
+      method: "GET",
+    });
+    if (authed) {
+      (req as any).auth = {
+        user: { id: "2", name: "katte", role: "Admin" as const },
+      };
+    }
+    return expensesGet(req);
+  }
+
+  it("reports a handled key as saved and an unknown key as not saved", async () => {
+    await addOperatingExpense("2022-10", "rental", 1500, null, {
+      db,
+      idempotencyKey: "key-status-saved",
+    });
+
+    expect(await wasOperatingExpenseAddSaved("key-status-saved", { db })).toBe(true);
+    expect(await wasOperatingExpenseAddSaved("key-status-unknown", { db })).toBe(false);
+
+    const saved = await getStatus("idempotencyKey=key-status-saved");
+    expect(saved.status).toBe(200);
+    expect(await saved.json()).toEqual({ saved: true });
+
+    const unknown = await getStatus("idempotencyKey=key-status-unknown");
+    expect(unknown.status).toBe(200);
+    expect(await unknown.json()).toEqual({ saved: false });
+  });
+
+  it("rejects anonymous status checks with 401", async () => {
+    const res = await getStatus("idempotencyKey=key-status-saved", false);
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects a missing, empty or oversize key with 400", async () => {
+    expect((await getStatus("")).status).toBe(400);
+    expect((await getStatus("idempotencyKey=")).status).toBe(400);
+    expect(
+      (await getStatus(`idempotencyKey=${"x".repeat(201)}`)).status,
+    ).toBe(400);
   });
 });
