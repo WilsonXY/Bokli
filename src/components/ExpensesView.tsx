@@ -175,6 +175,24 @@ export function savePendingExpenseAdd(
   } catch {}
 }
 
+// Only if storage still holds this key: another tab may have stored a newer
+// unconfirmed Save, whose key must survive.
+export function markPendingExpenseAddReported(
+  storage: KeyValueStorage | null,
+  key: string
+): void {
+  try {
+    const raw = storage?.getItem(PENDING_EXPENSE_ADD_STORAGE_KEY);
+    const stored = raw ? (JSON.parse(raw) as PendingExpenseAdd | null) : null;
+    if (stored?.key === key) {
+      storage?.setItem(
+        PENDING_EXPENSE_ADD_STORAGE_KEY,
+        JSON.stringify({ ...stored, reported: true })
+      );
+    }
+  } catch {}
+}
+
 // Only the confirmed key's entry: another tab may have stored a newer one.
 export function clearPendingExpenseAdd(
   storage: KeyValueStorage | null,
@@ -368,9 +386,8 @@ export function ExpensesView({
         } else {
           // Keep the key: re-adding the same values must still not double count
           // if the lost request lands late.
-          const reported = { ...pending, reported: true };
-          pendingAddRef.current = reported;
-          savePendingExpenseAdd(storage, reported);
+          pendingAddRef.current = { ...pending, reported: true };
+          markPendingExpenseAddReported(storage, pending.key);
           setInlineError(`${t.lastAddNotSaved} · ${item}`);
         }
       })

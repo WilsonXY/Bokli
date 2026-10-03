@@ -17,6 +17,7 @@ import {
   clearPendingExpenseAdd,
   generateIdempotencyKey,
   loadPendingExpenseAdd,
+  markPendingExpenseAddReported,
   PENDING_EXPENSE_ADD_MAX_AGE_MS,
   resolveExpenseAddRequest,
   savePendingExpenseAdd,
@@ -455,6 +456,19 @@ describe("unconfirmed Save kept across reloads (browser storage)", () => {
     expect(loadPendingExpenseAdd(storage, 2_000)).toBeNull();
   });
 
+  it("marks the entry reported only while storage still holds that key", () => {
+    const storage = memoryStorage();
+    savePendingExpenseAdd(storage, entry);
+    markPendingExpenseAddReported(storage, "key-a");
+    expect(loadPendingExpenseAdd(storage, 2_000)?.reported).toBe(true);
+
+    // Another tab stored a newer unconfirmed Save meanwhile: leave it alone.
+    const newer = { key: "key-b", body, createdAt: 1_500 };
+    savePendingExpenseAdd(storage, newer);
+    markPendingExpenseAddReported(storage, "key-a");
+    expect(loadPendingExpenseAdd(storage, 2_000)).toEqual(newer);
+  });
+
   it("never throws when storage is missing or blocked", () => {
     const blocked = {
       getItem: () => {
@@ -470,6 +484,7 @@ describe("unconfirmed Save kept across reloads (browser storage)", () => {
     for (const storage of [null, blocked]) {
       expect(() => savePendingExpenseAdd(storage, entry)).not.toThrow();
       expect(() => clearPendingExpenseAdd(storage, "key-a")).not.toThrow();
+      expect(() => markPendingExpenseAddReported(storage, "key-a")).not.toThrow();
       expect(loadPendingExpenseAdd(storage, 2_000)).toBeNull();
     }
   });
