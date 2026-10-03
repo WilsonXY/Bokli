@@ -88,6 +88,29 @@ export function resolveExpenseDraftAfterAdd(
   };
 }
 
+// One Idempotency-Key per Save action. If a save's reply is lost (dropped
+// connection, server killed mid-reply) the add may already be stored; tapping
+// Save again with the same values must resend the same key so the server adds
+// nothing twice. Changed values are a new Save action and get a new key.
+export interface PendingExpenseAdd {
+  key: string;
+  body: string;
+}
+
+export function resolveExpenseAddRequest(
+  pending: PendingExpenseAdd | null,
+  body: string,
+  generateKey: () => string
+): PendingExpenseAdd {
+  return pending?.body === body ? pending : { key: generateKey(), body };
+}
+
+// getRandomValues, unlike randomUUID, also works on a plain-http page.
+export function generateIdempotencyKey(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 interface ExpensesViewProps {
   currentMonth: string;
   availableMonths: string[];
@@ -160,6 +183,9 @@ export function ExpensesView({
   // disabled attribute — is what guarantees no keystroke is lost. Non-null only
   // while an add is in flight.
   const touchedDuringAddRef = useRef<Set<ExpenseDraftField> | null>(null);
+
+  // The Save whose outcome is unknown (no OK reply yet); see resolveExpenseAddRequest.
+  const pendingAddRef = useRef<PendingExpenseAdd | null>(null);
 
   function markTouchedDuringAdd(field: ExpenseDraftField) {
     touchedDuringAddRef.current?.add(field);
@@ -268,22 +294,34 @@ export function ExpensesView({
     touchedDuringAddRef.current = new Set<ExpenseDraftField>();
     setAdding(true);
 
+    const request = resolveExpenseAddRequest(
+      pendingAddRef.current,
+      JSON.stringify({
+        month: currentMonth,
+        type: newType,
+        amountSen: Number(parsedSen),
+        note: noteInput.trim() || undefined,
+      }),
+      generateIdempotencyKey
+    );
+    pendingAddRef.current = request;
+
     try {
       const res = await fetch("/api/expenses", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          month: currentMonth,
-          type: newType,
-          amountSen: Number(parsedSen),
-          note: noteInput.trim() || undefined,
-        }),
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": request.key,
+        },
+        body: request.body,
       });
 
       const data = await res.json();
       if (!res.ok) {
         throw Object.assign(new Error(data.error ?? ""), { code: data.code });
       }
+      // Confirmed saved: the next Save is a new action with a new key.
+      pendingAddRef.current = null;
 
       setExpenses((prev) => {
         const exists = prev.some((item) => item.id === data.expense.id);

@@ -1,8 +1,9 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { getDb, type Db } from "@/db";
+import { getDb, type Db, type DbLike } from "@/db";
 import {
   costLines,
   dailySheets,
+  operatingExpenseAddRequests,
   operatingExpenses,
   type OperatingExpense,
 } from "@/db/schema";
@@ -78,19 +79,53 @@ export interface MonthPreview {
  * - Amount must be a non-negative sen integer
  * - Rejects writes to CLOSED months (ClosedMonthError)
  * - If expense with same month, type, and note exists, merges amount into existing row
+ * - With an idempotencyKey, a repeat of an already-handled key adds nothing and
+ *   returns the original result with alreadySaved: true (a retried Save after a
+ *   lost reply must not count the amount twice). Reusing a key for a different
+ *   expense is a ValidationError.
  */
 export type AddOperatingExpenseResult = OperatingExpense & {
   merged: boolean;
+  alreadySaved: boolean;
 };
+
+/** Longest Idempotency-Key accepted; a client UUID is 36 characters. */
+export const MAX_IDEMPOTENCY_KEY_LENGTH = 200;
+
+function assertValidIdempotencyKey(key: unknown): string {
+  if (
+    typeof key !== "string" ||
+    key.length === 0 ||
+    key.length > MAX_IDEMPOTENCY_KEY_LENGTH
+  ) {
+    throw new ValidationError(
+      `Idempotency key must be a string of 1 to ${MAX_IDEMPOTENCY_KEY_LENGTH} characters`,
+    );
+  }
+  return key;
+}
+
+function findAddRequest(key: string, db: DbLike) {
+  return db
+    .select()
+    .from(operatingExpenseAddRequests)
+    .where(eq(operatingExpenseAddRequests.idempotencyKey, key))
+    .get();
+}
 
 export async function addOperatingExpense(
   month: string,
   type: OperatingExpenseType,
   amountSen: number | bigint,
   note?: string | null,
-  options?: { db?: Db; now?: Date },
+  options?: { db?: Db; now?: Date; idempotencyKey?: string },
 ): Promise<AddOperatingExpenseResult> {
   const db = options?.db ?? getDb().db;
+
+  const idempotencyKey =
+    options?.idempotencyKey === undefined
+      ? null
+      : assertValidIdempotencyKey(options.idempotencyKey);
 
   if (!isValidMonthStr(month)) {
     throw new ValidationError(
@@ -100,7 +135,10 @@ export async function addOperatingExpense(
 
   assertMonthNotInFuture(month, options?.now);
 
-  assertMonthNotClosed(month, db);
+  // An already-saved request is replayed even if its month was closed since.
+  if (idempotencyKey === null || !findAddRequest(idempotencyKey, db)) {
+    assertMonthNotClosed(month, db);
+  }
 
   if (!isValidOperatingExpenseType(type)) {
     throw new ValidationError(
@@ -126,7 +164,30 @@ export async function addOperatingExpense(
       ? eq(operatingExpenses.note, trimmedNote)
       : isNull(operatingExpenses.note);
 
-  return db.transaction((tx) => {
+  // Same-key requests race safely: the key lookup and the key insert share the
+  // merge's transaction, and the key is the table's primary key, so at most one
+  // of them can commit an add.
+  return db.transaction((tx): AddOperatingExpenseResult => {
+    if (idempotencyKey !== null) {
+      const handled = findAddRequest(idempotencyKey, tx);
+      if (handled) {
+        if (
+          handled.month !== month ||
+          handled.type !== type ||
+          handled.amountSen !== Number(validAmount) ||
+          handled.note !== trimmedNote
+        ) {
+          throw new ValidationError(
+            "Idempotency key was already used for a different Operating Expense",
+          );
+        }
+        return {
+          ...(JSON.parse(handled.result) as AddOperatingExpenseResult),
+          alreadySaved: true,
+        };
+      }
+    }
+
     assertMonthNotClosed(month, tx);
 
     const existing = tx
@@ -141,6 +202,7 @@ export async function addOperatingExpense(
       )
       .get();
 
+    let result: AddOperatingExpenseResult;
     if (existing) {
       const mergedTotal = BigInt(existing.amountSen) + validAmount;
       const validMergedTotal = assertValidSen(
@@ -158,27 +220,36 @@ export async function addOperatingExpense(
         .returning()
         .get();
 
-      return {
-        ...updated,
-        merged: true,
-      };
+      result = { ...updated, merged: true, alreadySaved: false };
+    } else {
+      const inserted = tx
+        .insert(operatingExpenses)
+        .values({
+          month,
+          type,
+          amountSen: Number(validAmount),
+          note: trimmedNote,
+        })
+        .returning()
+        .get();
+
+      result = { ...inserted, merged: false, alreadySaved: false };
     }
 
-    const inserted = tx
-      .insert(operatingExpenses)
-      .values({
-        month,
-        type,
-        amountSen: Number(validAmount),
-        note: trimmedNote,
-      })
-      .returning()
-      .get();
+    if (idempotencyKey !== null) {
+      tx.insert(operatingExpenseAddRequests)
+        .values({
+          idempotencyKey,
+          month,
+          type,
+          amountSen: Number(validAmount),
+          note: trimmedNote,
+          result: JSON.stringify(result),
+        })
+        .run();
+    }
 
-    return {
-      ...inserted,
-      merged: false,
-    };
+    return result;
   });
 }
 

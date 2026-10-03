@@ -133,6 +133,29 @@ export const operatingExpenses = sqliteTable(
 export type OperatingExpense = typeof operatingExpenses.$inferSelect;
 export type NewOperatingExpense = typeof operatingExpenses.$inferInsert;
 
+/**
+ * Idempotency keys already handled by addOperatingExpense. A Save retried with
+ * the same key (e.g. after a lost reply) replays `result` instead of adding the
+ * amount again. The request columns let a key reused for a different expense be
+ * rejected. No FK to operating_expenses: the key must outlive a later delete.
+ */
+export const operatingExpenseAddRequests = sqliteTable(
+  "operating_expense_add_requests",
+  {
+    idempotencyKey: text("idempotency_key").primaryKey(),
+    month: text("month").notNull(),
+    type: text("type").notNull(),
+    amountSen: integer("amount_sen").notNull(),
+    note: text("note"),
+    /** JSON of the AddOperatingExpenseResult originally returned. */
+    result: text("result").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+);
+
+export type OperatingExpenseAddRequest =
+  typeof operatingExpenseAddRequests.$inferSelect;
+
 export const monthCloses = sqliteTable(
   "month_closes",
   {

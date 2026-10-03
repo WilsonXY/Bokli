@@ -14,6 +14,8 @@ import {
   ExpensesView,
   formatDeleteModalRecordCount,
   mergeOperatingExpenses,
+  generateIdempotencyKey,
+  resolveExpenseAddRequest,
   resolveExpenseDraftAfterAdd,
   type ExpenseDraftField,
   type OperatingExpenseItem,
@@ -358,5 +360,36 @@ describe("in-flight edit rebase (resolveExpenseDraftAfterAdd)", () => {
       clearNote: false,
       closeDraft: false,
     });
+  });
+});
+
+describe("add Save idempotency key (resolveExpenseAddRequest)", () => {
+  const body = JSON.stringify({ month: "2026-05", type: "rental", amountSen: 5000 });
+  let n = 0;
+  const nextKey = () => `key-${++n}`;
+
+  it("gives a fresh Save action a new key", () => {
+    const first = resolveExpenseAddRequest(null, body, nextKey);
+    expect(first).toEqual({ key: "key-1", body });
+  });
+
+  it("reuses the unconfirmed save's key when the same values are saved again", () => {
+    const pending = { key: "key-lost", body };
+    expect(resolveExpenseAddRequest(pending, body, nextKey)).toBe(pending);
+  });
+
+  it("gives a new key once the Operator changed what she is saving", () => {
+    const pending = { key: "key-lost", body };
+    const changed = JSON.stringify({ month: "2026-05", type: "rental", amountSen: 6000 });
+    const next = resolveExpenseAddRequest(pending, changed, nextKey);
+    expect(next.key).not.toBe("key-lost");
+    expect(next.body).toBe(changed);
+  });
+
+  it("generates distinct non-empty keys", () => {
+    const a = generateIdempotencyKey();
+    const b = generateIdempotencyKey();
+    expect(a).toMatch(/^[0-9a-f]{32}$/);
+    expect(a).not.toBe(b);
   });
 });
