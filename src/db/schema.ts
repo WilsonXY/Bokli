@@ -153,9 +153,6 @@ export const operatingExpenseAddRequests = sqliteTable(
   },
 );
 
-export type OperatingExpenseAddRequest =
-  typeof operatingExpenseAddRequests.$inferSelect;
-
 export const monthCloses = sqliteTable(
   "month_closes",
   {

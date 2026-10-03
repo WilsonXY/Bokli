@@ -166,7 +166,9 @@ export async function addOperatingExpense(
 
   // Same-key requests race safely: the key lookup and the key insert share the
   // merge's transaction, and the key is the table's primary key, so at most one
-  // of them can commit an add.
+  // of them can commit an add. IMMEDIATE takes the write lock before the lookup,
+  // so a request overlapping another connection's add waits and then replays,
+  // instead of failing with SQLITE_BUSY on a stale read.
   return db.transaction((tx): AddOperatingExpenseResult => {
     if (idempotencyKey !== null) {
       const handled = findAddRequest(idempotencyKey, tx);
@@ -250,7 +252,7 @@ export async function addOperatingExpense(
     }
 
     return result;
-  });
+  }, { behavior: "immediate" });
 }
 
 /**

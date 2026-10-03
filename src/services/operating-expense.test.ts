@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { Worker } from "node:worker_threads";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { NextRequest } from "next/server";
@@ -1247,28 +1248,53 @@ describe("12. Idempotent add (Idempotency-Key)", () => {
     expect(rows[0].amountSen).toBe(7000);
   });
 
-  it("concurrent same-key adds on two separate connections add once", async () => {
+  it("a same-key add overlapping another connection's in-flight add replays instead of failing", async () => {
     const month = "2022-05";
-    const other = openDb(dbPath);
-    try {
-      const [a, b] = await Promise.all([
-        addOperatingExpense(month, "rental", 4000, null, {
-          db,
-          idempotencyKey: "key-two-conns",
-        }),
-        addOperatingExpense(month, "rental", 4000, null, {
-          db: other.db,
-          idempotencyKey: "key-two-conns",
-        }),
-      ]);
-      expect([a.alreadySaved, b.alreadySaved].sort()).toEqual([false, true]);
-    } finally {
-      other.sqlite.close();
-    }
+    const key = "key-two-conns";
+    const existing = await addOperatingExpense(month, "rental", 4000, null, { db });
+    const savedResult = JSON.stringify({
+      ...existing,
+      amountSen: 8000,
+      merged: true,
+      alreadySaved: false,
+    });
 
+    // Another server connection is mid-way through the same Save: it holds the
+    // write lock with the merge and the key written but not yet committed.
+    const worker = new Worker(
+      `
+      const { workerData, parentPort } = require("node:worker_threads");
+      const Database = require("better-sqlite3");
+      const conn = new Database(workerData.dbPath);
+      conn.exec("BEGIN IMMEDIATE");
+      conn.prepare("UPDATE operating_expenses SET amount_sen = amount_sen + 4000 WHERE id = ?").run(workerData.id);
+      conn.prepare(
+        "INSERT INTO operating_expense_add_requests (idempotency_key, month, type, amount_sen, note, result) VALUES (?, ?, 'rental', 4000, NULL, ?)"
+      ).run(workerData.key, workerData.month, workerData.result);
+      parentPort.postMessage("locked");
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 300);
+      conn.exec("COMMIT");
+      conn.close();
+      `,
+      {
+        eval: true,
+        workerData: { dbPath, id: existing.id, key, month, result: savedResult },
+      },
+    );
+    const exited = new Promise((resolve) => worker.once("exit", resolve));
+    await new Promise((resolve) => worker.once("message", resolve));
+
+    const retry = await addOperatingExpense(month, "rental", 4000, null, {
+      db,
+      idempotencyKey: key,
+    }).catch((e) => e);
+    await exited;
+
+    expect(retry).not.toBeInstanceOf(Error);
+    expect(retry.alreadySaved).toBe(true);
     const rows = await listOperatingExpenses(month, { db });
     expect(rows).toHaveLength(1);
-    expect(rows[0].amountSen).toBe(4000);
+    expect(rows[0].amountSen).toBe(8000);
   });
 
   it("requests without a key (old clients) keep today's merge-add behaviour", async () => {
