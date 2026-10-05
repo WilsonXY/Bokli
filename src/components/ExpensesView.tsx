@@ -95,6 +95,10 @@ export function resolveExpenseDraftAfterAdd(
 // Unconfirmed Saves are also kept in browser storage (one entry per key, so
 // tabs and reloads don't erase each other's), so a reload still reuses the key
 // and can ask the server whether the Save went through.
+// Scope: built for one expenses tab at a time (the Operator's normal use).
+// Two tabs open together share the storage without coordination, so rare
+// cross-tab timing (simultaneous Saves, one tab confirming while another holds
+// an older answer or key) is not handled.
 export interface PendingExpenseAdd {
   key: string;
   body: string;
