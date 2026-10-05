@@ -36,6 +36,22 @@ Auth-related changes also require the login smoke test (see repo `scripts/`).
 - Deploy flow and tag rules are documented in the vault's Deployment note —
   follow it; don't improvise.
 
+## Workflow
+Every task runs the full cycle: implement on a feature branch, verify,
+independent review, commit, push, open the PR against `main`, fix CI and review
+comments, then report. Don't stop to ask permission to commit, push the feature
+branch, or open the PR; merge and deploy stay with Katte (see Git & deploy).
+
+Start with the `full-cycle` skill; it owns the order of steps. Then use:
+- Bug or failing test, cause unknown → `systematic-debugging`
+- New behaviour or bug fix → `test-driven-development`
+- Test or build over a minute → `long-running-commands`
+- Before opening a PR → `requesting-code-review`
+- Commit, PR, CI, review comments → `github`
+
+The skills are installed at user level on this machine (`~/.claude/skills`).
+Skill details live in the skills, not in this file.
+
 ## Status & reporting
 - Escalate decisions, don't assume them. Mid-task plan changes → ask the driver
   agent / Katte first (unless already agreed). Scope drift in a fix round → stop
