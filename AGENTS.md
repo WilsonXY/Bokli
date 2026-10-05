@@ -52,6 +52,19 @@ Start with the `full-cycle` skill; it owns the order of steps. Then use:
 The skills are installed at user level on this machine (`~/.claude/skills`).
 Skill details live in the skills, not in this file.
 
+### Dev preview
+- When Katte asks to try a change (or it is user-visible and you'd write "please
+  test it"): push the branch, run `bash ~/.hermes/scripts/bokli_preview.sh <branch>`.
+  Only READY confirms https://boklidev.ktte.me serves it: send Katte that link plus
+  1-2 concrete things to try. Otherwise report the output; don't claim it's ready.
+- The script is the only allowed way. NEVER start your own dev server (`next dev`,
+  `npm run dev`), use Tailscale/ngrok/`tailscale serve`, edit AUTH_URL/NEXTAUTH_URL
+  in `.env.local`, or `pkill next-server` (prod on :5000 has the same name). It holds
+  a lock: if another preview is running, wait and retry; don't work around it.
+- It only checks page + CSS load and cannot log in: say Katte must verify the feature.
+- It switches the shared dev folder to your branch (detached), replacing the previous
+  preview: say in your report which branch the dev site now shows.
+
 ## Status & reporting
 - Escalate decisions, don't assume them. Mid-task plan changes → ask the driver
   agent / Katte first (unless already agreed). Scope drift in a fix round → stop
