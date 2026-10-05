@@ -89,6 +89,7 @@ export default async function DashboardPage(props: PageProps) {
     cashSen: Number(r.cashSen),
     tngSen: Number(r.tngSen),
     totalSen: Number(r.totalSen),
+    costSen: Number(r.costSen),
   }));
 
   const serializedCostByCategory: SerializedCostByCategory = {

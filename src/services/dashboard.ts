@@ -36,6 +36,8 @@ export interface DailyTrendRow {
   cashSen: bigint;
   tngSen: bigint;
   totalSen: bigint;
+  /** Daily Cost for the date: sum of that Daily Sheet's Cost Lines. */
+  costSen: bigint;
 }
 
 export interface CashTngSplit {
@@ -181,7 +183,8 @@ export async function getMonthTile(
 
 /**
  * Get Daily Trend across Daily Sheets in month (Asia/Kuala_Lumpur wall dates).
- * Returns per-date cashSen, tngSen, totalSen ordered chronologically by date.
+ * Returns per-date cashSen, tngSen, totalSen and Daily Cost (costSen) ordered
+ * chronologically by date.
  */
 export async function getDailyTrend(
   month: string,
@@ -206,6 +209,22 @@ export async function getDailyTrend(
     .orderBy(asc(dailySheets.date))
     .all();
 
+  const costs = db
+    .select({
+      date: dailySheets.date,
+      amountSen: costLines.amountSen,
+    })
+    .from(costLines)
+    .innerJoin(dailySheets, eq(costLines.dailySheetId, dailySheets.id))
+    .where(dailySheetInMonth(month))
+    .all();
+
+  const costByDate = new Map<string, bigint>();
+  for (const c of costs) {
+    const curr = costByDate.get(c.date) ?? 0n;
+    costByDate.set(c.date, sumSen([curr, BigInt(c.amountSen)]));
+  }
+
   return sheets.map((s) => {
     const cashSen = BigInt(s.cashSen);
     const tngSen = BigInt(s.tngSen);
@@ -215,6 +234,7 @@ export async function getDailyTrend(
       cashSen,
       tngSen,
       totalSen,
+      costSen: costByDate.get(s.date) ?? 0n,
     };
   });
 }

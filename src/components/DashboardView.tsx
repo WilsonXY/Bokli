@@ -24,6 +24,22 @@ export interface SerializedDailyTrendRow {
   cashSen: number;
   tngSen: number;
   totalSen: number;
+  costSen: number;
+}
+
+export type TrendMetric = "revenue" | "cost";
+
+/** Line colours per trend metric: revenue in TnG blue, Daily Cost in finance-cost amber. */
+const TREND_METRIC_COLORS: Record<
+  TrendMetric,
+  { line: string; active: string; halo: string }
+> = {
+  revenue: { line: "#2563eb", active: "#1d4ed8", halo: "#bfdbfe" },
+  cost: { line: "#d97706", active: "#b45309", halo: "#fde68a" },
+};
+
+export function trendValueSen(row: SerializedDailyTrendRow, metric: TrendMetric): number {
+  return metric === "revenue" ? row.totalSen : row.costSen;
 }
 
 export interface SerializedCostByCategory {
@@ -137,6 +153,7 @@ export function DashboardView({
 
   // Active trend date state for interactive tooltip
   const [activeDate, setActiveDate] = useState<string | null>(null);
+  const [trendMetric, setTrendMetric] = useState<TrendMetric>("revenue");
 
   const categoryLabels: Record<keyof SerializedCostByCategory, string> = {
     restock: t.catRestock,
@@ -196,19 +213,30 @@ export function DashboardView({
   const padTop = 20;
   const padBot = 32;
 
-  const maxVal = trend.length > 0 ? Math.max(...trend.map((d) => d.totalSen), 1000) : 1000;
+  const trendColors = TREND_METRIC_COLORS[trendMetric];
+  const trendMetricLabel = trendMetric === "revenue" ? t.sheetRevCol : t.sheetCostCol;
+  const trendTabs: Array<{ metric: TrendMetric; label: string }> = [
+    { metric: "revenue", label: t.sheetRevCol },
+    { metric: "cost", label: t.sheetCostCol },
+  ];
+
+  const maxVal =
+    trend.length > 0
+      ? Math.max(...trend.map((d) => trendValueSen(d, trendMetric)), 1000)
+      : 1000;
 
   const trendCoords = trend.map((d, idx) => {
     const x =
       trend.length === 1
         ? chartW / 2
         : padX + (idx / (trend.length - 1)) * (chartW - padX * 2);
-    const valRatio = d.totalSen / maxVal;
+    const valueSen = trendValueSen(d, trendMetric);
+    const valRatio = valueSen / maxVal;
     const y = chartH - padBot - valRatio * (chartH - padTop - padBot);
     return {
       date: d.date,
       shortDate: d.date.slice(5),
-      totalSen: d.totalSen,
+      valueSen,
       x,
       y,
     };
@@ -503,9 +531,28 @@ export function DashboardView({
 
           {/* Daily Trend (Line Chart + Ledger) */}
           <section className="bg-white border border-surface-border rounded-xl p-4 shadow-xs space-y-3">
+            {/* Metric tabs: switch the chart and ledger between revenue and Daily Cost */}
+            <div className="flex items-center bg-surface-subtle border border-surface-border rounded-lg p-1 text-sm font-semibold">
+              {trendTabs.map((tab) => (
+                <button
+                  key={tab.metric}
+                  type="button"
+                  aria-pressed={trendMetric === tab.metric}
+                  onClick={() => setTrendMetric(tab.metric)}
+                  className={`flex-1 min-h-[36px] px-3 py-1 rounded-md btn-wave transition-all flex items-center justify-center ${
+                    trendMetric === tab.metric
+                      ? "bg-white text-ink-primary shadow-xs font-bold"
+                      : "text-ink-muted hover:text-ink-primary font-medium"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
             <div className="flex items-center justify-between pb-1">
               <h2 className="text-base font-bold text-ink-primary">
-                {t.dailyTrend}
+                {trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}
               </h2>
               <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-surface-subtle text-ink-secondary tabular-nums border border-surface-border">
                 {trend.length} {t.dateCol}
@@ -523,6 +570,7 @@ export function DashboardView({
                   <svg
                         viewBox={`0 0 ${chartW} ${chartH + 20}`}
                         className="w-full h-auto overflow-visible min-w-[340px]"
+                        style={{ "--trend-point-active": trendColors.active } as React.CSSProperties}
                         onPointerLeave={(e) => {
                           if (e.pointerType === "mouse") {
                             setActiveDate(null);
@@ -536,8 +584,8 @@ export function DashboardView({
                       >
                         <defs>
                           <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#2563eb" stopOpacity="0.25" />
-                            <stop offset="100%" stopColor="#2563eb" stopOpacity="0.0" />
+                            <stop offset="0%" stopColor={trendColors.line} stopOpacity="0.25" />
+                            <stop offset="100%" stopColor={trendColors.line} stopOpacity="0.0" />
                           </linearGradient>
                           <filter id="shadowP1" x="-10%" y="-10%" width="130%" height="130%">
                             <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.1" />
@@ -564,7 +612,7 @@ export function DashboardView({
                           <path
                             d={trendLinePath}
                             fill="none"
-                            stroke="#2563eb"
+                            stroke={trendColors.line}
                             strokeWidth="2.5"
                             strokeLinecap="round"
                             strokeLinejoin="round"
@@ -581,7 +629,7 @@ export function DashboardView({
                             <g
                               key={pt.date}
                               role="button"
-                              aria-label={`${pt.date}: ${formatMyr(BigInt(pt.totalSen))}`}
+                              aria-label={`${pt.date} ${trendMetricLabel}: ${formatMyr(BigInt(pt.valueSen))}`}
                               aria-pressed={isActive}
                               tabIndex={0}
                               className="chart-point-interactive"
@@ -626,7 +674,7 @@ export function DashboardView({
                                 cx={pt.x}
                                 cy={pt.y}
                                 r="10"
-                                fill="#bfdbfe"
+                                fill={trendColors.halo}
                                 opacity={isActive ? "0.8" : "0.6"}
                                 className={`point-guide ${isActive ? "opacity-100" : "opacity-0"} transition-opacity duration-150`}
                               />
@@ -635,14 +683,14 @@ export function DashboardView({
                                 y1={showDate ? chartH - 14 : chartH - 12}
                                 x2={pt.x}
                                 y2={chartH - 10}
-                                stroke={isActive ? "#2563eb" : showDate ? "#cbd5e1" : "#e2e8f0"}
+                                stroke={isActive ? trendColors.line : showDate ? "#cbd5e1" : "#e2e8f0"}
                                 strokeWidth="1"
                               />
                               <circle
                                 cx={pt.x}
                                 cy={pt.y}
                                 r={isActive ? "5.5" : "3.5"}
-                                fill={isActive ? "#1d4ed8" : "#2563eb"}
+                                fill={isActive ? trendColors.active : trendColors.line}
                                 stroke="#ffffff"
                                 strokeWidth="1.5"
                                 className="point-circle drop-shadow-xs transition-all duration-150"
@@ -705,7 +753,7 @@ export function DashboardView({
                                 fill="#0f172a"
                                 className="select-none tabular-nums"
                               >
-                                {formatMyr(BigInt(highlightedPoint.totalSen))}
+                                {formatMyr(BigInt(highlightedPoint.valueSen))}
                               </text>
                             </g>
                           );
@@ -727,10 +775,10 @@ export function DashboardView({
                       <div className="flex items-center gap-2.5">
                         <div className="text-right">
                           <span className="text-xs text-ink-muted mr-1.5">
-                            {t.sheetRevCol}:
+                            {trendMetricLabel}:
                           </span>
                           <span className="font-bold text-ink-primary text-sm tabular-nums">
-                            {formatMyr(BigInt(row.totalSen))}
+                            {formatMyr(BigInt(trendValueSen(row, trendMetric)))}
                           </span>
                         </div>
                         <svg

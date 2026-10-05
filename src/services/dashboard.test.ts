@@ -103,7 +103,7 @@ describe("Dashboard Service - getMonthTile", () => {
 });
 
 describe("Dashboard Service - getDailyTrend", () => {
-  it("returns chronological daily rows with cashSen, tngSen, and totalSen", async () => {
+  it("returns chronological daily rows with cashSen, tngSen, totalSen, and costSen", async () => {
     const trend = await getDailyTrend(TEST_MONTH, { db });
 
     expect(trend).toHaveLength(2);
@@ -112,11 +112,23 @@ describe("Dashboard Service - getDailyTrend", () => {
     expect(trend[0].cashSen).toBe(15000n);
     expect(trend[0].tngSen).toBe(8000n);
     expect(trend[0].totalSen).toBe(23000n);
+    // Daily Cost: 4000 restock + 2000 gas + 1000 other
+    expect(trend[0].costSen).toBe(7000n);
 
     expect(trend[1].date).toBe("2025-02-02");
     expect(trend[1].cashSen).toBe(20000n);
     expect(trend[1].tngSen).toBe(12000n);
     expect(trend[1].totalSen).toBe(32000n);
+    // Daily Cost: 3000 transport + 5000 wages-daily
+    expect(trend[1].costSen).toBe(8000n);
+  });
+
+  it("reports zero costSen for a Daily Sheet without Cost Lines", async () => {
+    const trend = await getDailyTrend("2024-11", { db });
+
+    expect(trend).toHaveLength(1);
+    expect(trend[0].totalSen).toBe(10000n);
+    expect(trend[0].costSen).toBe(0n);
   });
 
   it("rejects invalid month format with ValidationError", async () => {
