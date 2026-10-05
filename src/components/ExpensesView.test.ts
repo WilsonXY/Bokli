@@ -16,8 +16,9 @@ import {
   mergeOperatingExpenses,
   clearPendingExpenseAdd,
   generateIdempotencyKey,
-  loadPendingExpenseAdd,
+  loadPendingExpenseAdds,
   markPendingExpenseAddReported,
+  MAX_PENDING_EXPENSE_ADDS,
   PENDING_EXPENSE_ADD_MAX_AGE_MS,
   resolveExpenseAddRequest,
   savePendingExpenseAdd,
@@ -374,19 +375,25 @@ describe("add Save idempotency key (resolveExpenseAddRequest)", () => {
   const nextKey = () => `key-${++n}`;
 
   it("gives a fresh Save action a new key", () => {
-    const first = resolveExpenseAddRequest(null, body, nextKey, 1000);
+    const first = resolveExpenseAddRequest([], body, nextKey, 1000);
     expect(first).toEqual({ key: "key-1", body, createdAt: 1000 });
   });
 
   it("reuses the unconfirmed save's key when the same values are saved again", () => {
     const pending = { key: "key-lost", body, createdAt: 1000 };
-    expect(resolveExpenseAddRequest(pending, body, nextKey, 2000)).toBe(pending);
+    expect(resolveExpenseAddRequest([pending], body, nextKey, 2000)).toBe(pending);
+  });
+
+  it("finds the matching unconfirmed save among several (other tabs, reloads)", () => {
+    const other = { key: "key-other", body: "{}", createdAt: 500 };
+    const pending = { key: "key-lost", body, createdAt: 1000 };
+    expect(resolveExpenseAddRequest([other, pending], body, nextKey, 2000)).toBe(pending);
   });
 
   it("gives a new key once the Operator changed what she is saving", () => {
     const pending = { key: "key-lost", body, createdAt: 1000 };
     const changed = JSON.stringify({ month: "2026-05", type: "rental", amountSen: 6000 });
-    const next = resolveExpenseAddRequest(pending, changed, nextKey, 2000);
+    const next = resolveExpenseAddRequest([pending], changed, nextKey, 2000);
     expect(next.key).not.toBe("key-lost");
     expect(next.body).toBe(changed);
   });
@@ -399,7 +406,7 @@ describe("add Save idempotency key (resolveExpenseAddRequest)", () => {
   });
 });
 
-describe("unconfirmed Save kept across reloads (browser storage)", () => {
+describe("unconfirmed Saves kept across reloads (browser storage)", () => {
   function memoryStorage() {
     const map = new Map<string, string>();
     return {
@@ -409,41 +416,65 @@ describe("unconfirmed Save kept across reloads (browser storage)", () => {
       removeItem: (k: string) => void map.delete(k),
     };
   }
+  const STORAGE_KEY = "bokli.pendingExpenseAdds";
   const body = JSON.stringify({ month: "2026-05", type: "rental", amountSen: 5000 });
+  const bodyB = JSON.stringify({ month: "2026-05", type: "wages", amountSen: 7000 });
   const entry = { key: "key-a", body, createdAt: 1_000 };
 
   it("restores a saved entry after a reload", () => {
     const storage = memoryStorage();
     savePendingExpenseAdd(storage, entry);
-    expect(loadPendingExpenseAdd(storage, 2_000)).toEqual(entry);
+    expect(loadPendingExpenseAdds(storage, 2_000)).toEqual([entry]);
   });
 
-  it("keeps the reported flag so the not-saved notice shows once", () => {
+  it("keeps one tab's unconfirmed Save when another tab saves and confirms", () => {
     const storage = memoryStorage();
-    savePendingExpenseAdd(storage, { ...entry, reported: true });
-    expect(loadPendingExpenseAdd(storage, 2_000)?.reported).toBe(true);
+    savePendingExpenseAdd(storage, entry); // tab A: reply lost
+    const b = { key: "key-b", body: bodyB, createdAt: 1_500 };
+    savePendingExpenseAdd(storage, b); // tab B saves
+    clearPendingExpenseAdd(storage, "key-b"); // tab B confirmed
+    expect(loadPendingExpenseAdds(storage, 2_000)).toEqual([entry]);
   });
 
-  it("drops an entry older than the max age", () => {
+  it("re-saving the same key replaces its entry instead of duplicating it", () => {
     const storage = memoryStorage();
     savePendingExpenseAdd(storage, entry);
-    const late = entry.createdAt + PENDING_EXPENSE_ADD_MAX_AGE_MS + 1;
-    expect(loadPendingExpenseAdd(storage, late)).toBeNull();
-    expect(storage.map.size).toBe(0);
+    savePendingExpenseAdd(storage, { ...entry, reported: true });
+    expect(loadPendingExpenseAdds(storage, 2_000)).toEqual([{ ...entry, reported: true }]);
   });
 
-  it("drops malformed entries instead of throwing", () => {
+  it("keeps only the newest entries", () => {
+    const storage = memoryStorage();
+    for (let i = 0; i < MAX_PENDING_EXPENSE_ADDS + 3; i++) {
+      savePendingExpenseAdd(storage, { key: `key-${i}`, body, createdAt: 1_000 + i });
+    }
+    const kept = loadPendingExpenseAdds(storage, 2_000);
+    expect(kept).toHaveLength(MAX_PENDING_EXPENSE_ADDS);
+    expect(kept.some((e) => e.key === "key-0")).toBe(false);
+    expect(kept.some((e) => e.key === `key-${MAX_PENDING_EXPENSE_ADDS + 2}`)).toBe(true);
+  });
+
+  it("drops entries older than the max age and keeps fresh ones", () => {
+    const storage = memoryStorage();
+    savePendingExpenseAdd(storage, entry);
+    const fresh = { key: "key-fresh", body, createdAt: entry.createdAt + PENDING_EXPENSE_ADD_MAX_AGE_MS };
+    savePendingExpenseAdd(storage, fresh);
+    const late = entry.createdAt + PENDING_EXPENSE_ADD_MAX_AGE_MS + 1;
+    expect(loadPendingExpenseAdds(storage, late)).toEqual([fresh]);
+  });
+
+  it("drops malformed data instead of throwing", () => {
     const storage = memoryStorage();
     for (const raw of [
       "not json",
-      JSON.stringify({ key: "", body, createdAt: 1 }),
-      JSON.stringify({ key: "k", body: "not json", createdAt: 1 }),
-      JSON.stringify({ key: "k", body: JSON.stringify({ type: "rental" }), createdAt: 1 }),
-      JSON.stringify({ key: "k", body }),
+      JSON.stringify({ key: "k", body, createdAt: 1 }),
+      JSON.stringify([{ key: "", body, createdAt: 1 }]),
+      JSON.stringify([{ key: "k", body: "not json", createdAt: 1 }]),
+      JSON.stringify([{ key: "k", body: JSON.stringify({ type: "rental" }), createdAt: 1 }]),
+      JSON.stringify([{ key: "k", body }]),
     ]) {
-      storage.map.set("bokli.pendingExpenseAdd", raw);
-      expect(loadPendingExpenseAdd(storage, 2)).toBeNull();
-      expect(storage.map.size).toBe(0);
+      storage.map.set(STORAGE_KEY, raw);
+      expect(loadPendingExpenseAdds(storage, 2)).toEqual([]);
     }
   });
 
@@ -451,22 +482,22 @@ describe("unconfirmed Save kept across reloads (browser storage)", () => {
     const storage = memoryStorage();
     savePendingExpenseAdd(storage, entry);
     clearPendingExpenseAdd(storage, "key-other");
-    expect(loadPendingExpenseAdd(storage, 2_000)).toEqual(entry);
+    expect(loadPendingExpenseAdds(storage, 2_000)).toEqual([entry]);
     clearPendingExpenseAdd(storage, "key-a");
-    expect(loadPendingExpenseAdd(storage, 2_000)).toBeNull();
+    expect(loadPendingExpenseAdds(storage, 2_000)).toEqual([]);
   });
 
-  it("marks the entry reported only while storage still holds that key", () => {
+  it("marks only that key's entry reported, and nothing if it is gone", () => {
     const storage = memoryStorage();
+    const b = { key: "key-b", body: bodyB, createdAt: 1_500 };
     savePendingExpenseAdd(storage, entry);
+    savePendingExpenseAdd(storage, b);
     markPendingExpenseAddReported(storage, "key-a");
-    expect(loadPendingExpenseAdd(storage, 2_000)?.reported).toBe(true);
+    expect(loadPendingExpenseAdds(storage, 2_000)).toEqual([{ ...entry, reported: true }, b]);
 
-    // Another tab stored a newer unconfirmed Save meanwhile: leave it alone.
-    const newer = { key: "key-b", body, createdAt: 1_500 };
-    savePendingExpenseAdd(storage, newer);
+    clearPendingExpenseAdd(storage, "key-a");
     markPendingExpenseAddReported(storage, "key-a");
-    expect(loadPendingExpenseAdd(storage, 2_000)).toEqual(newer);
+    expect(loadPendingExpenseAdds(storage, 2_000)).toEqual([b]);
   });
 
   it("never throws when storage is missing or blocked", () => {
@@ -485,7 +516,7 @@ describe("unconfirmed Save kept across reloads (browser storage)", () => {
       expect(() => savePendingExpenseAdd(storage, entry)).not.toThrow();
       expect(() => clearPendingExpenseAdd(storage, "key-a")).not.toThrow();
       expect(() => markPendingExpenseAddReported(storage, "key-a")).not.toThrow();
-      expect(loadPendingExpenseAdd(storage, 2_000)).toBeNull();
+      expect(loadPendingExpenseAdds(storage, 2_000)).toEqual([]);
     }
   });
 });

@@ -92,8 +92,9 @@ export function resolveExpenseDraftAfterAdd(
 // connection, server killed mid-reply) the add may already be stored; tapping
 // Save again with the same values must resend the same key so the server adds
 // nothing twice. Changed values are a new Save action and get a new key.
-// The unconfirmed Save is also kept in browser storage, so a reload still
-// reuses its key and can ask the server whether it went through.
+// Unconfirmed Saves are also kept in browser storage (one entry per key, so
+// tabs and reloads don't erase each other's), so a reload still reuses the key
+// and can ask the server whether the Save went through.
 export interface PendingExpenseAdd {
   key: string;
   body: string;
@@ -103,18 +104,21 @@ export interface PendingExpenseAdd {
 }
 
 export function resolveExpenseAddRequest(
-  pending: PendingExpenseAdd | null,
+  pending: readonly PendingExpenseAdd[],
   body: string,
   generateKey: () => string,
   now: number
 ): PendingExpenseAdd {
-  return pending?.body === body ? pending : { key: generateKey(), body, createdAt: now };
+  return (
+    pending.find((p) => p.body === body) ?? { key: generateKey(), body, createdAt: now }
+  );
 }
 
 type KeyValueStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
-const PENDING_EXPENSE_ADD_STORAGE_KEY = "bokli.pendingExpenseAdd";
+const PENDING_EXPENSE_ADDS_STORAGE_KEY = "bokli.pendingExpenseAdds";
 export const PENDING_EXPENSE_ADD_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+export const MAX_PENDING_EXPENSE_ADDS = 10;
 
 // Storage can be missing or throw (private mode, blocked); losing it only
 // falls back to the in-page key, so every access swallows errors.
@@ -144,66 +148,78 @@ function isPendingExpenseAdd(value: unknown): value is PendingExpenseAdd {
   }
 }
 
-export function loadPendingExpenseAdd(
-  storage: KeyValueStorage | null,
-  now: number
-): PendingExpenseAdd | null {
+function readPendingExpenseAdds(storage: KeyValueStorage | null): PendingExpenseAdd[] {
   try {
-    const raw = storage?.getItem(PENDING_EXPENSE_ADD_STORAGE_KEY);
-    if (!raw) return null;
-    let parsed: unknown = null;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {}
-    if (
-      isPendingExpenseAdd(parsed) &&
-      now - parsed.createdAt <= PENDING_EXPENSE_ADD_MAX_AGE_MS
-    ) {
-      return parsed;
-    }
-    storage?.removeItem(PENDING_EXPENSE_ADD_STORAGE_KEY);
-  } catch {}
-  return null;
+    const parsed: unknown = JSON.parse(
+      storage?.getItem(PENDING_EXPENSE_ADDS_STORAGE_KEY) ?? "[]"
+    );
+    return Array.isArray(parsed) ? parsed.filter(isPendingExpenseAdd) : [];
+  } catch {
+    return [];
+  }
 }
 
+function writePendingExpenseAdds(
+  storage: KeyValueStorage | null,
+  entries: PendingExpenseAdd[]
+): void {
+  try {
+    if (entries.length === 0) {
+      storage?.removeItem(PENDING_EXPENSE_ADDS_STORAGE_KEY);
+    } else {
+      storage?.setItem(PENDING_EXPENSE_ADDS_STORAGE_KEY, JSON.stringify(entries));
+    }
+  } catch {}
+}
+
+export function loadPendingExpenseAdds(
+  storage: KeyValueStorage | null,
+  now: number
+): PendingExpenseAdd[] {
+  return readPendingExpenseAdds(storage).filter(
+    (e) => now - e.createdAt <= PENDING_EXPENSE_ADD_MAX_AGE_MS
+  );
+}
+
+// Adds or replaces the entry for this key; other keys are left alone.
 export function savePendingExpenseAdd(
   storage: KeyValueStorage | null,
   pending: PendingExpenseAdd
 ): void {
-  try {
-    storage?.setItem(PENDING_EXPENSE_ADD_STORAGE_KEY, JSON.stringify(pending));
-  } catch {}
+  const others = readPendingExpenseAdds(storage).filter((e) => e.key !== pending.key);
+  writePendingExpenseAdds(
+    storage,
+    [...others, pending]
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .slice(-MAX_PENDING_EXPENSE_ADDS)
+  );
 }
 
-// Only if storage still holds this key: another tab may have stored a newer
-// unconfirmed Save, whose key must survive.
+// Only if storage still holds this key: it may have been confirmed meanwhile.
 export function markPendingExpenseAddReported(
   storage: KeyValueStorage | null,
   key: string
 ): void {
-  try {
-    const raw = storage?.getItem(PENDING_EXPENSE_ADD_STORAGE_KEY);
-    const stored = raw ? (JSON.parse(raw) as PendingExpenseAdd | null) : null;
-    if (stored?.key === key) {
-      storage?.setItem(
-        PENDING_EXPENSE_ADD_STORAGE_KEY,
-        JSON.stringify({ ...stored, reported: true })
-      );
-    }
-  } catch {}
+  const entries = readPendingExpenseAdds(storage);
+  if (entries.some((e) => e.key === key)) {
+    writePendingExpenseAdds(
+      storage,
+      entries.map((e) => (e.key === key ? { ...e, reported: true } : e))
+    );
+  }
 }
 
-// Only the confirmed key's entry: another tab may have stored a newer one.
 export function clearPendingExpenseAdd(
   storage: KeyValueStorage | null,
   key: string
 ): void {
-  try {
-    const raw = storage?.getItem(PENDING_EXPENSE_ADD_STORAGE_KEY);
-    if (raw && (JSON.parse(raw) as { key?: unknown } | null)?.key === key) {
-      storage?.removeItem(PENDING_EXPENSE_ADD_STORAGE_KEY);
-    }
-  } catch {}
+  const entries = readPendingExpenseAdds(storage);
+  if (entries.some((e) => e.key === key)) {
+    writePendingExpenseAdds(
+      storage,
+      entries.filter((e) => e.key !== key)
+    );
+  }
 }
 
 // getRandomValues, unlike randomUUID, also works on a plain-http page.
@@ -350,50 +366,58 @@ export function ExpensesView({
     return found ? found.label : key;
   };
 
-  // A Save left unconfirmed by an earlier page (reply lost, then reload): reuse
-  // its key, and ask the server once whether it went through so the Operator
-  // knows whether to add it again.
+  // Saves left unconfirmed by an earlier page or another tab (reply lost):
+  // ask the server once whether they went through, so the Operator knows
+  // whether to add them again. Their keys stay stored for reuse until then.
   useEffect(() => {
     const storage = getBrowserStorage();
-    const pending = loadPendingExpenseAdd(storage, Date.now());
-    if (!pending) return;
-    pendingAddRef.current = pending;
-    if (pending.reported) return;
+    const unreported = loadPendingExpenseAdds(storage, Date.now()).filter(
+      (p) => !p.reported
+    );
+    if (unreported.length === 0) return;
 
     let cancelled = false;
-    const { type, amountSen } = JSON.parse(pending.body) as {
-      type: string;
-      amountSen: number;
+    const describe = (p: PendingExpenseAdd) => {
+      const { type, amountSen } = JSON.parse(p.body) as {
+        type: string;
+        amountSen: number;
+      };
+      return `${getCategoryLabel(type)} ${formatMyr(BigInt(amountSen))}`;
     };
-    const item = `${getCategoryLabel(type)} ${formatMyr(BigInt(amountSen))}`;
 
-    fetch(`/api/expenses?idempotencyKey=${encodeURIComponent(pending.key)}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data: { saved?: unknown } | null) => {
-        if (
-          cancelled ||
-          addAttemptedRef.current ||
-          typeof data?.saved !== "boolean"
-        ) {
-          return;
-        }
-        if (data.saved) {
-          pendingAddRef.current = null;
-          clearPendingExpenseAdd(storage, pending.key);
-          // No auto-hide: this answers "did my last Save count?".
-          clearSuccessTimer();
-          setSuccessBanner(`${t.lastAddSaved} · ${item}`);
-        } else {
-          // Keep the key: re-adding the same values must still not double count
-          // if the lost request lands late.
-          pendingAddRef.current = { ...pending, reported: true };
-          markPendingExpenseAddReported(storage, pending.key);
-          setInlineError(`${t.lastAddNotSaved} · ${item}`);
-        }
-      })
-      .catch(() => {
-        // Unknown again; the next page load asks again.
-      });
+    Promise.all(
+      unreported.map((p) =>
+        fetch(`/api/expenses?idempotencyKey=${encodeURIComponent(p.key)}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data: { saved?: unknown } | null) =>
+            typeof data?.saved === "boolean" ? data.saved : null
+          )
+          // Unknown again; the next page load asks again.
+          .catch(() => null)
+      )
+    ).then((answers) => {
+      if (cancelled || addAttemptedRef.current) return;
+      const saved = unreported.filter((_, i) => answers[i] === true);
+      const notSaved = unreported.filter((_, i) => answers[i] === false);
+
+      for (const p of saved) clearPendingExpenseAdd(storage, p.key);
+      // Keep the key: re-adding the same values must still not double count
+      // if the lost request lands late.
+      for (const p of notSaved) markPendingExpenseAddReported(storage, p.key);
+
+      if (saved.length > 0) {
+        // No auto-hide: this answers "did my last Save count?".
+        clearSuccessTimer();
+        setSuccessBanner(`${t.lastAddSaved} · ${saved.map(describe).join(", ")}`);
+        // The Save may have landed after this page's list was read.
+        startTransition(() => {
+          router.refresh();
+        });
+      }
+      if (notSaved.length > 0) {
+        setInlineError(`${t.lastAddNotSaved} · ${notSaved.map(describe).join(", ")}`);
+      }
+    });
     return () => {
       cancelled = true;
     };
@@ -448,8 +472,14 @@ export function ExpensesView({
     setAdding(true);
 
     addAttemptedRef.current = true;
+    const storage = getBrowserStorage();
+    const now = Date.now();
     const request = resolveExpenseAddRequest(
-      pendingAddRef.current,
+      // Stored entries first: they carry the up-to-date reported flag.
+      [
+        ...loadPendingExpenseAdds(storage, now),
+        ...(pendingAddRef.current ? [pendingAddRef.current] : []),
+      ],
       JSON.stringify({
         month: currentMonth,
         type: newType,
@@ -457,10 +487,10 @@ export function ExpensesView({
         note: noteInput.trim() || undefined,
       }),
       generateIdempotencyKey,
-      Date.now()
+      now
     );
     pendingAddRef.current = request;
-    savePendingExpenseAdd(getBrowserStorage(), request);
+    savePendingExpenseAdd(storage, request);
 
     try {
       const res = await fetch("/api/expenses", {
@@ -478,7 +508,7 @@ export function ExpensesView({
       }
       // Confirmed saved: the next Save is a new action with a new key.
       pendingAddRef.current = null;
-      clearPendingExpenseAdd(getBrowserStorage(), request.key);
+      clearPendingExpenseAdd(storage, request.key);
 
       setExpenses((prev) => {
         const exists = prev.some((item) => item.id === data.expense.id);
