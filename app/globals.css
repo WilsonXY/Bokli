@@ -195,7 +195,7 @@
 @media (hover: hover) and (pointer: fine) {
   .chart-point-interactive:hover .point-circle {
     r: 6 !important;
-    fill: #1d4ed8 !important;
+    fill: var(--trend-point-active, #1d4ed8) !important;
   }
   .chart-point-interactive:hover .point-guide {
     opacity: 1 !important;
@@ -204,7 +204,7 @@
 .chart-point-interactive:focus .point-circle,
 .chart-point-interactive:focus-visible .point-circle {
   r: 6 !important;
-  fill: #1d4ed8 !important;
+  fill: var(--trend-point-active, #1d4ed8) !important;
 }
 .chart-point-interactive:focus .point-guide,
 .chart-point-interactive:focus-visible .point-guide {

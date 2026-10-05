@@ -14,6 +14,7 @@ import {
   DashboardView,
   buildCostSlices,
   getDonutSlice,
+  trendValueSen,
   type SerializedCostByCategory,
   type SerializedMonthTile,
 } from "./DashboardView";
@@ -143,8 +144,8 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
         activeMonth: "2026-05",
         activeTile: mockTile,
         trend: [
-          { date: "2026-05-01", cashSen: 2000, tngSen: 3000, totalSen: 5000 },
-          { date: "2026-05-02", cashSen: 2500, tngSen: 3500, totalSen: 6000 },
+          { date: "2026-05-01", cashSen: 2000, tngSen: 3000, totalSen: 5000, costSen: 1500 },
+          { date: "2026-05-02", cashSen: 2500, tngSen: 3500, totalSen: 6000, costSen: 2500 },
         ],
         split: {
           cashSen: 4500,
@@ -317,6 +318,43 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
       expect(normalHtml).toContain("RM5000.00");
       expect(normalHtml).toMatch(/class="[^"]*text-3xl sm:text-4xl font-extrabold tracking-tight tabular-nums text-emerald-700"[^>]*>RM5000\.00/);
       expect(normalHtml).not.toMatch(/class="[^"]*text-2xl[^"]*"[^>]*>RM5000\.00/);
+    });
+  });
+
+  describe("daily trend metric tabs", () => {
+    const row = { date: "2026-05-01", cashSen: 2000, tngSen: 3000, totalSen: 5000, costSen: 1500 };
+
+    it("trendValueSen reads revenue from totalSen and Daily Cost from costSen", () => {
+      expect(trendValueSen(row, "revenue")).toBe(5000);
+      expect(trendValueSen(row, "cost")).toBe(1500);
+    });
+
+    it("renders 总收入 / 总开销 tabs with the revenue tab selected by default", () => {
+      const tile: SerializedMonthTile = {
+        month: "2026-05",
+        status: "open",
+        revenueSen: 5000,
+        dailyCostSen: 1500,
+        grossSen: 3500,
+        operatingSen: 0,
+        netSen: 3500,
+      };
+
+      const html = ReactDOMServer.renderToStaticMarkup(
+        React.createElement(DashboardView, {
+          tiles: [tile],
+          activeMonth: "2026-05",
+          activeTile: tile,
+          trend: [row],
+          split: null,
+          costByCategory: null,
+        })
+      );
+
+      expect(html).toMatch(/<button[^>]*aria-pressed="true"[^>]*>总收入<\/button>/);
+      expect(html).toMatch(/<button[^>]*aria-pressed="false"[^>]*>总开销<\/button>/);
+      expect(html).toContain("每日收入趋势");
+      expect(html).not.toContain("每日开销趋势");
     });
   });
 });
