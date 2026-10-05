@@ -99,6 +99,9 @@ export function resolveExpenseDraftAfterAdd(
 // Two tabs open together share the storage without coordination, so rare
 // cross-tab timing (simultaneous Saves, one tab confirming while another holds
 // an older answer or key) is not handled.
+// Known limit: when unsure, a stored key is reused (never double count). If
+// storage cleanup fails after an OK reply and, after a reload, the status check
+// also fails, one genuine identical repeat Save can be dropped as a replay.
 export interface PendingExpenseAdd {
   key: string;
   body: string;
