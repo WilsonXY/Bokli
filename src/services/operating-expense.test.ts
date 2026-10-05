@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { Worker } from "node:worker_threads";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
 import { NextRequest } from "next/server";
@@ -21,10 +22,12 @@ import {
   listOperatingExpenses,
   removeOperatingExpense,
   updateOperatingExpense,
+  wasOperatingExpenseAddSaved,
 } from "./operating-expense";
 import { addCostLine, getOrCreateSheet, setRevenue } from "./daily-sheet";
 import {
   DELETE as expensesDelete,
+  GET as expensesGet,
   POST as expensesPost,
 } from "../../app/api/expenses/route";
 
@@ -1140,5 +1143,281 @@ describe("11. Operating Expense identity invariant (month, type, note)", () => {
 
     const rows = await listOperatingExpenses(month, { db });
     expect(rows).toHaveLength(2);
+  });
+});
+
+describe("12. Idempotent add (Idempotency-Key)", () => {
+  const authSession = {
+    user: { id: "2", name: "katte", role: "Admin" as const },
+  };
+
+  function postExpense(body: unknown, idempotencyKey?: string) {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (idempotencyKey !== undefined) {
+      headers["Idempotency-Key"] = idempotencyKey;
+    }
+    const req = new NextRequest("http://localhost:3000/api/expenses", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    (req as any).auth = authSession;
+    return expensesPost(req);
+  }
+
+  it("same key sent twice adds the amount once; the repeat is already-saved", async () => {
+    const month = "2022-01";
+    const first = await addOperatingExpense(month, "rental", 5000, null, {
+      db,
+      idempotencyKey: "key-twice",
+    });
+    const second = await addOperatingExpense(month, "rental", 5000, null, {
+      db,
+      idempotencyKey: "key-twice",
+    });
+
+    expect(first.alreadySaved).toBe(false);
+    expect(second.alreadySaved).toBe(true);
+    expect(second.id).toBe(first.id);
+    expect(second.amountSen).toBe(5000);
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amountSen).toBe(5000);
+  });
+
+  it("a retry after a lost reply (same key) does not double count onto an existing row", async () => {
+    const month = "2022-02";
+    // Existing row the Save merges into: the RM 50 -> RM 100 scenario.
+    await addOperatingExpense(month, "utilities", 5000, "water", { db });
+
+    const body = { month, type: "utilities", amountSen: 5000, note: "water" };
+    // The save succeeds but its reply never reaches the browser.
+    const lost = await postExpense(body, "key-lost-reply");
+    expect(lost.status).toBe(200);
+
+    // Operator taps Save again; the client resends the same key.
+    const retry = await postExpense(body, "key-lost-reply");
+    expect(retry.status).toBe(200);
+    const retryBody = await retry.json();
+    expect(retryBody.alreadySaved).toBe(true);
+    expect(retryBody.merged).toBe(true);
+    expect(retryBody.expense.amountSen).toBe(10000);
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amountSen).toBe(10000);
+  });
+
+  it("two separate saves (different keys) with the same identity still merge-add", async () => {
+    const month = "2022-03";
+    const a = await addOperatingExpense(month, "wages", 3000, "helper", {
+      db,
+      idempotencyKey: "key-separate-a",
+    });
+    const b = await addOperatingExpense(month, "wages", 2000, "helper", {
+      db,
+      idempotencyKey: "key-separate-b",
+    });
+
+    expect(b.merged).toBe(true);
+    expect(b.alreadySaved).toBe(false);
+    expect(b.id).toBe(a.id);
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amountSen).toBe(5000);
+  });
+
+  it("concurrent requests with the same key add once", async () => {
+    const month = "2022-04";
+    const body = { month, type: "rental", amountSen: 7000, note: "stall" };
+    const responses = await Promise.all([
+      postExpense(body, "key-concurrent"),
+      postExpense(body, "key-concurrent"),
+      postExpense(body, "key-concurrent"),
+    ]);
+    const bodies = await Promise.all(responses.map((r) => r.json()));
+
+    expect(responses.every((r) => r.ok)).toBe(true);
+    expect(bodies.filter((b) => b.alreadySaved === false)).toHaveLength(1);
+    expect(bodies.filter((b) => b.alreadySaved === true)).toHaveLength(2);
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amountSen).toBe(7000);
+  });
+
+  it("a same-key add overlapping another connection's in-flight add replays instead of failing", async () => {
+    const month = "2022-05";
+    const key = "key-two-conns";
+    const existing = await addOperatingExpense(month, "rental", 4000, null, { db });
+    const savedResult = JSON.stringify({
+      ...existing,
+      amountSen: 8000,
+      merged: true,
+      alreadySaved: false,
+    });
+
+    // Another server connection is mid-way through the same Save: it holds the
+    // write lock with the merge and the key written but not yet committed.
+    const worker = new Worker(
+      `
+      const { workerData, parentPort } = require("node:worker_threads");
+      const Database = require("better-sqlite3");
+      const conn = new Database(workerData.dbPath);
+      conn.exec("BEGIN IMMEDIATE");
+      conn.prepare("UPDATE operating_expenses SET amount_sen = amount_sen + 4000 WHERE id = ?").run(workerData.id);
+      conn.prepare(
+        "INSERT INTO operating_expense_add_requests (idempotency_key, month, type, amount_sen, note, result) VALUES (?, ?, 'rental', 4000, NULL, ?)"
+      ).run(workerData.key, workerData.month, workerData.result);
+      parentPort.postMessage("locked");
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 300);
+      conn.exec("COMMIT");
+      conn.close();
+      `,
+      {
+        eval: true,
+        workerData: { dbPath, id: existing.id, key, month, result: savedResult },
+      },
+    );
+    const exited = new Promise((resolve) => worker.once("exit", resolve));
+    await new Promise((resolve) => worker.once("message", resolve));
+
+    const retry = await addOperatingExpense(month, "rental", 4000, null, {
+      db,
+      idempotencyKey: key,
+    }).catch((e) => e);
+    await exited;
+
+    expect(retry).not.toBeInstanceOf(Error);
+    expect(retry.alreadySaved).toBe(true);
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amountSen).toBe(8000);
+  });
+
+  it("requests without a key (old clients) keep today's merge-add behaviour", async () => {
+    const month = "2022-06";
+    const body = { month, type: "rental", amountSen: 1000 };
+    const first = await postExpense(body);
+    const second = await postExpense(body);
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(200);
+    const secondBody = await second.json();
+    expect(secondBody.alreadySaved).toBe(false);
+    expect(secondBody.expense.amountSen).toBe(2000);
+  });
+
+  it("rejects a key reused for a different expense and changes nothing", async () => {
+    const month = "2022-07";
+    await addOperatingExpense(month, "rental", 1000, null, {
+      db,
+      idempotencyKey: "key-reused",
+    });
+
+    const err = await addOperatingExpense(month, "rental", 9999, null, {
+      db,
+      idempotencyKey: "key-reused",
+    }).catch((e) => e);
+    expect(err).toBeInstanceOf(ValidationError);
+    expect(err.code).toBe("saveError");
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].amountSen).toBe(1000);
+  });
+
+  it("replays an already-saved key even after its month was closed, but a new key is still rejected", async () => {
+    const month = "2022-09";
+    const first = await addOperatingExpense(month, "rental", 2500, null, {
+      db,
+      idempotencyKey: "key-then-closed",
+    });
+    db.insert(monthCloses)
+      .values({
+        month,
+        revenueSen: 0,
+        dailyCostSen: 0,
+        grossSen: 0,
+        operatingSen: 2500,
+        netSen: -2500,
+        closedAt: "2022-10-01T00:00:00Z",
+        reopenedAt: null,
+      })
+      .run();
+
+    const retry = await addOperatingExpense(month, "rental", 2500, null, {
+      db,
+      idempotencyKey: "key-then-closed",
+    });
+    expect(retry.alreadySaved).toBe(true);
+    expect(retry.id).toBe(first.id);
+
+    await expect(
+      addOperatingExpense(month, "rental", 2500, null, {
+        db,
+        idempotencyKey: "key-new-after-close",
+      }),
+    ).rejects.toThrow(ClosedMonthError);
+
+    const rows = await listOperatingExpenses(month, { db });
+    expect(rows[0].amountSen).toBe(2500);
+  });
+
+  it("rejects an empty or oversize Idempotency-Key with 400", async () => {
+    const body = { month: "2022-08", type: "rental", amountSen: 1000 };
+    expect((await postExpense(body, "")).status).toBe(400);
+    expect((await postExpense(body, "x".repeat(201))).status).toBe(400);
+
+    const rows = await listOperatingExpenses("2022-08", { db });
+    expect(rows).toHaveLength(0);
+  });
+});
+
+describe("13. Add status check (GET /api/expenses?idempotencyKey=)", () => {
+  function getStatus(query: string, authed = true) {
+    const req = new NextRequest(`http://localhost:3000/api/expenses?${query}`, {
+      method: "GET",
+    });
+    if (authed) {
+      (req as any).auth = {
+        user: { id: "2", name: "katte", role: "Admin" as const },
+      };
+    }
+    return expensesGet(req);
+  }
+
+  it("reports a handled key as saved and an unknown key as not saved", async () => {
+    await addOperatingExpense("2022-10", "rental", 1500, null, {
+      db,
+      idempotencyKey: "key-status-saved",
+    });
+
+    expect(await wasOperatingExpenseAddSaved("key-status-saved", { db })).toBe(true);
+    expect(await wasOperatingExpenseAddSaved("key-status-unknown", { db })).toBe(false);
+
+    const saved = await getStatus("idempotencyKey=key-status-saved");
+    expect(saved.status).toBe(200);
+    expect(await saved.json()).toEqual({ saved: true });
+
+    const unknown = await getStatus("idempotencyKey=key-status-unknown");
+    expect(unknown.status).toBe(200);
+    expect(await unknown.json()).toEqual({ saved: false });
+  });
+
+  it("rejects anonymous status checks with 401", async () => {
+    const res = await getStatus("idempotencyKey=key-status-saved", false);
+    expect(res.status).toBe(401);
+  });
+
+  it("rejects a missing, empty or oversize key with 400", async () => {
+    expect((await getStatus("")).status).toBe(400);
+    expect((await getStatus("idempotencyKey=")).status).toBe(400);
+    expect(
+      (await getStatus(`idempotencyKey=${"x".repeat(201)}`)).status,
+    ).toBe(400);
   });
 });

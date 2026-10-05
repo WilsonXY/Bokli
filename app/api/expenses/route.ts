@@ -5,6 +5,7 @@ import {
   deleteOperatingExpenses,
   type OperatingExpenseType,
   removeOperatingExpense,
+  wasOperatingExpenseAddSaved,
 } from "@/services/operating-expense";
 import { handleError } from "@/services/errors";
 import { parseJsonBody, parsePositiveId } from "@/lib/parse";
@@ -48,18 +49,40 @@ export const POST = withAuth(async (req: NextRequest) => {
       );
     }
 
-    // Type, amount and note shapes are validated by the service.
+    // Optional so a page loaded before this header existed can still save.
+    const idempotencyKey = req.headers.get("Idempotency-Key") ?? undefined;
+
+    // Type, amount, note and key shapes are validated by the service.
     const expense = await addOperatingExpense(
       body.month,
       body.type as OperatingExpenseType,
       body.amountSen as number | bigint,
       body.note as string | null | undefined,
+      { idempotencyKey },
     );
 
     return NextResponse.json(
-      { expense, merged: expense.merged },
-      { status: expense.merged ? 200 : 201 },
+      {
+        expense,
+        merged: expense.merged,
+        alreadySaved: expense.alreadySaved,
+      },
+      { status: expense.merged || expense.alreadySaved ? 200 : 201 },
     );
+  } catch (err) {
+    return handleError(err);
+  }
+});
+
+/**
+ * GET /api/expenses?idempotencyKey=...
+ * Whether the add sent with that Idempotency-Key was saved -> { saved }.
+ */
+export const GET = withAuth(async (req: NextRequest) => {
+  try {
+    const key = new URL(req.url).searchParams.get("idempotencyKey") ?? "";
+    const saved = await wasOperatingExpenseAddSaved(key);
+    return NextResponse.json({ saved }, { status: 200 });
   } catch (err) {
     return handleError(err);
   }
