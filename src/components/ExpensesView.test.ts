@@ -18,9 +18,9 @@ import {
   generateIdempotencyKey,
   loadPendingExpenseAdds,
   markPendingExpenseAddReported,
-  MAX_PENDING_EXPENSE_ADDS,
   PENDING_EXPENSE_ADD_MAX_AGE_MS,
   resolveExpenseAddRequest,
+  reusablePendingExpenseAdds,
   savePendingExpenseAdd,
   resolveExpenseDraftAfterAdd,
   type ExpenseDraftField,
@@ -423,42 +423,48 @@ describe("unconfirmed Saves kept across reloads (browser storage)", () => {
 
   it("restores a saved entry after a reload", () => {
     const storage = memoryStorage();
-    savePendingExpenseAdd(storage, entry);
+    savePendingExpenseAdd(storage, entry, 2_000);
     expect(loadPendingExpenseAdds(storage, 2_000)).toEqual([entry]);
   });
 
   it("keeps one tab's unconfirmed Save when another tab saves and confirms", () => {
     const storage = memoryStorage();
-    savePendingExpenseAdd(storage, entry); // tab A: reply lost
+    savePendingExpenseAdd(storage, entry, 2_000); // tab A: reply lost
     const b = { key: "key-b", body: bodyB, createdAt: 1_500 };
-    savePendingExpenseAdd(storage, b); // tab B saves
+    savePendingExpenseAdd(storage, b, 2_000); // tab B saves
     clearPendingExpenseAdd(storage, "key-b"); // tab B confirmed
     expect(loadPendingExpenseAdds(storage, 2_000)).toEqual([entry]);
   });
 
   it("re-saving the same key replaces its entry instead of duplicating it", () => {
     const storage = memoryStorage();
-    savePendingExpenseAdd(storage, entry);
-    savePendingExpenseAdd(storage, { ...entry, reported: true });
+    savePendingExpenseAdd(storage, entry, 2_000);
+    savePendingExpenseAdd(storage, { ...entry, reported: true }, 2_000);
     expect(loadPendingExpenseAdds(storage, 2_000)).toEqual([{ ...entry, reported: true }]);
   });
 
-  it("keeps only the newest entries", () => {
+  it("keeps every unexpired entry, however many (no count limit)", () => {
     const storage = memoryStorage();
-    for (let i = 0; i < MAX_PENDING_EXPENSE_ADDS + 3; i++) {
-      savePendingExpenseAdd(storage, { key: `key-${i}`, body, createdAt: 1_000 + i });
+    for (let i = 0; i < 25; i++) {
+      savePendingExpenseAdd(storage, { key: `key-${i}`, body, createdAt: 1_000 + i }, 2_000);
     }
-    const kept = loadPendingExpenseAdds(storage, 2_000);
-    expect(kept).toHaveLength(MAX_PENDING_EXPENSE_ADDS);
-    expect(kept.some((e) => e.key === "key-0")).toBe(false);
-    expect(kept.some((e) => e.key === `key-${MAX_PENDING_EXPENSE_ADDS + 2}`)).toBe(true);
+    expect(loadPendingExpenseAdds(storage, 2_000)).toHaveLength(25);
+  });
+
+  it("prunes expired entries from storage when saving", () => {
+    const storage = memoryStorage();
+    savePendingExpenseAdd(storage, entry, 2_000);
+    const later = entry.createdAt + PENDING_EXPENSE_ADD_MAX_AGE_MS + 1;
+    const fresh = { key: "key-fresh", body: bodyB, createdAt: later };
+    savePendingExpenseAdd(storage, fresh, later);
+    expect(JSON.parse(storage.map.get(STORAGE_KEY)!)).toEqual([fresh]);
   });
 
   it("drops entries older than the max age and keeps fresh ones", () => {
     const storage = memoryStorage();
-    savePendingExpenseAdd(storage, entry);
+    savePendingExpenseAdd(storage, entry, 2_000);
     const fresh = { key: "key-fresh", body, createdAt: entry.createdAt + PENDING_EXPENSE_ADD_MAX_AGE_MS };
-    savePendingExpenseAdd(storage, fresh);
+    savePendingExpenseAdd(storage, fresh, 2_000);
     const late = entry.createdAt + PENDING_EXPENSE_ADD_MAX_AGE_MS + 1;
     expect(loadPendingExpenseAdds(storage, late)).toEqual([fresh]);
   });
@@ -480,7 +486,7 @@ describe("unconfirmed Saves kept across reloads (browser storage)", () => {
 
   it("clears only the entry for the confirmed key", () => {
     const storage = memoryStorage();
-    savePendingExpenseAdd(storage, entry);
+    savePendingExpenseAdd(storage, entry, 2_000);
     clearPendingExpenseAdd(storage, "key-other");
     expect(loadPendingExpenseAdds(storage, 2_000)).toEqual([entry]);
     clearPendingExpenseAdd(storage, "key-a");
@@ -490,8 +496,8 @@ describe("unconfirmed Saves kept across reloads (browser storage)", () => {
   it("marks only that key's entry reported, and nothing if it is gone", () => {
     const storage = memoryStorage();
     const b = { key: "key-b", body: bodyB, createdAt: 1_500 };
-    savePendingExpenseAdd(storage, entry);
-    savePendingExpenseAdd(storage, b);
+    savePendingExpenseAdd(storage, entry, 2_000);
+    savePendingExpenseAdd(storage, b, 2_000);
     markPendingExpenseAddReported(storage, "key-a");
     expect(loadPendingExpenseAdds(storage, 2_000)).toEqual([{ ...entry, reported: true }, b]);
 
@@ -513,10 +519,29 @@ describe("unconfirmed Saves kept across reloads (browser storage)", () => {
       },
     };
     for (const storage of [null, blocked]) {
-      expect(() => savePendingExpenseAdd(storage, entry)).not.toThrow();
+      expect(() => savePendingExpenseAdd(storage, entry, 2_000)).not.toThrow();
       expect(() => clearPendingExpenseAdd(storage, "key-a")).not.toThrow();
       expect(() => markPendingExpenseAddReported(storage, "key-a")).not.toThrow();
       expect(loadPendingExpenseAdds(storage, 2_000)).toEqual([]);
     }
+  });
+});
+
+describe("which unconfirmed Saves a new Save may reuse (reusablePendingExpenseAdds)", () => {
+  const body = JSON.stringify({ month: "2026-05", type: "rental", amountSen: 5000 });
+  const stored = { key: "key-a", body, createdAt: 1_000, reported: true };
+
+  it("puts stored entries before the in-page copy (stored one has the current flags)", () => {
+    const inPage = { key: "key-a", body, createdAt: 1_000 };
+    expect(reusablePendingExpenseAdds([stored], inPage, new Set())).toEqual([stored, inPage]);
+  });
+
+  it("falls back to the in-page copy when storage has nothing", () => {
+    const inPage = { key: "key-a", body, createdAt: 1_000 };
+    expect(reusablePendingExpenseAdds([], inPage, new Set())).toEqual([inPage]);
+  });
+
+  it("never offers a key this page already saw confirmed, even if storage kept it", () => {
+    expect(reusablePendingExpenseAdds([stored], null, new Set(["key-a"]))).toEqual([]);
   });
 });

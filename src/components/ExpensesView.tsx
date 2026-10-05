@@ -122,7 +122,6 @@ type KeyValueStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 const PENDING_EXPENSE_ADDS_STORAGE_KEY = "bokli.pendingExpenseAdds";
 export const PENDING_EXPENSE_ADD_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-export const MAX_PENDING_EXPENSE_ADDS = 10;
 
 // Storage can be missing or throw (private mode, blocked); losing it only
 // falls back to the in-page key, so every access swallows errors.
@@ -185,17 +184,30 @@ export function loadPendingExpenseAdds(
   );
 }
 
-// Adds or replaces the entry for this key; other keys are left alone.
+// Adds or replaces the entry for this key and drops expired entries. Unexpired
+// entries are never dropped by count: each still protects a possible retry.
 export function savePendingExpenseAdd(
   storage: KeyValueStorage | null,
-  pending: PendingExpenseAdd
+  pending: PendingExpenseAdd,
+  now: number
 ): void {
-  const others = readPendingExpenseAdds(storage).filter((e) => e.key !== pending.key);
-  writePendingExpenseAdds(
-    storage,
-    [...others, pending]
-      .sort((a, b) => a.createdAt - b.createdAt)
-      .slice(-MAX_PENDING_EXPENSE_ADDS)
+  const others = loadPendingExpenseAdds(storage, now).filter(
+    (e) => e.key !== pending.key
+  );
+  writePendingExpenseAdds(storage, [...others, pending]);
+}
+
+// Candidates a new Save may reuse a key from: stored entries first (they carry
+// the current reported flag), then the in-page copy (the fallback when storage
+// is unavailable). Keys this page saw confirmed are excluded even if a failed
+// storage cleanup left them behind.
+export function reusablePendingExpenseAdds(
+  stored: readonly PendingExpenseAdd[],
+  inPage: PendingExpenseAdd | null,
+  confirmedKeys: ReadonlySet<string>
+): PendingExpenseAdd[] {
+  return [...stored, ...(inPage ? [inPage] : [])].filter(
+    (e) => !confirmedKeys.has(e.key)
   );
 }
 
@@ -310,6 +322,8 @@ export function ExpensesView({
   // Set once the Operator saves on this page: from then on her own Save's
   // reply decides, and a late status answer for an older key is ignored.
   const addAttemptedRef = useRef(false);
+  // Keys confirmed saved on this page; never reused for a later Save.
+  const confirmedKeysRef = useRef(new Set<string>());
 
   function markTouchedDuringAdd(field: ExpenseDraftField) {
     touchedDuringAddRef.current?.add(field);
@@ -375,10 +389,10 @@ export function ExpensesView({
   // whether to add them again. Their keys stay stored for reuse until then.
   useEffect(() => {
     const storage = getBrowserStorage();
-    const unreported = loadPendingExpenseAdds(storage, Date.now()).filter(
-      (p) => !p.reported
-    );
-    if (unreported.length === 0) return;
+    // Reported entries are checked too: a retry may have saved since the
+    // "not saved" notice; only that notice is not repeated.
+    const unconfirmed = loadPendingExpenseAdds(storage, Date.now());
+    if (unconfirmed.length === 0) return;
 
     let cancelled = false;
     const describe = (p: PendingExpenseAdd) => {
@@ -390,7 +404,7 @@ export function ExpensesView({
     };
 
     Promise.all(
-      unreported.map((p) =>
+      unconfirmed.map((p) =>
         fetch(`/api/expenses?idempotencyKey=${encodeURIComponent(p.key)}`)
           .then((res) => (res.ok ? res.json() : null))
           .then((data: { saved?: unknown } | null) =>
@@ -401,10 +415,15 @@ export function ExpensesView({
       )
     ).then((answers) => {
       if (cancelled || addAttemptedRef.current) return;
-      const saved = unreported.filter((_, i) => answers[i] === true);
-      const notSaved = unreported.filter((_, i) => answers[i] === false);
+      const saved = unconfirmed.filter((_, i) => answers[i] === true);
+      const notSaved = unconfirmed.filter(
+        (p, i) => answers[i] === false && !p.reported
+      );
 
-      for (const p of saved) clearPendingExpenseAdd(storage, p.key);
+      for (const p of saved) {
+        confirmedKeysRef.current.add(p.key);
+        clearPendingExpenseAdd(storage, p.key);
+      }
       // Keep the key: re-adding the same values must still not double count
       // if the lost request lands late.
       for (const p of notSaved) markPendingExpenseAddReported(storage, p.key);
@@ -479,11 +498,11 @@ export function ExpensesView({
     const storage = getBrowserStorage();
     const now = Date.now();
     const request = resolveExpenseAddRequest(
-      // Stored entries first: they carry the up-to-date reported flag.
-      [
-        ...loadPendingExpenseAdds(storage, now),
-        ...(pendingAddRef.current ? [pendingAddRef.current] : []),
-      ],
+      reusablePendingExpenseAdds(
+        loadPendingExpenseAdds(storage, now),
+        pendingAddRef.current,
+        confirmedKeysRef.current
+      ),
       JSON.stringify({
         month: currentMonth,
         type: newType,
@@ -494,7 +513,7 @@ export function ExpensesView({
       now
     );
     pendingAddRef.current = request;
-    savePendingExpenseAdd(storage, request);
+    savePendingExpenseAdd(storage, request, now);
 
     try {
       const res = await fetch("/api/expenses", {
@@ -512,6 +531,7 @@ export function ExpensesView({
       }
       // Confirmed saved: the next Save is a new action with a new key.
       pendingAddRef.current = null;
+      confirmedKeysRef.current.add(request.key);
       clearPendingExpenseAdd(storage, request.key);
 
       setExpenses((prev) => {
