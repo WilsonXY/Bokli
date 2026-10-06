@@ -13,8 +13,16 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # Major version updates (Next, vitest, better-sqlite3, ...) are planned
+    # tasks, not weekly PRs; this also keeps @types/node on prod's Node major
+    # (22). Security updates are not affected by this rule.
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
-      # Minor/patch bumps in one PR; majors (Next, React, next-auth beta, ...)
-      # stay separate so each gets its own review.
+      # drizzle is pre-1.0: a "minor" bump can change migrations or query
+      # behaviour, so it gets its own PR instead of riding with safe patches.
+      drizzle:
+        patterns: ["drizzle-orm", "drizzle-kit"]
       npm-minor-patch:
         update-types: ["minor", "patch"]
