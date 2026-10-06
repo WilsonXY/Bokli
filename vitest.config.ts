@@ -3,13 +3,20 @@ import path from "node:path";
 
 export default defineConfig({
   test: {
-    include: ["src/**/*.test.ts", "scripts/__tests__/**/*.{spec,test}.{ts,js,mjs}"],
     environment: "node",
     server: {
       deps: {
         inline: ["next-auth"],
       },
     },
+    // `npm run test:unit` / `npm run test:deploy` pick one; `npm test` runs both.
+    projects: [
+      { extends: true, test: { name: "unit", include: ["src/**/*.test.ts"] } },
+      {
+        extends: true,
+        test: { name: "deploy", include: ["scripts/__tests__/**/*.{spec,test}.{ts,js,mjs}"] },
+      },
+    ],
   },
   resolve: {
     alias: {

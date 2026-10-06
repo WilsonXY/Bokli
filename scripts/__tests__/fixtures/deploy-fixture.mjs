@@ -332,6 +332,10 @@ function writeAppSource(dir, release, { deployScript, extraMigrations = {} }) {
   fs.writeFileSync(path.join(dir, "build.mjs"), FIXTURE_BUILD);
   fs.writeFileSync(path.join(dir, "server.template.js"), SERVER_TEMPLATE);
   fs.writeFileSync(path.join(dir, "package.json"), FIXTURE_PACKAGE);
+  // Copy the file: dependency into node_modules like a registry package. npm
+  // 9.0-9.3 does that by default; npm >= 9.4 (e.g. npm 10 in CI) symlinks it to
+  // vendor/, and the staged-node_modules fsync checks would then see a link.
+  fs.writeFileSync(path.join(dir, ".npmrc"), "install-links=true\n");
   fs.writeFileSync(path.join(dir, ".gitignore"), FIXTURE_GITIGNORE);
   fs.writeFileSync(path.join(dir, "README.md"), "# Bokli deploy fixture\n");
   fs.writeFileSync(path.join(dir, "release.json"), JSON.stringify(release, null, 2) + "\n");

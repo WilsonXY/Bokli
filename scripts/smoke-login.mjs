@@ -130,8 +130,19 @@ async function runSmokeLogin() {
             state = `FAIL: session did not persist (bounced back to /login); url=${finalUrl}`;
             isSuccess = false;
           } else {
-            state = `SUCCESS: reached authenticated page (${finalPath})`;
-            isSuccess = true;
+            // Leaving /login is not proof on its own (e.g. an auth error page);
+            // the session endpoint must report a signed-in user.
+            const session = await page.evaluate(async () => {
+              const res = await fetch('/api/auth/session', { credentials: 'same-origin' });
+              return res.ok ? res.json() : null;
+            });
+            if (session && session.user) {
+              state = `SUCCESS: reached authenticated page (${finalPath}) with a session`;
+              isSuccess = true;
+            } else {
+              state = `FAIL: left /login but no session (${finalPath}); url=${finalUrl}`;
+              isSuccess = false;
+            }
           }
         }
       }
