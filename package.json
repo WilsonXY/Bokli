@@ -7,6 +7,8 @@
     "build": "next build && node -e \"const fs=require('fs'); fs.cpSync('.next-prod/static', '.next-prod/standalone/.next-prod/static', {recursive:true}); if(fs.existsSync('public')) fs.cpSync('public', '.next-prod/standalone/public', {recursive:true});\"",
     "start": "node .next-prod/standalone/server.js",
     "test": "vitest run --max-workers=1",
+    "test:unit": "vitest run --max-workers=1 --project unit",
+    "test:deploy": "vitest run --max-workers=1 --project deploy",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
@@ -14,7 +16,8 @@
     "db:push": "drizzle-kit push",
     "db:seed": "tsx src/db/seed.ts",
     "reset-password": "tsx src/cli/reset-password.ts",
-    "smoke:login": "node scripts/smoke-login.mjs"
+    "smoke:login": "node scripts/smoke-login.mjs",
+    "smoke:ci": "bash scripts/ci-smoke-login.sh"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",

@@ -26,9 +26,17 @@ it in your report — the driver agent filters and records it.
 ## Verification (before claiming any change done)
 ```bash
 npx tsc --noEmit
-npm test
+npm run test:unit      # fast (~20 s)
+npm run test:deploy    # slow (~13 min): only when touching scripts/, deploy/, drizzle/ or src/db/
 ```
-Auth-related changes also require the login smoke test (see repo `scripts/`).
+`npm test` runs both. Auth-related changes also require the login smoke test:
+`npm run build && npm run smoke:ci`. It uses a throwaway DB and a temporary
+server on 127.0.0.1:3999 that it stops itself; it is not a preview (see Dev preview).
+
+CI (`.github/workflows/ci.yml`) runs on every PR and gates merging: `check`
+(typecheck, unit tests, schema changes have a migration), `build` (production
+build + login smoke test) and `deploy-scripts` (on PRs only when deploy-related
+paths change). A PR is not done until `gh pr checks` is green.
 
 ## Git & deploy (hard rules)
 - Never commit straight to `main`; never push without the checks above passing.
