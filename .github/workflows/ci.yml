@@ -39,10 +39,16 @@ jobs:
         env:
           BOKLI_DB_PATH: ${{ runner.temp }}/drift.db
         run: |
-          timeout 120 npx drizzle-kit generate
+          # drizzle-kit can abort with exit 0 (e.g. an outdated snapshot), so
+          # also require its explicit "nothing to migrate" verdict.
+          timeout 120 npx drizzle-kit generate 2>&1 | tee "$RUNNER_TEMP/drizzle.out"
           if [ -n "$(git status --porcelain -- drizzle/)" ]; then
             git status --porcelain -- drizzle/
             echo "::error::src/db/schema.ts has changes without a migration. Run npm run db:generate and commit drizzle/."
+            exit 1
+          fi
+          if ! grep -q "No schema changes, nothing to migrate" "$RUNNER_TEMP/drizzle.out"; then
+            echo "::error::drizzle-kit generate did not confirm the schema matches the migrations (see output above)."
             exit 1
           fi
 

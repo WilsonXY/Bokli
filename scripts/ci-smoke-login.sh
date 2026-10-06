@@ -9,7 +9,7 @@
 # family users with random passwords, starts .next-prod/standalone/server.js on
 # 127.0.0.1:$SMOKE_PORT (default 3999) and runs scripts/smoke-login.mjs twice:
 #   - wrong password: must FAIL (proves the smoke test can fail at all)
-#   - right password: must reach an authenticated page
+#   - right password: must reach an authenticated page with a session
 # Never touches data/ or data-dev/; the temp dir and server are removed on exit.
 # ==============================================================================
 
@@ -75,7 +75,15 @@ if SMOKE_USER=mom SMOKE_PASS="wrong-$MOM_PASSWORD" TARGET_URL="$BASE_URL" node s
 fi
 
 echo "==> Right password must log in"
-if ! SMOKE_USER=mom SMOKE_PASS="$MOM_PASSWORD" TARGET_URL="$BASE_URL" node scripts/smoke-login.mjs; then
+# smoke-login.mjs exits 0 on a Cloudflare Access SKIP; on loopback that can only
+# mean something is wrong, so require the SUCCESS line.
+if ! SMOKE_USER=mom SMOKE_PASS="$MOM_PASSWORD" TARGET_URL="$BASE_URL" node scripts/smoke-login.mjs \
+  | tee "$WORK_DIR/smoke.out"; then
+  dump_server_log
+  exit 1
+fi
+if ! grep -q "^STATE: SUCCESS" "$WORK_DIR/smoke.out"; then
+  echo "FAIL: smoke test did not report SUCCESS." >&2
   dump_server_log
   exit 1
 fi

@@ -27,7 +27,8 @@ it in your report — the driver agent filters and records it.
 ```bash
 npx tsc --noEmit
 npm run test:unit      # fast (~20 s)
-npm run test:deploy    # slow (~13 min): only when touching scripts/, deploy/, drizzle/ or src/db/
+npm run test:deploy    # slow (~13 min): when touching scripts/, deploy/, drizzle/, src/db/,
+                       # package*.json, next/vitest config, .nvmrc or .github/workflows/
 ```
 `npm test` runs both. Auth-related changes also require the login smoke test:
 `npm run build && npm run smoke:ci`. It uses a throwaway DB and a temporary
