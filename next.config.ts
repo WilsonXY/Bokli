@@ -12,6 +12,9 @@ export function resolveDistDir(
 const nextConfig: NextConfig = {
   output: "standalone",
   distDir: resolveDistDir(),
+  // Lint runs once in CI (`npm run lint`); linting again inside `next build`
+  // would only slow builds, including the production deploy build.
+  eslint: { ignoreDuringBuilds: true },
 };
 
 export default nextConfig;

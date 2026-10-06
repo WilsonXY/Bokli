@@ -3,7 +3,7 @@
 import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMyr, sanitizeMoneyInput, tryParseSen } from "@/lib/money";
-import { useI18n, translateApiError, type TranslationMap } from "@/lib/i18n";
+import { useI18n, translateApiError, apiErrorPayloadFrom, type TranslationMap } from "@/lib/i18n";
 import { MonthSelectorDropdown, MonthOption } from "@/components/MonthSelectorDropdown";
 
 interface FinancialSnapshot {
@@ -166,8 +166,8 @@ export async function submitMonthClose({
     setTimeout(() => setSuccessMessage(null), 3500);
 
     onClosed();
-  } catch (err: any) {
-    setErrorMessage(translateApiError({ error: err.message, code: err.code }, t));
+  } catch (err) {
+    setErrorMessage(translateApiError(apiErrorPayloadFrom(err), t));
   } finally {
     setSubmitting(false);
   }
@@ -287,8 +287,8 @@ export function MonthCloseView({
       startTransition(() => {
         router.refresh();
       });
-    } catch (err: any) {
-      setErrorMessage(translateApiError({ error: err.message, code: err.code }, t));
+    } catch (err) {
+      setErrorMessage(translateApiError(apiErrorPayloadFrom(err), t));
     } finally {
       setSubmitting(false);
     }

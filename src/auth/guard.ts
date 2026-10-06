@@ -1,5 +1,5 @@
 import { NextResponse, NextRequest } from "next/server";
-import { auth, handlers } from "./index";
+import { handlers } from "./index";
 
 export interface SessionUser {
   id?: string;

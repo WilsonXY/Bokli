@@ -16,7 +16,7 @@ import {
   dailySheetInMonth,
 } from "./daily-sheet";
 import { getTodayInKualaLumpur } from "@/lib/datetime";
-import { ClosedMonthError, NotFoundError, ValidationError } from "./errors";
+import { NotFoundError, ValidationError } from "./errors";
 
 export {
   assertMonthNotClosed,

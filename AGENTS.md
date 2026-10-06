@@ -26,6 +26,7 @@ it in your report — the driver agent filters and records it.
 ## Verification (before claiming any change done)
 ```bash
 npx tsc --noEmit
+npm run lint           # ESLint, zero warnings allowed
 npm run test:unit      # fast (~20 s)
 npm run test:deploy    # slow (~13 min locally): when touching scripts/, deploy/, drizzle/,
                        # src/db/, package*.json, next/vitest config or .nvmrc
@@ -35,7 +36,7 @@ npm run test:deploy    # slow (~13 min locally): when touching scripts/, deploy/
 server on 127.0.0.1:3999 that it stops itself; it is not a preview (see Dev preview).
 
 CI (`.github/workflows/ci.yml`) runs on every PR and gates merging: `check`
-(typecheck, unit tests, schema changes have a migration), `build` (production
+(typecheck, lint, unit tests, schema changes have a migration), `build` (production
 build + login smoke test) and `deploy-scripts` (deploy-script tests, ~4.5 min).
 A PR is not done until `gh pr checks` is green.
 

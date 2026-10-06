@@ -17,7 +17,6 @@ import {
   consolidateCostLines,
   consolidateCostLinesForSave,
   tryConsolidateCostLines,
-  findConsolidatedLineIndex,
   toggleCostLineExpansion,
   createNewCostLine,
   findZeroCostLineIndex,

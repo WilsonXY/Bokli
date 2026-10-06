@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import nextConfig, { resolveDistDir } from "../next.config";
+import { resolveDistDir } from "../next.config";
 
 describe("next.config distDir configuration", () => {
   it("resolves .next-prod when NODE_ENV is production", () => {

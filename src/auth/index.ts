@@ -40,7 +40,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           // error carrying their `code`.
           if (
             err instanceof CredentialsSignin ||
-            (err && typeof err === "object" && "code" in err && (err as any).code === "RateLimited")
+            (err && typeof err === "object" && "code" in err && (err as { code?: unknown }).code === "RateLimited")
           ) {
             throw err;
           }

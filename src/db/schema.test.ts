@@ -4,11 +4,10 @@ import path from "node:path";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { openDb, getDb, closeDb, type Db } from "./index";
+import { openDb, type Db } from "./index";
 import {
   costLines,
   dailySheets,
-  loginAttempts,
   monthCloses,
   operatingExpenses,
   users,

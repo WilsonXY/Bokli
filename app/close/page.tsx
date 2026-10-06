@@ -1,12 +1,10 @@
 import React from "react";
 import { getTodayInKualaLumpur } from "@/lib/datetime";
 import { dailySheetInMonth } from "@/services/daily-sheet";
-import { eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { getDb } from "@/db";
-import { dailySheets, monthCloses } from "@/db/schema";
+import { dailySheets } from "@/db/schema";
 import { listMonthTiles, type MonthTile } from "@/services/dashboard";
-import { isValidMonthStr } from "@/lib/money";
 import { resolveActiveMonthView } from "@/lib/months";
 import { describeLoadError } from "@/lib/page-load";
 import { getMonthPreview } from "@/services/operating-expense";

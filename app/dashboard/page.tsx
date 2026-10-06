@@ -11,7 +11,6 @@ import {
   type MonthTile,
 } from "@/services/dashboard";
 import { getTodayInKualaLumpur } from "@/lib/datetime";
-import { isValidMonthStr } from "@/lib/money";
 import { resolveActiveMonthView } from "@/lib/months";
 import { serializeTile } from "@/lib/serialize";
 import {

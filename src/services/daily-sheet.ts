@@ -301,9 +301,9 @@ export function getOrCreateSheet(
       .get();
 
     return inserted;
-  } catch (err: any) {
+  } catch (err) {
     // If concurrent insert occurred, return existing sheet
-    if (String(err?.message).includes("UNIQUE")) {
+    if (String((err as { message?: unknown } | null)?.message).includes("UNIQUE")) {
       const found = db
         .select()
         .from(dailySheets)

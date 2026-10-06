@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { amountSizeClass, formatMyr, sanitizeMoneyInput, tryParseSen } from "@/lib/money";
-import { useI18n, translateApiError } from "@/lib/i18n";
+import { useI18n, translateApiError, apiErrorPayloadFrom } from "@/lib/i18n";
 import { CalendarPopover } from "@/components/CalendarPopover";
 import { isOtherNoteMissing, type CostCategory } from "@/lib/vocab";
 import {
@@ -940,8 +940,8 @@ export function DailySheetForm({
       startTransition(() => {
         router.refresh();
       });
-    } catch (err: any) {
-      setErrorMessage(translateApiError({ error: err.message, code: err.code }, t));
+    } catch (err) {
+      setErrorMessage(translateApiError(apiErrorPayloadFrom(err), t));
     } finally {
       touchedDuringSaveRef.current = null;
       mutationInFlightRef.current = null;
@@ -997,11 +997,11 @@ export function DailySheetForm({
       startTransition(() => {
         router.refresh();
       });
-    } catch (err: any) {
+    } catch (err) {
       // Failure keeps the modal open with the error shown, so she can retry or
       // cancel. On a conflict, reload so the modal shows the current figures.
-      setDeleteSheetError(translateApiError({ error: err.message, code: err.code }, t));
-      if (err.code === "sheetChanged") {
+      setDeleteSheetError(translateApiError(apiErrorPayloadFrom(err), t));
+      if ((err as { code?: string }).code === "sheetChanged") {
         startTransition(() => {
           router.refresh();
         });

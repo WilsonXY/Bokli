@@ -15,7 +15,7 @@ import {
 } from "@/lib/money";
 import { COST_CATEGORIES, type CostCategory } from "@/lib/vocab";
 import { dailySheetInMonth } from "./daily-sheet";
-import { NotFoundError, ValidationError } from "./errors";
+import { ValidationError } from "./errors";
 import { getMonthPreview } from "./operating-expense";
 
 export type MonthStatus = "open" | "closed" | "reopened";

@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
-import React from "react";
 import ReactDOMServer from "react-dom/server";
 import fs from "node:fs";
 import os from "node:os";
@@ -63,7 +62,6 @@ import ExpensesPage from "../../app/expenses/page";
 import DashboardPage from "../../app/dashboard/page";
 import * as opexService from "@/services/operating-expense";
 import * as dashboardService from "@/services/dashboard";
-import * as monthCloseService from "@/services/month-close";
 import * as dbModule from "@/db";
 import { getTodayInKualaLumpur } from "@/lib/datetime";
 

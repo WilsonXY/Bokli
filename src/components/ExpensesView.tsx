@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { amountSizeClass, formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
-import { useI18n, translateApiError } from "@/lib/i18n";
+import { useI18n, translateApiError, apiErrorPayloadFrom } from "@/lib/i18n";
 import { MonthSelectorDropdown, MonthOption } from "@/components/MonthSelectorDropdown";
 import type { OperatingExpenseType } from "@/services/operating-expense";
 
@@ -447,6 +447,9 @@ export function ExpensesView({
     return () => {
       cancelled = true;
     };
+    // Mount-only: re-checks pending adds once per page load; re-running on a
+    // new router/t identity would re-fetch and re-show the banners.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Close modal on Escape key
@@ -558,8 +561,8 @@ export function ExpensesView({
       startTransition(() => {
         router.refresh();
       });
-    } catch (err: any) {
-      setInlineError(translateApiError({ error: err.message, code: err.code }, t));
+    } catch (err) {
+      setInlineError(translateApiError(apiErrorPayloadFrom(err), t));
     } finally {
       touchedDuringAddRef.current = null;
       setAdding(false);
@@ -592,8 +595,8 @@ export function ExpensesView({
       deletedIds.push(...ids);
 
       showSuccessBanner(t.deleteExpenseSuccess);
-    } catch (err: any) {
-      setInlineError(translateApiError({ error: err.message, code: err.code }, t));
+    } catch (err) {
+      setInlineError(translateApiError(apiErrorPayloadFrom(err), t));
     } finally {
       if (deletedIds.length > 0) {
         setExpenses((prev) => prev.filter((item) => !deletedIds.includes(item.id)));
