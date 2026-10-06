@@ -33,6 +33,8 @@ jobs:
         run: npm run typecheck
       - name: Unit tests
         run: npm run test:unit
+      - name: Migrations folder is consistent
+        run: node scripts/check-migrations.mjs
       - name: Schema changes have a migration
         # drizzle-kit generate only diffs schema.ts against drizzle/meta; the DB
         # path just has to be set (it is never opened).

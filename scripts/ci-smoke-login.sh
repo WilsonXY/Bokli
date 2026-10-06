@@ -68,8 +68,18 @@ done
 curl -sf -o /dev/null "$BASE_URL/login" || { echo "FAIL: /login not served within 60s." >&2; dump_server_log; exit 1; }
 
 echo "==> Wrong password must be rejected"
-if SMOKE_USER=mom SMOKE_PASS="wrong-$MOM_PASSWORD" TARGET_URL="$BASE_URL" node scripts/smoke-login.mjs; then
+# Only "submitted, then never left /login" counts as a rejection; a browser,
+# navigation or form failure must not pass as one.
+if SMOKE_USER=mom SMOKE_PASS="wrong-$MOM_PASSWORD" TARGET_URL="$BASE_URL" node scripts/smoke-login.mjs \
+  >"$WORK_DIR/smoke-wrong.out"; then
+  cat "$WORK_DIR/smoke-wrong.out"
   echo "FAIL: login with a wrong password succeeded." >&2
+  dump_server_log
+  exit 1
+fi
+cat "$WORK_DIR/smoke-wrong.out"
+if ! grep -q "^STATE: FAIL: not authenticated: .*url=$BASE_URL/login" "$WORK_DIR/smoke-wrong.out"; then
+  echo "FAIL: wrong-password run failed for another reason than staying on /login." >&2
   dump_server_log
   exit 1
 fi
