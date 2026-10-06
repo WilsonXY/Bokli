@@ -35,6 +35,13 @@ npm run test:deploy    # slow (~13 min locally): when touching scripts/, deploy/
 `npm run build && npm run smoke:ci`. It uses a throwaway DB and a temporary
 server on 127.0.0.1:3999 that it stops itself; it is not a preview (see Dev preview).
 
+UI or user-visible changes also need proof of the changed interaction:
+`npm run build && bash scripts/agent-verify.sh <flow.mjs> [mom|katte]`. Same
+throwaway DB and temporary server as `smoke:ci` (not a preview, so the dev-server
+ban below does not apply). It records video + screenshots under `.evidence/<sha>/`;
+the script header shows how to write a flow. Run it on the final commit (after
+review fixes) and attach the files to the PR: `gh pr edit <n> --attach <file>`.
+
 CI (`.github/workflows/ci.yml`) runs on every PR and gates merging: `check`
 (typecheck, lint, unit tests, schema changes have a migration), `build` (production
 build + login smoke test) and `deploy-scripts` (deploy-script tests, ~4.5 min).
