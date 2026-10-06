@@ -389,6 +389,16 @@ export interface ApiErrorPayload {
 }
 
 /**
+ * Reads the payload back out of a caught value: client code throws
+ * `Object.assign(new Error(data.error), { code: data.code })`. Same property
+ * reads as the former inline `{ error: err.message, code: err.code }`.
+ */
+export function apiErrorPayloadFrom(err: unknown): ApiErrorPayload {
+  const { message, code } = err as { message?: string; code?: string | null };
+  return { error: message, code };
+}
+
+/**
  * The API error protocol: stable error code -> i18n key.
  *
  * This record is the ONLY place a server error code becomes a user-facing

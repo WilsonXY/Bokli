@@ -1,5 +1,4 @@
 import type { NextAuthConfig } from "next-auth";
-import type { UserRole } from "@/db/schema";
 
 /**
  * Session duration: ~30 days in seconds (30 * 24h).

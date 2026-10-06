@@ -222,8 +222,8 @@ export async function closeMonth(
           })
           .returning()
           .get();
-      } catch (err: any) {
-        if (String(err?.message).includes("UNIQUE")) {
+      } catch (err) {
+        if (String((err as { message?: unknown } | null)?.message).includes("UNIQUE")) {
           throw new ClosedMonthError(`Month "${month}" is already closed`);
         }
         throw err;
