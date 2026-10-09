@@ -60,3 +60,15 @@ also installs this test toolchain (Wrangler/Miniflare/workerd/native packages).
 That increases staged install size and third-party install scripts; install
 failure stops in staging before production is touched. No deploy is run by PR1.
 Preview: N/A. PR2 and every merge/deployment need their own owner approval.
+
+## PR2 schema contracts
+
+The retained foundation suite now expects additive schema tables/guards and the required
+state singleton. `contracts.test.ts` runs the same synthetic SQL cases as SQLite, beginning
+from the checked, pinned baseline and then expanding populated history. Coverage includes
+all nine locks/moves, NULL/empty/reopen states, normalized mapping collisions, audit/receipt
+immutability/replay, maintenance/revision/epoch rollback, parent+child rebuilds, metadata,
+sequence marks and reverse projection with a private sidecar. No real data or second binding.
+See [schema contracts](../../docs/cloudflare-schema-contracts.md) for bootstrap and rollback
+limits. These synthetic contracts do not enable a production converter, cloud auth/write
+service or backup pipeline. PR3/6a remain separately authorized work.

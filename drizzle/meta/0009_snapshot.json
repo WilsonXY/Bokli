@@ -1,0 +1,866 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "3c82e12c-d1ee-4275-bbfa-9565b72a1afe",
+  "prevId": "96d8615c-53e1-4177-97f6-4de4e43c4a30",
+  "tables": {
+    "cost_lines": {
+      "name": "cost_lines",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "daily_sheet_id": {
+          "name": "daily_sheet_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount_sen": {
+          "name": "amount_sen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "ix_cost_lines_sheet": {
+          "name": "ix_cost_lines_sheet",
+          "columns": [
+            "daily_sheet_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "cost_lines_daily_sheet_id_daily_sheets_id_fk": {
+          "name": "cost_lines_daily_sheet_id_daily_sheets_id_fk",
+          "tableFrom": "cost_lines",
+          "tableTo": "daily_sheets",
+          "columnsFrom": [
+            "daily_sheet_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_cost_lines_category": {
+          "name": "chk_cost_lines_category",
+          "value": "\"cost_lines\".\"category\" IN ('restock','gas','transport','wages-daily','maintenance','other')"
+        },
+        "chk_cost_lines_other_note": {
+          "name": "chk_cost_lines_other_note",
+          "value": "\"cost_lines\".\"category\" <> 'other' OR (\"cost_lines\".\"note\" IS NOT NULL AND trim(\"cost_lines\".\"note\", char(32, 9, 10, 11, 12, 13)) <> '')"
+        },
+        "chk_cost_lines_amount_positive": {
+          "name": "chk_cost_lines_amount_positive",
+          "value": "\"cost_lines\".\"amount_sen\" > 0"
+        }
+      }
+    },
+    "daily_sheets": {
+      "name": "daily_sheets",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cash_sen": {
+          "name": "cash_sen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "tng_sen": {
+          "name": "tng_sen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "uq_daily_sheets_date": {
+          "name": "uq_daily_sheets_date",
+          "columns": [
+            "date"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_daily_sheets_cash_nonneg": {
+          "name": "chk_daily_sheets_cash_nonneg",
+          "value": "\"daily_sheets\".\"cash_sen\" >= 0"
+        },
+        "chk_daily_sheets_tng_nonneg": {
+          "name": "chk_daily_sheets_tng_nonneg",
+          "value": "\"daily_sheets\".\"tng_sen\" >= 0"
+        }
+      }
+    },
+    "database_state": {
+      "name": "database_state",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "schema_epoch": {
+          "name": "schema_epoch",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "maintenance": {
+          "name": "maintenance",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "backup_token": {
+          "name": "backup_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_database_state_singleton": {
+          "name": "chk_database_state_singleton",
+          "value": "\"database_state\".\"id\" = 1"
+        },
+        "chk_database_state_revision": {
+          "name": "chk_database_state_revision",
+          "value": "typeof(\"database_state\".\"revision\") = 'integer' AND \"database_state\".\"revision\" BETWEEN 0 AND 9007199254740991"
+        },
+        "chk_database_state_epoch": {
+          "name": "chk_database_state_epoch",
+          "value": "typeof(\"database_state\".\"schema_epoch\") = 'integer' AND \"database_state\".\"schema_epoch\" BETWEEN 1 AND 9007199254740991"
+        },
+        "chk_database_state_maintenance": {
+          "name": "chk_database_state_maintenance",
+          "value": "\"database_state\".\"maintenance\" IN (0,1)"
+        },
+        "chk_database_state_backup_token": {
+          "name": "chk_database_state_backup_token",
+          "value": "\"database_state\".\"backup_token\" IS NULL OR (\"database_state\".\"backup_token\" IS NOT NULL AND trim(\"database_state\".\"backup_token\", char(32, 9, 10, 11, 12, 13)) <> '')"
+        }
+      }
+    },
+    "login_attempts": {
+      "name": "login_attempts",
+      "columns": {
+        "username_lower": {
+          "name": "username_lower",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "failed_count": {
+          "name": "failed_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "locked_until": {
+          "name": "locked_until",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "idx_login_attempts_updated_at": {
+          "name": "idx_login_attempts_updated_at",
+          "columns": [
+            "updated_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "month_close_events": {
+      "name": "month_close_events",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "month": {
+          "name": "month",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "at": {
+          "name": "at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "snapshot": {
+          "name": "snapshot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "actor_user_id": {
+          "name": "actor_user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "actor_role": {
+          "name": "actor_role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "ix_month_close_events_month": {
+          "name": "ix_month_close_events_month",
+          "columns": [
+            "month"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_month_close_events_action": {
+          "name": "chk_month_close_events_action",
+          "value": "\"month_close_events\".\"action\" IN ('close', 'reopen')"
+        }
+      }
+    },
+    "month_closes": {
+      "name": "month_closes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "month": {
+          "name": "month",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "revenue_sen": {
+          "name": "revenue_sen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "daily_cost_sen": {
+          "name": "daily_cost_sen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "gross_sen": {
+          "name": "gross_sen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "operating_sen": {
+          "name": "operating_sen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "net_sen": {
+          "name": "net_sen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cash_on_hand_sen": {
+          "name": "cash_on_hand_sen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "tng_on_hand_sen": {
+          "name": "tng_on_hand_sen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "closed_at": {
+          "name": "closed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "reopened_at": {
+          "name": "reopened_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "reopen_reason": {
+          "name": "reopen_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "uq_month_closes_month": {
+          "name": "uq_month_closes_month",
+          "columns": [
+            "month"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_month_closes_cash_on_hand_nonneg": {
+          "name": "chk_month_closes_cash_on_hand_nonneg",
+          "value": "\"month_closes\".\"cash_on_hand_sen\" IS NULL OR \"month_closes\".\"cash_on_hand_sen\" >= 0"
+        },
+        "chk_month_closes_tng_on_hand_nonneg": {
+          "name": "chk_month_closes_tng_on_hand_nonneg",
+          "value": "\"month_closes\".\"tng_on_hand_sen\" IS NULL OR \"month_closes\".\"tng_on_hand_sen\" >= 0"
+        }
+      }
+    },
+    "mutation_receipts": {
+      "name": "mutation_receipts",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "operation": {
+          "name": "operation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "operation_id": {
+          "name": "operation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "payload": {
+          "name": "payload",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "result": {
+          "name": "result",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "mutation_receipts_user_id_operation_operation_id_pk": {
+          "columns": [
+            "user_id",
+            "operation",
+            "operation_id"
+          ],
+          "name": "mutation_receipts_user_id_operation_operation_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_receipt_user": {
+          "name": "chk_receipt_user",
+          "value": "\"mutation_receipts\".\"user_id\" > 0"
+        },
+        "chk_receipt_operation": {
+          "name": "chk_receipt_operation",
+          "value": "\"mutation_receipts\".\"operation\" IN ('save-sheet','delete-sheets','expense-add','delete-expenses','close-month','reopen-month')"
+        },
+        "chk_receipt_id": {
+          "name": "chk_receipt_id",
+          "value": "(\"mutation_receipts\".\"operation_id\" IS NOT NULL AND trim(\"mutation_receipts\".\"operation_id\", char(32, 9, 10, 11, 12, 13)) <> '')"
+        },
+        "chk_receipt_payload": {
+          "name": "chk_receipt_payload",
+          "value": "json_valid(\"mutation_receipts\".\"payload\")"
+        },
+        "chk_receipt_status": {
+          "name": "chk_receipt_status",
+          "value": "\"mutation_receipts\".\"status\" BETWEEN 200 AND 299"
+        },
+        "chk_receipt_result": {
+          "name": "chk_receipt_result",
+          "value": "json_valid(\"mutation_receipts\".\"result\")"
+        }
+      }
+    },
+    "operating_expense_add_requests": {
+      "name": "operating_expense_add_requests",
+      "columns": {
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "month": {
+          "name": "month",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount_sen": {
+          "name": "amount_sen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "result": {
+          "name": "result",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "operating_expenses": {
+      "name": "operating_expenses",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "month": {
+          "name": "month",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount_sen": {
+          "name": "amount_sen",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "ix_operating_expenses_month": {
+          "name": "ix_operating_expenses_month",
+          "columns": [
+            "month"
+          ],
+          "isUnique": false
+        },
+        "uq_opex_month_type_note": {
+          "name": "uq_opex_month_type_note",
+          "columns": [
+            "month",
+            "type",
+            "note"
+          ],
+          "isUnique": true,
+          "where": "\"operating_expenses\".\"note\" IS NOT NULL"
+        },
+        "uq_opex_month_type_null_note": {
+          "name": "uq_opex_month_type_null_note",
+          "columns": [
+            "month",
+            "type"
+          ],
+          "isUnique": true,
+          "where": "\"operating_expenses\".\"note\" IS NULL"
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_opex_type": {
+          "name": "chk_opex_type",
+          "value": "\"operating_expenses\".\"type\" IN ('rental','utilities','wages','other')"
+        },
+        "chk_opex_other_note": {
+          "name": "chk_opex_other_note",
+          "value": "\"operating_expenses\".\"type\" <> 'other' OR (\"operating_expenses\".\"note\" IS NOT NULL AND trim(\"operating_expenses\".\"note\", char(32, 9, 10, 11, 12, 13)) <> '')"
+        },
+        "chk_opex_amount_nonneg": {
+          "name": "chk_opex_amount_nonneg",
+          "value": "\"operating_expenses\".\"amount_sen\" >= 0"
+        }
+      }
+    },
+    "user_email_identities": {
+      "name": "user_email_identities",
+      "columns": {
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "user_email_identities_user_id_users_id_fk": {
+          "name": "user_email_identities_user_id_users_id_fk",
+          "tableFrom": "user_email_identities",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_identity_email_normalized": {
+          "name": "chk_identity_email_normalized",
+          "value": "\"user_email_identities\".\"email\" <> '' AND \"user_email_identities\".\"email\" = lower(trim(\"user_email_identities\".\"email\", char(32,9,10,11,12,13)))"
+        }
+      }
+    },
+    "users": {
+      "name": "users",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "username": {
+          "name": "username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "uq_users_username": {
+          "name": "uq_users_username",
+          "columns": [
+            "username"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "chk_users_role": {
+          "name": "chk_users_role",
+          "value": "\"users\".\"role\" IN ('Operator', 'Admin')"
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

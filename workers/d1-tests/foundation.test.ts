@@ -12,8 +12,8 @@ describe("explicit D1 binding", () => {
 });
 
 const tables = [
-  "cost_lines", "daily_sheets", "login_attempts", "month_close_events",
-  "month_closes", "operating_expense_add_requests", "operating_expenses", "users",
+  "cost_lines", "daily_sheets", "database_state", "login_attempts", "month_close_events",
+  "month_closes", "mutation_receipts", "operating_expense_add_requests", "operating_expenses", "user_email_identities", "users",
 ];
 
 beforeEach(async () => {
@@ -31,7 +31,7 @@ it("bootstraps an empty local D1 from every current migration", async () => {
   expect((await db.prepare("SELECT name FROM d1_migrations ORDER BY name").all()).results.map((row) => row.name)).toEqual(env.TEST_MIGRATIONS.map((migration) => migration.name));
   for (const table of tables) {
     // Only the fixed test-owned identifiers above enter SQL text.
-    expect(await db.prepare(`SELECT count(*) AS count FROM ${table}`).first("count")).toBe(0);
+    expect(await db.prepare(`SELECT count(*) AS count FROM ${table}`).first("count")).toBe(table === "database_state" ? 1 : 0);
   }
   expect((await db.prepare("PRAGMA foreign_key_check").all()).results).toEqual([]);
   expect(await db.prepare("PRAGMA quick_check").first("quick_check")).toBe("ok");
@@ -157,7 +157,9 @@ it("starts another test with no synthetic rows or test-only triggers", async () 
   const db = createD1Adapter(env.BOKLI_TEST_DB);
   expect(await db.select().from(dailySheets)).toEqual([]);
   expect(await db.select().from(costLines)).toEqual([]);
-  expect((await env.BOKLI_TEST_DB.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger'").all()).results).toEqual([]);
+  const expected = env.TEST_MIGRATIONS.flatMap(migration => migration.queries.flatMap(query =>
+    [...query.matchAll(/CREATE TRIGGER (\w+)/g)].map(match => ({ name: match[1] })))).sort((a, b) => a.name.localeCompare(b.name));
+  expect((await env.BOKLI_TEST_DB.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name").all()).results).toEqual(expected);
 });
 
 it("gives an exact registered trigger message precedence over CHECK-like text", async () => {

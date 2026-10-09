@@ -1,0 +1,457 @@
+[
+  {
+    "type": "trigger",
+    "name": "cost_lines_maintenance_delete",
+    "sqlHash": "f4e1e0b7c07cfc1fb372b4b0838310b3113c005f8a6083266648b9b297cb1f4b"
+  },
+  {
+    "type": "trigger",
+    "name": "cost_lines_maintenance_insert",
+    "sqlHash": "c6bd64337d17a2c26c9ef935c8cc15d3c6cf3c45ad0f3d20ca0d688080b56c07"
+  },
+  {
+    "type": "trigger",
+    "name": "cost_lines_maintenance_update",
+    "sqlHash": "a6b5b5292d0215da551214c5160ace193127829eec64e55f6b1456ba9abd2514"
+  },
+  {
+    "type": "trigger",
+    "name": "cost_lines_month_lock_delete",
+    "sqlHash": "d90500bd17a9a88505f54b4c045b9779d36a324cbbc4cea9da5bd8cfc5bffd8d"
+  },
+  {
+    "type": "trigger",
+    "name": "cost_lines_month_lock_insert",
+    "sqlHash": "6860ec0dc9825ee016274fa6f41bf7b3fbf6962a11dc8d2ea66db2d0a802487f"
+  },
+  {
+    "type": "trigger",
+    "name": "cost_lines_month_lock_replace",
+    "sqlHash": "1493eb87692c9c74825647839d3eba419f9d4ab6ab7eaccd8ae5b72da7a70cec"
+  },
+  {
+    "type": "trigger",
+    "name": "cost_lines_month_lock_update",
+    "sqlHash": "c28b515f1f0770cfee8221610849aa0910c1f0d5a0a4c4d1d3f9729a123f90ad"
+  },
+  {
+    "type": "trigger",
+    "name": "cost_lines_revision_delete",
+    "sqlHash": "157b5892d9bb10af504a85cc00ff624f30cd517296708f52fc5b5221f115f364"
+  },
+  {
+    "type": "trigger",
+    "name": "cost_lines_revision_insert",
+    "sqlHash": "b6edeb4b844f76545d4a9a076585ead372e7e4257cdc380c0c305edd02495696"
+  },
+  {
+    "type": "trigger",
+    "name": "cost_lines_revision_update",
+    "sqlHash": "9dfc038257d3d81d1c176207a6e3a9c0d002be55eb11412f59437cb491e5d6a0"
+  },
+  {
+    "type": "trigger",
+    "name": "daily_sheets_maintenance_delete",
+    "sqlHash": "f50be96d75d5d8653cb0a811530c7f87cd9e1eab5bb4f6af67cbf2637d873143"
+  },
+  {
+    "type": "trigger",
+    "name": "daily_sheets_maintenance_insert",
+    "sqlHash": "d3d6ee6eac8a20c43f105592e19b7cff506a2f77c521697193325aa9d16b8605"
+  },
+  {
+    "type": "trigger",
+    "name": "daily_sheets_maintenance_update",
+    "sqlHash": "93027cf99092062e3e61d740137ce2e17badc1bba201a9edc36316e9526c6654"
+  },
+  {
+    "type": "trigger",
+    "name": "daily_sheets_month_lock_delete",
+    "sqlHash": "d4063dcc21e3b393c2e26af87f2291950b83c9c193d678628aee94ed9c6a0ac9"
+  },
+  {
+    "type": "trigger",
+    "name": "daily_sheets_month_lock_insert",
+    "sqlHash": "27bb83c204de0fd4ed83e5d69fc5b41dba33f88dcdca5ee1bf5a924a3fb4b84e"
+  },
+  {
+    "type": "trigger",
+    "name": "daily_sheets_month_lock_replace",
+    "sqlHash": "3bf2a658c4975ad9828e487fb9793354ec65f7552f80c23a74768b59a97f4602"
+  },
+  {
+    "type": "trigger",
+    "name": "daily_sheets_month_lock_update",
+    "sqlHash": "32388bd3a6886c3c4696d7a0d712bd3a35a65fcc10ec6ac7ff8d819522c6a9ae"
+  },
+  {
+    "type": "trigger",
+    "name": "daily_sheets_revision_delete",
+    "sqlHash": "c00b28265a52548de238b059ce9b0340b1d730c779f76f66ea8374fe80f12b3f"
+  },
+  {
+    "type": "trigger",
+    "name": "daily_sheets_revision_insert",
+    "sqlHash": "2bc3912a9ff364e11ec66072654d0ec677ee552d885f3b5f5520ac728a0ceeb5"
+  },
+  {
+    "type": "trigger",
+    "name": "daily_sheets_revision_update",
+    "sqlHash": "0638031e3ae762f01e7c49fde2642c8b79a8b136864f61e7d4fc6d895a4110e9"
+  },
+  {
+    "type": "trigger",
+    "name": "database_state_backup_owner",
+    "sqlHash": "7736c58bc656d533447d68d16ff2a13b2597db5bda65680a865289525b291634"
+  },
+  {
+    "type": "trigger",
+    "name": "database_state_no_replace",
+    "sqlHash": "6d8683dd0e3d90e819a4511147664fe040249ffaa5d8677c147eae9e12d29a43"
+  },
+  {
+    "type": "trigger",
+    "name": "database_state_range_guard",
+    "sqlHash": "758faca7c3e7159ed359b0bd24d18aa365aae1bf8329bee8cbab80273f89e4b1"
+  },
+  {
+    "type": "trigger",
+    "name": "database_state_required_delete",
+    "sqlHash": "3b5a90e83ee6f9f4c08a56ff0ddf3481978f64bf468d04362312f025c5a4582f"
+  },
+  {
+    "type": "trigger",
+    "name": "database_state_required_update",
+    "sqlHash": "32dc6e389a2c37d82b90c3ed0d735c13c416f133815025748e7a78cd8718d96b"
+  },
+  {
+    "type": "trigger",
+    "name": "database_state_revision",
+    "sqlHash": "9849e0c08286e6263406a17d55bd8a9cdf45095546b9c3820b3f2f5ab2d64e51"
+  },
+  {
+    "type": "trigger",
+    "name": "database_state_schema_guard",
+    "sqlHash": "923cf4bf42c16871ca1a07000f7890d4db71f28062656517d9e3c2ad79fc2fa2"
+  },
+  {
+    "type": "index",
+    "name": "idx_login_attempts_updated_at",
+    "sqlHash": "9c96e6a4b8dd7e5782e799bbfd5fb7170275ae99363217db3c85b405ae630a28"
+  },
+  {
+    "type": "index",
+    "name": "ix_cost_lines_sheet",
+    "sqlHash": "45a8ef68f51640226bc67c008a4ba6b1c6fb81ed5aafa93dd3a60bdb3b975beb"
+  },
+  {
+    "type": "index",
+    "name": "ix_month_close_events_month",
+    "sqlHash": "44f23d9810721cf56deaa10daeba4b50dbed76c4fd5187f55bba9093df707532"
+  },
+  {
+    "type": "index",
+    "name": "ix_operating_expenses_month",
+    "sqlHash": "50427e4e209c68a69b78c189675d926117b4f2472526a94c7507d264c2dfc01c"
+  },
+  {
+    "type": "trigger",
+    "name": "login_attempts_maintenance_delete",
+    "sqlHash": "eb99d887522b531ebbd5a1080ca4df03306482ae017d0796d739c44e43b7478e"
+  },
+  {
+    "type": "trigger",
+    "name": "login_attempts_maintenance_insert",
+    "sqlHash": "e3bdb316c2fba677ae8846f1a4758fdeab3a6e4b3e789feb1fda464d60bc8221"
+  },
+  {
+    "type": "trigger",
+    "name": "login_attempts_maintenance_update",
+    "sqlHash": "0cae8e404fb46140fec42880ac1293cb1c1967094dbbda8304d7b5b38007da9b"
+  },
+  {
+    "type": "trigger",
+    "name": "login_attempts_revision_delete",
+    "sqlHash": "ea5cf2b0691390f6511b49f06de776d95af0d1f4c5c8b8263157ca62062eae57"
+  },
+  {
+    "type": "trigger",
+    "name": "login_attempts_revision_insert",
+    "sqlHash": "e12c0114b5e70a61ac8e93ad605851d0245ad2d8c2a15637cecc0e4a176c96db"
+  },
+  {
+    "type": "trigger",
+    "name": "login_attempts_revision_update",
+    "sqlHash": "f7de47f0ae9d3b437365cb87bfbe086b830b51bcffc23bec501b8975b18e53c1"
+  },
+  {
+    "type": "trigger",
+    "name": "month_close_events_actor",
+    "sqlHash": "13d40c7413ac78d70bdc252a56a1fd879b5e22fb78692fd772f5e67995937707"
+  },
+  {
+    "type": "trigger",
+    "name": "month_close_events_immutable_delete",
+    "sqlHash": "89a66361368e6bc22fc9d20ad9b5398ab20ff41eea1b9b1930461d63ccd22dff"
+  },
+  {
+    "type": "trigger",
+    "name": "month_close_events_immutable_update",
+    "sqlHash": "1809a185a4375be6ee0b6b54510264f2b77c7dfbbd8cd7bf09eb5ec7cdb7deb6"
+  },
+  {
+    "type": "trigger",
+    "name": "month_close_events_maintenance_insert",
+    "sqlHash": "bcb427c5cf0f64c35668509ec7d423d098417195f7cad5bcebc1c76f690f1b93"
+  },
+  {
+    "type": "trigger",
+    "name": "month_close_events_no_replace",
+    "sqlHash": "6de3ca37d7d39d3fb94764e707911f48e2bd2e30695ef1535c318ea50ff85d35"
+  },
+  {
+    "type": "trigger",
+    "name": "month_close_events_revision_insert",
+    "sqlHash": "09f1163e8147a6c39fc3c4ebea4ff207c7a3de1a4f470d42442273d6618f54ab"
+  },
+  {
+    "type": "trigger",
+    "name": "month_closes_history_delete",
+    "sqlHash": "b37f8a9da12f05eac2a6bf9de19303607d16e3ffa83a09839c1410379fcc60f4"
+  },
+  {
+    "type": "trigger",
+    "name": "month_closes_history_identity",
+    "sqlHash": "7de26949f6708b9098c8573effb284f7408cb99a8b1f565a53c1845ce725ef0a"
+  },
+  {
+    "type": "trigger",
+    "name": "month_closes_history_insert",
+    "sqlHash": "d85e570a7c165f9f51dd4cb615351f5d3bce97d20ac7be51dc8fee4a5ac595d9"
+  },
+  {
+    "type": "trigger",
+    "name": "month_closes_maintenance_delete",
+    "sqlHash": "7052838377ad84d146ad6aa53aff2367ce37e9f48364b4ebab056946309bab32"
+  },
+  {
+    "type": "trigger",
+    "name": "month_closes_maintenance_insert",
+    "sqlHash": "78587eef2acdf6573ec03c365d01d4ed8ae80079b5898c6cca8d45cccb86d1cc"
+  },
+  {
+    "type": "trigger",
+    "name": "month_closes_maintenance_update",
+    "sqlHash": "0693cd7e3e460e1d575dbb16e4bac54f2aa08de64671b321083cae03af6014b8"
+  },
+  {
+    "type": "trigger",
+    "name": "month_closes_reopened_insert",
+    "sqlHash": "5e48af653514d92cb4294a774fce8047d6d5ce5e9b6834ac8d8660444dc4aff8"
+  },
+  {
+    "type": "trigger",
+    "name": "month_closes_reopened_update",
+    "sqlHash": "28feb617e62946268b0462956ac355ac4b380e8ef3f4026ab7c7d2e23be868cf"
+  },
+  {
+    "type": "trigger",
+    "name": "month_closes_revision_delete",
+    "sqlHash": "78d5f6d6a3a027ca4007ef51eba96aa21fe805b2c984c895f3dc4df736832823"
+  },
+  {
+    "type": "trigger",
+    "name": "month_closes_revision_insert",
+    "sqlHash": "28beaa3bae5acbf61c49acf4b7ee46cb1b978452914709922dbd0b978f9f8f80"
+  },
+  {
+    "type": "trigger",
+    "name": "month_closes_revision_update",
+    "sqlHash": "8ca28ec88e0c98c4180811bf3fb112ef5116949728174119282d87fdf0a486b4"
+  },
+  {
+    "type": "trigger",
+    "name": "mutation_receipts_immutable_delete",
+    "sqlHash": "b5ca69e0b83915e9091c99f55505d5597f100ece4486b32c1dabf489f14b4f1a"
+  },
+  {
+    "type": "trigger",
+    "name": "mutation_receipts_immutable_update",
+    "sqlHash": "d55a339c3c4b549f53991fdb9cb265cd1e1c7ee9ca7fef0f8c63e3b41fa90a6d"
+  },
+  {
+    "type": "trigger",
+    "name": "mutation_receipts_maintenance_insert",
+    "sqlHash": "da81a0ec28fe46effc631eada8328ddf8e2c7c6c0a1cf46d052bae19dc3f23bc"
+  },
+  {
+    "type": "trigger",
+    "name": "mutation_receipts_replay",
+    "sqlHash": "69f78f58c624118dcb88bcb4bc2eefe93e9161c0f323516f642819cb4ebd8a40"
+  },
+  {
+    "type": "trigger",
+    "name": "mutation_receipts_revision_insert",
+    "sqlHash": "8e129db20dae1a94e6369b4304f53eaa2b7e3b13255b8239517ac1ac2fedc7ba"
+  },
+  {
+    "type": "trigger",
+    "name": "operating_expense_add_requests_immutable_delete",
+    "sqlHash": "36bd67bc1528f59128ba98d615ffeb55a3dc06ed1b7220137708a4ec232173d7"
+  },
+  {
+    "type": "trigger",
+    "name": "operating_expense_add_requests_immutable_update",
+    "sqlHash": "d102715e2dcc41be012a9fe41d7d914cd3495de5076d10200d6d77ff1bca1e0f"
+  },
+  {
+    "type": "trigger",
+    "name": "operating_expense_add_requests_maintenance_insert",
+    "sqlHash": "2743e380ebc368032d2ce78c29e56006f4a4df1277e9d7c74be1ec0f9d8d98cf"
+  },
+  {
+    "type": "trigger",
+    "name": "operating_expense_add_requests_no_replace",
+    "sqlHash": "a5b37a44ca93eb6afd59bab2a162b522f6a64f34b916f716f0597953f4bbcaab"
+  },
+  {
+    "type": "trigger",
+    "name": "operating_expense_add_requests_revision_insert",
+    "sqlHash": "68d453f8b466d0fedf36c6d15db5a88fcda07e670c9c230bce7bff28a5af36cf"
+  },
+  {
+    "type": "trigger",
+    "name": "operating_expenses_maintenance_delete",
+    "sqlHash": "1e1fb34eb74c3fe2dc7eb97a04fe67b97445e5d37a9d4ba9f50f13429b678a85"
+  },
+  {
+    "type": "trigger",
+    "name": "operating_expenses_maintenance_insert",
+    "sqlHash": "2f2d481123990bae97a0d12926c8e1e80a4edf3912d04df24c5af07896c135a4"
+  },
+  {
+    "type": "trigger",
+    "name": "operating_expenses_maintenance_update",
+    "sqlHash": "11eb8ea5012b3e0accbda3bf0fd40728245af36bba5751d0388b432ddc9abcaf"
+  },
+  {
+    "type": "trigger",
+    "name": "operating_expenses_month_lock_delete",
+    "sqlHash": "d8e9a8085c15e8b0225307c612a6943cfd95d1c723c0c555875dac1d76a92628"
+  },
+  {
+    "type": "trigger",
+    "name": "operating_expenses_month_lock_insert",
+    "sqlHash": "6602ad0653b6f9ef1e61ed0e4ca8c812232593d0da20c03f042d7be8c266b11c"
+  },
+  {
+    "type": "trigger",
+    "name": "operating_expenses_month_lock_replace",
+    "sqlHash": "5b4efcfa3e35a807800c33a0a7974fdeb088f88c8f69dd2219d97cca0139762f"
+  },
+  {
+    "type": "trigger",
+    "name": "operating_expenses_month_lock_update",
+    "sqlHash": "66565767484a42f5dbe3b6bacb1083a8d4f718bd39dbafbca8d86bd1d78ffbbb"
+  },
+  {
+    "type": "trigger",
+    "name": "operating_expenses_revision_delete",
+    "sqlHash": "c311153913d9b2f7fbd7c0f843c54739c021098882c419179e70f71ed8d15c3e"
+  },
+  {
+    "type": "trigger",
+    "name": "operating_expenses_revision_insert",
+    "sqlHash": "f6e59f1b25b90dd0eacad683e8103083e11eab3646ae11e43a61ea7d0630704b"
+  },
+  {
+    "type": "trigger",
+    "name": "operating_expenses_revision_update",
+    "sqlHash": "ae5dcc84a3e909733c352a01307cf06865de78fdac8c2df6e3161f55fcad03d3"
+  },
+  {
+    "type": "index",
+    "name": "uq_daily_sheets_date",
+    "sqlHash": "94069ff146ec294c225d7c4b28dba9bffed93d9c08429760b6098a13c7872d6e"
+  },
+  {
+    "type": "index",
+    "name": "uq_month_closes_month",
+    "sqlHash": "d2898a6f55192cc5f4ea7c0719cc1aec45e4fd7dde6a4f36c521b2bcede56d29"
+  },
+  {
+    "type": "index",
+    "name": "uq_opex_month_type_note",
+    "sqlHash": "2e63a75e50c8e99288f09ff03346164e0a6b8b35cb1222cc63ccd4524331bb24"
+  },
+  {
+    "type": "index",
+    "name": "uq_opex_month_type_null_note",
+    "sqlHash": "004e54e708edd6d09894df372aeeffbdecb904d21bfa0e052c44610e9e4b2928"
+  },
+  {
+    "type": "index",
+    "name": "uq_users_username",
+    "sqlHash": "7f544f460294c3e9491cbae60dee72d6c342bff7de2558a72ca8864e275eae57"
+  },
+  {
+    "type": "trigger",
+    "name": "user_email_identities_maintenance_delete",
+    "sqlHash": "fdecffe89194f38b8f64d743d3167891f7700e337da26c26a40a30c95211a359"
+  },
+  {
+    "type": "trigger",
+    "name": "user_email_identities_maintenance_insert",
+    "sqlHash": "4cc94260e9ca71441b526ee286d99fd383ec1909b3c0aed6e470598fa344999f"
+  },
+  {
+    "type": "trigger",
+    "name": "user_email_identities_maintenance_update",
+    "sqlHash": "e81407462eeebb7c31474a1b15ff68d510aadb9ce75819d39a0885e27afc57f0"
+  },
+  {
+    "type": "trigger",
+    "name": "user_email_identities_revision_delete",
+    "sqlHash": "0b96b21d7c91194da645c1ff30bbb02761eb8c0cc918d8f8d6870e649151cebd"
+  },
+  {
+    "type": "trigger",
+    "name": "user_email_identities_revision_insert",
+    "sqlHash": "02430b87674420cdb511847a08602377b412356923452e2ed1fc8642d5993def"
+  },
+  {
+    "type": "trigger",
+    "name": "user_email_identities_revision_update",
+    "sqlHash": "ea0ceeb122e6268085def8b3e1455082ac471ae3d2049c83954b65bec1340e48"
+  },
+  {
+    "type": "trigger",
+    "name": "users_maintenance_delete",
+    "sqlHash": "568cbb9096e552b43bf8e0d35a01eab6d76555259c2c7fc43bb54e836e74d766"
+  },
+  {
+    "type": "trigger",
+    "name": "users_maintenance_insert",
+    "sqlHash": "981ad9b78f8ea8a0f6bea93cb63c6dc69416bd870f20a5299307090ff19bb3d4"
+  },
+  {
+    "type": "trigger",
+    "name": "users_maintenance_update",
+    "sqlHash": "3da3acf66b7d36bf6c429c967ae9867a1f66202df53dd1f5a58fca485fb7d6aa"
+  },
+  {
+    "type": "trigger",
+    "name": "users_revision_delete",
+    "sqlHash": "93d40528c94ae54516fb700161571ec952cbaa7d2d8932dbee1b7c4696b4f14f"
+  },
+  {
+    "type": "trigger",
+    "name": "users_revision_insert",
+    "sqlHash": "536ac9386bdb68746136e22d4a945ff0867233b7dee17de4155d3f6b93f095a6"
+  },
+  {
+    "type": "trigger",
+    "name": "users_revision_update",
+    "sqlHash": "25f19ed59aa870b216f6f33ce82cc2be60a02d441f8a0007fe2b5a24da6ed2d9"
+  }
+]

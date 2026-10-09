@@ -4,6 +4,7 @@ import {
   check,
   index,
   integer,
+  primaryKey,
   sqliteTable,
   text,
   uniqueIndex,
@@ -45,6 +46,39 @@ export const users = sqliteTable(
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+
+/** Additive Access mapping. Role comes from users; laptop credentials stay intact. */
+export const userEmailIdentities = sqliteTable(
+  "user_email_identities",
+  {
+    email: text("email").primaryKey(),
+    userId: integer("user_id").notNull().references(() => users.id),
+  },
+  (t) => [
+    check("chk_identity_email_normalized", sql`${t.email} <> '' AND ${t.email} = lower(trim(${t.email}, char(32,9,10,11,12,13)))`),
+  ],
+);
+
+/** DB-wide row revision and schema fence. Defaults preserve the laptop runtime.
+ * Backup ownership is a compare-and-set token, not a lock on normal writes.
+ */
+export const databaseState = sqliteTable(
+  "database_state",
+  {
+    id: integer("id").primaryKey(),
+    revision: integer("revision").notNull().default(0),
+    schemaEpoch: integer("schema_epoch").notNull().default(1),
+    maintenance: integer("maintenance").notNull().default(0),
+    backupToken: text("backup_token"),
+  },
+  (t) => [
+    check("chk_database_state_singleton", sql`${t.id} = 1`),
+    check("chk_database_state_revision", sql`typeof(${t.revision}) = 'integer' AND ${t.revision} BETWEEN 0 AND 9007199254740991`),
+    check("chk_database_state_epoch", sql`typeof(${t.schemaEpoch}) = 'integer' AND ${t.schemaEpoch} BETWEEN 1 AND 9007199254740991`),
+    check("chk_database_state_maintenance", sql`${t.maintenance} IN (0,1)`),
+    check("chk_database_state_backup_token", sql`${t.backupToken} IS NULL OR ${notBlank(t.backupToken)}`),
+  ],
+);
 
 export const dailySheets = sqliteTable(
   "daily_sheets",
@@ -153,6 +187,32 @@ export const operatingExpenseAddRequests = sqliteTable(
   },
 );
 
+/** Terminal cloud receipts only; claim, mutation and result must share one commit.
+ * No business/user FK: a receipt outlives deletion, and AUTOINCREMENT identities
+ * must never be reused. The legacy expense ledger remains a separate namespace.
+ */
+export const mutationReceipts = sqliteTable(
+  "mutation_receipts",
+  {
+    userId: integer("user_id").notNull(),
+    operation: text("operation").notNull(),
+    operationId: text("operation_id").notNull(),
+    payload: text("payload").notNull(),
+    status: integer("status").notNull(),
+    result: text("result").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (t) => [
+    primaryKey({ columns: [t.userId, t.operation, t.operationId] }),
+    check("chk_receipt_user", sql`${t.userId} > 0`),
+    check("chk_receipt_operation", sql`${t.operation} IN ('save-sheet','delete-sheets','expense-add','delete-expenses','close-month','reopen-month')`),
+    check("chk_receipt_id", notBlank(t.operationId)),
+    check("chk_receipt_payload", sql`json_valid(${t.payload})`),
+    check("chk_receipt_status", sql`${t.status} BETWEEN 200 AND 299`),
+    check("chk_receipt_result", sql`json_valid(${t.result})`),
+  ],
+);
+
 export const monthCloses = sqliteTable(
   "month_closes",
   {
@@ -210,6 +270,9 @@ export const monthCloseEvents = sqliteTable(
     reason: text("reason"),
     /** JSON of the month_closes row as it stood right after this event. */
     snapshot: text("snapshot").notNull(),
+    /** NULL for historical/laptop events; cloud writes supply verified identity. */
+    actorUserId: integer("actor_user_id"),
+    actorRole: text("actor_role").$type<UserRole>(),
   },
   (t) => [
     index("ix_month_close_events_month").on(t.month),
