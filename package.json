@@ -18,7 +18,8 @@
     "db:seed": "tsx src/db/seed.ts",
     "reset-password": "tsx src/cli/reset-password.ts",
     "smoke:login": "node scripts/smoke-login.mjs",
-    "smoke:ci": "bash scripts/ci-smoke-login.sh"
+    "smoke:ci": "bash scripts/ci-smoke-login.sh",
+    "test:d1": "vitest run --config workers/d1-tests/vitest.config.ts --max-workers=1"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -30,6 +31,8 @@
     "react-dom": "^19.3.0"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.12.21",
+    "@cloudflare/workers-types": "4.20260310.1",
     "@eslint/eslintrc": "^3.3.7",
     "@types/bcrypt": "^6.0.0",
     "@types/better-sqlite3": "^7.6.13",
