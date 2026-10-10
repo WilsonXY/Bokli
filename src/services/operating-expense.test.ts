@@ -244,6 +244,12 @@ describe("4. Closed-month rejection (ClosedMonthError)", () => {
   const CLOSED_MONTH = "2025-04";
 
   beforeAll(() => {
+    // Historical fixtures must be recorded before Month Close.
+    db.insert(operatingExpenses).values([
+      { month: CLOSED_MONTH, type: "rental", amountSen: 80000, note: "Pre-close expense" },
+      { month: CLOSED_MONTH, type: "wages", amountSen: 1000, note: "bulk closed" },
+      { month: CLOSED_MONTH, type: "wages", amountSen: 1000, note: "api bulk closed" },
+    ]).run();
     // Lock month 2025-04 with a closed month_closes record
     db.insert(monthCloses)
       .values({
@@ -266,17 +272,9 @@ describe("4. Closed-month rejection (ClosedMonthError)", () => {
   });
 
   it("rejects updateOperatingExpense and removeOperatingExpense for a closed month", async () => {
-    // Manually insert an expense in the closed month for testing
-    const insertRes = db
-      .insert(operatingExpenses)
-      .values({
-        month: CLOSED_MONTH,
-        type: "rental",
-        amountSen: 80000,
-        note: "Pre-close expense",
-      })
-      .returning()
-      .get();
+    const insertRes = db.select().from(operatingExpenses)
+      .where(eq(operatingExpenses.month, CLOSED_MONTH)).all()
+      .find(row => row.note === "Pre-close expense")!;
 
     await expect(
       updateOperatingExpense(
@@ -966,7 +964,7 @@ describe("10. Bulk delete (deleteOperatingExpenses + DELETE { ids })", () => {
   it("deletes nothing when any row is in a closed month (single transaction)", async () => {
     // 2025-04 is closed by section 4.
     const open = insertExpense("2024-02", "bulk open");
-    const closed = insertExpense("2025-04", "bulk closed");
+    const closed = db.select().from(operatingExpenses).all().find(row => row.month === "2025-04" && row.note === "bulk closed")!;
 
     await expect(
       deleteOperatingExpenses([open.id, closed.id], { db }),
@@ -1022,7 +1020,7 @@ describe("10. Bulk delete (deleteOperatingExpenses + DELETE { ids })", () => {
 
   it("DELETE maps a closed-month row in the batch to 409 and deletes nothing", async () => {
     const open = insertExpense("2024-02", "api bulk open");
-    const closed = insertExpense("2025-04", "api bulk closed");
+    const closed = db.select().from(operatingExpenses).all().find(row => row.month === "2025-04" && row.note === "api bulk closed")!;
 
     const res = await expensesDelete(
       bulkDeleteReq({ ids: [open.id, closed.id] }),

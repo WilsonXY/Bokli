@@ -64,6 +64,13 @@
       "when": 1791045993690,
       "tag": "0008_mighty_bedlam",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1791626372952,
+      "tag": "0009_month_close_protections",
+      "breakpoints": true
     }
   ]
 }
