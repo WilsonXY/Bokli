@@ -157,7 +157,9 @@ it("starts another test with no synthetic rows or test-only triggers", async () 
   const db = createD1Adapter(env.BOKLI_TEST_DB);
   expect(await db.select().from(dailySheets)).toEqual([]);
   expect(await db.select().from(costLines)).toEqual([]);
-  expect((await env.BOKLI_TEST_DB.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger'").all()).results).toEqual([]);
+  const expected = env.TEST_MIGRATIONS.flatMap(migration => migration.queries.flatMap(query =>
+    [...query.matchAll(/CREATE TRIGGER (\w+)/g)].map(match => ({ name: match[1] })))).sort((a, b) => a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+  expect((await env.BOKLI_TEST_DB.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger' ORDER BY name").all()).results).toEqual(expected);
 });
 
 it("gives an exact registered trigger message precedence over CHECK-like text", async () => {

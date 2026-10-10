@@ -331,6 +331,16 @@ describe("4. Sen integer arithmetic totals and correction trail", () => {
 
 describe("5. Closed-month edit rejection", () => {
   beforeAll(() => {
+    // Create the historical rows before Month Close locks the month
+    const historicalSheet = db.insert(dailySheets)
+      .values({
+        date: "2026-07-15",
+        cashSen: 1000,
+        tngSen: 500,
+      })
+      .returning().get()!;
+    db.insert(costLines).values({ dailySheetId: historicalSheet.id, amountSen: 1500, category: "gas" }).run();
+
     // Manually record a closed month for 2026-07
     db.insert(monthCloses)
       .values({
@@ -345,14 +355,6 @@ describe("5. Closed-month edit rejection", () => {
       })
       .run();
 
-    // And create a pre-existing sheet in 2026-07 directly in db
-    db.insert(dailySheets)
-      .values({
-        date: "2026-07-15",
-        cashSen: 1000,
-        tngSen: 500,
-      })
-      .run();
   });
 
   it("rejects creating a new Daily Sheet in a closed month", () => {
@@ -383,16 +385,9 @@ describe("5. Closed-month edit rejection", () => {
       .where(eq(dailySheets.date, "2026-07-15"))
       .get()!;
 
-    // Directly insert a cost line in db to test update/delete
-    const insertedLine = db
-      .insert(costLines)
-      .values({
-        dailySheetId: existing.id,
-        amountSen: 1500,
-        category: "gas",
-      })
-      .returning()
-      .get();
+    // This Cost Line was recorded before Month Close.
+    const insertedLine = db.select().from(costLines)
+      .where(eq(costLines.dailySheetId, existing.id)).get()!;
 
     // Adding cost line rejected
     expect(() =>
@@ -700,6 +695,16 @@ describe("7. Idempotent cost line replacement and hardening (Option A)", () => {
   });
 
   it("replaceCostLines() rejects edits in a closed month", () => {
+    const closedSheet = db
+      .insert(dailySheets)
+      .values({
+        date: "2026-05-15",
+        cashSen: 1000,
+        tngSen: 500,
+      })
+      .returning()
+      .get();
+
     // Record a closed month for 2026-05 with reopenedAt: null
     db.insert(monthCloses)
       .values({
@@ -713,16 +718,6 @@ describe("7. Idempotent cost line replacement and hardening (Option A)", () => {
         reopenedAt: null,
       })
       .run();
-
-    const closedSheet = db
-      .insert(dailySheets)
-      .values({
-        date: "2026-05-15",
-        cashSen: 1000,
-        tngSen: 500,
-      })
-      .returning()
-      .get();
 
     expect(() =>
       replaceCostLines(
