@@ -2,7 +2,7 @@ import { applyD1Migrations, env, fetchMock } from "cloudflare:test";
 import { expect, it } from "vitest";
 import worker from "../index";
 import { signingKey, token, jwks, seedIdentity } from "./jwt-fixtures";
-import type { D1PreparedStatement } from "@cloudflare/workers-types";
+import { instrument } from "./write-fixtures";
 it("measures statements and parameters on actual local Worker/D1 reads at 10x Cost Line volume",async()=>{
   fetchMock.activate();fetchMock.disableNetConnect();
   await applyD1Migrations(env.BOKLI_DB,env.TEST_MIGRATIONS);await seedIdentity();
@@ -15,27 +15,15 @@ it("measures statements and parameters on actual local Worker/D1 reads at 10x Co
   await env.BOKLI_DB.batch(inserts);
   const key=await signingKey();const jwt=await token(key);
   const evidence=[];
-  for(const [path,statements] of [["identity",1],["dashboard?month=2026-01",4],["expenses?month=2026-01",3],["close?month=2026-01",2],["history",2],["sheets?date=2026-01-01",3],["sheets?date=2026-01-31",2]] as const){
-    const queries:{bytes:number;parameters:number;executed:number}[]=[];
-    const binding=new Proxy(env.BOKLI_DB,{get(target,property){
-      if(property!=="prepare") {const value=Reflect.get(target,property,target);return typeof value==="function"?value.bind(target):value;}
-      return (query:string)=>{
-        const measured={bytes:new TextEncoder().encode(query).length,parameters:0,executed:0};queries.push(measured);
-        const wrap=(statement:D1PreparedStatement):D1PreparedStatement=>new Proxy(statement,{get(target,property){
-          if(property==="bind") return (...values:unknown[])=>{measured.parameters=values.length;return wrap(target.bind(...values));};
-          const value=Reflect.get(target,property,target);
-          if(typeof value!=="function") return value;
-          return (...args:unknown[])=>{if(["all","run","first","raw"].includes(String(property))) measured.executed++;return value.apply(target,args);};
-        }});
-        return wrap(target.prepare(query));
-      };
-    }});
+  for(const [path,statements] of [["identity",1],["dashboard?month=2026-01",4],["expenses?month=2026-01",3],["close?month=2026-01",2],["history",2],["sheets?date=2026-01-01",2],["sheets?date=2026-01-31",2],["dashboard",4],["expenses",3],["close",2]] as const){
+    const measured=instrument(env.BOKLI_DB);
     jwks([key]);
-    const response=await worker.fetch(new Request(`https://synthetic.invalid/api/cloud-v1/${path}`,{headers:{"Cf-Access-Jwt-Assertion":jwt}}),{...env,BOKLI_DB:binding});
+    const response=await worker.fetch(new Request(`https://synthetic.invalid/api/cloud-v1/${path}`,{headers:{"Cf-Access-Jwt-Assertion":jwt}}),{...env,BOKLI_DB:measured.binding});
     expect(response.status,path).toBe(200);
     const body:any=await response.json();
     if(path.startsWith("dashboard")){expect(body.trend).toHaveLength(10);expect(body.tile.dailyCostSen).toBe(300);expect(body.tile.operatingSen).toBe(50);}
     if(path.startsWith("sheets?date=2026-01-01")) expect(body.data.costLines).toHaveLength(30);
+    const queries=measured.queries.map(q=>({bytes:new TextEncoder().encode(q.sql).length,parameters:q.parameters.length,executed:q.executed}));
     expect(queries.reduce((n,q)=>n+q.executed,0),path).toBe(statements);
     expect(Math.max(...queries.map(q=>q.parameters))).toBeLessThanOrEqual(4);
     expect(Math.max(...queries.map(q=>q.bytes))).toBeLessThan(4096);

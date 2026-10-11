@@ -18,7 +18,7 @@ export interface CloudReads {
   history: Wire<MonthCloseHistoryItem>[];
 }
 export interface CloudFailure { code: string }
-/** Stage4 implements these consumers, atomic receipts, roles and Origin/CSRF checks. Stage3 returns 405. */
+/** Implemented cloud consumers. Persist operation ID/body before sending; never use laptop fallback. */
 export type CloudMutation =
   | { method: "POST"; path: "/api/cloud-v1/sheets"; body: { date: string; cashSen?: number; tngSen?: number; costLines: Wire<ReplaceCostLineInput>[] }; result: Wire<DailySheetWithCosts> }
   | { method: "DELETE"; path: "/api/cloud-v1/sheets"; query: { date: string; id: number; updatedAt: string }; result: { deleted: true; date: string } }
@@ -27,8 +27,12 @@ export type CloudMutation =
   | { method: "POST"; path: "/api/cloud-v1/close"; body: { month: string; cashOnHandSen: number; tngOnHandSen: number; note?: string | null; confirmEmpty?: boolean }; result: { close: MonthClose; balanced: boolean; differenceSen: number; expectedSen: number; actualSen: number; warning?: string } }
   | { method: "POST"; path: "/api/cloud-v1/close/reopen"; body: { month: string; reason: string }; result: { close: MonthClose; message: string } };
 export interface CloudMutationHeaders {
-  /** Same durable random key/body on retries; Stage4 must scope it to verified identity. */
+  /** Persist identity.id with the operation; the server compares the signed mapped caller. Required by the retry consumer. */
+  "X-Bokli-Actor-Id"?: string;
+  /** Same durable random key/body on retries; scoped to the signed mapped identity and operation. */
   "Idempotency-Key": string;
   /** Compatibility marker, never authentication; rollback rejects the namespace regardless of this header. */
   "X-Bokli-Api-Generation": "cloud-v1";
 }
+export type CloudOperation = "sheet.save" | "sheet.delete" | "expense.add" | "expense.delete" | "month.close" | "month.reopen";
+export type CloudOperationStatus<T = unknown> = {saved:false} | {saved:true;status:200|201;result:T};

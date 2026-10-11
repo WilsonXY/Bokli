@@ -7,7 +7,7 @@ export function assertLocalWorkerTestConfig(options: unknown): void {
   if (!w||!mf||!b||w.main!==resolve("workers/index.ts")||w.singleWorker!==true||w.isolatedStorage!==true||w.remoteBindings!==false||
     Object.keys(w).some(k=>!["main","singleWorker","isolatedStorage","remoteBindings","miniflare"].includes(k))||
     Object.keys(mf).some(k=>!["compatibilityDate","d1Databases","bindings"].includes(k))||mf.compatibilityDate!=="2026-03-10"||
-    JSON.stringify(mf.d1Databases)!=='["BOKLI_DB"]'||
+    JSON.stringify(mf.d1Databases)!=='["BOKLI_DB","BOKLI_RECOVERY_DB"]'||
     Object.keys(b).sort().join(",")!==["TEST_MIGRATIONS","TEST_READ_CASES","ACCESS_ISSUER","ACCESS_AUD","ACCESS_ALLOWED_EMAILS","ACCESS_HEALTH_SERVICE_ID","APP_VERSION"].sort().join(",")||
     !Array.isArray(b.TEST_MIGRATIONS)||typeof b.TEST_READ_CASES!=="string"||
     b.ACCESS_ISSUER!=="https://bokli-synthetic.cloudflareaccess.com"||b.ACCESS_AUD!=="synthetic-audience"||

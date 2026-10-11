@@ -10,7 +10,8 @@ import { resolveActiveMonthView } from "../../src/lib/months";
 import { getTodayInKualaLumpur } from "../../src/lib/datetime";
 import { isValidDateStr } from "../../src/lib/money";
 import * as schema from "../../src/db/schema";
-export interface ReferenceCase {name:string;sql:string[];reads:{path:string;expected:unknown}[]}
+import { legacyWriteReference,type WriteReference } from "./legacy-write-reference";
+export interface ReferenceCase {name:string;sql:string[];reads:{path:string;expected:unknown}[];writes?:WriteReference[];referenceNow?:string}
 const normal = [
   "INSERT INTO daily_sheets(id,date,cash_sen,tng_sen,note) VALUES (2,'2026-01-02',1000,200,NULL),(1,'2026-01-01',300,400,'汤 🥣'),(3,'2025-12-31',50,0,NULL),(4,'2026-02-01',0,0,NULL)",
   "INSERT INTO cost_lines(id,daily_sheet_id,amount_sen,category,note) VALUES (9,2,90,'other','修理'),(8,2,80,'maintenance',NULL),(7,2,70,'wages-daily',NULL),(6,2,60,'transport',NULL),(5,2,50,'gas',NULL),(4,2,40,'restock',NULL),(3,1,30,'gas',''),(2,3,20,'restock',NULL)",
@@ -29,6 +30,7 @@ const fixtures = [
   {name:"leap-boundary",sql:["INSERT INTO daily_sheets(date,cash_sen,tng_sen) VALUES ('2024-02-29',5,6),('2024-03-01',7,8)"]},
 ];
 async function main() {
+const referenceNow=new Date();
 const result: ReferenceCase[]=[];
 for (const fixture of fixtures) {
   const raw=new Database(":memory:");raw.pragma("foreign_keys=ON");
@@ -42,7 +44,7 @@ for (const fixture of fixtures) {
       return [statement,`UPDATE ${table} SET ${fields}`];
     });
     for(const statement of timedSql) raw.exec(statement);
-    const todayKl=getTodayInKualaLumpur();const current=todayKl.slice(0,7);
+    const todayKl=getTodayInKualaLumpur(referenceNow);const current=todayKl.slice(0,7);
     const tiles=await listMonthTiles({db,upToMonth:current});
     const reads: ReferenceCase["reads"]=[];
     for (const requested of [undefined,"2026-01","2026-02","invalid","2099-12","2025-12","2024-02"]) {
@@ -64,6 +66,8 @@ for (const fixture of fixtures) {
     result.push({...fixture,sql:timedSql,reads});
   } finally {raw.close();}
 }
+result[0].writes=await legacyWriteReference();
+result[0].referenceNow=referenceNow.toISOString();
 process.stdout.write(JSON.stringify(result,(_,value)=>typeof value==="bigint"?Number(value):value));
 
 }

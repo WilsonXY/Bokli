@@ -26,10 +26,10 @@ export function emailMappingCases(getDb: () => LockDb) {
       for (const object of objects) expect(after).toContainEqual(object);
       expect(await db.run("SELECT cash_sen FROM daily_sheets")).toEqual([{cash_sen:123}]);
       expect(await db.run("SELECT * FROM operating_expense_add_requests")).toEqual(receipts);
-      expect(await db.run("SELECT * FROM month_close_events")).toEqual(history);
+      expect(await db.run("SELECT * FROM month_close_events")).toEqual(history.map(row=>({...row,actor_user_id:null,actor_role:null})));
       const migratedMetadata = await db.run(`SELECT * FROM ${meta} ORDER BY id`);
       expect(migratedMetadata.slice(0,10)).toEqual(metadata);
-      expect(migratedMetadata).toHaveLength(11);
+      expect(migratedMetadata).toHaveLength(12);
       expect(await db.run("SELECT * FROM user_emails")).toEqual([]);
       await db.run("INSERT INTO user_emails(email,user_id) VALUES (?,?)", "mom@example.invalid", 7);
       expect(await db.run("SELECT u.id,u.role FROM user_emails e JOIN users u ON u.id=e.user_id WHERE e.email=?", "mom@example.invalid")).toEqual([{id:7,role:"Operator"}]);

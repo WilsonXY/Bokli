@@ -1,12 +1,23 @@
-import type { D1Database } from "@cloudflare/workers-types";
+import type { D1Database, D1DatabaseSession } from "@cloudflare/workers-types";
 import type { BatchItem, BatchResponse } from "drizzle-orm/batch";
 import { drizzle } from "drizzle-orm/d1";
+import { type SQL } from "drizzle-orm";
+import { SQLiteSyncDialect } from "drizzle-orm/sqlite-core";
 import * as schema from "../src/db/schema";
 
 /** Additive async boundary; never opens a SQLite file or guesses a binding. */
-export function createD1Adapter(binding: D1Database | undefined) {
+export function createD1Adapter(binding: D1Database | D1DatabaseSession | undefined) {
   if (!binding) throw new Error("D1 binding is required");
   return drizzle(binding, { schema });
+}
+
+/** Raw SQL uses the public compiler; one native batch also keeps composite reads coherent. */
+export function runD1SqlBatch<Row = unknown>(db: ReturnType<typeof createD1Adapter>,queries: SQL[]) {
+  const dialect = new SQLiteSyncDialect();
+  return db.$client.batch<Row>(queries.map(query=>{
+    const compiled = dialect.sqlToQuery(query);
+    return db.$client.prepare(compiled.sql).bind(...compiled.params);
+  }));
 }
 
 /** D1 batch is atomic; interactive BEGIN/COMMIT transactions are not supported. */

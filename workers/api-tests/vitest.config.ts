@@ -2,6 +2,8 @@ import { defineWorkersConfig, readD1Migrations } from "@cloudflare/vitest-pool-w
 import { assertLocalWorkerTestConfig } from "./safety";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
+import { stabilizeTestLoopback } from "../test-loopback";
+stabilizeTestLoopback();
 export default defineWorkersConfig(async () => {
  const workers = {
       main: resolve("workers/index.ts"),
@@ -10,7 +12,7 @@ export default defineWorkersConfig(async () => {
       remoteBindings: false,
       miniflare: {
         compatibilityDate: "2026-03-10",
-        d1Databases: ["BOKLI_DB"],
+        d1Databases: ["BOKLI_DB","BOKLI_RECOVERY_DB"],
         bindings: {
           TEST_READ_CASES: execFileSync(process.execPath,["--import","tsx","workers/api-tests/legacy-reference.ts"],{encoding:"utf8"}),
           TEST_MIGRATIONS: await readD1Migrations(resolve("drizzle")),

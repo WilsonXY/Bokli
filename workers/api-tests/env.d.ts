@@ -3,6 +3,7 @@ import type { D1Database } from "@cloudflare/workers-types";
 declare module "cloudflare:test" {
   interface ProvidedEnv {
     BOKLI_DB: D1Database;
+    BOKLI_RECOVERY_DB: D1Database;
     TEST_READ_CASES: string;
     ACCESS_ISSUER: string;
     ACCESS_AUD: string;

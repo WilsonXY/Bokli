@@ -124,13 +124,14 @@ it("fails closed on missing or malformed deployment configuration",async()=>{
     expect((await worker.fetch(request,{...env,...patch})).status).toBe(503);
   }
 });
-it("explicitly rejects unsupported cloud mutations and preserves all synthetic records",async()=>{
+it("rejects unsupported methods and mutations lacking Origin, preserving all synthetic records",async()=>{
   const jwt=await token(key);
   for(const path of ["sheets","expenses","close","close/reopen"]) for(const method of ["POST","DELETE","PUT","PATCH"]){
     jwks([key]);
     const response=await SELF.fetch(`https://synthetic.invalid/api/cloud-v1/${path}`,{method,headers:{"Cf-Access-Jwt-Assertion":jwt,"Idempotency-Key":"synthetic-operation","X-Bokli-Api-Generation":"cloud-v1"}});
-    expect(response.status,`${method} ${path}`).toBe(405);
-    expect(await response.json()).toEqual({code:"mutationNotSupported"});
+    const supported=method==="POST" || (method==="DELETE" && ["sheets","expenses"].includes(path));
+    expect(response.status,`${method} ${path}`).toBe(supported?403:405);
+    expect(await response.json()).toMatchObject({code:supported?"forbidden":"mutationNotSupported"});
   }
   for(const table of ["daily_sheets","cost_lines","operating_expenses","month_closes","month_close_events","operating_expense_add_requests"])
     expect(await env.BOKLI_DB.prepare(`SELECT count(*) AS n FROM ${table}`).first("n")).toBe(0);

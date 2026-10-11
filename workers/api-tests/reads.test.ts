@@ -1,11 +1,12 @@
 import { applyD1Migrations, env, SELF, fetchMock } from "cloudflare:test";
-import { beforeAll, beforeEach, afterEach, expect, it } from "vitest";
+import { beforeAll, beforeEach, afterEach, expect, it,vi } from "vitest";
+import worker from "../index";
 import { getTodayInKualaLumpur } from "../../src/lib/datetime";
 import { signingKey, token, jwks, seedIdentity, type SigningKey } from "./jwt-fixtures";
 let key: SigningKey;
 beforeAll(async()=>{key=await signingKey();});
 beforeEach(async()=>{fetchMock.activate();fetchMock.disableNetConnect();await applyD1Migrations(env.BOKLI_DB,env.TEST_MIGRATIONS);await seedIdentity();});
-afterEach(()=>{fetchMock.assertNoPendingInterceptors();fetchMock.deactivate();});
+afterEach(()=>{vi.useRealTimers();fetchMock.assertNoPendingInterceptors();fetchMock.deactivate();});
 it("loads an absent Daily Sheet as null through the real Worker and D1",async()=>{
   jwks([key]);
   const jwt=await token(key);
@@ -17,11 +18,13 @@ it("loads an absent Daily Sheet as null through the real Worker and D1",async()=
 const cases = JSON.parse(env.TEST_READ_CASES) as import("./legacy-reference").ReferenceCase[];
 for (const fixture of cases) {
   it(`matches current SQLite page consumers: ${fixture.name}`,async()=>{
+    // Anchor both real service implementations to the reference's captured clock, including midnight.
+    vi.useFakeTimers({toFake:["Date"]});vi.setSystemTime(new Date(cases[0].referenceNow!));
     for (const statement of fixture.sql) await env.BOKLI_DB.prepare(statement).run();
     const jwt=await token(key);
     for (const read of fixture.reads) {
       jwks([key]);
-      const response=await SELF.fetch(`https://synthetic.invalid/api/cloud-v1/${read.path}`,{headers:{"Cf-Access-Jwt-Assertion":jwt}});
+      const response=await worker.fetch(new Request(`https://synthetic.invalid/api/cloud-v1/${read.path}`,{headers:{"Cf-Access-Jwt-Assertion":jwt}}),env);
       expect({path:read.path,status:response.status}).toEqual({path:read.path,status:200});
       expect(await response.json(),read.path).toEqual(read.expected);
     }

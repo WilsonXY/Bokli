@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { afterAll, afterEach, beforeEach } from "vitest";
 import { emailMappingCases } from "./email-mapping-cases";
-const parent = path.resolve("data-dev/stage3");
+const parent = path.resolve("data-dev/stage4");
 fs.mkdirSync(parent,{recursive:true});
 if (fs.realpathSync(parent) !== parent) throw new Error("Synthetic migration path must resolve inside data-dev");
 const root = fs.mkdtempSync(path.join(parent,"email-mapping-"));

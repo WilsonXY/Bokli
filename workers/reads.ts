@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
-import { createD1Adapter } from "./d1";
+import { createD1Adapter,runD1SqlBatch } from "./d1";
 import { getTodayInKualaLumpur } from "../src/lib/datetime";
-import { isValidDateStr, sumSen, subSen, computeProfit, evaluateReconciliation } from "../src/lib/money";
+import { isValidDateStr, isValidMonthStr, sumSen, subSen, computeProfit, evaluateReconciliation } from "../src/lib/money";
 import { resolveActiveMonthView } from "../src/lib/months";
 import { COST_CATEGORIES, type CostCategory } from "../src/lib/vocab";
 import type { CloudReads } from "../src/lib/cloud-contract";
@@ -21,19 +21,22 @@ function id(value: string): number {
 export async function readDailySheet(db: Db, requestedDate?: string): Promise<CloudReads["sheets"]> {
   const todayKl = getTodayInKualaLumpur();
   const date = requestedDate && isValidDateStr(requestedDate) && requestedDate <= todayKl ? requestedDate : todayKl;
-  const [row] = await db.all<{id:string|null;date:string;cashSen:string;tngSen:string;note:string|null;createdAt:string;updatedAt:string;isClosed:number}>(sql`
+  const rows = await db.all<{id:string|null;date:string;cashSen:string;tngSen:string;note:string|null;createdAt:string;updatedAt:string;isClosed:number;
+    lineId:string|null;lineSheetId:string;lineAmount:string;lineCategory:string;lineNote:string|null;lineCreatedAt:string}>(sql`
     SELECT CAST(s.id AS TEXT) AS id,s.date,CAST(s.cash_sen AS TEXT) AS cashSen,CAST(s.tng_sen AS TEXT) AS tngSen,
       s.note,s.created_at AS createdAt,s.updated_at AS updatedAt,
-      CASE WHEN c.id IS NOT NULL AND (c.reopened_at IS NULL OR c.reopened_at='') THEN 1 ELSE 0 END AS isClosed
+      CASE WHEN c.id IS NOT NULL AND (c.reopened_at IS NULL OR c.reopened_at='') THEN 1 ELSE 0 END AS isClosed,
+      CAST(l.id AS TEXT) AS lineId,CAST(l.daily_sheet_id AS TEXT) AS lineSheetId,CAST(l.amount_sen AS TEXT) AS lineAmount,
+      l.category AS lineCategory,l.note AS lineNote,l.created_at AS lineCreatedAt
     FROM (SELECT ${date} AS date) target LEFT JOIN daily_sheets s ON s.date=target.date
-    LEFT JOIN month_closes c ON c.month=substr(target.date,1,7)`);
+    LEFT JOIN month_closes c ON c.month=substr(target.date,1,7)
+    LEFT JOIN cost_lines l ON l.daily_sheet_id=s.id ORDER BY l.id`);
+  const [row] = rows;
   const isClosed = Boolean(row.isClosed);
   if (row.id === null) return {date,todayKl,isClosed,data:null};
   const sheet = {id:id(row.id),date:row.date,cashSen:Number(sen(row.cashSen)),tngSen:Number(sen(row.tngSen)),note:row.note,createdAt:row.createdAt,updatedAt:row.updatedAt};
-  const rows = await db.all<{id:string;dailySheetId:string;amountSen:string;category:string;note:string|null;createdAt:string}>(sql`
-    SELECT CAST(id AS TEXT) AS id,CAST(daily_sheet_id AS TEXT) AS dailySheetId,CAST(amount_sen AS TEXT) AS amountSen,
-      category,note,created_at AS createdAt FROM cost_lines WHERE daily_sheet_id=${sheet.id} ORDER BY cost_lines.id`);
-  const costLines = rows.map(r=>({...r,id:id(r.id),dailySheetId:id(r.dailySheetId),amountSen:Number(sen(r.amountSen))}));
+  const costLines = rows.filter(r=>r.lineId!==null).map(r=>({id:id(r.lineId!),dailySheetId:id(r.lineSheetId),amountSen:Number(sen(r.lineAmount)),
+    category:r.lineCategory,note:r.lineNote,createdAt:r.lineCreatedAt}));
   const totalCostSen = sumSen(costLines.map(r=>BigInt(r.amountSen)));
   const totalRevenueSen = sumSen([BigInt(sheet.cashSen),BigInt(sheet.tngSen)]);
   const grossProfitSen = subSen(totalRevenueSen,totalCostSen);
@@ -60,9 +63,8 @@ function wire<T>(value: T): import("../src/lib/cloud-contract").Wire<T> {
   return JSON.parse(JSON.stringify(value,(_,v)=>typeof v === "bigint"?Number(sumSen([v])):v));
 }
 interface MonthRow { month:string;cash:string;tng:string;cost:string;operating:string;sheetCount:number;closeJson:string|null }
-async function months(db: Db) {
-  const current = getTodayInKualaLumpur().slice(0,7);
-  const rows = await db.all<MonthRow>(sql`
+function monthsQuery(current: string) {
+  return sql`
     WITH sheets AS (SELECT substr(date,1,7) AS month,SUM(cash_sen) AS cash,SUM(tng_sen) AS tng,COUNT(*) AS sheetCount
       FROM daily_sheets WHERE substr(date,1,7)<=${current} GROUP BY substr(date,1,7)),
     costs AS (SELECT substr(s.date,1,7) AS month,SUM(l.amount_sen) AS cost FROM cost_lines l JOIN daily_sheets s ON s.id=l.daily_sheet_id
@@ -73,7 +75,9 @@ async function months(db: Db) {
       COALESCE(CAST(k.cost AS TEXT),'0') AS cost,COALESCE(CAST(e.operating AS TEXT),'0') AS operating,
       COALESCE(s.sheetCount,0) AS sheetCount,CASE WHEN c.id IS NULL THEN NULL ELSE ${closeJson} END AS closeJson
     FROM available a LEFT JOIN sheets s ON s.month=a.month LEFT JOIN costs k ON k.month=a.month
-      LEFT JOIN expenses e ON e.month=a.month LEFT JOIN month_closes c ON c.month=a.month ORDER BY a.month DESC`);
+      LEFT JOIN expenses e ON e.month=a.month LEFT JOIN month_closes c ON c.month=a.month ORDER BY a.month DESC`;
+}
+function months(rows: MonthRow[]) {
   return rows.map(row=> {
     const cashSen=sen(row.cash),tngSen=sen(row.tng),revenueSen=sumSen([cashSen,tngSen]),dailyCostSen=sen(row.cost),operatingSen=sen(row.operating);
     const preview={month:row.month,revenueSen,dailyCostSen,operatingSen,...computeProfit({revenueSen,dailyCostSen,operatingSen})};
@@ -88,28 +92,39 @@ async function months(db: Db) {
 }
 
 export async function readMonthPage(db: Db, page: "dashboard"|"expenses"|"close", identity: import("./auth").CloudIdentity, requestedMonth?: string): Promise<CloudReads[typeof page]> {
-  const recorded=await months(db);
+  const current = getTodayInKualaLumpur().slice(0,7);
+  // Match resolveActiveMonthView inside the same read transaction, before JS consumes its rows.
+  const active = requestedMonth && isValidMonthStr(requestedMonth) ? sql`${requestedMonth>current?current:requestedMonth}` : sql`
+    COALESCE((SELECT MAX(month) FROM (
+      SELECT MAX(substr(date,1,7)) AS month FROM daily_sheets WHERE substr(date,1,7)<=${current}
+      UNION ALL SELECT MAX(month) FROM operating_expenses WHERE month<=${current}
+      UNION ALL SELECT MAX(month) FROM month_closes WHERE month<=${current})),${current})`;
+  const queries = [monthsQuery(current)];
+  if (page==="expenses") queries.push(sql`
+    SELECT CAST(id AS TEXT) AS id,month,type,CAST(amount_sen AS TEXT) AS amountSen,note,created_at AS createdAt,updated_at AS updatedAt
+    FROM operating_expenses WHERE month=${active} ORDER BY operating_expenses.id`);
+  if (page==="dashboard") queries.push(sql`
+    SELECT s.date,CAST(s.cash_sen AS TEXT) AS cash,CAST(s.tng_sen AS TEXT) AS tng,
+      COALESCE(CAST(SUM(l.amount_sen) AS TEXT),'0') AS cost FROM daily_sheets s LEFT JOIN cost_lines l ON l.daily_sheet_id=s.id
+    WHERE s.date LIKE (${active} || '-%') GROUP BY s.id ORDER BY s.date`,sql`
+    SELECT l.category,CAST(SUM(l.amount_sen) AS TEXT) AS amount FROM cost_lines l JOIN daily_sheets s ON s.id=l.daily_sheet_id
+    WHERE s.date LIKE (${active} || '-%') GROUP BY l.category`);
+  const results = await runD1SqlBatch(db,queries);
+  const recorded=months(results[0].results as MonthRow[]);
   const tiles=recorded.map(r=>r.tile);
-  const view=resolveActiveMonthView(requestedMonth,tiles,getTodayInKualaLumpur().slice(0,7));
+  const view=resolveActiveMonthView(requestedMonth,tiles,current);
   const month=view.activeMonth;
   const selected=recorded.find(r=>r.row.month===month);
   const preview=selected?.preview??{month,revenueSen:0n,dailyCostSen:0n,grossSen:0n,operatingSen:0n,netSen:0n};
   const tile=selected?.tile??{...preview,status:"open" as const};
   if (page==="close") return {...view,financials:wire(preview),closeRecord:selected?.close??null,hasSheetsInMonth:(selected?.row.sheetCount??0)>0,userRole:identity.role};
   if (page==="expenses") {
-    const rows=await db.all<{id:string;month:string;type:string;amountSen:string;note:string|null;createdAt:string;updatedAt:string}>(sql`
-      SELECT CAST(id AS TEXT) AS id,month,type,CAST(amount_sen AS TEXT) AS amountSen,note,created_at AS createdAt,updated_at AS updatedAt
-      FROM operating_expenses WHERE month=${month} ORDER BY operating_expenses.id`);
+    const rows=results[1].results as {id:string;month:string;type:string;amountSen:string;note:string|null;createdAt:string;updatedAt:string}[];
     return {...view,expenses:rows.map(r=>({...r,id:id(r.id),amountSen:Number(sen(r.amountSen))})),summary:wire(preview),isClosed:tile.status==="closed"};
   }
-  const trendRows=await db.all<{date:string;cash:string;tng:string;cost:string}>(sql`
-    SELECT s.date,CAST(s.cash_sen AS TEXT) AS cash,CAST(s.tng_sen AS TEXT) AS tng,
-      COALESCE(CAST(SUM(l.amount_sen) AS TEXT),'0') AS cost FROM daily_sheets s LEFT JOIN cost_lines l ON l.daily_sheet_id=s.id
-    WHERE s.date LIKE ${`${month}-%`} GROUP BY s.id ORDER BY s.date`);
+  const trendRows=results[1].results as {date:string;cash:string;tng:string;cost:string}[];
   const trend=trendRows.map(r=>({date:r.date,cashSen:sen(r.cash),tngSen:sen(r.tng),totalSen:sumSen([sen(r.cash),sen(r.tng)]),costSen:sen(r.cost)}));
-  const categoryRows=await db.all<{category:CostCategory;amount:string}>(sql`
-    SELECT l.category,CAST(SUM(l.amount_sen) AS TEXT) AS amount FROM cost_lines l JOIN daily_sheets s ON s.id=l.daily_sheet_id
-    WHERE s.date LIKE ${`${month}-%`} GROUP BY l.category`);
+  const categoryRows=results[2].results as {category:CostCategory;amount:string}[];
   const costByCategory=Object.fromEntries(COST_CATEGORIES.map(c=>[c,0n])) as Record<CostCategory,bigint>;
   for(const row of categoryRows) costByCategory[row.category]=sen(row.amount);
   const cashSen=selected?.cashSen??0n,tngSen=selected?.tngSen??0n;
