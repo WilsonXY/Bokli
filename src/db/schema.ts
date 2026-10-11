@@ -46,6 +46,15 @@ export const users = sqliteTable(
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 
+/** Cloud identity is additive; legacy credentials and roles stay on users. */
+export const userEmails = sqliteTable("user_emails", {
+  email: text("email").primaryKey().notNull(),
+  userId: integer("user_id").notNull().references(() => users.id),
+}, (t) => [
+  uniqueIndex("uq_user_emails_user").on(t.userId),
+  check("chk_user_emails_normalized", sql`${t.email} = lower(trim(${t.email})) AND length(${t.email}) <= 254 AND ${t.email} NOT GLOB '*[^!-~]*' AND ${t.email} GLOB '?*@?*'`),
+]);
+
 export const dailySheets = sqliteTable(
   "daily_sheets",
   {

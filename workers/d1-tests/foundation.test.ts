@@ -13,7 +13,7 @@ describe("explicit D1 binding", () => {
 
 const tables = [
   "cost_lines", "daily_sheets", "login_attempts", "month_close_events",
-  "month_closes", "operating_expense_add_requests", "operating_expenses", "users",
+  "month_closes", "operating_expense_add_requests", "operating_expenses", "user_emails", "users",
 ];
 
 beforeEach(async () => {

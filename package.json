@@ -18,7 +18,7 @@
     "reset-password": "tsx src/cli/reset-password.ts",
     "smoke:login": "node scripts/smoke-login.mjs",
     "smoke:ci": "bash scripts/ci-smoke-login.sh",
-    "test:d1": "vitest run --config workers/d1-tests/vitest.config.ts --max-workers=1"
+    "test:d1": "vitest run --config workers/d1-tests/vitest.config.ts --max-workers=1 && vitest run --config workers/api-tests/vitest.config.ts --max-workers=1"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -40,6 +40,7 @@
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.6.1",
     "drizzle-kit": "^0.31.11",
+    "esbuild": "0.25.12",
     "eslint": "^9.39.5",
     "eslint-config-next": "^15.5.27",
     "playwright": "^1.63.0",

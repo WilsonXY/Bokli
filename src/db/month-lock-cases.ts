@@ -158,7 +158,7 @@ export function monthLockCases(getDb: () => LockDb) {
     await db.run(close("2025-01"));
     const meta = String((await db.run("SELECT name FROM sqlite_master WHERE name IN ('__drizzle_migrations','d1_migrations')"))[0].name);
     const before = await db.run(`SELECT * FROM ${meta} ORDER BY id`);
-    expect(before).toHaveLength(10);
+    expect(before).toHaveLength(11); // Includes additive Stage3 email mapping.
     const rows = await db.run("SELECT * FROM daily_sheets");
     const objects = await db.run("SELECT type,name,sql FROM sqlite_master WHERE type IN ('index','trigger') AND sql IS NOT NULL ORDER BY name");
     expect(objects.filter(row => row.type === "trigger")).toHaveLength(23);
