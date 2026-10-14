@@ -57,6 +57,13 @@ it.each([{alg:"none"},{alg:"HS256"},{kid:""},{crit:["synthetic"]},{typ:"not-JWT"
   const response=await SELF.fetch("https://synthetic.invalid/api/cloud-v1/identity",{headers:{"Cf-Access-Jwt-Assertion":await token(key,{},header)}});
   expect(response.status).toBe(401);
 });
+it("accepts the real Access header shape (no typ) and an explicit JWT typ",async()=>{
+  for(const header of [{},{typ:"JWT"}]) {
+    jwks([key]);
+    const response=await SELF.fetch("https://synthetic.invalid/api/cloud-v1/identity",{headers:{"Cf-Access-Jwt-Assertion":await token(key,{},header)}});
+    expect(response.status).toBe(200);
+  }
+});
 it("rejects wrong signatures and unknown keys",async()=>{
   const other=await signingKey("other-key");
   for(const jwt of [await token(other,{}, {kid:key.kid}),await token(other)]) {

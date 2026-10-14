@@ -59,7 +59,7 @@ INSERT INTO operating_expenses(month,type,amount_sen,note) VALUES
 export function signTestJwt(server, email) {
   const now = Math.floor(Date.now() / 1000);
   const encode = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
-  const data = `${encode({ alg: "RS256", typ: "JWT", kid: server.kid })}.${encode({
+  const data = `${encode({ alg: "RS256", kid: server.kid })}.${encode({
     iss: TEST_ISSUER, aud: [TEST_AUD], type: "app", sub: `local-${email}`, email, iat: now, nbf: now, exp: now + 3600,
   })}`;
   return `${data}.${crypto.sign("sha256", Buffer.from(data), server.privateKey).toString("base64url")}`;

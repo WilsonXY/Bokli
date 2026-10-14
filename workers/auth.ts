@@ -53,7 +53,7 @@ export async function verifyAccess(request: Request, env: WorkerEnv): Promise<Re
     const header = object(parts[0]);
     const claims = object(parts[1]);
     const now = Math.floor(Date.now()/1000);
-    if (header.alg !== "RS256" || header.typ !== "JWT" || typeof header.kid !== "string" || !header.kid || header.crit !== undefined ||
+    if (header.alg !== "RS256" || (header.typ !== undefined && header.typ !== "JWT") || typeof header.kid !== "string" || !header.kid || header.crit !== undefined ||
       claims.iss !== env.ACCESS_ISSUER || claims.type !== "app" ||
       !Array.isArray(claims.aud) || !claims.aud.every(a=>typeof a === "string") || !claims.aud.includes(env.ACCESS_AUD) ||
       !Number.isSafeInteger(claims.exp) || (claims.exp as number) <= now ||

@@ -10,9 +10,10 @@ export type SigningKey = Awaited<ReturnType<typeof signingKey>>;
 function encode(value: unknown) {
   return btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(value)))).replace(/=/g,"").replace(/\+/g,"-").replace(/\//g,"_");
 }
+// Header shaped like real Cloudflare Access assertions: {alg, kid}, no "typ".
 export async function token(key: SigningKey, claims: Record<string,unknown> = {}, header: Record<string,unknown> = {}) {
   const now = Math.floor(Date.now()/1000);
-  const data = `${encode({alg:"RS256",typ:"JWT",kid:key.kid,...header})}.${encode({iss:issuer,aud:["synthetic-audience"],exp:now+300,iat:now,nbf:now,type:"app",sub:"synthetic-mom",email:"mom@example.invalid",...claims})}`;
+  const data = `${encode({alg:"RS256",kid:key.kid,...header})}.${encode({iss:issuer,aud:["synthetic-audience"],exp:now+300,iat:now,nbf:now,type:"app",sub:"synthetic-mom",email:"mom@example.invalid",...claims})}`;
   const signature = await crypto.subtle.sign(algorithm,key.pair.privateKey,new TextEncoder().encode(data));
   return `${data}.${btoa(String.fromCharCode(...new Uint8Array(signature))).replace(/=/g,"").replace(/\+/g,"-").replace(/\//g,"_")}`;
 }
