@@ -63,4 +63,14 @@ describe("next.config distDir configuration", () => {
     },
     15000
   );
+
+  it("builds static pages from *.cloud.tsx into out/ when BOKLI_TARGET=cloud", () => {
+    const rootDir = path.resolve(__dirname, "..");
+    const out = execFileSync(
+      path.resolve(rootDir, "node_modules/.bin/tsx"),
+      ["-e", `import config from "./next.config.ts"; process.stdout.write(JSON.stringify([config.output, config.distDir, config.pageExtensions]));`],
+      { cwd: rootDir, env: { ...process.env, BOKLI_TARGET: "cloud" }, encoding: "utf8" }
+    );
+    expect(JSON.parse(out)).toEqual(["export", "out", ["cloud.tsx", "cloud.ts"]]);
+  }, 15000);
 });

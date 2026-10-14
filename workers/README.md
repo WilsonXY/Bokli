@@ -104,7 +104,7 @@ recovery boundary, so lost/malformed bodies cannot escape as accepted headers. I
 never retries unkeyed requests. Callers
 must durably persist the ID, mapped actor and normalized request before using it, retain drafts
 on unknown outcomes and preserve the existing pending-expense storage contract.
-Screen adaptation/persistence wiring belongs to Stage5. Read replication stays off.
+Read replication stays off.
 Rollback ingress must reject the cloud namespace regardless of markers.
 
 Parameterized raw SQL batches fail in Drizzle 0.45.3's raw-query batching path.
@@ -125,7 +125,36 @@ Deployment-bundle/config checks run in `test:deploy`; the independent esbuild
 bundle includes neither Node/Next/auth/SQLite runtime nor test authorization.
 
 `wrangler.json` disables workers.dev and preview URLs; `/api/*` runs before assets.
-It contains no routes, database IDs, account settings or auth values. `out/` is the
-future Stage5 static export, not a placeholder screen. Deployment and approved
-bindings/configuration/real identity/static-screen/remote CPU gates remain later
-work. Nothing is deployed by tests or feature pushes.
+It contains no routes, database IDs, account settings or auth values. Deployment and
+approved bindings/configuration/real identity/remote CPU gates remain later work.
+Nothing is deployed by tests or feature pushes.
+
+## Static screens
+
+`npm run build:cloud` (`BOKLI_TARGET=cloud`) exports the four screens to `out/`. In
+that build only `app/**/*.cloud.tsx` are pages, so the laptop's API routes, login
+page, middleware, next-auth and SQLite are not in it. Each page is a client shell
+(`src/components/CloudPage.tsx`) that reads `/api/cloud-v1/*` and renders the usual
+view; writes go through `apiFetch` (`src/lib/cloud-client.ts`), which on the laptop
+is a plain `/api/*` fetch. It sends the mapped actor, one Idempotency-Key per save
+attempt (reused while the draft is unchanged; Operating Expenses keep their stored
+pending keys) and asks `operations/status` before resending an unknown outcome.
+Today's date comes from the Worker per request. Sign Out goes to
+`/cdn-cgi/access/logout`. Next uses `.next` as scratch space for the export, so do
+not build the cloud target in a checkout where `next dev` is running.
+
+## Running it locally
+
+`npm run cloud:local -- --port 8787` builds `out/`, applies `drizzle/` to a fresh
+local D1 in a temp folder, seeds synthetic data and runs `wrangler dev` on
+127.0.0.1. It writes its own Wrangler config there (this file plus a local D1
+binding); nothing touches an account. Real Access (e.g. behind a tunnel) reads
+`workers/.dev.vars` (git-ignored): the five variables above, with the Operator's
+email first and the Admin's second in `ACCESS_ALLOWED_EMAILS`. Add
+`--public-origin https://<host>` so writes accept the browser's Origin.
+
+`--test-identity` is for automated tests: the entry becomes
+`local-test-identity.ts`, which trusts only a key generated for that run and only
+its synthetic issuer; deployments use `index.ts`, which never accepts it.
+`node scripts/cloud-verify.mjs scripts/cloud-flows/<flow>.mjs [mom|katte] [--mobile]`
+runs a browser flow against it and keeps video and screenshots in `.evidence/`.

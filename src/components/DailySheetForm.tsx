@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { amountSizeClass, formatMyr, sanitizeMoneyInput, tryParseSen } from "@/lib/money";
+import { apiFetch } from "@/lib/cloud-client";
 import { useI18n, translateApiError, apiErrorPayloadFrom } from "@/lib/i18n";
 import { CalendarPopover } from "@/components/CalendarPopover";
 import { isOtherNoteMissing, type CostCategory } from "@/lib/vocab";
@@ -25,6 +26,8 @@ export interface CostLineItem {
 }
 
 export interface DailySheetFormProps {
+  /** Cloud build: re-fetch the page data; router.refresh() only re-renders a static page. */
+  onRefresh?: () => void;
   date: string;
   initialCashSen: number;
   initialTngSen: number;
@@ -413,6 +416,7 @@ export function canOpenDeleteSheetModal(open: {
 }
 
 export function DailySheetForm({
+  onRefresh,
   date,
   initialCashSen,
   initialTngSen,
@@ -428,6 +432,7 @@ export function DailySheetForm({
   initialExpandedIndex,
 }: DailySheetFormProps) {
   const router = useRouter();
+  const refresh = onRefresh ?? (() => router.refresh());
   const { t } = useI18n();
   const [, startTransition] = useTransition();
 
@@ -867,7 +872,7 @@ export function DailySheetForm({
     let navigatedAway = false;
 
     try {
-      const res = await fetch("/api/sheets", {
+      const res = await apiFetch("/api/sheets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -938,7 +943,7 @@ export function DailySheetForm({
         showSuccessMessage(t.saveSuccess);
       }
       startTransition(() => {
-        router.refresh();
+        refresh();
       });
     } catch (err) {
       setErrorMessage(translateApiError(apiErrorPayloadFrom(err), t));
@@ -968,7 +973,7 @@ export function DailySheetForm({
         id: String(savedSheet.id),
         updatedAt: savedSheet.updatedAt,
       });
-      const res = await fetch(`/api/sheets?${params.toString()}`, {
+      const res = await apiFetch(`/api/sheets?${params.toString()}`, {
         method: "DELETE",
       });
       const data = await res.json().catch(() => ({}));
@@ -995,7 +1000,7 @@ export function DailySheetForm({
       }
       setShowDeleteSheetModal(false);
       startTransition(() => {
-        router.refresh();
+        refresh();
       });
     } catch (err) {
       // Failure keeps the modal open with the error shown, so she can retry or
@@ -1003,7 +1008,7 @@ export function DailySheetForm({
       setDeleteSheetError(translateApiError(apiErrorPayloadFrom(err), t));
       if ((err as { code?: string }).code === "sheetChanged") {
         startTransition(() => {
-          router.refresh();
+          refresh();
         });
       }
     } finally {

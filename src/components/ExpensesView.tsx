@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { amountSizeClass, formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
+import { apiFetch } from "@/lib/cloud-client";
 import { useI18n, translateApiError, apiErrorPayloadFrom } from "@/lib/i18n";
 import { MonthSelectorDropdown, MonthOption } from "@/components/MonthSelectorDropdown";
 import type { OperatingExpenseType } from "@/services/operating-expense";
@@ -248,6 +249,8 @@ export function generateIdempotencyKey(): string {
 }
 
 interface ExpensesViewProps {
+  /** Cloud build: re-fetch the page data; router.refresh() only re-renders a static page. */
+  onRefresh?: () => void;
   currentMonth: string;
   availableMonths: string[];
   initialExpenses: OperatingExpenseItem[];
@@ -266,6 +269,7 @@ interface ExpensesViewProps {
 }
 
 export function ExpensesView({
+  onRefresh,
   currentMonth,
   availableMonths,
   initialExpenses,
@@ -282,6 +286,7 @@ export function ExpensesView({
   initialNoteInput = "",
 }: ExpensesViewProps) {
   const router = useRouter();
+  const refresh = onRefresh ?? (() => router.refresh());
   const { t } = useI18n();
   const [, startTransition] = useTransition();
 
@@ -408,7 +413,7 @@ export function ExpensesView({
 
     Promise.all(
       unconfirmed.map((p) =>
-        fetch(`/api/expenses?idempotencyKey=${encodeURIComponent(p.key)}`)
+        apiFetch(`/api/expenses?idempotencyKey=${encodeURIComponent(p.key)}`)
           .then((res) => (res.ok ? res.json() : null))
           .then((data: { saved?: unknown } | null) =>
             typeof data?.saved === "boolean" ? data.saved : null
@@ -437,7 +442,7 @@ export function ExpensesView({
         setSuccessBanner(`${t.lastAddSaved} · ${saved.map(describe).join(", ")}`);
         // The Save may have landed after this page's list was read.
         startTransition(() => {
-          router.refresh();
+          refresh();
         });
       }
       if (notSaved.length > 0) {
@@ -522,7 +527,7 @@ export function ExpensesView({
     savePendingExpenseAdd(storage, request, now);
 
     try {
-      const res = await fetch("/api/expenses", {
+      const res = await apiFetch("/api/expenses", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -559,7 +564,7 @@ export function ExpensesView({
       showSuccessBanner(t.addExpenseSuccess);
 
       startTransition(() => {
-        router.refresh();
+        refresh();
       });
     } catch (err) {
       setInlineError(translateApiError(apiErrorPayloadFrom(err), t));
@@ -580,7 +585,7 @@ export function ExpensesView({
     // transaction, so a failure leaves nothing half-deleted.
     const deletedIds: number[] = [];
     try {
-      const res = await fetch("/api/expenses", {
+      const res = await apiFetch("/api/expenses", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids }),
@@ -601,7 +606,7 @@ export function ExpensesView({
       if (deletedIds.length > 0) {
         setExpenses((prev) => prev.filter((item) => !deletedIds.includes(item.id)));
         startTransition(() => {
-          router.refresh();
+          refresh();
         });
       }
       setDeletingKey(null);

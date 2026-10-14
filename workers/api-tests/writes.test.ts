@@ -23,6 +23,15 @@ it("accepts bodyless Daily Sheet deletion and rejects a stale saved token", asyn
   expect(await env.BOKLI_DB.prepare("SELECT count(*) FROM cost_lines").first("count(*)")).toBe(0);
   expect((await send(query(later.sheet),"DELETE",undefined,"delete-final")).status).toBe(200);
 });
+it("accepts the empty body a browser sends with a bodyless Daily Sheet DELETE", async () => {
+  const saved = await (await send("sheets","POST",sheet,"browser-source")).json() as any;
+  jwks([key]);
+  const reply = await worker.fetch(new Request(`https://synthetic.invalid/api/cloud-v1/sheets?date=${sheet.date}&id=${saved.sheet.id}&updatedAt=${encodeURIComponent(saved.sheet.updatedAt)}`, {
+    method: "DELETE", body: "", headers: { "Cf-Access-Jwt-Assertion": jwt, "Origin": "https://synthetic.invalid", "X-Bokli-Api-Generation": "cloud-v1", "Idempotency-Key": "browser-delete" },
+  }), env);
+  expect(reply.status).toBe(200);
+  expect(await env.BOKLI_DB.prepare("SELECT count(*) AS n FROM daily_sheets").first("n")).toBe(0);
+});
 afterEach(() => { fetchMock.assertNoPendingInterceptors(); fetchMock.deactivate(); });
 async function send(path: string, method = "GET", body?: unknown, operationId?: string, identity = jwt) {
   jwks([key]);

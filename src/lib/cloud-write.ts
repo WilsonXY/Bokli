@@ -3,14 +3,14 @@ import { CLOUD_API_PREFIX, type CloudOperation, type CloudOperationStatus } from
 export class CloudOutcomeUnknownError extends Error {
   constructor(readonly operationId: string | null) { super("Write outcome unknown; retain the draft and operation ID for authenticated status resolution"); }
 }
-const operations: Record<string,CloudOperation> = {
+export const cloudOperations: Record<string,CloudOperation> = {
   "POST sheets":"sheet.save", "DELETE sheets":"sheet.delete", "POST expenses":"expense.add", "DELETE expenses":"expense.delete",
   "POST close":"month.close", "POST close/reopen":"month.reopen",
 };
 /** Caller persists draft/key/mapped actor. One status resolution and at most one same-key retry. */
 export async function sendCloudWrite(request: Request): Promise<Response> {
   const url = new URL(request.url);
-  const operation = operations[`${request.method} ${url.pathname.slice(CLOUD_API_PREFIX.length+1)}`];
+  const operation = cloudOperations[`${request.method} ${url.pathname.slice(CLOUD_API_PREFIX.length+1)}`];
   if (!url.pathname.startsWith(CLOUD_API_PREFIX+"/") || !operation) throw new Error("Unsupported cloud mutation; laptop fallback is forbidden");
   const key = request.headers.get("Idempotency-Key");
   const actor = request.headers.get("X-Bokli-Actor-Id");

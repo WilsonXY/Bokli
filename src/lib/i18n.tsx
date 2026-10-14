@@ -76,6 +76,7 @@ export const DICTIONARY = {
     forbiddenError: "没有操作权限",
     monthClosedError: "该月份已结账锁定，无法修改",
     networkError: "网络连接失败，请稍后重试",
+    outcomeUnknownError: "不确定是否已保存。请再按一次保存，不会重复记账。",
     invalidAmount: "请输入有效金额",
     otherNoteRequired: "类别为'其他'时，必须填写备注说明",
     // Dashboard
@@ -235,6 +236,7 @@ export const DICTIONARY = {
     forbiddenError: "Forbidden: You do not have permission to perform this action.",
     monthClosedError: "This month is closed and locked from changes.",
     networkError: "Network connection error. Please try again later.",
+    outcomeUnknownError: "Not sure it saved. Press save again; it won't be counted twice.",
     invalidAmount: "Please enter a valid amount",
     otherNoteRequired: "Note is required when category is 'Other'",
     // Dashboard
@@ -410,6 +412,7 @@ export const API_ERROR_CODE_TO_KEY: Record<string, keyof TranslationMap> = {
   forbidden: "forbiddenError",
   monthClosed: "monthClosedError",
   network: "networkError",
+  outcomeUnknown: "outcomeUnknownError",
   rateLimited: "loginRateLimited",
   otherNoteRequired: "otherNoteRequired",
   varianceNoteRequired: "varianceNoteRequired",

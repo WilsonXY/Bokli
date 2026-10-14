@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import React from "react";
-import { signOut } from "next-auth/react";
 import { useI18n } from "@/lib/i18n";
 
 interface AppShellProps {
@@ -290,7 +289,13 @@ export function AppShell({ children }: AppShellProps) {
                 onClick={async () => {
                   setIsSigningOut(true);
                   try {
-                    await signOut({ callbackUrl: "/login" });
+                    // Inlined at build time, so the cloud build ships no next-auth.
+                    if (process.env.BOKLI_TARGET === "cloud") {
+                      window.location.assign("/cdn-cgi/access/logout");
+                    } else {
+                      const { signOut } = await import("next-auth/react");
+                      await signOut({ callbackUrl: "/login" });
+                    }
                   } catch (err) {
                     console.error("Sign out failed:", err);
                   } finally {

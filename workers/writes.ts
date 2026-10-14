@@ -147,7 +147,8 @@ export async function mutate(request: Request, env: WorkerEnv, identity: CloudId
   const url = new URL(request.url);
   if (request.headers.get("Origin") !== url.origin || request.headers.get("X-Bokli-Api-Generation") !== "cloud-v1" ||
     ["cross-site","none"].includes(request.headers.get("Sec-Fetch-Site") ?? "")) throw new WriteError(403,"forbidden","Invalid mutation Origin or CSRF marker");
-  const bodylessDelete = page === "sheets" && request.method === "DELETE" && request.body === null;
+  // Browsers send an empty body stream with a bodyless DELETE.
+  const bodylessDelete = page === "sheets" && request.method === "DELETE" && (request.body === null || await request.clone().text() === "");
   if (!bodylessDelete && request.headers.get("Content-Type")?.split(";")[0].trim().toLowerCase() !== "application/json") throw new WriteError(415,"saveError","Content-Type must be application/json");
   const parsed = bodylessDelete ? {ok:true as const,body:{} as Record<string,unknown>} : await parseJsonBody(request);
   if (!parsed.ok) throw new WriteError(parsed.status,parsed.code,parsed.error);
@@ -213,7 +214,7 @@ export async function mutate(request: Request, env: WorkerEnv, identity: CloudId
     }
   }
   if (page === "sheets" && request.method === "DELETE") {
-    if (request.body !== null || [...url.searchParams.keys()].some(k=>!["date","id","updatedAt"].includes(k)) || [...url.searchParams.keys()].some(k=>url.searchParams.getAll(k).length!==1)) invalid("Invalid Daily Sheet delete query");
+    if (!bodylessDelete || [...url.searchParams.keys()].some(k=>!["date","id","updatedAt"].includes(k)) || [...url.searchParams.keys()].some(k=>url.searchParams.getAll(k).length!==1)) invalid("Invalid Daily Sheet delete query");
     const businessDate = url.searchParams.get("date");
     if (!businessDate || !isValidDateStr(businessDate)) invalid("Invalid date format, expected YYYY-MM-DD");
     const parsedId = parsePositiveId(url.searchParams.get("id"),"id");
