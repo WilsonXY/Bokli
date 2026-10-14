@@ -8,7 +8,34 @@
   "routes": [],
   "assets": {
     "directory": "../out",
-    "run_worker_first": ["/api/*"],
+    "run_worker_first": [
+      "/api/*"
+    ],
     "not_found_handling": "none"
+  },
+  "env": {
+    "staging": {
+      "name": "bokli-staging",
+      "routes": [
+        {
+          "pattern": "bokli-staging.ktte.me",
+          "custom_domain": true
+        }
+      ],
+      "d1_databases": [
+        {
+          "binding": "BOKLI_DB",
+          "database_name": "bokli-staging",
+          "database_id": "64a43e08-cb1e-4cf6-b783-09e40cddd294",
+          "migrations_dir": "../drizzle"
+        }
+      ],
+      "vars": {
+        "ACCESS_ISSUER": "https://divine-morning-6055.cloudflareaccess.com",
+        "ACCESS_AUD": "de8c699bbc6bf2296ce9bfd91ca76bf21efbf86bfcab1a11c5d0ee0cec74cdd6",
+        "ACCESS_HEALTH_SERVICE_ID": "none.access",
+        "APP_VERSION": "staging"
+      }
+    }
   }
 }
