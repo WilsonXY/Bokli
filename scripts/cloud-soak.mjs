@@ -5,7 +5,7 @@
 // summarize both with scripts/cloud-soak-report.mjs.
 //
 //   node scripts/cloud-soak.mjs --base https://bokli-staging.ktte.me --hours 60 \
-//     [--cookie-file ~/.config/bokli/staging-access-cookie] [--out ~/.cache/bokli-soak]
+//     [--gap 15-25 (minutes between rounds)] [--cookie-file ~/.config/bokli/staging-access-cookie] [--out ~/.cache/bokli-soak]
 //
 // Signs in through Cloudflare Access with the CF_Authorization cookie in
 // --cookie-file (copied once from a logged-in browser). Writes only inside
@@ -21,6 +21,7 @@ const option = (name, fallback) => (args.includes(name) ? args[args.indexOf(name
 const base = option("--base");
 const hours = Number(option("--hours", "60"));
 const cookieFile = option("--cookie-file", path.join(os.homedir(), ".config/bokli/staging-access-cookie"));
+const [gapMin, gapMax] = option("--gap", "15-25").split("-").map(Number);
 const out = option("--out", path.join(os.homedir(), ".cache/bokli-soak"));
 if (!base || !/^https:\/\/[a-z0-9.-]+$/.test(base) || /\/\/bokli\.ktte\.me$/.test(base)) throw new Error("--base must be a staging https origin");
 
@@ -103,6 +104,6 @@ for (let round = 0; Date.now() < end; round++) {
   }
   if (Date.now() >= end) break;
   // Mostly long idle gaps (cold starts); every 4th round a quick follow-up (warm).
-  await sleep(round % 4 === 3 ? rand(20, 60) * 1000 : rand(20, 40) * 60_000);
+  await sleep(round % 4 === 3 ? rand(20, 60) * 1000 : rand(gapMin, gapMax) * 60_000);
 }
 log.end();

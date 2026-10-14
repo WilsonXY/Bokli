@@ -48,6 +48,20 @@ const summary = {
   replayFailures: client.filter((c) => c.check === "expense-replay" && !c.sameId).length,
   fatal: client.filter((c) => c.fatal).map((c) => c.fatal), routes: rows,
 };
+// Cross-check with Cloudflare's own analytics, which count every invocation (tail is best-effort).
+const token = path.join(os.homedir(), ".config/bokli/cloudflare-staging.token");
+if (summary.from && fs.existsSync(token)) {
+  const query = `query($a:String!,$s:Time!,$e:Time!){viewer{accounts(filter:{accountTag:$a}){workersInvocationsAdaptive(limit:20,
+    filter:{scriptName:"bokli-staging",datetime_geq:$s,datetime_leq:$e}){sum{requests errors} quantiles{cpuTimeP50 cpuTimeP99} max{cpuTime} dimensions{status}}}}}`;
+  const variables = { a: fs.readFileSync(path.join(os.homedir(), ".config/bokli/cloudflare-account-id"), "utf8").trim(),
+    s: summary.from.replace(/\.\d+Z$/, "Z"), e: new Date().toISOString().replace(/\.\d+Z$/, "Z") };
+  const res = await fetch("https://api.cloudflare.com/client/v4/graphql", { method: "POST", signal: AbortSignal.timeout(30_000),
+    headers: { Authorization: `Bearer ${fs.readFileSync(token, "utf8").trim()}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ query, variables }) }).then((r) => r.json()).catch((err) => ({ errors: [String(err)] }));
+  summary.cloudflare = res.errors ?? res.data.viewer.accounts[0].workersInvocationsAdaptive.map((r) => ({
+    status: r.dimensions.status, requests: r.sum.requests, errors: r.sum.errors,
+    cpuP50ms: r.quantiles.cpuTimeP50 / 1000, cpuP99ms: r.quantiles.cpuTimeP99 / 1000, cpuMaxMs: r.max.cpuTime / 1000 }));
+}
 fs.writeFileSync(path.join(out, "summary.json"), JSON.stringify(summary, null, 2));
 console.table(rows);
 console.log({ ...summary, routes: undefined });
