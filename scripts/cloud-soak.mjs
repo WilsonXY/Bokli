@@ -49,7 +49,7 @@ async function call(route, { method = "GET", query = "", body, key, round } = {}
   let data = {};
   try { data = JSON.parse(text); } catch { /* HTML error page, e.g. Cloudflare 1102 */ }
   const entry = { at: new Date(started).toISOString(), round, method, route, status, ms: Date.now() - started,
-    code: data.code, cf1102: /1102|exceeded.*cpu/i.test(text) && !text.startsWith("{"), accessRedirect: status === 302, error };
+    code: data.code, cf1102: !/^[[{]/.test(text.trim()) && /1102|exceeded.*cpu/i.test(text), accessRedirect: status === 302, error };
   log.write(`${JSON.stringify(entry)}\n`);
   if (entry.accessRedirect) throw new Error("Access login expired: refresh the cookie file.");
   return { status, data };
@@ -90,7 +90,7 @@ async function day(round) {
     await write("close/reopen", "POST", { month: TEST_MONTH, reason: "soak test" }, "month.reopen", round);
   }
   // Now and then Mom deletes a day.
-  const data = sheet.data?.data;
+  const data = sheet.data?.data?.sheet;
   if (round % 5 === 4 && data) {
     await write("sheets", "DELETE", undefined, "sheet.delete", round, `?date=${date}&id=${data.id}&updatedAt=${encodeURIComponent(data.updatedAt)}`);
   }
