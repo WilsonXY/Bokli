@@ -70,6 +70,7 @@ function run(args, env) {
 }
 
 export async function startCloudLocal({ port = 8787, testIdentity = false, build = true, publicOrigin } = {}) {
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error(`Bad --port: ${port}`);
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bokli-cloud-"));
   const env = { ...process.env, WRANGLER_SEND_METRICS: "false", CI: "1" };
   let vars, main, emails, privateKey, kid;

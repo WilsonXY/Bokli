@@ -409,6 +409,7 @@ export function apiErrorPayloadFrom(err: unknown): ApiErrorPayload {
  */
 export const API_ERROR_CODE_TO_KEY: Record<string, keyof TranslationMap> = {
   unauthorized: "unauthorizedError",
+  identityChanged: "unauthorizedError",
   forbidden: "forbiddenError",
   monthClosed: "monthClosedError",
   network: "networkError",

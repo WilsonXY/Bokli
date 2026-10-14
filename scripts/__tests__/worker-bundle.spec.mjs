@@ -16,7 +16,7 @@ it("bundles the real Worker without laptop runtime, fake identities or test hook
   const inputs=Object.keys(result.metafile.inputs);
   expect(inputs).toContain("workers/auth.ts");expect(inputs).toContain("workers/reads.ts");
   expect(inputs).toContain("workers/writes.ts");
-  for(const input of inputs) expect(input).not.toMatch(/api-tests|d1-tests|test-loopback|\.test\.|src\/db\/index|src\/auth|better-sqlite3|next-auth|node:/);
+  for(const input of inputs) expect(input).not.toMatch(/api-tests|d1-tests|test-loopback|local-test-identity|\.test\.|src\/db\/index|src\/auth|better-sqlite3|next-auth|node:/);
   expect(result.outputFiles[0].text).not.toMatch(/synthetic-key|synthetic-audience|mom@example|X-Test-User|FAKE_IDENTITY|faultHook|cloudflare:test|TEST_MIGRATIONS/);
   const declarations=await build({entryPoints:["src/lib/cloud-contract.ts"],bundle:true,write:false,format:"esm",platform:"browser",target:"es2022",metafile:true});
   expect(Object.keys(declarations.metafile.inputs)).toEqual(["src/lib/cloud-contract.ts"]);

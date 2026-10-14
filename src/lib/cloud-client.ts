@@ -23,7 +23,8 @@ export function cloudRead<K extends Exclude<keyof CloudReads, "identity">>(page:
 }
 
 // The last unconfirmed attempt per operation, kept with its draft: sending the
-// same draft again reuses the key, a changed draft gets a new one.
+// same draft again reuses the key, a changed draft gets a new one. In memory
+// like the draft itself; Operating Expenses keep their own stored keys.
 const pending = new Map<string, { request: string; key: string }>();
 // Keys whose outcome is unknown: ask operations/status before sending again.
 const unknown = new Set<string>();

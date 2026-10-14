@@ -147,8 +147,9 @@ export async function mutate(request: Request, env: WorkerEnv, identity: CloudId
   const url = new URL(request.url);
   if (request.headers.get("Origin") !== url.origin || request.headers.get("X-Bokli-Api-Generation") !== "cloud-v1" ||
     ["cross-site","none"].includes(request.headers.get("Sec-Fetch-Site") ?? "")) throw new WriteError(403,"forbidden","Invalid mutation Origin or CSRF marker");
-  // Browsers send an empty body stream with a bodyless DELETE.
-  const bodylessDelete = page === "sheets" && request.method === "DELETE" && (request.body === null || await request.clone().text() === "");
+  // Browsers send an empty body stream with a bodyless DELETE; read one chunk, never the whole body.
+  const firstChunk = page === "sheets" && request.method === "DELETE" && request.body ? await request.clone().body!.getReader().read() : null;
+  const bodylessDelete = page === "sheets" && request.method === "DELETE" && (request.body === null || firstChunk!.done || firstChunk!.value.byteLength === 0);
   if (!bodylessDelete && request.headers.get("Content-Type")?.split(";")[0].trim().toLowerCase() !== "application/json") throw new WriteError(415,"saveError","Content-Type must be application/json");
   const parsed = bodylessDelete ? {ok:true as const,body:{} as Record<string,unknown>} : await parseJsonBody(request);
   if (!parsed.ok) throw new WriteError(parsed.status,parsed.code,parsed.error);

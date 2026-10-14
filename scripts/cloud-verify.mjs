@@ -11,6 +11,7 @@
 import { chromium } from "playwright";
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import net from "node:net";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { startCloudLocal, signTestJwt, TEST_EMAILS } from "./cloud-local.mjs";
@@ -32,7 +33,13 @@ fs.rmSync(evidence, { recursive: true, force: true });
 fs.mkdirSync(evidence, { recursive: true });
 
 const viewport = mobile ? { width: 390, height: 844 } : { width: 1280, height: 800 };
-const server = await startCloudLocal({ port: 8800 + Math.floor(Math.random() * 100), testIdentity: true, build: !args.includes("--no-build") });
+const port = await new Promise((resolve) => {
+  const probe = net.createServer().listen(0, "127.0.0.1", () => {
+    const { port } = probe.address();
+    probe.close(() => resolve(port));
+  });
+});
+const server = await startCloudLocal({ port, testIdentity: true, build: !args.includes("--no-build") });
 const browser = await chromium.launch({ headless: true });
 const contexts = [];
 let shots = 0;
