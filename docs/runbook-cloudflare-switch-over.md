@@ -58,7 +58,7 @@ Do not change `~/projects/bokli`: it is the laptop rollback for 30 days.
    sqlite3 -readonly ~/projects/bokli/data/bokli.db "ATTACH '$B' AS c;
    SELECT 'day new/changed', date FROM (SELECT id,date,updated_at FROM c.daily_sheets EXCEPT SELECT id,date,updated_at FROM daily_sheets);
    SELECT 'day deleted', date FROM daily_sheets WHERE date NOT IN (SELECT date FROM c.daily_sheets);
-   SELECT 'expense new/changed', month, type FROM (SELECT id,month,type,updated_at FROM c.operating_expenses EXCEPT SELECT id,month,type,updated_at FROM operating_expenses);
+   SELECT 'expense new/changed', month, type, amount_sen, note FROM c.operating_expenses WHERE id IN (SELECT id FROM (SELECT id,updated_at FROM c.operating_expenses EXCEPT SELECT id,updated_at FROM operating_expenses));
    SELECT 'expense deleted', month, type, amount_sen, note FROM operating_expenses WHERE id NOT IN (SELECT id FROM c.operating_expenses);
    SELECT 'month '||action, month FROM (SELECT id,month,action FROM c.month_close_events EXCEPT SELECT id,month,action FROM month_close_events);
    SELECT 'month end state', month, CASE WHEN reopened_at IS NULL THEN 'closed' ELSE 'open' END, cash_on_hand_sen, tng_on_hand_sen, note
@@ -66,7 +66,9 @@ Do not change `~/projects/bokli`: it is the laptop rollback for 30 days.
    ```
 5. `systemctl --user start bokli`, then in the laptop app, in this order:
    1. Reopen every listed month (any line) that is closed on the laptop.
-   2. Redo each listed day and expense change (amounts: open `$B` with `sqlite3`).
+   2. Redo each listed day (amounts: open `$B` with `sqlite3`). For each `expense` line: delete that month's
+      expense of that type and note on the laptop if it has one, then (for `new/changed` only) add it once with
+      the listed amount. Adding on top of an existing one would sum the two.
    3. Close again every month whose `month end state` is `closed`, with the listed cash and TnG on hand and note,
       and close again any month you reopened in 1. that has no `month end state` line.
    The cloud's step-by-step close history stays in `$B` for reference.
