@@ -1,3 +1,4 @@
+import type { ExecutionContext, ScheduledController } from "@cloudflare/workers-types";
 import { ApiError, validateConfig, verifyAccess, lookupIdentity, type WorkerEnv } from "./auth";
 import { createD1Adapter } from "./d1";
 import { readDailySheet, readMonthPage, readHistory } from "./reads";
@@ -9,6 +10,13 @@ function json(value: unknown, status=200) {
   return Response.json(value,{status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
 }
 const worker = {
+  /** Dead-man ping: database answers -> ping; otherwise ping /fail. Healthchecks alerts when pings stop. */
+  async scheduled(_controller: ScheduledController, env: WorkerEnv, ctx: ExecutionContext): Promise<void> {
+    if (!env.HEALTHCHECK_URL) return;
+    let ok = false;
+    try { await env.BOKLI_DB.prepare("SELECT 1").first(); ok = true; } catch { /* reported below */ }
+    ctx.waitUntil(fetch(ok ? env.HEALTHCHECK_URL : `${env.HEALTHCHECK_URL}/fail`, { signal: AbortSignal.timeout(10_000) }).then(() => undefined, () => undefined));
+  },
   async fetch(request: Request, env: WorkerEnv): Promise<Response> {
     try {
       const allowedEmails = validateConfig(env);

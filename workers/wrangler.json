@@ -36,6 +36,29 @@
         "ACCESS_HEALTH_SERVICE_ID": "none.access",
         "APP_VERSION": "staging"
       }
+    },
+    "production": {
+      "name": "bokli",
+      "routes": [],
+      "triggers": {
+        "crons": [
+          "*/5 * * * *"
+        ]
+      },
+      "d1_databases": [
+        {
+          "binding": "BOKLI_DB",
+          "database_name": "bokli",
+          "database_id": "151e4f09-cd9a-4287-8ff7-719490fc5abf",
+          "migrations_dir": "../drizzle"
+        }
+      ],
+      "vars": {
+        "ACCESS_ISSUER": "https://divine-morning-6055.cloudflareaccess.com",
+        "ACCESS_AUD": "960ea6143bc6447155c0436e86221032beca8bb0467a5936f7b48fc7dacec201",
+        "ACCESS_HEALTH_SERVICE_ID": "none.access",
+        "APP_VERSION": "production"
+      }
     }
   }
 }

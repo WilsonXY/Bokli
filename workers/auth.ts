@@ -11,6 +11,8 @@ export interface WorkerEnv {
   ACCESS_ALLOWED_EMAILS: string;
   ACCESS_HEALTH_SERVICE_ID: string;
   APP_VERSION: string;
+  /** Production only: Healthchecks ping URL (secret). The scheduled handler pings it every 5 minutes. */
+  HEALTHCHECK_URL?: string;
 }
 export class ApiError extends Error {
   constructor(readonly status: number, readonly code: string) { super(code); }
