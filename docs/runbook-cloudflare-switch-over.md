@@ -61,12 +61,16 @@ Do not change `~/projects/bokli`: it is the laptop rollback for 30 days.
    SELECT 'expense new/changed', month, type FROM (SELECT id,month,type,updated_at FROM c.operating_expenses EXCEPT SELECT id,month,type,updated_at FROM operating_expenses);
    SELECT 'expense deleted', month, type FROM (SELECT id,month,type FROM operating_expenses EXCEPT SELECT id,month,type FROM c.operating_expenses);
    SELECT 'month '||action, month FROM (SELECT id,month,action FROM c.month_close_events EXCEPT SELECT id,month,action FROM month_close_events);
-   SELECT 'month now closed in cloud', month FROM c.month_closes WHERE reopened_at IS NULL AND month NOT IN (SELECT month FROM month_closes WHERE reopened_at IS NULL);
-   SELECT 'month now open in cloud', month FROM month_closes WHERE reopened_at IS NULL AND month NOT IN (SELECT month FROM c.month_closes WHERE reopened_at IS NULL);"
+   SELECT 'month end state', month, CASE WHEN reopened_at IS NULL THEN 'closed' ELSE 'open' END, cash_on_hand_sen, tng_on_hand_sen, note
+     FROM c.month_closes WHERE month IN (SELECT month FROM c.month_close_events WHERE id NOT IN (SELECT id FROM month_close_events));"
    ```
-5. `systemctl --user start bokli`, then redo each listed change in the laptop app (amounts: open `$B` with
-   `sqlite3`). For Month Close only the end state matters: re-enter the data first, then close or reopen
-   the months on the two "month now" lines. The cloud's step-by-step close history stays in `$B` for reference. Restore the two laptop crons; remove the cloud backup cron.
+5. `systemctl --user start bokli`, then in the laptop app, in this order:
+   1. Reopen every listed month (any line) that is closed on the laptop.
+   2. Redo each listed day and expense change (amounts: open `$B` with `sqlite3`).
+   3. Close again every month whose `month end state` is `closed`, with the listed cash and TnG on hand and note,
+      and close again any month you reopened in 1. that has no `month end state` line.
+   The cloud's step-by-step close history stays in `$B` for reference.
+   Restore the two laptop crons; remove the cloud backup cron.
 6. `npx wrangler secret delete HEALTHCHECK_URL --config workers/wrangler.json --env production`
    (otherwise the idle Worker keeps the health check green).
 
