@@ -20,7 +20,9 @@ STAMP="$(date +%F)"; DEST="$STAGING_DIR/bokli-$ENV_NAME-$STAMP.db"; PART="$DEST.
 notify() { [ "${NOTIFY:-1}" = 0 ] || [ -z "${WEBHOOK_URL:-}" ] || curl -s -m 15 -X POST "$WEBHOOK_URL" -H "Content-Type: application/json" -d "{\"content\": \"$1\"}" >/dev/null 2>&1 || true; }
 fail() { echo "[cloud-backup $(date '+%F %T')] FAIL: $1"; notify "❌ Bokli cloud backup FAILED: $1"; rm -f "$SQL" "$PART"; exit 1; }
 mkdir -p "$STAGING_DIR" && chmod 700 "$STAGING_DIR"
-exec 9>"$STAGING_DIR/.lock"; flock -w 900 9 || fail "another backup run is still busy"   # cron + manual run never share .part
+# One run at a time (cron + manual never share .part). If still busy, leave its files alone.
+exec 9>"$STAGING_DIR/.lock"
+flock -w 900 9 || { echo "[cloud-backup $(date '+%F %T')] FAIL: another backup run is still busy"; notify "❌ Bokli cloud backup FAILED: another run still busy"; exit 1; }
 rm -f "$PART" "$SQL"
 node_modules/.bin/wrangler d1 export BOKLI_DB --remote --env "$ENV_NAME" --config workers/wrangler.json --output "$SQL" >/dev/null || fail "D1 export failed (wrangler error above)"
 sqlite3 -bail "$PART" < "$SQL" || fail "export did not load into SQLite"
