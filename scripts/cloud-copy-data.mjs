@@ -26,7 +26,7 @@ const source = option("--source");
 const env = option("--env");
 const verifyOnly = args.includes("--verify-only");
 const emails = args.flatMap((a, i) => (a === "--email" ? [args[i + 1]] : [])).map((pair) => {
-  const [username, email] = pair.split("=");
+  const username = pair.slice(0, pair.indexOf("=")), email = pair.slice(pair.indexOf("=") + 1);
   if (!/^[a-z0-9_-]+$/i.test(username) || !/^[!-~]+@[!-~]+\.[!-~]+$/.test(email) || email.includes("'")) {
     throw new Error(`Bad --email ${pair}`);
   }
@@ -82,7 +82,7 @@ try {
   }
 
   // 3. Same questions to both databases; compare the answers.
-  const tables = rows("SELECT name FROM sqlite_master WHERE type='table' AND name<>'sqlite_sequence' ORDER BY name").map((t) => t.name);
+  const tables = rows("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name").map((t) => t.name);
   const checks = {
     "schema objects": "SELECT type, name FROM sqlite_master WHERE name NOT LIKE '_cf_%' AND name NOT LIKE 'sqlite_%' ORDER BY type, name",
     "row counts": `SELECT ${tables.map((t) => `(SELECT count(*) FROM "${t}") AS "${t}"`).join(", ")}`,

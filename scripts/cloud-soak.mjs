@@ -23,7 +23,7 @@ const hours = Number(option("--hours", "60"));
 const cookieFile = option("--cookie-file", path.join(os.homedir(), ".config/bokli/staging-access-cookie"));
 const [gapMin, gapMax] = option("--gap", "15-25").split("-").map(Number);
 const out = option("--out", path.join(os.homedir(), ".cache/bokli-soak"));
-if (!base || !/^https:\/\/[a-z0-9.-]+$/.test(base) || /\/\/bokli\.ktte\.me$/.test(base)) throw new Error("--base must be a staging https origin");
+if (base !== "https://bokli-staging.ktte.me") throw new Error("--base must be https://bokli-staging.ktte.me (never production)");
 
 const TEST_MONTH = "2025-01";
 const CATEGORIES = ["restock", "gas", "transport", "wages-daily", "maintenance"];

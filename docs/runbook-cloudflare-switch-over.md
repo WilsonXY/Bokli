@@ -40,7 +40,9 @@ Do not change `~/projects/bokli`: it is the laptop rollback for 30 days.
 7. Laptop crons (`crontab -e`): comment out `bokli_ping.sh` and `bokli_backup.sh`; add the cloud backup:
    `0 1 * * * cd ~/projects/bokli-cloud && bash scripts/cloud-backup.sh production >> ~/bokli-cloud-backup.log 2>&1`
    (`~/.config/bokli/cloud-backup.env` holds the Drive path and Discord webhook.)
-8. Leave `bokli.service` stopped but installed, the tunnel running, and `data/bokli.db` untouched.
+8. After this and any later `wrangler deploy`: `bash scripts/cloud-route.sh status` must say `CLOUD`
+   (tested 2026-10-15: deploys keep the route, also with the empty `routes` in config).
+9. Leave `bokli.service` stopped but installed, the tunnel running, and `data/bokli.db` untouched.
 
 ## Rollback (under 10 minutes)
 
