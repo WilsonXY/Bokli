@@ -46,11 +46,12 @@ Do not change `~/projects/bokli`: it is the laptop rollback for 30 days.
 
 ## Rollback (under 10 minutes)
 
-1. `bash scripts/cloud-route.sh off` — the tunnel (laptop) answers again within seconds. Nothing can
-   reach the Worker any more, so the cloud database is frozen from here on.
-2. Take a fresh full copy of it (the nightly one may miss today's entries):
+1. Freeze cloud saves (the Worker refuses every save from now on, also ones already on their way):
+   `npx wrangler d1 execute BOKLI_DB --remote --env production --config workers/wrangler.json --command "UPDATE cloud_write_guard SET maintenance=1 WHERE id=1"`
+2. `bash scripts/cloud-route.sh off` — the tunnel (laptop) answers again within seconds.
+3. Take a fresh full copy of the cloud database (the nightly one may miss today's entries):
    `bash scripts/cloud-backup.sh production` → `~/bokli-cloud-backups/bokli-production-<today>.db`.
-3. List everything that differs from the laptop: new or changed days, deleted days, new, changed or deleted
+4. List everything that differs from the laptop: new or changed days, deleted days, new, changed or deleted
    Operating Expenses, and Month Close/Reopen actions. The laptop database is only read.
    ```bash
    B=~/bokli-cloud-backups/bokli-production-$(date +%F).db
@@ -61,9 +62,9 @@ Do not change `~/projects/bokli`: it is the laptop rollback for 30 days.
    SELECT 'expense deleted', month, type FROM (SELECT id,month,type FROM operating_expenses EXCEPT SELECT id,month,type FROM c.operating_expenses);
    SELECT 'month '||action, month FROM (SELECT id,month,action FROM c.month_close_events EXCEPT SELECT id,month,action FROM month_close_events);"
    ```
-4. `systemctl --user start bokli`, then redo each listed change in the laptop app (amounts: open `$B` with
+5. `systemctl --user start bokli`, then redo each listed change in the laptop app (amounts: open `$B` with
    `sqlite3`). Restore the two laptop crons; remove the cloud backup cron.
-5. `npx wrangler secret delete HEALTHCHECK_URL --config workers/wrangler.json --env production`
+6. `npx wrangler secret delete HEALTHCHECK_URL --config workers/wrangler.json --env production`
    (otherwise the idle Worker keeps the health check green).
 
 ## Undo a bad change (Time Travel, last 7 days)

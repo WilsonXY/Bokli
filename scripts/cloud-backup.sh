@@ -26,7 +26,7 @@ sqlite3 -bail "$PART" < "$SQL" || fail "export did not load into SQLite"
 rm -f "$SQL"; chmod 600 "$PART"
 [ "$(sqlite3 "$PART" 'PRAGMA integrity_check;')" = ok ] || fail "integrity check failed"
 ROWS="$(sqlite3 "$PART" 'SELECT (SELECT count(*) FROM daily_sheets)||" sheets, "||(SELECT count(*) FROM operating_expenses)||" expenses"')"
-mv "$PART" "$DEST"
+mv "$PART" "$DEST" || fail "could not rename the checked backup"
 rclone copy "$STAGING_DIR" "$REMOTE" --include "bokli-*.db" -q || fail "upload to Google Drive failed (copy kept locally)"
 rclone delete "$REMOTE" --include "bokli-*.db" --min-age "${KEEP_DAYS}d" -q || echo "WARN: cloud retention failed"
 find "$STAGING_DIR" -name "bokli-*.db" -mtime "+$KEEP_DAYS" -delete
