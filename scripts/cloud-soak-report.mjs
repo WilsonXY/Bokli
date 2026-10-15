@@ -43,6 +43,7 @@ const summary = {
   from: reqs[0]?.at, to: reqs.at(-1)?.at, rounds: new Set(reqs.map((r) => r.round)).size, requests: reqs.length,
   workerInvocations: tail.length, exceededCpu: tail.filter((e) => e.outcome === "exceededCpu").length,
   client1102: reqs.filter((r) => r.cf1102).length, client5xx: reqs.filter((r) => r.status >= 500).length,
+  transportErrors: reqs.filter((r) => r.error || r.status === 0).length,
   unexpected4xx: reqs.filter((r) => r.status >= 400 && r.status < 500).map((r) => `${r.method} ${r.route} ${r.status} ${r.code}`),
   replayChecks: client.filter((c) => c.check === "expense-replay").length,
   replayFailures: client.filter((c) => c.check === "expense-replay" && !c.sameId).length,

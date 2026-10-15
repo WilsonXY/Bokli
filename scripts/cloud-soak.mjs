@@ -82,7 +82,7 @@ async function day(round) {
   const add = await write("expenses", "POST", { month: TEST_MONTH, type: "utilities", amountSen: rand(100, 9000), note: null }, "expense.add", round);
   const replay = await call("expenses", { method: "POST", key: add.key, round,
     body: { month: TEST_MONTH, type: "utilities", amountSen: add.data?.expense?.amountSen, note: null } });
-  log.write(`${JSON.stringify({ check: "expense-replay", round, sameId: replay.data?.expense?.id === add.data?.expense?.id })}\n`);
+  log.write(`${JSON.stringify({ check: "expense-replay", round, sameId: !!add.data?.expense?.id && replay.data?.expense?.id === add.data.expense.id })}\n`);
   if (add.data?.expense?.id) await write("expenses", "DELETE", { ids: [add.data.expense.id] }, "expense.delete", round);
   // Month Close (the action measured over 10 ms), then reopen so the next round can close again.
   const close = await write("close", "POST", { month: TEST_MONTH, cashOnHandSen: rand(0, 90000), tngOnHandSen: rand(0, 30000), note: "soak test" }, "month.close", round);
