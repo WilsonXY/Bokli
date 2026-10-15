@@ -39,8 +39,11 @@ it("rechecks mapped permission inside the committed write batch",async()=>{
 it("scopes replay/status to current mapped identity and enforces Admin on reopen status",async()=>{
   await f.send("expenses","POST",expense,"shared");
   expect(await (await f.send("expenses?idempotencyKey=shared","GET",undefined,undefined,f.admin)).json()).toEqual({saved:false});
-  expect((await f.send("expenses","POST",expense,"shared",f.admin)).status).toBe(200);
-  expect(await env.BOKLI_DB.prepare("SELECT amount_sen FROM operating_expenses").first("amount_sen")).toBe(2400);
+  // Same browser, other account, same stored key: refused, never saved twice.
+  const other=await f.send("expenses","POST",expense,"shared",f.admin);
+  expect([other.status,((await other.json()) as any).code]).toEqual([409,"operationConflict"]);
+  expect(await env.BOKLI_DB.prepare("SELECT amount_sen FROM operating_expenses").first("amount_sen")).toBe(1200);
+  expect(await env.BOKLI_DB.prepare("SELECT count(*) FROM cloud_operation_receipts").first("count(*)")).toBe(1);
   expect((await f.send("operations/status?operation=month.reopen&operationId=shared")).status).toBe(403);
   await env.BOKLI_DB.prepare("DELETE FROM user_emails WHERE user_id=1").run();
   expect((await f.send("expenses?idempotencyKey=shared")).status).toBe(403);

@@ -96,6 +96,8 @@ async function commit(db: Db, identity: CloudIdentity, email: string, operation:
     sql`INSERT INTO cloud_operation_receipts(actor_user_id,operation,operation_id,payload,attempt_token)
       SELECT ${identity.id},${operation},${key},${payload},${attempt} WHERE NOT EXISTS(SELECT 1 FROM cloud_operation_receipts WHERE ${scope})`,
     guard(sql`maintenance=1`, "BOKLI_MAINTENANCE"),
+    // A key stored in the browser can be retried after switching accounts: never apply it twice.
+    guard(sql`EXISTS(SELECT 1 FROM cloud_operation_receipts WHERE operation=${operation} AND operation_id=${key} AND actor_user_id<>${identity.id})`, "BOKLI_OPERATION_CONFLICT"),
     guard(sql`NOT EXISTS(SELECT 1 FROM users u JOIN user_emails e ON e.user_id=u.id WHERE u.id=${identity.id} AND e.email=${email}
       AND u.role=${identity.role} AND (${operation}<>'month.reopen' OR u.role='Admin'))`, "BOKLI_FORBIDDEN"),
     ...build(pending, guard),
@@ -132,7 +134,7 @@ const guardErrors: Record<string,[number,string]> = {
   BOKLI_MONTH_LOCKED:[409,"monthClosed"], BOKLI_MAINTENANCE:[503,"maintenance"], BOKLI_FORBIDDEN:[403,"forbidden"], BOKLI_MONEY_RANGE:[422,"moneyRange"],
   BOKLI_NOT_FOUND:[404,"notFound"], BOKLI_SHEET_CHANGED:[409,"sheetChanged"], BOKLI_LEGACY_SCOPE:[409,"legacyReceiptUnscoped"],
   BOKLI_ALREADY_OPEN:[400,"saveError"], BOKLI_STALE_CLOSE:[409,"closeChanged"], BOKLI_EMPTY_MONTH:[400,"saveError"], BOKLI_VARIANCE_NOTE:[400,"varianceNoteRequired"],
-  BOKLI_RESULT_MISSING:[503,"outcomeUnknown"],
+  BOKLI_RESULT_MISSING:[503,"outcomeUnknown"], BOKLI_OPERATION_CONFLICT:[409,"operationConflict"],
   BOKLI_EXPENSE_OVERFLOW:[400,"invalidAmount"],
 };
 /** Exact registered errors only: substring lookalikes remain unknown outcomes. */
