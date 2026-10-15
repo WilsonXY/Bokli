@@ -59,7 +59,7 @@ Do not change `~/projects/bokli`: it is the laptop rollback for 30 days.
    SELECT 'day new/changed', date FROM (SELECT id,date,updated_at FROM c.daily_sheets EXCEPT SELECT id,date,updated_at FROM daily_sheets);
    SELECT 'day deleted', date FROM daily_sheets WHERE date NOT IN (SELECT date FROM c.daily_sheets);
    SELECT 'expense new/changed', month, type FROM (SELECT id,month,type,updated_at FROM c.operating_expenses EXCEPT SELECT id,month,type,updated_at FROM operating_expenses);
-   SELECT 'expense deleted', month, type FROM (SELECT id,month,type FROM operating_expenses EXCEPT SELECT id,month,type FROM c.operating_expenses);
+   SELECT 'expense deleted', month, type, amount_sen, note FROM operating_expenses WHERE id NOT IN (SELECT id FROM c.operating_expenses);
    SELECT 'month '||action, month FROM (SELECT id,month,action FROM c.month_close_events EXCEPT SELECT id,month,action FROM month_close_events);
    SELECT 'month end state', month, CASE WHEN reopened_at IS NULL THEN 'closed' ELSE 'open' END, cash_on_hand_sen, tng_on_hand_sen, note
      FROM c.month_closes WHERE month IN (SELECT month FROM c.month_close_events WHERE id NOT IN (SELECT id FROM month_close_events));"
