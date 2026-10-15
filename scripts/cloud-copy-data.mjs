@@ -61,10 +61,12 @@ try {
     sqlite(`INSERT OR REPLACE INTO user_emails(email,user_id) VALUES ('${email}',${user.id})`);
   }
   // Record every migration as applied so later `wrangler d1 migrations apply` starts after them.
+  // Insert only missing names: a skipped INSERT OR IGNORE still bumps the AUTOINCREMENT counter,
+  // which would make "next IDs" differ when the source is a cloud backup that already has them.
   const migrations = fs.readdirSync(path.join(root, "drizzle")).filter((f) => /^\d{4}_.*\.sql$/.test(f)).sort();
   sqlite(`CREATE TABLE IF NOT EXISTS d1_migrations(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE,
     applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL);
-    ${migrations.map((m) => `INSERT OR IGNORE INTO d1_migrations(name) VALUES ('${m}');`).join("\n")}`);
+    ${migrations.map((m) => `INSERT INTO d1_migrations(name) SELECT '${m}' WHERE NOT EXISTS (SELECT 1 FROM d1_migrations WHERE name='${m}');`).join("\n")}`);
   const check = execFileSync("sqlite3", [copy, "PRAGMA integrity_check; PRAGMA foreign_key_check;"], { encoding: "utf8" }).trim();
   if (check !== "ok") throw new Error(`Copy failed its integrity check: ${check}`);
 
