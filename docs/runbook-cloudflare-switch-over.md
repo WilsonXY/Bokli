@@ -57,13 +57,16 @@ Do not change `~/projects/bokli`: it is the laptop rollback for 30 days.
    B=~/bokli-cloud-backups/bokli-production-$(date +%F).db
    sqlite3 -readonly ~/projects/bokli/data/bokli.db "ATTACH '$B' AS c;
    SELECT 'day new/changed', date FROM (SELECT id,date,updated_at FROM c.daily_sheets EXCEPT SELECT id,date,updated_at FROM daily_sheets);
-   SELECT 'day deleted', date FROM (SELECT id,date FROM daily_sheets EXCEPT SELECT id,date FROM c.daily_sheets);
+   SELECT 'day deleted', date FROM daily_sheets WHERE date NOT IN (SELECT date FROM c.daily_sheets);
    SELECT 'expense new/changed', month, type FROM (SELECT id,month,type,updated_at FROM c.operating_expenses EXCEPT SELECT id,month,type,updated_at FROM operating_expenses);
    SELECT 'expense deleted', month, type FROM (SELECT id,month,type FROM operating_expenses EXCEPT SELECT id,month,type FROM c.operating_expenses);
-   SELECT 'month '||action, month FROM (SELECT id,month,action FROM c.month_close_events EXCEPT SELECT id,month,action FROM month_close_events);"
+   SELECT 'month '||action, month FROM (SELECT id,month,action FROM c.month_close_events EXCEPT SELECT id,month,action FROM month_close_events);
+   SELECT 'month now closed in cloud', month FROM c.month_closes WHERE reopened_at IS NULL AND month NOT IN (SELECT month FROM month_closes WHERE reopened_at IS NULL);
+   SELECT 'month now open in cloud', month FROM month_closes WHERE reopened_at IS NULL AND month NOT IN (SELECT month FROM c.month_closes WHERE reopened_at IS NULL);"
    ```
 5. `systemctl --user start bokli`, then redo each listed change in the laptop app (amounts: open `$B` with
-   `sqlite3`). Restore the two laptop crons; remove the cloud backup cron.
+   `sqlite3`). For Month Close only the end state matters: re-enter the data first, then close or reopen
+   the months on the two "month now" lines. The cloud's step-by-step close history stays in `$B` for reference. Restore the two laptop crons; remove the cloud backup cron.
 6. `npx wrangler secret delete HEALTHCHECK_URL --config workers/wrangler.json --env production`
    (otherwise the idle Worker keeps the health check green).
 
