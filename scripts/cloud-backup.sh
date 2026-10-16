@@ -32,12 +32,12 @@ node_modules/.bin/wrangler d1 export BOKLI_DB --remote --env "$ENV_NAME" --confi
 sqlite3 -bail "$PART" < "$SQL" || fail "export did not load into SQLite"
 rm -f "$SQL"; chmod 600 "$PART"
 [ "$(sqlite3 "$PART" 'PRAGMA integrity_check;')" = ok ] || fail "integrity check failed"
-IFS='|' read -r DAYS FIRST LAST EXPENSES <<<"$(sqlite3 "$PART" 'SELECT count(*), coalesce(min(date),"-"), coalesce(max(date),"-"), (SELECT count(*) FROM operating_expenses) FROM daily_sheets')"
+IFS='|' read -r DAYS EXPENSES <<<"$(sqlite3 "$PART" 'SELECT (SELECT count(*) FROM daily_sheets), (SELECT count(*) FROM operating_expenses)')"
 ROWS="$DAYS days, $EXPENSES expenses"
 mv "$PART" "$DEST" || fail "could not rename the checked backup"
 rclone copy "$STAGING_DIR" "$REMOTE" --include "bokli-*.db" -q || fail "upload to Google Drive failed (copy kept locally)"
 rclone delete "$REMOTE" --include "bokli-*.db" --min-age "${KEEP_DAYS}d" -q || echo "WARN: cloud retention failed"
 find "$STAGING_DIR" -name "bokli-*.db" -mtime "+$KEEP_DAYS" -delete
 echo "[cloud-backup $(date '+%F %T')] OK: $DEST ($ROWS)"
-notify "$(printf '**Bokli cloud backup OK**%s · %s\nDaily Sheet days: %s (%s → %s)\nOperating Expenses: %s\nGoogle Drive › %s · kept %s days' \
-  "$TAG" "$(day "$STAMP")" "$DAYS" "$(day "$FIRST")" "$(day "$LAST")" "$EXPENSES" "${REMOTE#*:}" "$KEEP_DAYS")"
+notify "$(printf '✅ **Bokli cloud backup OK**%s · %s\nDaily Sheet days: %s\nOperating Expenses: %s\nGoogle Drive › %s · kept %s days' \
+  "$TAG" "$(day "$STAMP")" "$DAYS" "$EXPENSES" "${REMOTE#*:}" "$KEEP_DAYS")"
