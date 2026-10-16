@@ -41,7 +41,7 @@ jobs:
       - name: The tag is vX.Y.Z and on main
         # The Worker refuses other version text (workers/auth.ts), which would fail every request.
         run: |
-          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Tag must look like v2.0.0"; exit 1; }
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && ${#TAG} -le 80 ]] || { echo "Tag must look like v2.0.0"; exit 1; }
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:

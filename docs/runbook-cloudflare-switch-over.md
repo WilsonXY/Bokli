@@ -22,7 +22,8 @@ Only GitHub deploys (`.github/workflows/deploy-cloud.yml`); the laptop's token c
   release → new tag). The workflow checks the tag is on `main`, applies new database steps, deploys, and checks
   bokli.ktte.me still points to the Worker. `https://bokli.ktte.me/api/health` is behind the login; the
   version shows in Cloudflare (Workers & Pages → bokli → Deployments, message `vX.Y.Z <commit>`).
-- **Staging:** GitHub → Actions → Deploy cloud → Run workflow → branch. It waits for Katte's approval.
+- **Staging:** GitHub → Actions → Deploy cloud → Run workflow → type the branch in **ref** (the default is `main`).
+  The run summary shows the exact commit; it waits for Katte's approval.
 - **Undo a bad deploy:** Cloudflare → Workers & Pages → bokli → Deployments → the previous version → Rollback.
 - **Worker secrets** (`ACCESS_ALLOWED_EMAILS`, `HEALTHCHECK_URL`): Workers & Pages → bokli → Settings →
   Variables and Secrets.
