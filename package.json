@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build && node -e \"const fs=require('fs'); fs.cpSync('.next-prod/static', '.next-prod/standalone/.next-prod/static', {recursive:true}); if(fs.existsSync('public')) fs.cpSync('public', '.next-prod/standalone/public', {recursive:true});\"",
+    "build:cloud": "BOKLI_TARGET=cloud next build",
+    "cloud:local": "node scripts/cloud-local.mjs",
     "start": "node .next-prod/standalone/server.js",
     "test": "vitest run --max-workers=1",
     "test:unit": "vitest run --max-workers=1 --project unit",
@@ -18,7 +20,7 @@
     "reset-password": "tsx src/cli/reset-password.ts",
     "smoke:login": "node scripts/smoke-login.mjs",
     "smoke:ci": "bash scripts/ci-smoke-login.sh",
-    "test:d1": "vitest run --config workers/d1-tests/vitest.config.ts --max-workers=1"
+    "test:d1": "vitest run --config workers/d1-tests/vitest.config.ts --max-workers=1 && vitest run --config workers/api-tests/vitest.config.ts --max-workers=1"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
@@ -40,6 +42,7 @@
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.6.1",
     "drizzle-kit": "^0.31.11",
+    "esbuild": "0.25.12",
     "eslint": "^9.39.5",
     "eslint-config-next": "^15.5.27",
     "playwright": "^1.63.0",

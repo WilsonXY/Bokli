@@ -12,9 +12,10 @@ describe("explicit D1 binding", () => {
 });
 
 const tables = [
+  "cloud_operation_receipts", "cloud_write_guard", "legacy_expense_receipt_owners",
   "cost_lines", "daily_sheets", "login_attempts", "month_close_events",
-  "month_closes", "operating_expense_add_requests", "operating_expenses", "users",
-];
+  "month_closes", "operating_expense_add_requests", "operating_expenses", "user_emails", "users",
+].sort();
 
 beforeEach(async () => {
   // Each test really starts empty; a leaked schema/persistence path fails here.
@@ -31,7 +32,7 @@ it("bootstraps an empty local D1 from every current migration", async () => {
   expect((await db.prepare("SELECT name FROM d1_migrations ORDER BY name").all()).results.map((row) => row.name)).toEqual(env.TEST_MIGRATIONS.map((migration) => migration.name));
   for (const table of tables) {
     // Only the fixed test-owned identifiers above enter SQL text.
-    expect(await db.prepare(`SELECT count(*) AS count FROM ${table}`).first("count")).toBe(0);
+    expect(await db.prepare(`SELECT count(*) AS count FROM ${table}`).first("count")).toBe(table === "cloud_write_guard" ? 1 : 0);
   }
   expect((await db.prepare("PRAGMA foreign_key_check").all()).results).toEqual([]);
   expect(await db.prepare("PRAGMA quick_check").first("quick_check")).toBe("ok");

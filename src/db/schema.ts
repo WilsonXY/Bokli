@@ -4,6 +4,7 @@ import {
   check,
   index,
   integer,
+  primaryKey,
   sqliteTable,
   text,
   uniqueIndex,
@@ -45,6 +46,15 @@ export const users = sqliteTable(
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+
+/** Cloud identity is additive; legacy credentials and roles stay on users. */
+export const userEmails = sqliteTable("user_emails", {
+  email: text("email").primaryKey().notNull(),
+  userId: integer("user_id").notNull().references(() => users.id),
+}, (t) => [
+  uniqueIndex("uq_user_emails_user").on(t.userId),
+  check("chk_user_emails_normalized", sql`${t.email} = lower(trim(${t.email})) AND length(${t.email}) <= 254 AND ${t.email} NOT GLOB '*[^!-~]*' AND ${t.email} GLOB '?*@?*'`),
+]);
 
 export const dailySheets = sqliteTable(
   "daily_sheets",
@@ -210,6 +220,9 @@ export const monthCloseEvents = sqliteTable(
     reason: text("reason"),
     /** JSON of the month_closes row as it stood right after this event. */
     snapshot: text("snapshot").notNull(),
+    /** NULL on historical/laptop events; never backfilled by inference. */
+    actorUserId: integer("actor_user_id").references(() => users.id),
+    actorRole: text("actor_role").$type<UserRole>(),
   },
   (t) => [
     index("ix_month_close_events_month").on(t.month),
@@ -233,3 +246,32 @@ export const loginAttempts = sqliteTable(
 
 export type LoginAttempt = typeof loginAttempts.$inferSelect;
 export type NewLoginAttempt = typeof loginAttempts.$inferInsert;
+
+/** One commit-time gate for cloud writers. checkCode is always NULL on commit. */
+export const cloudWriteGuard = sqliteTable("cloud_write_guard", {
+  id: integer("id").primaryKey(),
+  maintenance: integer("maintenance").notNull().default(0),
+  checkCode: text("check_code"),
+}, t => [check("chk_cloud_guard_singleton", sql`${t.id}=1 AND ${t.maintenance} IN (0,1) AND ${t.checkCode} IS NULL`)]);
+
+/** The pending claim, mutation and final response are one atomic batch. No GC. */
+export const cloudOperationReceipts = sqliteTable("cloud_operation_receipts", {
+  actorUserId: integer("actor_user_id").notNull().references(() => users.id),
+  operation: text("operation").notNull(),
+  operationId: text("operation_id").notNull(),
+  payload: text("payload").notNull(),
+  attemptToken: text("attempt_token").notNull(),
+  status: integer("status"),
+  result: text("result"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, t => [primaryKey({ columns: [t.actorUserId, t.operation, t.operationId] }),
+  check("chk_cloud_receipt_result", sql`(${t.result} IS NULL AND ${t.status} IS NULL) OR (${t.result} IS NOT NULL AND json_valid(${t.result}) AND ${t.status} IN (200,201))`),
+  check("chk_cloud_receipt_key", sql`length(${t.operationId}) BETWEEN 1 AND 200`),
+  check("chk_cloud_receipt_operation", sql`${t.operation} IN ('sheet.save','sheet.delete','expense.add','expense.delete','month.close','month.reopen')`),
+]);
+
+/** Explicit imported ownership only. Original unscoped receipts remain intact. */
+export const legacyExpenseReceiptOwners = sqliteTable("legacy_expense_receipt_owners", {
+  idempotencyKey: text("idempotency_key").primaryKey().notNull().references(() => operatingExpenseAddRequests.idempotencyKey),
+  actorUserId: integer("actor_user_id").notNull().references(() => users.id),
+});

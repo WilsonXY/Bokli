@@ -3,6 +3,7 @@
 import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMyr, sanitizeMoneyInput, tryParseSen } from "@/lib/money";
+import { apiFetch } from "@/lib/cloud-client";
 import { useI18n, translateApiError, apiErrorPayloadFrom, type TranslationMap } from "@/lib/i18n";
 import { MonthSelectorDropdown, MonthOption } from "@/components/MonthSelectorDropdown";
 
@@ -30,6 +31,8 @@ export interface CloseRecordData {
 }
 
 export interface MonthCloseViewProps {
+  /** Cloud build: re-fetch the page data; router.refresh() only re-renders a static page. */
+  onRefresh?: () => void;
   currentMonth: string;
   availableMonths: string[];
   financials?: FinancialSnapshot | null;
@@ -114,7 +117,7 @@ export interface SubmitMonthCloseParams {
   setSubmitting: (submitting: boolean) => void;
   setSuccessMessage: (message: string | null) => void;
   onClosed: () => void;
-  fetchImpl?: typeof fetch;
+  fetchImpl?: (url: string, init?: RequestInit) => Promise<Response>;
 }
 
 // Month Close submission; the gating result is the single source for validation and parsed amounts.
@@ -129,7 +132,7 @@ export async function submitMonthClose({
   setSubmitting,
   setSuccessMessage,
   onClosed,
-  fetchImpl = fetch,
+  fetchImpl = apiFetch,
 }: SubmitMonthCloseParams): Promise<void> {
   if (submitting) return;
   setErrorMessage(null);
@@ -174,6 +177,7 @@ export async function submitMonthClose({
 }
 
 export function MonthCloseView({
+  onRefresh,
   currentMonth,
   availableMonths,
   financials,
@@ -189,6 +193,7 @@ export function MonthCloseView({
   initialErrorMessage = null,
 }: MonthCloseViewProps) {
   const router = useRouter();
+  const refresh = onRefresh ?? (() => router.refresh());
   const { t } = useI18n();
   const [, startTransition] = useTransition();
 
@@ -245,7 +250,7 @@ export function MonthCloseView({
       setSuccessMessage,
       onClosed: () => {
         startTransition(() => {
-          router.refresh();
+          refresh();
         });
       },
     });
@@ -265,7 +270,7 @@ export function MonthCloseView({
     setSubmitting(true);
 
     try {
-      const res = await fetch("/api/close/reopen", {
+      const res = await apiFetch("/api/close/reopen", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -285,7 +290,7 @@ export function MonthCloseView({
       setTimeout(() => setSuccessMessage(null), 3500);
 
       startTransition(() => {
-        router.refresh();
+        refresh();
       });
     } catch (err) {
       setErrorMessage(translateApiError(apiErrorPayloadFrom(err), t));

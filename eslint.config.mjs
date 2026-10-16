@@ -6,7 +6,7 @@ const compat = new FlatCompat({ baseDirectory: dirname(fileURLToPath(import.meta
 
 const eslintConfig = [
   {
-    ignores: ["node_modules/**", ".next/**", ".next-prod/**", "next-env.d.ts", "drizzle/**"],
+    ignores: ["node_modules/**", ".next/**", ".next-prod/**", "next-env.d.ts", "drizzle/**", ".scratch/**", "out/**"],
   },
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {

@@ -1,6 +1,8 @@
 import { defineWorkersConfig, readD1Migrations } from "@cloudflare/vitest-pool-workers/config";
 import { resolve } from "node:path";
 import { assertLocalD1TestConfig } from "./safety";
+import { stabilizeTestLoopback } from "../test-loopback";
+stabilizeTestLoopback();
 
 export default defineWorkersConfig(async () => {
   // No Wrangler config/account. The pool owns ephemeral, per-test storage.

@@ -28,7 +28,7 @@ export function monthLockCases(getDb: () => LockDb) {
     expect(await db.run("SELECT month,reopened_at FROM month_closes ORDER BY month")).toEqual([
       { month: "2025-01", reopened_at: null }, { month: "2025-02", reopened_at: "2025-03-01" },
     ]);
-    expect(await db.run("SELECT * FROM month_close_events")).toEqual(audit);
+    expect(await db.run("SELECT * FROM month_close_events")).toEqual(audit.map(row=>({...row,actor_user_id:null,actor_role:null})));
     expect(await db.run("SELECT month,revenue_sen,daily_cost_sen,gross_sen,operating_sen,net_sen,closed_at FROM month_closes ORDER BY month")).toEqual(snapshots);
     await expect(db.run(close("2025-03", "''"))).rejects.toThrow("BOKLI_EMPTY_REOPENED_AT");
     await expect(db.run("UPDATE month_closes SET reopened_at='' WHERE month='2025-02'")).rejects.toThrow("BOKLI_EMPTY_REOPENED_AT");
@@ -158,10 +158,10 @@ export function monthLockCases(getDb: () => LockDb) {
     await db.run(close("2025-01"));
     const meta = String((await db.run("SELECT name FROM sqlite_master WHERE name IN ('__drizzle_migrations','d1_migrations')"))[0].name);
     const before = await db.run(`SELECT * FROM ${meta} ORDER BY id`);
-    expect(before).toHaveLength(10);
+    expect(before).toHaveLength(12); // Includes additive cloud consumers.
     const rows = await db.run("SELECT * FROM daily_sheets");
     const objects = await db.run("SELECT type,name,sql FROM sqlite_master WHERE type IN ('index','trigger') AND sql IS NOT NULL ORDER BY name");
-    expect(objects.filter(row => row.type === "trigger")).toHaveLength(23);
+    expect(objects.filter(row => row.type === "trigger")).toHaveLength(33);
     await db.expand();
     expect(await db.run(`SELECT * FROM ${meta} ORDER BY id`)).toEqual(before);
     expect(await db.run("SELECT * FROM daily_sheets")).toEqual(rows);

@@ -73,6 +73,8 @@ jobs:
         run: npx playwright install --with-deps --only-shell chromium
       - name: Login smoke test
         run: npm run smoke:ci
+      - name: Cloud static build
+        run: npm run build:cloud
 
   deploy-scripts:
     name: deploy-scripts
