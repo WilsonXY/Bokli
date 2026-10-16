@@ -21,7 +21,7 @@ STAMP="$(date +%F)"; DEST="$STAGING_DIR/bokli-$ENV_NAME-$STAMP.db"; PART="$DEST.
 TAG=""; [ "$ENV_NAME" = production ] || TAG=" ($ENV_NAME)"
 day() { date -d "$1" "+%a %-d %b %Y" 2>/dev/null || echo "$1"; }   # 2026-10-16 -> Fri 16 Oct 2026
 notify() { [ "${NOTIFY:-1}" = 0 ] || [ -z "${WEBHOOK_URL:-}" ] || jq -nc --arg c "$1" '{content:$c}' | curl -s -m 15 -X POST "$WEBHOOK_URL" -H "Content-Type: application/json" --data-binary @- >/dev/null 2>&1 || true; }
-failed() { printf '❌ **Bokli cloud backup FAILED**%s · %s\n%s' "$TAG" "$(day "$STAMP")" "$1"; }
+failed() { printf '**Bokli cloud backup FAILED**%s · %s\n%s' "$TAG" "$(day "$STAMP")" "$1"; }
 fail() { echo "[cloud-backup $(date '+%F %T')] FAIL: $1"; notify "$(failed "$1")"; rm -f "$SQL" "$PART"; exit 1; }
 mkdir -p "$STAGING_DIR" && chmod 700 "$STAGING_DIR"
 # One run at a time (cron + manual never share .part). If still busy, leave its files alone.
@@ -39,5 +39,5 @@ rclone copy "$STAGING_DIR" "$REMOTE" --include "bokli-*.db" -q || fail "upload t
 rclone delete "$REMOTE" --include "bokli-*.db" --min-age "${KEEP_DAYS}d" -q || echo "WARN: cloud retention failed"
 find "$STAGING_DIR" -name "bokli-*.db" -mtime "+$KEEP_DAYS" -delete
 echo "[cloud-backup $(date '+%F %T')] OK: $DEST ($ROWS)"
-notify "$(printf '✅ **Bokli cloud backup OK**%s · %s\n📅 %s Daily Sheet days (%s → %s)\n💸 %s Operating Expenses\n📁 Google Drive › %s · kept %s days' \
+notify "$(printf '**Bokli cloud backup OK**%s · %s\nDaily Sheet days: %s (%s → %s)\nOperating Expenses: %s\nGoogle Drive › %s · kept %s days' \
   "$TAG" "$(day "$STAMP")" "$DAYS" "$(day "$FIRST")" "$(day "$LAST")" "$EXPENSES" "${REMOTE#*:}" "$KEEP_DAYS")"
