@@ -13,6 +13,7 @@ export CLOUDFLARE_ACCOUNT_ID="$(cat ~/.config/bokli/cloudflare-account-id)"
 Run commands from `~/projects/bokli-cloud`, a checkout of `main` used only for the cloud
 (`git -C ~/projects/bokli worktree add ~/projects/bokli-cloud main && cd ~/projects/bokli-cloud && npm ci`).
 Do not change `~/projects/bokli`: it is the laptop rollback for 30 days.
+Before each use, bring it to the latest `main`: `git -C ~/projects/bokli-cloud pull --ff-only && (cd ~/projects/bokli-cloud && npm ci)`.
 
 ## Before the evening
 
