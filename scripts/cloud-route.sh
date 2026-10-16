@@ -6,7 +6,7 @@
 # No DNS change either way. Reads the token/account from ~/.config/bokli/.
 set -euo pipefail
 PATTERN="bokli.ktte.me/*"; SCRIPT="bokli"; ZONE_NAME="ktte.me"
-T="$(cat ~/.config/bokli/cloudflare-staging.token)"
+T="${CLOUDFLARE_API_TOKEN:-$(cat ~/.config/bokli/cloudflare-staging.token)}"   # GitHub deploy job passes its own
 api() { curl -fsS --max-time 30 -H "Authorization: Bearer $T" -H "Content-Type: application/json" "$@"; }
 Z="$(api "https://api.cloudflare.com/client/v4/zones?name=$ZONE_NAME" | python3 -c 'import sys,json;print(json.load(sys.stdin)["result"][0]["id"])')"
 ROUTES="https://api.cloudflare.com/client/v4/zones/$Z/workers/routes"

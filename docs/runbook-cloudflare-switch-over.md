@@ -15,6 +15,23 @@ Run commands from `~/projects/bokli-cloud`, a checkout of `main` used only for t
 Do not change `~/projects/bokli`: it is the laptop rollback for 30 days.
 Before each use, bring it to the latest `main`: `git -C ~/projects/bokli-cloud pull --ff-only && (cd ~/projects/bokli-cloud && npm ci)`.
 
+## Deploy a new version (since 2026-10-16)
+
+Only GitHub deploys (`.github/workflows/deploy-cloud.yml`); the laptop's token cannot.
+- **Production:** merge the PR, then create a release tag `vX.Y.Z` on `main` (GitHub → Releases → Draft a new
+  release → new tag). The workflow checks the tag is on `main`, applies new database steps, deploys, and checks
+  bokli.ktte.me still points to the Worker. `https://bokli.ktte.me/api/health` is behind the login; the
+  version shows in Cloudflare (Workers & Pages → bokli → Deployments, message `vX.Y.Z <commit>`).
+- **Try a change first:** `npm run cloud:local` on the laptop (local Worker and database, fake data). There is no
+  staging deploy any more (dropped 2026-10-16, so the deploy token only ever serves release tags).
+- **Undo a bad deploy:** Cloudflare → Workers & Pages → bokli → Deployments → the previous version → Rollback.
+- **Worker secrets** (`ACCESS_ALLOWED_EMAILS`, `HEALTHCHECK_URL`): Workers & Pages → bokli → Settings →
+  Variables and Secrets.
+
+## Switch-over (done 2026-10-16, kept for reference)
+
+Steps 3 and 4 below now go through the workflow and the dashboard.
+
 ## Before the evening
 
 - The final migration PR is merged; `bash scripts/cloud-route.sh status` says `LAPTOP`.
@@ -74,8 +91,8 @@ Before each use, bring it to the latest `main`: `git -C ~/projects/bokli-cloud p
       and close again any month you reopened in 1. that has no `month end state` line.
    The cloud's step-by-step close history stays in `$B` for reference.
    Restore the two laptop crons; remove the cloud backup cron.
-6. `npx wrangler secret delete HEALTHCHECK_URL --config workers/wrangler.json --env production`
-   (otherwise the idle Worker keeps the health check green).
+6. Delete the Worker secret `HEALTHCHECK_URL` (Workers & Pages → bokli → Settings → Variables and Secrets),
+   otherwise the idle Worker keeps the health check green.
 
 ## Undo a bad change (Time Travel, last 7 days)
 
