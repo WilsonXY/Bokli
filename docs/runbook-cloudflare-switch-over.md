@@ -19,8 +19,9 @@ Before each use, bring it to the latest `main`: `git -C ~/projects/bokli-cloud p
 
 Only GitHub deploys (`.github/workflows/deploy-cloud.yml`); the laptop's token cannot.
 - **Production:** merge the PR, then create a release tag `vX.Y.Z` on `main` (GitHub → Releases → Draft a new
-  release → new tag). The workflow checks the tag is on the latest `main` commit, applies new database steps, deploys, and checks
-  bokli.ktte.me still points to the Worker. `https://bokli.ktte.me/api/health` is behind the login; the
+  release → new tag). The workflow checks the tag is on `main` and the database has no steps that commit lacks
+  (so an older commit can still be released if no database step came after it), applies new database steps,
+  deploys, and checks bokli.ktte.me still points to the Worker. `https://bokli.ktte.me/api/health` is behind the login; the
   version shows in Cloudflare (Workers & Pages → bokli → Deployments, message `vX.Y.Z <commit>`).
 - **Try a change first:** `npm run cloud:local` on the laptop (local Worker and database, fake data). There is no
   staging deploy any more (dropped 2026-10-16, so the deploy token only ever serves release tags).
