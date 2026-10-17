@@ -19,7 +19,7 @@ Before each use, bring it to the latest `main`: `git -C ~/projects/bokli-cloud p
 
 Only GitHub deploys (`.github/workflows/deploy-cloud.yml`); the laptop's token cannot.
 - **Production:** merge the PR, then create a release tag `vX.Y.Z` on `main` (GitHub → Releases → Draft a new
-  release → new tag). The workflow checks the tag is on `main`, applies new database steps, deploys, and checks
+  release → new tag). The workflow checks the tag is on the latest `main` commit, applies new database steps, deploys, and checks
   bokli.ktte.me still points to the Worker. `https://bokli.ktte.me/api/health` is behind the login; the
   version shows in Cloudflare (Workers & Pages → bokli → Deployments, message `vX.Y.Z <commit>`).
 - **Try a change first:** `npm run cloud:local` on the laptop (local Worker and database, fake data). There is no
