@@ -96,7 +96,7 @@ export async function startCloudLocal({ port = 8787, testIdentity = false, build
   }
 
   if (build) {
-    execFileSync("npx", ["next", "build"], { cwd: root, stdio: "inherit", env: { ...env, BOKLI_TARGET: "cloud" } });
+    execFileSync("npx", ["next", "build"], { cwd: root, stdio: "inherit", env });
   }
 
   // The deployed config plus local-only bindings, outside the repo.

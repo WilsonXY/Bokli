@@ -1,6 +1,5 @@
-# Additive plain Worker API
+# Plain Worker API
 
-The laptop Next/Auth.js/SQLite runtime and legacy `/api/*` handlers are unchanged.
 `index.ts` uses Web Crypto RS256, the supported D1 adapter for reads, and native
 prepared D1 batches for atomic writes. No test identity mode or recovery controller.
 
@@ -57,7 +56,7 @@ POST sheets, POST/DELETE expenses, POST close, POST close/reopen, and bodyless
 DELETE sheets use `/api/cloud-v1/*`. Mutations require the exact request Origin,
 the `X-Bokli-Api-Generation: cloud-v1` CSRF marker and JSON content type when a
 body is present. The marker is not authentication. Reopen and its status/replay
-remain Admin-only. Unsupported methods return 405. No laptop fallback exists.
+remain Admin-only. Unsupported methods return 405.
 
 Every keyed mutation scopes its durable operation ID to the mapped actor and
 operation. Retry consumers persist the mapped actor ID with the draft/key and
@@ -121,7 +120,7 @@ Worker in isolated workerd with ephemeral local D1, signed synthetic JWTs and
 network-disabled JWKS fixtures. SQLite reference responses are generated using
 current retained services over an in-memory synthetic DB. No remote database,
 external Wrangler config, persistence path or account credentials are used.
-Deployment-bundle/config checks run in `test:deploy`; the independent esbuild
+Bundle/config checks run in `test:deploy`; the independent esbuild
 bundle includes neither Node/Next/auth/SQLite runtime nor test authorization.
 
 `wrangler.json` disables workers.dev and preview URLs; `/api/*` runs before assets.
@@ -131,17 +130,13 @@ Nothing is deployed by tests or feature pushes.
 
 ## Static screens
 
-`npm run build:cloud` (`BOKLI_TARGET=cloud`) exports the four screens to `out/`. In
-that build only `app/**/*.cloud.tsx` are pages, so the laptop's API routes, login
-page, middleware, next-auth and SQLite are not in it. Each page is a client shell
+`npm run build` exports the four screens to `out/`. Each page is a client shell
 (`src/components/CloudPage.tsx`) that reads `/api/cloud-v1/*` and renders the usual
-view; writes go through `apiFetch` (`src/lib/cloud-client.ts`), which on the laptop
-is a plain `/api/*` fetch. It sends the mapped actor, one Idempotency-Key per save
+view; writes go through `apiFetch` (`src/lib/cloud-client.ts`). It sends the mapped actor, one Idempotency-Key per save
 attempt (reused while the draft is unchanged; Operating Expenses keep their stored
 pending keys) and asks `operations/status` before resending an unknown outcome.
 Today's date comes from the Worker per request. Sign Out goes to
-`/cdn-cgi/access/logout`. Next uses `.next` as scratch space for the export, so do
-not build the cloud target in a checkout where `next dev` is running.
+`/cdn-cgi/access/logout`. Next uses `.next` as scratch space for the export.
 
 ## Running it locally
 

@@ -67,14 +67,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - name: Production build
+      - name: Static build
         run: npm run build
-      - name: Install Chromium for the login smoke test
-        run: npx playwright install --with-deps --only-shell chromium
-      - name: Login smoke test
-        run: npm run smoke:ci
-      - name: Cloud static build
-        run: npm run build:cloud
 
   deploy-scripts:
     name: deploy-scripts
@@ -86,12 +80,8 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
-      - name: Install system tools the deploy tests drive
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q sqlite3 strace
       - run: npm ci --no-audit --no-fund
-      - name: Deploy-script tests
+      - name: Worker bundle and migration-folder tests
         run: npm run test:deploy
 
   d1-foundation:

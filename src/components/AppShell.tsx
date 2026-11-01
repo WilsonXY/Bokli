@@ -286,23 +286,9 @@ export function AppShell({ children }: AppShellProps) {
               <button
                 type="button"
                 disabled={isSigningOut}
-                onClick={async () => {
+                onClick={() => {
                   setIsSigningOut(true);
-                  try {
-                    // Inlined at build time, so the cloud build ships no next-auth.
-                    if (process.env.BOKLI_TARGET === "cloud") {
-                      window.location.assign("/cdn-cgi/access/logout");
-                    } else {
-                      const { signOut } = await import("next-auth/react");
-                      await signOut({ callbackUrl: "/login" });
-                    }
-                  } catch (err) {
-                    console.error("Sign out failed:", err);
-                  } finally {
-                    // Never leave the modal stuck on "Signing out..." if the
-                    // request rejects; on success we navigate away anyway.
-                    setIsSigningOut(false);
-                  }
+                  window.location.assign("/cdn-cgi/access/logout");
                 }}
                 className="flex-1 min-h-[44px] h-11 rounded-xl bg-finance-loss hover:bg-finance-loss/90 active:bg-finance-loss-dark btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 disabled:opacity-50"
               >

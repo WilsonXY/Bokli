@@ -1,71 +1,38 @@
-import React from "react";
-import {
-  type CostCategory,
-  getSheetWithCosts,
-  isMonthClosed,
-} from "@/services/daily-sheet";
-import { getDb } from "@/db";
-import { getTodayInKualaLumpur } from "@/lib/datetime";
-import { isValidDateStr } from "@/lib/money";
-import { DailySheetForm } from "@/components/DailySheetForm";
+"use client";
 
-interface PageProps {
-  searchParams?: Promise<{ date?: string }>;
+import { CloudPage } from "@/components/CloudPage";
+import { DailySheetForm } from "@/components/DailySheetForm";
+import { cloudRead } from "@/lib/cloud-client";
+import type { CostCategory } from "@/lib/vocab";
+
+async function load(query: string) {
+  const { date, todayKl, isClosed, data } = await cloudRead("sheets", query);
+  return {
+    date,
+    todayKl,
+    isClosed,
+    initialCashSen: data?.sheet.cashSen ?? 0,
+    initialTngSen: data?.sheet.tngSen ?? 0,
+    initialCostLines: (data?.costLines ?? []).map((l) => ({
+      id: l.id,
+      category: l.category as CostCategory,
+      amountSen: l.amountSen,
+      note: l.note,
+    })),
+    savedSheet: data ? { id: data.sheet.id, updatedAt: data.sheet.updatedAt } : null,
+  };
 }
 
-export default async function HomePage(props: PageProps) {
-  const searchParams = await props.searchParams;
-  const todayKl = getTodayInKualaLumpur();
-
-  const requestedDate = searchParams?.date;
-  const date =
-    typeof requestedDate === "string" &&
-    isValidDateStr(requestedDate) &&
-    requestedDate <= todayKl
-      ? requestedDate
-      : todayKl;
-
-  // The whole data load stays inside the try, getDb() included: an unreachable
-  // DB throws on acquisition, and outside the try that throw carries no scope
-  // tag. DailySheetForm has no loadError UI to fall back on and rendering it
-  // with zeroed figures would fabricate numbers, so log and re-throw for the
-  // error boundary.
-  try {
-    const { db } = getDb();
-    const month = date.slice(0, 7);
-    const isClosed = isMonthClosed(month, db);
-
-    const sheetData = getSheetWithCosts(date, { db });
-
-    return (
-      <div className="max-w-2xl mx-auto">
-        <DailySheetForm
-          key={date}
-          date={date}
-          initialCashSen={sheetData ? Number(sheetData.sheet.cashSen) : 0}
-          initialTngSen={sheetData ? Number(sheetData.sheet.tngSen) : 0}
-          initialCostLines={
-            sheetData
-              ? sheetData.costLines.map((l) => ({
-                  id: l.id,
-                  category: l.category as CostCategory,
-                  amountSen: Number(l.amountSen),
-                  note: l.note,
-                }))
-              : []
-          }
-          isClosed={isClosed}
-          todayKl={todayKl}
-          savedSheet={
-            sheetData
-              ? { id: sheetData.sheet.id, updatedAt: sheetData.sheet.updatedAt }
-              : null
-          }
-        />
-      </div>
-    );
-  } catch (err) {
-    console.error(`Failed to load daily sheet data for ${date}:`, err);
-    throw err;
-  }
+export default function HomePage() {
+  return (
+    <CloudPage
+      param="date"
+      load={load}
+      render={(props, reload) => (
+        <div className="max-w-2xl mx-auto">
+          <DailySheetForm key={props.date} {...props} onRefresh={reload} />
+        </div>
+      )}
+    />
+  );
 }

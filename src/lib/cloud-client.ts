@@ -33,12 +33,11 @@ const outcomeUnknown = () =>
   Response.json({ code: "outcomeUnknown", error: "Save outcome unknown" }, { status: 503 });
 
 /**
- * The screens' one door to the API. Laptop: plain fetch to /api/*. Cloud: the
- * same call against /api/cloud-v1/* with the mapped actor and one
- * Idempotency-Key per save attempt (the caller's own key if it sends one).
+ * The screens' one door to the API: /api/* goes to /api/cloud-v1/* with the
+ * mapped actor and one Idempotency-Key per save attempt (the caller's own key
+ * if it sends one).
  */
 export async function apiFetch(url: string, init: RequestInit = {}): Promise<Response> {
-  if (process.env.BOKLI_TARGET !== "cloud") return fetch(url, init);
   const target = new URL(url.replace(/^\/api\//, `${CLOUD_API_PREFIX}/`), location.origin);
   const headers = new Headers(init.headers);
   headers.set("X-Bokli-Actor-Id", String((await cloudIdentity()).id));

@@ -1,6 +1,5 @@
 node_modules/
 .next/
-.next-prod/
 data/
 data-dev/
 *.db
@@ -22,10 +21,9 @@ skills-lock.json
 .impeccable/
 # Agent scratch space (debug scripts, tickets workspace)
 .scratch/
-# UI proof from scripts/agent-verify.sh (attached to PRs, not committed)
+# UI proof from scripts/cloud-verify.mjs (attached to PRs, not committed)
 .evidence/
-.deploy.lock
-# Static cloud build (BOKLI_TARGET=cloud), served by workers/
+# Static build (npm run build), served by workers/
 out/
 # Local Worker secrets (wrangler dev)
 .dev.vars

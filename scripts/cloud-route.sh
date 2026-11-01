@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Switch bokli.ktte.me between the laptop (Cloudflare Tunnel) and the cloud Worker.
-#   bash scripts/cloud-route.sh status|on|off
-# on:  adds the Worker route bokli.ktte.me/* -> Worker "bokli"; the Worker now answers.
-# off: deletes that route; requests fall through to the tunnel (the laptop) again.
-# No DNS change either way. Reads the token/account from ~/.config/bokli/.
+# Check (or restore) the Worker route that serves bokli.ktte.me.
+#   bash scripts/cloud-route.sh status|on
+# on: adds the Worker route bokli.ktte.me/* -> Worker "bokli" if it is missing.
+# The laptop was retired on 2026-11-01, so without the route nothing answers.
+# No DNS change. Reads the token/account from ~/.config/bokli/.
 set -euo pipefail
 PATTERN="bokli.ktte.me/*"; SCRIPT="bokli"; ZONE_NAME="ktte.me"
 T="${CLOUDFLARE_API_TOKEN:-$(cat ~/.config/bokli/cloudflare-staging.token)}"   # GitHub deploy job passes its own
@@ -15,13 +15,11 @@ route() { api "$ROUTES" | python3 -c "import sys,json;print(next((f\"{r['id']} {
 R="$(route)"   # a failed lookup stops here (set -e) instead of looking like "no route"
 read -r id script <<<"$R"
 case "${1:-status}" in
-  status) if [ -z "${id:-}" ]; then echo "LAPTOP: no Worker route on $PATTERN (tunnel answers)"
+  status) if [ -z "${id:-}" ]; then echo "NONE: no Worker route on $PATTERN, the site is down (run: $0 on)"
           elif [ "$script" = "$SCRIPT" ]; then echo "CLOUD: $PATTERN -> Worker $SCRIPT"
           else echo "CONFLICT: $PATTERN -> '$script', not $SCRIPT; fix it in the dashboard" >&2; exit 1; fi;;
   on)     [ -n "${id:-}" ] && [ "$script" = "$SCRIPT" ] && { echo "already on"; exit 0; }
           [ -n "${id:-}" ] && { echo "CONFLICT: $PATTERN -> '$script'; not touching it" >&2; exit 1; }
           api -X POST "$ROUTES" -d "{\"pattern\":\"$PATTERN\",\"script\":\"$SCRIPT\"}" >/dev/null && echo "ON: $PATTERN -> Worker $SCRIPT";;
-  off)    [ -z "${id:-}" ] && { echo "already off"; exit 0; }
-          api -X DELETE "$ROUTES/$id" >/dev/null && echo "OFF: $PATTERN back to the tunnel (laptop)";;
-  *) echo "usage: $0 status|on|off" >&2; exit 2;;
+  *) echo "usage: $0 status|on" >&2; exit 2;;
 esac

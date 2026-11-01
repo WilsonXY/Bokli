@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-// UI proof for the cloud build, like scripts/agent-verify.sh for the laptop
-// build: starts scripts/cloud-local.mjs --test-identity on 127.0.0.1, runs one
-// flow while recording, stops the server. Not a preview.
+// UI proof: starts scripts/cloud-local.mjs --test-identity on 127.0.0.1, runs
+// one flow while recording, stops the server. Not a preview.
 //
 //   node scripts/cloud-verify.mjs <flow.mjs> [mom|katte] [--mobile] [--no-build]
 //
