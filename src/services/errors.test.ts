@@ -28,7 +28,6 @@ describe("error codes: code -> i18n key mapping record", () => {
     ["forbidden", "forbiddenError"],
     ["monthClosed", "monthClosedError"],
     ["network", "networkError"],
-    ["rateLimited", "loginRateLimited"],
     ["otherNoteRequired", "otherNoteRequired"],
     ["varianceNoteRequired", "varianceNoteRequired"],
     ["reopenReasonRequired", "reopenReasonRequired"],

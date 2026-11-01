@@ -147,7 +147,6 @@ export const DICTIONARY = {
     closedAtLabel: "结账时间",
     reopenedAtLabel: "重开时间",
     reasonLabel: "重开原因",
-    loginRateLimited: "尝试次数过多，请在 15 分钟后再试",
     // Sign out
     signOut: "退出",
     confirmSignOutTitle: "确认退出登录？",
@@ -295,7 +294,6 @@ export const DICTIONARY = {
     closedAtLabel: "Closed At",
     reopenedAtLabel: "Reopened At",
     reasonLabel: "Reason",
-    loginRateLimited: "Too many failed attempts. Try again in 15 minutes.",
     // Sign out
     signOut: "Sign Out",
     confirmSignOutTitle: "Sign out of Bokli?",
@@ -390,7 +388,6 @@ export const API_ERROR_CODE_TO_KEY: Record<string, keyof TranslationMap> = {
   monthClosed: "monthClosedError",
   network: "networkError",
   outcomeUnknown: "outcomeUnknownError",
-  rateLimited: "loginRateLimited",
   otherNoteRequired: "otherNoteRequired",
   varianceNoteRequired: "varianceNoteRequired",
   reopenReasonRequired: "reopenReasonRequired",
@@ -440,9 +437,6 @@ export function translateApiError(
   }
   if (lower.includes("network") || lower.includes("fetch")) {
     return t.networkError;
-  }
-  if (lower.includes("rate") || lower.includes("limit") || lower.includes("too many")) {
-    return t.loginRateLimited;
   }
   if (/category is .other./i.test(lower)) {
     return t.otherNoteRequired;

@@ -26,7 +26,7 @@ Used primarily on mobile devices inside bright, fast-paced food stall environmen
 - **Month Close**: Formal review and locking of monthly financial snapshots, with reconciliation warning check between physical funds and Net Profit.
 - **Bilingual Interface**: Chinese primary terms paired with English secondary subtitles for family collaboration.
 - **Currency Standard**: All monetary values represented and computed in integer sen (MYR) with no floating-point rounding errors.
-- **Tech Stack**: Next.js App Router, Tailwind CSS, SQLite with Drizzle ORM, NextAuth credentials auth.
+- **Tech Stack**: Next.js App Router (static export), Tailwind CSS, Cloudflare Worker with D1 (Drizzle ORM), Cloudflare Access email login.
 
 ## Brand Commitments
 - **Name**: Bokli (簿里 — literally "inside the ledger").

@@ -23,7 +23,6 @@ export type ApiErrorCode =
   | "forbidden"
   | "monthClosed"
   | "network"
-  | "rateLimited"
   | "otherNoteRequired"
   | "varianceNoteRequired"
   | "reopenReasonRequired"
