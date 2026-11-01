@@ -15,12 +15,8 @@ export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const { t, lang, setLang } = useI18n();
   const [showConfirmSignOut, setShowConfirmSignOut] = React.useState(false);
-  const [isSigningOut, setIsSigningOut] = React.useState(false);
 
   // Tactile wave / ripple effect on all .btn-wave interactive elements.
-  // Registered above the /login early return on purpose: the login page renders
-  // inside this shell, so this is the single listener that serves every page —
-  // the login page must not install its own or each press yields two ripples.
   React.useEffect(() => {
     function handlePointerDown(e: PointerEvent) {
       const target = (e.target as HTMLElement)?.closest(".btn-wave") as HTMLElement | null;
@@ -54,18 +50,13 @@ export function AppShell({ children }: AppShellProps) {
   React.useEffect(() => {
     if (!showConfirmSignOut) return;
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape" && !isSigningOut) {
+      if (e.key === "Escape") {
         setShowConfirmSignOut(false);
       }
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [showConfirmSignOut, isSigningOut]);
-
-  // Don't render chrome on standalone login page
-  if (pathname === "/login") {
-    return <div className="min-h-screen bg-surface-canvas">{children}</div>;
-  }
+  }, [showConfirmSignOut]);
 
   const navItems = [
     {
@@ -256,7 +247,7 @@ export function AppShell({ children }: AppShellProps) {
           aria-labelledby="confirm-signout-title"
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-slide-down"
           onClick={(e) => {
-            if (e.target === e.currentTarget && !isSigningOut) {
+            if (e.target === e.currentTarget) {
               setShowConfirmSignOut(false);
             }
           }}
@@ -277,7 +268,6 @@ export function AppShell({ children }: AppShellProps) {
             <div className="flex items-center gap-2.5 pt-1">
               <button
                 type="button"
-                disabled={isSigningOut}
                 onClick={() => setShowConfirmSignOut(false)}
                 className="flex-1 min-h-[44px] h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary font-semibold text-sm transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 disabled:opacity-50"
               >
@@ -285,32 +275,10 @@ export function AppShell({ children }: AppShellProps) {
               </button>
               <button
                 type="button"
-                disabled={isSigningOut}
-                onClick={async () => {
-                  setIsSigningOut(true);
-                  try {
-                    // Inlined at build time, so the cloud build ships no next-auth.
-                    if (process.env.BOKLI_TARGET === "cloud") {
-                      window.location.assign("/cdn-cgi/access/logout");
-                    } else {
-                      const { signOut } = await import("next-auth/react");
-                      await signOut({ callbackUrl: "/login" });
-                    }
-                  } catch (err) {
-                    console.error("Sign out failed:", err);
-                  } finally {
-                    // Never leave the modal stuck on "Signing out..." if the
-                    // request rejects; on success we navigate away anyway.
-                    setIsSigningOut(false);
-                  }
-                }}
+                onClick={() => window.location.assign("/cdn-cgi/access/logout")}
                 className="flex-1 min-h-[44px] h-11 rounded-xl bg-finance-loss hover:bg-finance-loss/90 active:bg-finance-loss-dark btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 disabled:opacity-50"
               >
-                {isSigningOut ? (
-                  <span>{t.signingOut}</span>
-                ) : (
-                  <span>{t.confirmSignOutBtn}</span>
-                )}
+                <span>{t.confirmSignOutBtn}</span>
               </button>
             </div>
           </div>

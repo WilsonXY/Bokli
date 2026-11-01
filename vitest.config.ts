@@ -4,11 +4,6 @@ import path from "node:path";
 export default defineConfig({
   test: {
     environment: "node",
-    server: {
-      deps: {
-        inline: ["next-auth"],
-      },
-    },
     // `npm run test:unit` / `npm run test:deploy` pick one; `npm test` runs both.
     projects: [
       { extends: true, test: { name: "unit", include: ["src/**/*.test.ts"] } },

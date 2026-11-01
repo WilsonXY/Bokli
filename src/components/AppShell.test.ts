@@ -11,11 +11,6 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-// Mock next-auth/react
-vi.mock("next-auth/react", () => ({
-  signOut: vi.fn(),
-}));
-
 import { AppShell } from "./AppShell";
 import { DICTIONARY } from "@/lib/i18n";
 

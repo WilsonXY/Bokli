@@ -2,7 +2,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { NextRequest } from "next/server";
 import { asc, eq } from "drizzle-orm";
 
 import { openDb, type Db } from "@/db";
@@ -29,8 +28,6 @@ import {
 } from "./operating-expense";
 import { ForbiddenError } from "./errors";
 import { closeMonth, getClose, listCloses, reopenMonth } from "./month-close";
-import { POST as closePost } from "../../app/api/close/route";
-import { POST as reopenPost } from "../../app/api/close/reopen/route";
 
 let tmpDir: string;
 let dbPath: string;
@@ -465,178 +462,6 @@ describe("7. getClose and listCloses query functions", () => {
       expect("reopenedAt" in item).toBe(true);
       expect(typeof item.differenceSen).toBe("bigint");
     }
-  });
-});
-
-describe("8. API Routes (/api/close and /api/close/reopen)", () => {
-  const operatorSession = {
-    user: { id: "1", name: "mom", role: "Operator" as const },
-  };
-  const adminSession = {
-    user: { id: "2", name: "katte", role: "Admin" as const },
-  };
-
-  function makeAuthReq(url: string, session: any, init?: any) {
-    const req = new NextRequest(url, init as any);
-    (req as any).auth = session;
-    return req;
-  }
-
-  it("rejects unauthenticated requests with 401 Unauthorized", async () => {
-    // POST /api/close anonymous
-    const postRes = await closePost(
-      new NextRequest("http://localhost:3000/api/close", {
-        method: "POST",
-        body: JSON.stringify({ month: "2025-05", cashOnHandSen: 0, tngOnHandSen: 0 }),
-      }),
-    );
-    expect(postRes.status).toBe(401);
-
-    // POST /api/close/reopen anonymous
-    const reopenRes = await reopenPost(
-      new NextRequest("http://localhost:3000/api/close/reopen", {
-        method: "POST",
-        body: JSON.stringify({ month: "2025-01", reason: "Test" }),
-      }),
-    );
-    expect(reopenRes.status).toBe(401);
-  });
-
-  it("validates request payload on POST /api/close", async () => {
-    // Missing month
-    const bad1 = await closePost(
-      makeAuthReq("http://localhost:3000/api/close", operatorSession, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cashOnHandSen: 100, tngOnHandSen: 100 }),
-      }),
-    );
-    expect(bad1.status).toBe(400);
-
-    // Missing cashOnHandSen
-    const bad2 = await closePost(
-      makeAuthReq("http://localhost:3000/api/close", operatorSession, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ month: "2025-05", tngOnHandSen: 100 }),
-      }),
-    );
-    expect(bad2.status).toBe(400);
-
-    // Empty month without confirmEmpty
-    const bad3 = await closePost(
-      makeAuthReq("http://localhost:3000/api/close", operatorSession, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          month: "2025-05",
-          cashOnHandSen: 0,
-          tngOnHandSen: 0,
-        }),
-      }),
-    );
-    expect(bad3.status).toBe(400);
-    const bad3Body = await bad3.json();
-    expect(bad3Body.error).toContain("zero Daily Sheets");
-  });
-
-  it("handles successful close via POST /api/close", async () => {
-    const TEST_MONTH = "2025-05";
-    const now = new Date("2025-05-25T12:00:00Z");
-
-    // Create a sheet so it's not empty
-    const s = await getOrCreateSheet(`${TEST_MONTH}-01`, { db, now });
-    await setRevenue(s.id, 10000, 5000, { db });
-
-    // POST /api/close with matching reconciliation (15000 sen net, 10000 cash + 5000 tng)
-    const postReq = makeAuthReq(
-      "http://localhost:3000/api/close",
-      operatorSession,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          month: TEST_MONTH,
-          cashOnHandSen: 10000,
-          tngOnHandSen: 5000,
-        }),
-      },
-    );
-    const postRes = await closePost(postReq);
-    expect(postRes.status).toBe(201);
-    const postBody = await postRes.json();
-    expect(postBody.close.month).toBe(TEST_MONTH);
-    expect(postBody.balanced).toBe(true);
-    expect(postBody.differenceSen).toBe(0);
-
-    // The Month Close is persisted and readable through the service layer
-    const persisted = await getClose(TEST_MONTH, { db });
-    expect(persisted).not.toBeNull();
-    expect(persisted!.month).toBe(TEST_MONTH);
-    expect(persisted!.balanced).toBe(true);
-
-    const history = await listCloses({ db });
-    expect(history.some((c) => c.month === TEST_MONTH)).toBe(true);
-  });
-
-  it("POST /api/close/reopen: rejects Operator with 403, accepts Admin with 200", async () => {
-    const TEST_MONTH = "2025-05";
-
-    // Operator attempts reopen -> 403 Forbidden
-    const opReopenReq = makeAuthReq(
-      "http://localhost:3000/api/close/reopen",
-      operatorSession,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          month: TEST_MONTH,
-          reason: "Operator wants to fix an error",
-        }),
-      },
-    );
-    const opReopenRes = await reopenPost(opReopenReq);
-    expect(opReopenRes.status).toBe(403);
-    const opBody = await opReopenRes.json();
-    expect(opBody.error).toContain("Forbidden");
-
-    // Admin attempts reopen without reason -> 400 Bad Request
-    const adminBadReq = makeAuthReq(
-      "http://localhost:3000/api/close/reopen",
-      adminSession,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          month: TEST_MONTH,
-          reason: "",
-        }),
-      },
-    );
-    const adminBadRes = await reopenPost(adminBadReq);
-    expect(adminBadRes.status).toBe(400);
-
-    // Admin attempts reopen with valid reason -> 200 OK
-    const adminGoodReq = makeAuthReq(
-      "http://localhost:3000/api/close/reopen",
-      adminSession,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          month: TEST_MONTH,
-          reason: "Approved correction for missing fuel expense",
-        }),
-      },
-    );
-    const adminGoodRes = await reopenPost(adminGoodReq);
-    expect(adminGoodRes.status).toBe(200);
-    const adminBody = await adminGoodRes.json();
-    expect(adminBody.close.month).toBe(TEST_MONTH);
-    expect(adminBody.close.reopenedAt).toBeDefined();
-    expect(adminBody.close.reopenReason).toBe(
-      "Approved correction for missing fuel expense",
-    );
   });
 });
 

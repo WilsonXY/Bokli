@@ -17,21 +17,12 @@ beforeEach(() => {
 });
 afterEach(() => {
   vi.unstubAllGlobals();
-  vi.unstubAllEnvs();
 });
 const lost = () => { throw new TypeError("Failed to fetch"); };
 const save = (apiFetch: typeof import("./cloud-client").apiFetch, cashSen: number) =>
   apiFetch("/api/sheets", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ date: "2026-10-01", cashSen, costLines: [] }) });
 
-it("leaves the laptop build on plain /api fetches", async () => {
-  const { apiFetch } = await import("./cloud-client");
-  replies.push(() => Response.json({ ok: true }));
-  await apiFetch("/api/sheets", { method: "POST", body: "{}" });
-  expect(sent).toEqual([{ method: "POST", url: "/api/sheets", key: null, actor: null }]);
-});
-
 it("keeps one key per draft and asks status before resending an unknown save", async () => {
-  vi.stubEnv("BOKLI_TARGET", "cloud");
   const { apiFetch } = await import("./cloud-client");
   replies.push(lost, lost); // reply and status check both lost
   const first = await save(apiFetch, 100);
@@ -55,7 +46,6 @@ it("keeps one key per draft and asks status before resending an unknown save", a
 });
 
 it("sends the same key again for an unchanged draft whose save was not stored", async () => {
-  vi.stubEnv("BOKLI_TARGET", "cloud");
   const { apiFetch } = await import("./cloud-client");
   replies.push(lost, lost);
   await save(apiFetch, 100);
@@ -65,7 +55,6 @@ it("sends the same key again for an unchanged draft whose save was not stored", 
 });
 
 it("keeps the caller's own Idempotency-Key", async () => {
-  vi.stubEnv("BOKLI_TARGET", "cloud");
   const { apiFetch } = await import("./cloud-client");
   replies.push(() => Response.json({ expense: { id: 1 } }, { status: 201 }));
   await apiFetch("/api/expenses", { method: "POST", headers: { "Content-Type": "application/json", "Idempotency-Key": "stored-key" }, body: "{}" });

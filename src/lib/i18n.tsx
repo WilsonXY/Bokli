@@ -147,23 +147,10 @@ export const DICTIONARY = {
     closedAtLabel: "结账时间",
     reopenedAtLabel: "重开时间",
     reasonLabel: "重开原因",
-    // Login
-    loginTitle: "Bokli 簿里",
-    username: "账号",
-    usernamePlaceholder: "请输入账号",
-    password: "密码",
-    passwordPlaceholder: "请输入密码",
-    signIn: "登录",
-    signingIn: "登录中...",
-    loginError: "账号或密码不正确",
-    loginRateLimited: "尝试次数过多，请在 15 分钟后再试",
-    loginNetworkError: "登录失败，请重试",
+    // Sign out
     signOut: "退出",
-    showPassword: "显示密码",
-    hidePassword: "隐藏密码",
     confirmSignOutTitle: "确认退出登录？",
     confirmSignOutBtn: "确认退出",
-    signingOut: "退出中...",
   },
   en: {
     brandSubtitle: "Food Stall Ops",
@@ -307,23 +294,10 @@ export const DICTIONARY = {
     closedAtLabel: "Closed At",
     reopenedAtLabel: "Reopened At",
     reasonLabel: "Reason",
-    // Login
-    loginTitle: "Bokli",
-    username: "Username",
-    usernamePlaceholder: "Enter username",
-    password: "Password",
-    passwordPlaceholder: "Enter password",
-    signIn: "Login",
-    signingIn: "Logging in...",
-    loginError: "Invalid username or password",
-    loginRateLimited: "Too many failed attempts. Try again in 15 minutes.",
-    loginNetworkError: "Sign-in failed, please retry",
+    // Sign out
     signOut: "Sign Out",
-    showPassword: "Show password",
-    hidePassword: "Hide password",
     confirmSignOutTitle: "Sign out of Bokli?",
     confirmSignOutBtn: "Sign Out",
-    signingOut: "Signing out...",
   },
 };
 
@@ -414,7 +388,6 @@ export const API_ERROR_CODE_TO_KEY: Record<string, keyof TranslationMap> = {
   monthClosed: "monthClosedError",
   network: "networkError",
   outcomeUnknown: "outcomeUnknownError",
-  rateLimited: "loginRateLimited",
   otherNoteRequired: "otherNoteRequired",
   varianceNoteRequired: "varianceNoteRequired",
   reopenReasonRequired: "reopenReasonRequired",
@@ -464,9 +437,6 @@ export function translateApiError(
   }
   if (lower.includes("network") || lower.includes("fetch")) {
     return t.networkError;
-  }
-  if (lower.includes("rate") || lower.includes("limit") || lower.includes("too many")) {
-    return t.loginRateLimited;
   }
   if (/category is .other./i.test(lower)) {
     return t.otherNoteRequired;

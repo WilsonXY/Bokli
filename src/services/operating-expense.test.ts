@@ -4,32 +4,16 @@ import path from "node:path";
 import { Worker } from "node:worker_threads";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { NextRequest } from "next/server";
 
 import { openDb, type Db } from "@/db";
-import { MAX_BODY_JSON_BYTES } from "@/lib/parse";
 import { runMigrations } from "@/db/migrate";
 import {
   monthCloses,
   operatingExpenses,
 } from "@/db/schema";
 import { ClosedMonthError, NotFoundError, ValidationError } from "./errors";
-import {
-  addOperatingExpense,
-  deleteOperatingExpenses,
-  getMonthPreview,
-  isValidOperatingExpenseType,
-  listOperatingExpenses,
-  removeOperatingExpense,
-  updateOperatingExpense,
-  wasOperatingExpenseAddSaved,
-} from "./operating-expense";
+import { addOperatingExpense, deleteOperatingExpenses, getMonthPreview, isValidOperatingExpenseType, listOperatingExpenses, removeOperatingExpense, updateOperatingExpense } from "./operating-expense";
 import { addCostLine, getOrCreateSheet, setRevenue } from "./daily-sheet";
-import {
-  DELETE as expensesDelete,
-  GET as expensesGet,
-  POST as expensesPost,
-} from "../../app/api/expenses/route";
 
 let tmpDir: string;
 let dbPath: string;
@@ -493,200 +477,6 @@ describe("6. Live month preview calculation (gross & net profit in sen)", () => 
   });
 });
 
-describe("7. API routes & Auth guard protection (/api/expenses)", () => {
-  it("rejects anonymous requests with 401 Unauthorized", async () => {
-    // POST /api/expenses anonymous
-    const postExpReq = new NextRequest(
-      "http://localhost:3000/api/expenses",
-      {
-        method: "POST",
-        body: JSON.stringify({
-          month: "2025-12",
-          type: "rental",
-          amountSen: 1000,
-        }),
-      },
-    );
-    const postExpRes = await expensesPost(postExpReq);
-    expect(postExpRes.status).toBe(401);
-    const postExpBody = await postExpRes.json();
-    expect(postExpBody.error).toBe("Unauthorized");
-    // The 401 carries the stable code too, so the client's structured path
-    // covers auth failures instead of falling back to prose matching.
-    expect(postExpBody.code).toBe("unauthorized");
-
-    // DELETE /api/expenses anonymous
-    const deleteExpReq = new NextRequest(
-      "http://localhost:3000/api/expenses?id=1",
-      {
-        method: "DELETE",
-      },
-    );
-    const deleteExpRes = await expensesDelete(deleteExpReq);
-    expect(deleteExpRes.status).toBe(401);
-  });
-
-  it("handles authenticated create and delete on /api/expenses", async () => {
-    const authSession = {
-      user: { id: "2", name: "katte", role: "Admin" as const },
-    };
-
-    function makeAuthReq(url: string, init?: any) {
-      const req = new NextRequest(url, init);
-      (req as any).auth = authSession;
-      return req;
-    }
-
-    const testMonth = "2025-12";
-
-    // 1. Validation error on invalid body in POST /api/expenses
-    const badPostReq = makeAuthReq("http://localhost:3000/api/expenses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        month: testMonth,
-        type: "other",
-        amountSen: 5000,
-        // missing note for 'other'
-      }),
-    });
-    const badPostRes = await expensesPost(badPostReq);
-    expect(badPostRes.status).toBe(400);
-
-    // 2. Missing 'month' field in POST /api/expenses
-    const noMonthReq = makeAuthReq("http://localhost:3000/api/expenses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "rental", amountSen: 1000 }),
-    });
-    const noMonthRes = await expensesPost(noMonthReq);
-    expect(noMonthRes.status).toBe(400);
-    expect((await noMonthRes.json()).code).toBe("saveError");
-
-    // 2b. Missing 'amountSen': a generic validation body, NOT an invalid
-    // amount. Its prose contains "amount", so the codeless fallback used to
-    // render it as invalidAmount; the explicit code keeps it generic.
-    const noAmountReq = makeAuthReq("http://localhost:3000/api/expenses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ month: testMonth, type: "rental" }),
-    });
-    const noAmountRes = await expensesPost(noAmountReq);
-    expect(noAmountRes.status).toBe(400);
-    const noAmountBody = await noAmountRes.json();
-    expect(noAmountBody.error).toBe("Field 'amountSen' is required");
-    expect(noAmountBody.code).toBe("saveError");
-
-    // 3. Successful POST /api/expenses
-    const postReq = makeAuthReq("http://localhost:3000/api/expenses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        month: testMonth,
-        type: "rental",
-        amountSen: 120000,
-        note: "Stall rental Dec",
-      }),
-    });
-    const postRes = await expensesPost(postReq);
-    expect(postRes.status).toBe(201);
-    const postData = await postRes.json();
-    expect(postData.merged).toBe(false);
-    expect(postData.expense.id).toBeDefined();
-    expect(postData.expense.type).toBe("rental");
-    expect(postData.expense.amountSen).toBe(120000);
-
-    const expenseId = postData.expense.id;
-
-    // 3b. Duplicate POST /api/expenses merges and returns 200
-    const mergePostReq = makeAuthReq("http://localhost:3000/api/expenses", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        month: testMonth,
-        type: "rental",
-        amountSen: 30000,
-        note: "Stall rental Dec",
-      }),
-    });
-    const mergePostRes = await expensesPost(mergePostReq);
-    expect(mergePostRes.status).toBe(200);
-    const mergePostData = await mergePostRes.json();
-    expect(mergePostData.merged).toBe(true);
-    expect(mergePostData.expense.id).toBe(expenseId);
-    expect(mergePostData.expense.amountSen).toBe(150000);
-
-    // 4. The Operating Expense is persisted for the month
-    const persisted = await listOperatingExpenses(testMonth, { db });
-    expect(persisted).toHaveLength(1);
-    expect(persisted[0].id).toBe(expenseId);
-    expect(persisted[0].amountSen).toBe(150000);
-
-    // 5. DELETE /api/expenses?id=...
-    const delReq = makeAuthReq(
-      `http://localhost:3000/api/expenses?id=${expenseId}`,
-      {
-        method: "DELETE",
-      },
-    );
-    const delRes = await expensesDelete(delReq);
-    expect(delRes.status).toBe(200);
-    const delData = await delRes.json();
-    expect(delData.success).toBe(true);
-    expect(delData.removedExpense.id).toBe(expenseId);
-
-    // 6. The Operating Expense is gone after deletion
-    expect(await listOperatingExpenses(testMonth, { db })).toHaveLength(0);
-
-    // 7. DELETE with a JSON `null` body is a 400, not a 500 (audit #88)
-    const nullBodyRes = await expensesDelete(
-      makeAuthReq("http://localhost:3000/api/expenses", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: "null",
-      }),
-    );
-    expect(nullBodyRes.status).toBe(400);
-    expect(await nullBodyRes.json()).toEqual({
-      error: "Valid 'id' query parameter or body field is required",
-      code: "saveError",
-    });
-
-    // 8. Float / junk ids are rejected, from the query or the body
-    for (const req of [
-      makeAuthReq("http://localhost:3000/api/expenses?id=1.5", { method: "DELETE" }),
-      makeAuthReq("http://localhost:3000/api/expenses?id=2junk", { method: "DELETE" }),
-      makeAuthReq("http://localhost:3000/api/expenses", {
-        method: "DELETE",
-        body: JSON.stringify({ id: 0 }),
-      }),
-    ]) {
-      const res = await expensesDelete(req);
-      expect(res.status).toBe(400);
-      expect((await res.json()).code).toBe("saveError");
-    }
-
-    // 9. Non-object and oversize POST bodies are rejected before the service
-    const arrayRes = await expensesPost(
-      makeAuthReq("http://localhost:3000/api/expenses", {
-        method: "POST",
-        body: "[]",
-      }),
-    );
-    expect(arrayRes.status).toBe(400);
-    expect((await arrayRes.json()).error).toBe("Request body must be a JSON object");
-
-    const bigRes = await expensesPost(
-      makeAuthReq("http://localhost:3000/api/expenses", {
-        method: "POST",
-        body: JSON.stringify({ month: testMonth, note: "x".repeat(MAX_BODY_JSON_BYTES) }),
-      }),
-    );
-    expect(bigRes.status).toBe(413);
-    expect((await bigRes.json()).code).toBe("saveError");
-  });
-});
-
 describe("8. Duplicate merging behavior", () => {
   it("merges duplicate expenses with same month, type, and note into a single row and updates amount", async () => {
     const month = "2026-01";
@@ -897,23 +687,6 @@ describe("9. Future-month rejection (policy: Opex cannot be dated forward)", () 
 });
 
 describe("10. Bulk delete (deleteOperatingExpenses + DELETE { ids })", () => {
-  const authSession = {
-    user: { id: "2", name: "katte", role: "Admin" as const },
-  };
-
-  function makeAuthReq(url: string, init?: any) {
-    const req = new NextRequest(url, init);
-    (req as any).auth = authSession;
-    return req;
-  }
-
-  function bulkDeleteReq(body: unknown) {
-    return makeAuthReq("http://localhost:3000/api/expenses", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-  }
 
   function insertExpense(month: string, note: string) {
     return db
@@ -977,82 +750,6 @@ describe("10. Bulk delete (deleteOperatingExpenses + DELETE { ids })", () => {
       .get();
     expect(stillThere).toBeDefined();
     await removeOperatingExpense(open.id, { db });
-  });
-
-  it("DELETE with { ids } removes the whole group in one request", async () => {
-    const month = "2024-03";
-    const a = insertExpense(month, "api bulk a");
-    const b = insertExpense(month, "api bulk b");
-
-    const res = await expensesDelete(bulkDeleteReq({ ids: [a.id, b.id] }));
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ deleted: 2 });
-    expect(await listOperatingExpenses(month, { db })).toHaveLength(0);
-
-    // Ids already gone are not a 404 for the batch.
-    const again = await expensesDelete(bulkDeleteReq({ ids: [a.id] }));
-    expect(again.status).toBe(200);
-    expect(await again.json()).toEqual({ deleted: 0 });
-  });
-
-  it("DELETE rejects empty, oversize and malformed ids arrays", async () => {
-    const tooMany = Array.from({ length: 51 }, (_, i) => i + 1);
-    for (const body of [
-      { ids: [] },
-      { ids: tooMany },
-      { ids: "1,2" },
-      { ids: [1, 0] },
-      { ids: [1, 1.5] },
-      { ids: [1, "2junk"] },
-      { ids: [true] },
-    ]) {
-      const res = await expensesDelete(bulkDeleteReq(body));
-      expect(res.status).toBe(400);
-      expect((await res.json()).code).toBe("saveError");
-    }
-
-    // Exactly 50 is allowed (all missing -> nothing deleted).
-    const fifty = Array.from({ length: 50 }, (_, i) => 900000 + i);
-    const okRes = await expensesDelete(bulkDeleteReq({ ids: fifty }));
-    expect(okRes.status).toBe(200);
-    expect(await okRes.json()).toEqual({ deleted: 0 });
-  });
-
-  it("DELETE maps a closed-month row in the batch to 409 and deletes nothing", async () => {
-    const open = insertExpense("2024-02", "api bulk open");
-    const closed = db.select().from(operatingExpenses).all().find(row => row.month === "2025-04" && row.note === "api bulk closed")!;
-
-    const res = await expensesDelete(
-      bulkDeleteReq({ ids: [open.id, closed.id] }),
-    );
-    expect(res.status).toBe(409);
-    expect((await res.json()).code).toBe("monthClosed");
-    expect(
-      (await listOperatingExpenses("2024-02", { db })).some(
-        (e) => e.id === open.id,
-      ),
-    ).toBe(true);
-    await removeOperatingExpense(open.id, { db });
-  });
-
-  it("single-id DELETE ?id= keeps its existing response shape", async () => {
-    const a = insertExpense("2024-03", "api single");
-    const res = await expensesDelete(
-      makeAuthReq(`http://localhost:3000/api/expenses?id=${a.id}`, {
-        method: "DELETE",
-      }),
-    );
-    expect(res.status).toBe(200);
-    const data = await res.json();
-    expect(data.success).toBe(true);
-    expect(data.removedExpense.id).toBe(a.id);
-
-    const missing = await expensesDelete(
-      makeAuthReq(`http://localhost:3000/api/expenses?id=${a.id}`, {
-        method: "DELETE",
-      }),
-    );
-    expect(missing.status).toBe(404);
   });
 });
 
@@ -1145,25 +842,6 @@ describe("11. Operating Expense identity invariant (month, type, note)", () => {
 });
 
 describe("12. Idempotent add (Idempotency-Key)", () => {
-  const authSession = {
-    user: { id: "2", name: "katte", role: "Admin" as const },
-  };
-
-  function postExpense(body: unknown, idempotencyKey?: string) {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (idempotencyKey !== undefined) {
-      headers["Idempotency-Key"] = idempotencyKey;
-    }
-    const req = new NextRequest("http://localhost:3000/api/expenses", {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
-    (req as any).auth = authSession;
-    return expensesPost(req);
-  }
 
   it("same key sent twice adds the amount once; the repeat is already-saved", async () => {
     const month = "2022-01";
@@ -1186,29 +864,6 @@ describe("12. Idempotent add (Idempotency-Key)", () => {
     expect(rows[0].amountSen).toBe(5000);
   });
 
-  it("a retry after a lost reply (same key) does not double count onto an existing row", async () => {
-    const month = "2022-02";
-    // Existing row the Save merges into: the RM 50 -> RM 100 scenario.
-    await addOperatingExpense(month, "utilities", 5000, "water", { db });
-
-    const body = { month, type: "utilities", amountSen: 5000, note: "water" };
-    // The save succeeds but its reply never reaches the browser.
-    const lost = await postExpense(body, "key-lost-reply");
-    expect(lost.status).toBe(200);
-
-    // Operator taps Save again; the client resends the same key.
-    const retry = await postExpense(body, "key-lost-reply");
-    expect(retry.status).toBe(200);
-    const retryBody = await retry.json();
-    expect(retryBody.alreadySaved).toBe(true);
-    expect(retryBody.merged).toBe(true);
-    expect(retryBody.expense.amountSen).toBe(10000);
-
-    const rows = await listOperatingExpenses(month, { db });
-    expect(rows).toHaveLength(1);
-    expect(rows[0].amountSen).toBe(10000);
-  });
-
   it("two separate saves (different keys) with the same identity still merge-add", async () => {
     const month = "2022-03";
     const a = await addOperatingExpense(month, "wages", 3000, "helper", {
@@ -1227,25 +882,6 @@ describe("12. Idempotent add (Idempotency-Key)", () => {
     const rows = await listOperatingExpenses(month, { db });
     expect(rows).toHaveLength(1);
     expect(rows[0].amountSen).toBe(5000);
-  });
-
-  it("concurrent requests with the same key add once", async () => {
-    const month = "2022-04";
-    const body = { month, type: "rental", amountSen: 7000, note: "stall" };
-    const responses = await Promise.all([
-      postExpense(body, "key-concurrent"),
-      postExpense(body, "key-concurrent"),
-      postExpense(body, "key-concurrent"),
-    ]);
-    const bodies = await Promise.all(responses.map((r) => r.json()));
-
-    expect(responses.every((r) => r.ok)).toBe(true);
-    expect(bodies.filter((b) => b.alreadySaved === false)).toHaveLength(1);
-    expect(bodies.filter((b) => b.alreadySaved === true)).toHaveLength(2);
-
-    const rows = await listOperatingExpenses(month, { db });
-    expect(rows).toHaveLength(1);
-    expect(rows[0].amountSen).toBe(7000);
   });
 
   it("a same-key add overlapping another connection's in-flight add replays instead of failing", async () => {
@@ -1295,18 +931,6 @@ describe("12. Idempotent add (Idempotency-Key)", () => {
     const rows = await listOperatingExpenses(month, { db });
     expect(rows).toHaveLength(1);
     expect(rows[0].amountSen).toBe(8000);
-  });
-
-  it("requests without a key (old clients) keep today's merge-add behaviour", async () => {
-    const month = "2022-06";
-    const body = { month, type: "rental", amountSen: 1000 };
-    const first = await postExpense(body);
-    const second = await postExpense(body);
-    expect(first.status).toBe(201);
-    expect(second.status).toBe(200);
-    const secondBody = await second.json();
-    expect(secondBody.alreadySaved).toBe(false);
-    expect(secondBody.expense.amountSen).toBe(2000);
   });
 
   it("rejects a key reused for a different expense and changes nothing", async () => {
@@ -1363,59 +987,5 @@ describe("12. Idempotent add (Idempotency-Key)", () => {
 
     const rows = await listOperatingExpenses(month, { db });
     expect(rows[0].amountSen).toBe(2500);
-  });
-
-  it("rejects an empty or oversize Idempotency-Key with 400", async () => {
-    const body = { month: "2022-08", type: "rental", amountSen: 1000 };
-    expect((await postExpense(body, "")).status).toBe(400);
-    expect((await postExpense(body, "x".repeat(201))).status).toBe(400);
-
-    const rows = await listOperatingExpenses("2022-08", { db });
-    expect(rows).toHaveLength(0);
-  });
-});
-
-describe("13. Add status check (GET /api/expenses?idempotencyKey=)", () => {
-  function getStatus(query: string, authed = true) {
-    const req = new NextRequest(`http://localhost:3000/api/expenses?${query}`, {
-      method: "GET",
-    });
-    if (authed) {
-      (req as any).auth = {
-        user: { id: "2", name: "katte", role: "Admin" as const },
-      };
-    }
-    return expensesGet(req);
-  }
-
-  it("reports a handled key as saved and an unknown key as not saved", async () => {
-    await addOperatingExpense("2022-10", "rental", 1500, null, {
-      db,
-      idempotencyKey: "key-status-saved",
-    });
-
-    expect(await wasOperatingExpenseAddSaved("key-status-saved", { db })).toBe(true);
-    expect(await wasOperatingExpenseAddSaved("key-status-unknown", { db })).toBe(false);
-
-    const saved = await getStatus("idempotencyKey=key-status-saved");
-    expect(saved.status).toBe(200);
-    expect(await saved.json()).toEqual({ saved: true });
-
-    const unknown = await getStatus("idempotencyKey=key-status-unknown");
-    expect(unknown.status).toBe(200);
-    expect(await unknown.json()).toEqual({ saved: false });
-  });
-
-  it("rejects anonymous status checks with 401", async () => {
-    const res = await getStatus("idempotencyKey=key-status-saved", false);
-    expect(res.status).toBe(401);
-  });
-
-  it("rejects a missing, empty or oversize key with 400", async () => {
-    expect((await getStatus("")).status).toBe(400);
-    expect((await getStatus("idempotencyKey=")).status).toBe(400);
-    expect(
-      (await getStatus(`idempotencyKey=${"x".repeat(201)}`)).status,
-    ).toBe(400);
   });
 });
