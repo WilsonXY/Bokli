@@ -122,6 +122,8 @@ export async function startCloudLocal({ port = 8787, testIdentity = false, build
     try { process.kill(-child.pid, "SIGTERM"); } catch { /* already gone */ }
     fs.rmSync(dir, { recursive: true, force: true });
   };
+  // wrangler runs in its own process group: stop it on a signal, also during startup.
+  for (const signal of ["SIGINT", "SIGTERM"]) process.once(signal, () => { stop(); process.exit(signal === "SIGINT" ? 130 : 143); });
   for (let i = 0; ; i++) {
     if (child.exitCode !== null) { stop(); throw new Error(`wrangler dev exited (${child.exitCode})`); }
     if (await fetch(baseURL).then((r) => r.ok, () => false)) break;
@@ -144,6 +146,5 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   if (server.privateKey) {
     console.log(`    Test header for mom: Cf-Access-Jwt-Assertion: ${signTestJwt(server, TEST_EMAILS.mom)}`);
   }
-  for (const signal of ["SIGINT", "SIGTERM"]) process.on(signal, () => { server.stop(); process.exit(0); });
   server.child.on("exit", (code) => { server.stop(); process.exit(code ?? 1); });
 }
