@@ -378,6 +378,7 @@ describe("DashboardView trend chart metric switch", () => {
     // A dot must not animate its position: the line beside it jumps, so the dots would trail behind it.
     const dotClasses = Array.from(html.matchAll(/class="(point-circle[^"]*)"/g), (m) => m[1]);
     expect(dotClasses.length).toBe(2);
+    for (const cls of dotClasses) expect(cls.split(" ")).toContain("transition-[r,fill]");
     for (const cls of dotClasses) expect(cls).not.toContain("transition-all");
 
     // The chart fades in as one piece when it is redrawn for the other metric.
