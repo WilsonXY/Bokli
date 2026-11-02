@@ -36,6 +36,7 @@ export default async function flow({ page, shot }) {
   const loaded = await layout(page);
   await shot("loaded");
 
+  if (!loaded.length) throw new Error("no Daily Sheet boxes found: check the selector");
   const off = loaded
     .map((box, i) => [i, box, skeleton[i]])
     .filter(([, box, sk]) => !sk || box.some((v, j) => Math.abs(v - sk[j]) > 1));
