@@ -4,18 +4,12 @@
 // pages on load (the same skeleton shows when switching months).
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// The page's blocks (x, y, width, height) and their children (y, height).
+// The page's blocks and their children: x, y, width, height.
 const layout = (page) =>
   page.locator("main div.space-y-4").first().evaluate((root) =>
-    [...root.children].flatMap((block) => {
-      const r = block.getBoundingClientRect();
-      return [
-        [r.x, r.y, r.width, r.height].map(Math.round),
-        ...[...block.children].map((c) => {
-          const b = c.getBoundingClientRect();
-          return [b.y, b.height].map(Math.round);
-        }),
-      ];
+    [...root.children].flatMap((block) => [block, ...block.children]).map((e) => {
+      const r = e.getBoundingClientRect();
+      return [r.x, r.y, r.width, r.height].map(Math.round);
     }),
   );
 
@@ -65,7 +59,7 @@ export default async function flow({ page, shot }) {
 
     for (const [path, api] of monthPages) {
       const release = await hold(page, api);
-      await page.goto(path);
+      await page.goto(path, { waitUntil: "commit" });
       await page.locator('[aria-busy="true"]').waitFor();
       await pause(1200);
       const skeleton = await layout(page);
