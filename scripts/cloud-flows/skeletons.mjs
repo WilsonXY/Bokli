@@ -17,7 +17,10 @@ const layout = (page) =>
 
 const kl = new Date(Date.now() + 8 * 3600e3);
 const lastMonth = new Date(Date.UTC(kl.getUTCFullYear(), kl.getUTCMonth() - 1, 1)).toISOString().slice(0, 7);
-const languages = [["en", "Switch to English"], ["zh", "中文"]];
+const languages = [["en", "Switch to English"], ["zh", "切换到中文 (Switch to Chinese)"]];
+// The static page starts in Chinese; the saved language applies once its
+// scripts run. Wait for it, or the skeleton is measured in the wrong language.
+const languageReady = (page, button) => page.locator(`header button[aria-label="${button}"].bg-white`).waitFor();
 
 function compare(name, skeleton, loaded) {
   if (!loaded.length) throw new Error(`${name}: no boxes found, check the selector`);
@@ -46,10 +49,11 @@ const monthPages = [
 
 // Loads a month page with its data held; returns the skeleton's and the loaded
 // page's boxes.
-async function monthPage(page, path, api, name, shot) {
+async function monthPage(page, path, api, button, name, shot) {
   const release = await hold(page, api);
   await page.goto(path, { waitUntil: "commit" });
   await page.locator('[aria-busy="true"]').waitFor();
+  await languageReady(page, button);
   await pause(1200);
   const skeleton = await layout(page);
   await shot(`${name}-skeleton`);
@@ -62,6 +66,7 @@ async function monthPage(page, path, api, name, shot) {
 }
 
 export default async function flow({ page, shot }) {
+  page.setDefaultTimeout(60000); // this machine can be slow; data loads took 7 s
   for (const [lang, button] of languages) {
     await page.goto("/");
     await page.getByRole("button", { name: button }).click();
@@ -81,7 +86,7 @@ export default async function flow({ page, shot }) {
     await shot(`${lang}-sheet-loaded`);
 
     for (const [path, api] of monthPages) {
-      compare(`${lang} ${path}`, ...(await monthPage(page, `${path}?month=${lastMonth}`, api, `${lang}-${api}`, shot)));
+      compare(`${lang} ${path}`, ...(await monthPage(page, `${path}?month=${lastMonth}`, api, button, `${lang}-${api}`, shot)));
     }
   }
 
@@ -96,7 +101,7 @@ export default async function flow({ page, shot }) {
   for (const [lang, button] of languages) {
     await page.getByRole("button", { name: button }).click();
     for (const [path, api] of monthPages) {
-      const [skeleton, loaded] = await monthPage(page, `${path}?month=${lastMonth}`, api, `${lang}-closed-${api}`, shot);
+      const [skeleton, loaded] = await monthPage(page, `${path}?month=${lastMonth}`, api, button, `${lang}-closed-${api}`, shot);
       compare(`${lang} ${path} (closed month) header`, skeleton.slice(0, 3), loaded.slice(0, 3));
     }
   }
