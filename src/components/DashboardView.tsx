@@ -567,9 +567,11 @@ export function DashboardView({
               <div className="space-y-4">
                 {/* SVG Line Chart */}
                 <div className="w-full overflow-x-auto pb-2">
+                  {/* Keyed by metric: switching redraws the chart and fades it in as one piece. */}
                   <svg
+                        key={trendMetric}
                         viewBox={`0 0 ${chartW} ${chartH + 20}`}
-                        className="w-full h-auto overflow-visible min-w-[340px]"
+                        className="w-full h-auto overflow-visible min-w-[340px] animate-chart-swap"
                         style={{ "--trend-point-active": trendColors.active } as React.CSSProperties}
                         onPointerLeave={(e) => {
                           if (e.pointerType === "mouse") {
@@ -693,7 +695,7 @@ export function DashboardView({
                                 fill={isActive ? trendColors.active : trendColors.line}
                                 stroke="#ffffff"
                                 strokeWidth="1.5"
-                                className="point-circle drop-shadow-xs transition-all duration-150"
+                                className="point-circle drop-shadow-xs transition-[r,fill] duration-150"
                               />
                               {showDate && (
                                 <text
