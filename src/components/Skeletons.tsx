@@ -93,7 +93,7 @@ function MonthHeader({ title }: { title: string }) {
       <div className="inline-block">
         <div className="h-10 pl-3 pr-2.5 rounded-xl border border-surface-border bg-white flex items-center gap-2 shadow-xs">
           <span className="font-bold text-sm tracking-tight"><Ghost>2026-10</Ghost></span>
-          <span className={`grid text-xs font-semibold px-2 py-0.5 rounded-full border border-transparent shrink-0 text-transparent ${bar}`}>
+          <span aria-hidden="true" className={`grid text-xs font-semibold px-2 py-0.5 rounded-full border border-transparent shrink-0 text-transparent ${bar}`}>
             {[t.openStatus, t.closedStatus, t.reopenedStatus].map((label) => (
               <span key={label} className="col-start-1 row-start-1">{label}</span>
             ))}
