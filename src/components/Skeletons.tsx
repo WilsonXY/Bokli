@@ -89,12 +89,14 @@ function MonthHeader({ title }: { title: string }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <h1 className="text-xl font-bold text-ink-primary tracking-tight">{title}</h1>
-      {/* Same box as MonthSelectorDropdown's button, for an open month. */}
+      {/* Same box as MonthSelectorDropdown's button. */}
       <div className="inline-block">
         <div className="h-10 pl-3 pr-2.5 rounded-xl border border-surface-border bg-white flex items-center gap-2 shadow-xs">
           <span className="font-bold text-sm tracking-tight"><Ghost>2026-10</Ghost></span>
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border border-transparent shrink-0 text-transparent ${bar}`}>
-            {t.openStatus}
+          <span className={`grid text-xs font-semibold px-2 py-0.5 rounded-full border border-transparent shrink-0 text-transparent ${bar}`}>
+            {[t.openStatus, t.closedStatus, t.reopenedStatus].map((label) => (
+              <span key={label} className="col-start-1 row-start-1">{label}</span>
+            ))}
           </span>
           <span className="w-4 h-4 shrink-0" />
         </div>

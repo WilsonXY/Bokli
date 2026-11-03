@@ -57,6 +57,21 @@ describe("MonthSelectorDropdown", () => {
       expect(html).not.toContain('role="listbox"');
     });
 
+    it("keeps the trigger badge as wide as the widest status, showing only the current one", () => {
+      const html = ReactDOMServer.renderToStaticMarkup(
+        React.createElement(MonthSelectorDropdown, {
+          currentMonth: "2026-04",
+          options: defaultOptions,
+          onSelect: vi.fn(),
+        }),
+      );
+
+      const label = (text: string) => html.match(new RegExp(`<span class="([^"]*)">${text}</span>`))?.[1];
+      expect(label(t.closedStatus)).not.toContain("invisible");
+      expect(label(t.openStatus)).toContain("invisible");
+      expect(label(t.reopenedStatus)).toContain("invisible");
+    });
+
     it("renders full listbox with all options and status badges when open", () => {
       const html = ReactDOMServer.renderToStaticMarkup(
         React.createElement(MonthSelectorDropdown, {
