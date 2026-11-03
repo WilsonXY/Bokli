@@ -358,3 +358,30 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
     });
   });
 });
+
+describe("DashboardView trend chart metric switch", () => {
+  it("swaps the whole chart at once instead of sliding the dots", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(
+      React.createElement(DashboardView, {
+        tiles: [],
+        activeMonth: "2026-05",
+        activeTile: null,
+        trend: [
+          { date: "2026-05-01", cashSen: 2000, tngSen: 3000, totalSen: 5000, costSen: 1500 },
+          { date: "2026-05-02", cashSen: 2500, tngSen: 3500, totalSen: 6000, costSen: 2500 },
+        ],
+        split: null,
+        costByCategory: null,
+      })
+    );
+
+    // A dot must not animate its position: the line beside it jumps, so the dots would trail behind it.
+    const dotClasses = Array.from(html.matchAll(/class="(point-circle[^"]*)"/g), (m) => m[1]);
+    expect(dotClasses.length).toBe(2);
+    for (const cls of dotClasses) expect(cls.split(" ")).toContain("transition-[r,fill]");
+    for (const cls of dotClasses) expect(cls).not.toContain("transition-all");
+
+    // The chart fades in as one piece when it is redrawn for the other metric.
+    expect(html).toMatch(/<svg[^>]*class="[^"]*animate-chart-swap/);
+  });
+});
