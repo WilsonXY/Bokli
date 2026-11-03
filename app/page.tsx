@@ -2,7 +2,7 @@
 
 import { CloudPage } from "@/components/CloudPage";
 import { DailySheetForm } from "@/components/DailySheetForm";
-import { DailySheetSkeleton } from "@/components/DailySheetSkeleton";
+import { DailySheetSkeleton } from "@/components/Skeletons";
 import { cloudRead } from "@/lib/cloud-client";
 import type { CostCategory } from "@/lib/vocab";
 

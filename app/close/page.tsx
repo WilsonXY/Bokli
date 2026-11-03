@@ -1,6 +1,7 @@
 "use client";
 
 import { CloudPage } from "@/components/CloudPage";
+import { MonthCloseSkeleton } from "@/components/Skeletons";
 import { MonthCloseView } from "@/components/MonthCloseView";
 import { cloudIdentity, cloudRead } from "@/lib/cloud-client";
 import { formatKlDate, formatKlDateTime } from "@/lib/datetime";
@@ -38,6 +39,7 @@ export default function MonthClosePage() {
     <CloudPage
       param="month"
       load={load}
+      skeleton={<MonthCloseSkeleton />}
       render={(props, reload) => <MonthCloseView key={props.currentMonth} {...props} onRefresh={reload} />}
     />
   );
