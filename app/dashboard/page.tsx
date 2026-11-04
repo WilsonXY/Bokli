@@ -1,6 +1,7 @@
 "use client";
 
 import { CloudPage } from "@/components/CloudPage";
+import { DashboardSkeleton } from "@/components/Skeletons";
 import { DashboardView } from "@/components/DashboardView";
 import { cloudRead } from "@/lib/cloud-client";
 
@@ -10,5 +11,5 @@ async function load(query: string) {
 }
 
 export default function DashboardPage() {
-  return <CloudPage param="month" load={load} render={(props) => <DashboardView {...props} />} />;
+  return <CloudPage param="month" load={load} skeleton={<DashboardSkeleton />} render={(props) => <DashboardView {...props} />} />;
 }

@@ -105,12 +105,19 @@ export function MonthSelectorDropdown({
           {currentMonth}
         </span>
         {showStatusInTrigger && (
+          // Every status label in one grid cell, only the current one visible:
+          // the badge keeps the widest label's width, so the picker doesn't
+          // change size between months (or from the loading skeleton).
           <span
-            className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${getStatusBadgeStyle(
+            className={`grid text-center text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${getStatusBadgeStyle(
               currentStatus,
             )}`}
           >
-            {getStatusLabel(currentStatus)}
+            {(["open", "closed", "reopened"] as const).map((status) => (
+              <span key={status} className={`col-start-1 row-start-1${status === currentStatus ? "" : " invisible"}`}>
+                {getStatusLabel(status)}
+              </span>
+            ))}
           </span>
         )}
         <svg

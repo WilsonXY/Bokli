@@ -9,6 +9,8 @@ interface CloudPageProps<P> {
   param: "date" | "month";
   load: (query: string) => Promise<P>;
   render: (props: P, reload: () => void) => React.ReactNode;
+  /** Shown while loading; shape it like the loaded page so nothing jumps. */
+  skeleton?: React.ReactNode;
 }
 
 function Skeleton() {
@@ -21,7 +23,7 @@ function Skeleton() {
   );
 }
 
-function Loader<P>({ param, load, render }: CloudPageProps<P>) {
+function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPageProps<P>) {
   const { t } = useI18n();
   const value = useSearchParams().get(param);
   const query = value ? `?${param}=${encodeURIComponent(value)}` : "";
@@ -41,7 +43,7 @@ function Loader<P>({ param, load, render }: CloudPageProps<P>) {
   }, [load, query]);
   useEffect(reload, [reload]);
 
-  if (state?.query !== query) return <Skeleton />;
+  if (state?.query !== query) return skeleton;
   const error = (
     <div role="alert" className="mb-3 p-4 rounded-xl bg-finance-loss-light border border-finance-loss-border text-finance-loss text-sm font-semibold">
       {t.loadError}
@@ -55,7 +57,7 @@ function Loader<P>({ param, load, render }: CloudPageProps<P>) {
 /** Static cloud page: reads /api/cloud-v1/* in the browser, then renders the usual view. */
 export function CloudPage<P>(props: CloudPageProps<P>) {
   return (
-    <Suspense fallback={<Skeleton />}>
+    <Suspense fallback={props.skeleton ?? <Skeleton />}>
       <Loader {...props} />
     </Suspense>
   );

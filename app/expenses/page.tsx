@@ -1,6 +1,7 @@
 "use client";
 
 import { CloudPage } from "@/components/CloudPage";
+import { ExpensesSkeleton } from "@/components/Skeletons";
 import { ExpensesView } from "@/components/ExpensesView";
 import { cloudRead } from "@/lib/cloud-client";
 import type { OperatingExpenseType } from "@/services/operating-expense";
@@ -29,6 +30,7 @@ export default function ExpensesPage() {
     <CloudPage
       param="month"
       load={load}
+      skeleton={<ExpensesSkeleton />}
       render={(props, reload) => <ExpensesView key={props.currentMonth} {...props} onRefresh={reload} />}
     />
   );
