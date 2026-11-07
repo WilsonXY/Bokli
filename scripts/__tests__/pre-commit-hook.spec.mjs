@@ -104,6 +104,14 @@ describe("pre-commit hook", { timeout: 60_000 }, () => {
     expect(read("target.ts")).toContain("let t = 1;");
   });
 
+  it("lints a staged regular file whose working copy is now a symlink", () => {
+    write("bad.ts", "export const y: any = 1;\n");
+    git("add", "bad.ts");
+    rmSync(path.join(dir, "bad.ts"));
+    symlinkSync("old.ts", path.join(dir, "bad.ts"));
+    expect(commit().status).not.toBe(0);
+  });
+
   it("lints a symlink replaced by a regular file", () => {
     symlinkSync("old.ts", path.join(dir, "link.ts"));
     git("add", "link.ts");
