@@ -15,10 +15,13 @@ fi
 # Auto-fix: run `eslint --fix` on the staged JS/TS files and re-stage them; block only on
 # what ESLint can't fix. Warnings block too, like CI (`eslint . --max-warnings=0`).
 # A file with unstaged changes is only checked, not fixed: re-staging it would commit those hunks.
+export GIT_LITERAL_PATHSPECS=1  # a staged `a*.ts` must not also stage `another.ts`
 full=() partial=()
 while IFS= read -r -d '' f; do
+  case "$f" in *.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx|*.mts|*.cts) ;; *) continue ;; esac
+  [ -L "$f" ] && continue  # ESLint would fix the link's target, which may not be staged
   if git diff --quiet -- "$f"; then full+=("$f"); else partial+=("$f"); fi
-done < <(git diff --cached --name-only -z --diff-filter=ACMR -- '*.js' '*.jsx' '*.mjs' '*.cjs' '*.ts' '*.tsx' '*.mts' '*.cts')
+done < <(git diff --cached --name-only -z --diff-filter=ACMR)
 [ ${#full[@]} -eq 0 ] && [ ${#partial[@]} -eq 0 ] && exit 0
 
 eslint=node_modules/.bin/eslint
@@ -29,7 +32,7 @@ fi
 
 status=0
 if [ ${#full[@]} -gt 0 ]; then
-  "$eslint" --fix --no-warn-ignored --max-warnings=0 "${full[@]}" || status=1
+  "$eslint" --fix --no-warn-ignored --max-warnings=0 -- "${full[@]}" || status=1
   git add -- "${full[@]}" || exit 1
 fi
 for f in "${partial[@]}"; do

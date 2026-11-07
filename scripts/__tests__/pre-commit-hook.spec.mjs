@@ -86,6 +86,24 @@ describe("pre-commit hook", { timeout: 60_000 }, () => {
     expect(committed("old.ts")).not.toContain("unstaged");
   });
 
+  it("treats filenames literally: no glob expansion, no option parsing", () => {
+    write("a*.ts", "let g = 1;\nexport default g;\n");
+    write("another.ts", "untracked\n");
+    write("--opt.ts", "export const o = 1;\n");
+    git("add", "--", ":(literal)a*.ts", "--opt.ts");
+    expect(commit().status).toBe(0);
+    expect(committed("a*.ts")).toContain("const g = 1;");
+    expect(git("ls-files", "another.ts")).toBe("");
+  });
+
+  it("never fixes through a staged symlink", () => {
+    write("target.ts", "let t = 1;\nexport default t;\n");
+    symlinkSync("target.ts", path.join(dir, "link.ts"));
+    git("add", "link.ts");
+    expect(commit().status).toBe(0);
+    expect(read("target.ts")).toContain("let t = 1;");
+  });
+
   it("still blocks first in the prod folder", () => {
     const guarded = readFileSync(hook, "utf8").replace(/^PROD_DIR=.*$/m, `PROD_DIR="${dir}"`);
     writeFileSync(path.join(dir, ".githooks/pre-commit"), guarded);
