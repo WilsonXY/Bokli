@@ -104,6 +104,16 @@ describe("pre-commit hook", { timeout: 60_000 }, () => {
     expect(read("target.ts")).toContain("let t = 1;");
   });
 
+  it("lints a symlink replaced by a regular file", () => {
+    symlinkSync("old.ts", path.join(dir, "link.ts"));
+    git("add", "link.ts");
+    git("commit", "-qm", "link", "--no-verify");
+    rmSync(path.join(dir, "link.ts"));
+    write("link.ts", "export const y: any = 1;\n");
+    git("add", "link.ts");
+    expect(commit().status).not.toBe(0);
+  });
+
   it("still blocks first in the prod folder", () => {
     const guarded = readFileSync(hook, "utf8").replace(/^PROD_DIR=.*$/m, `PROD_DIR="${dir}"`);
     writeFileSync(path.join(dir, ".githooks/pre-commit"), guarded);

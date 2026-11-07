@@ -21,7 +21,7 @@ while IFS= read -r -d '' f; do
   case "$f" in *.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx|*.mts|*.cts) ;; *) continue ;; esac
   [ -L "$f" ] && continue  # ESLint would fix the link's target, which may not be staged
   if git diff --quiet -- "$f"; then full+=("$f"); else partial+=("$f"); fi
-done < <(git diff --cached --name-only -z --diff-filter=ACMR)
+done < <(git diff --cached --name-only -z --diff-filter=ACMRT)
 [ ${#full[@]} -eq 0 ] && [ ${#partial[@]} -eq 0 ] && exit 0
 
 eslint=node_modules/.bin/eslint
