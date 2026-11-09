@@ -33,7 +33,7 @@ npm run test:deploy    # Worker bundle + migration folder: when touching workers
 npm run build          # static pages into out/
 ```
 
-Commits run `.githooks/pre-commit`: `eslint --fix` on staged JS/TS files, blocking on any error or warning left (fresh clone: `git config core.hooksPath .githooks`).
+Commits run `.githooks/pre-commit`: `eslint --fix` on staged JS/TS files, blocking on any error or warning left (`npm ci` turns it on).
 
 UI or user-visible changes also need proof of the changed interaction:
 `node scripts/cloud-verify.mjs <flow.mjs> [mom|katte] [--mobile]`. It builds, starts

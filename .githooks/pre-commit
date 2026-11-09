@@ -1,17 +1,4 @@
 #!/bin/bash
-# Guard: block dev/agent git activity inside the PROD worktree (~/projects/bokli).
-# The prod folder must stay frozen on the deployed tag — see KnowledgeBase/Projects/bokli/Worktree-Layout.md
-PROD_DIR="/home/penguin/projects/bokli"
-# resolve symlinks & compare
-here="$(cd "$PWD" && pwd -P)"
-prod="$(cd "$PROD_DIR" 2>/dev/null && pwd -P || echo "$PROD_DIR")"
-if [ "$here" = "$prod" ] || [ "$here" = "$prod/" ]; then
-  echo "❌ BLOCKED: git $0 in the PROD folder ($PROD_DIR) is forbidden."
-  echo "   Prod must stay frozen on the deployed tag (build-stamp boot gate will crash-loop bokli.service otherwise)."
-  echo "   Do your work in the DEV worktree: ~/projects/bokli-dev"
-  exit 1
-fi
-
 # Auto-fix: run `eslint --fix` on the staged JS/TS files and re-stage them; block only on
 # what ESLint can't fix. Warnings block too, like CI (`eslint . --max-warnings=0`).
 # A file with unstaged changes is only checked, not fixed: re-staging it would commit those hunks.

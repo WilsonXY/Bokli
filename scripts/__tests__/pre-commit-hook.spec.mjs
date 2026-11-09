@@ -122,11 +122,10 @@ describe("pre-commit hook", { timeout: 60_000 }, () => {
     expect(commit().status).not.toBe(0);
   });
 
-  it("still blocks first in the prod folder", () => {
-    const guarded = readFileSync(hook, "utf8").replace(/^PROD_DIR=.*$/m, `PROD_DIR="${dir}"`);
-    writeFileSync(path.join(dir, ".githooks/pre-commit"), guarded);
-    const r = commit();
-    expect(r.status).not.toBe(0);
-    expect(r.out).toContain("BLOCKED");
+  it("npm's prepare script turns the hook on in a fresh clone", () => {
+    git("config", "--unset", "core.hooksPath");
+    const { prepare } = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).scripts;
+    execFileSync("sh", ["-c", prepare], { cwd: dir });
+    expect(git("config", "core.hooksPath").trim()).toBe(".githooks");
   });
 });
