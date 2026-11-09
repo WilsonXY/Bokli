@@ -126,6 +126,6 @@ describe("pre-commit hook", { timeout: 60_000 }, () => {
     git("config", "--unset", "core.hooksPath");
     const { prepare } = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).scripts;
     execFileSync("sh", ["-c", prepare], { cwd: dir });
-    expect(git("config", "core.hooksPath").trim()).toBe(".githooks");
+    expect(git("config", "--local", "core.hooksPath").trim()).toBe(".githooks");
   });
 });
