@@ -128,4 +128,12 @@ describe("pre-commit hook", { timeout: 60_000 }, () => {
     execFileSync("sh", ["-c", prepare], { cwd: dir });
     expect(git("config", "--local", "core.hooksPath").trim()).toBe(".githooks");
   });
+
+  it("prepare leaves an enclosing repo alone when unpacked without its own .git", () => {
+    git("config", "core.hooksPath", "parent-hooks");
+    mkdirSync(path.join(dir, "unpacked"));
+    const { prepare } = JSON.parse(readFileSync(path.join(root, "package.json"), "utf8")).scripts;
+    execFileSync("sh", ["-c", prepare], { cwd: path.join(dir, "unpacked") });
+    expect(git("config", "--local", "core.hooksPath").trim()).toBe("parent-hooks");
+  });
 });
