@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "next build",
+    "prepare": "[ -e .git ] && git config core.hooksPath .githooks || true",
     "cloud:local": "node scripts/cloud-local.mjs",
     "test": "vitest run --max-workers=1",
     "test:unit": "vitest run --max-workers=1 --project unit",
