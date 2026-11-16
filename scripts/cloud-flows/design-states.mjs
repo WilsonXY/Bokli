@@ -4,6 +4,7 @@ const kl = new Date(Date.now() + 8 * 3600e3);
 const current = kl.toISOString().slice(0, 7);
 const previous = new Date(Date.UTC(kl.getUTCFullYear(), kl.getUTCMonth() - 1, 1)).toISOString().slice(0, 7);
 export default async function flow({ page, shot: rawShot }) {
+  page.setDefaultNavigationTimeout(60000);
   const shot = async name => { await page.waitForTimeout(1100); await rawShot(name, page, { fullPage: false }); };
   await page.goto(`/dashboard?month=${current}`);
   await page.getByText("本月暂无每日账单记录").waitFor();

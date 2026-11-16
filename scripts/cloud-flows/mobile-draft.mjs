@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 
 export default async function flow({ page, shot: rawShot }) {
+  page.setDefaultNavigationTimeout(60000);
   const shot = async name => { await page.waitForTimeout(1100); await rawShot(name, page, { fullPage: false }); };
   const protectedFromUnload = () => page.evaluate(() => { const event = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; });
   await page.goto("/");
