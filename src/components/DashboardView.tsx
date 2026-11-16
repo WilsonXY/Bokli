@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
+import { ActionIcon } from "./ActionIcon";
 import { amountSizeClass, formatMyr, isLongAmount } from "@/lib/money";
 import type { MonthStatus } from "@/services/dashboard";
 import { MonthSelectorDropdown } from "@/components/MonthSelectorDropdown";
@@ -116,11 +117,11 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
       </div>
       {loadError ? <div role="alert" className="page-error">{t.loadError}<p>{loadError}</p></div> : <>
         {!trend.length && <section className="empty-month panel"><h2>{t.noDailyEntries}</h2><p>{t.emptyMonthHint}</p><Link className="primary-button" href="/">{t.recordDailySheet}</Link></section>}
-        <section className={`overview-summary panel${noActivity ? " is-empty" : ""}`} aria-label={t.monthSummary}>
+        <section className={`overview-summary panel${noActivity ? " is-empty" : ""}`} hidden={noActivity} aria-label={t.monthSummary}>
           <div className={`profit-headline${isProfitPositive ? "" : " is-loss"}`}>
-            <h2>{t.netProfit}<span className="profit-status">{!activeTile?.netSen ? t.evenStatus : isProfitPositive ? t.profitStatus : t.lossStatus}</span></h2>
-            <span data-long={isLongAmount(headline) || undefined} className={`metric-headline ${amountSizeClass(headline, "text-2xl", "text-3xl")} sm:text-4xl font-extrabold tracking-tight tabular-nums ${isProfitPositive ? "text-finance-profit" : "text-finance-loss"}`}>{headline}</span>
-            <p>{t.netProfitFormula}</p>
+            <h2>{t.netProfit}<span className="profit-status sr-only">{!activeTile?.netSen ? t.evenStatus : isProfitPositive ? t.profitStatus : t.lossStatus}</span></h2>
+            <span data-zero={!activeTile?.netSen || undefined} data-long={isLongAmount(headline) || undefined} className={`metric-headline ${amountSizeClass(headline, "text-2xl", "text-3xl")} sm:text-4xl font-extrabold tracking-tight tabular-nums ${isProfitPositive ? "text-finance-profit" : "text-finance-loss"}`}>{headline}</span>
+            <p className="sr-only">{t.netProfitFormula}</p>
           </div>
           {!noActivity && <div className="summary-metrics">{metrics.map(metric => {
             const amount = formatMyr(BigInt(metric.value));
@@ -129,9 +130,9 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
         </section>
         <Link className="month-close-action" href={`/close?month=${activeMonth}`}>
           <span className="month-close-icon" aria-hidden="true"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path strokeLinecap="round" strokeLinejoin="round" d="M8 3h8v4H8zM7 5H5v16h14V5h-2M8 12l2 2 5-5M8 18h8" /></svg></span>
-          <span><strong>{t.closeMonthAction}</strong><small>{t.closeMonthHint}</small></span><span className="action-arrow" aria-hidden="true">›</span>
+          <span><strong>{t.closeMonthAction}</strong><small className="sr-only">{t.closeMonthHint}</small></span><span className="action-arrow" aria-hidden="true">›</span>
         </Link>
-        {trend.length > 0 && <details className="daily-records daily-ledger" open={trend.length <= 7}><summary>{t.viewDailySheets} <span>{trend.length}<span className="ledger-chevron" aria-hidden="true">⌄</span></span></summary><p className="sr-only">{t.chartDataBelow}</p><div>{trend.map(row => <Link key={row.date} href={`/?date=${row.date}`} className="daily-record"><span>{row.date}</span><span><small>{metricLabel}</small>{formatMyr(BigInt(trendValueSen(row, trendMetric)))}<span aria-hidden="true"> ›</span></span></Link>)}</div></details>}
+        {trend.length > 0 && <details className="daily-records daily-ledger" open={trend.length <= 7}><summary>{t.dailySheetsLabel}<span className="daily-record-counter" aria-label={`${trend.length} ${t.recordedDays}`}><ActionIcon name="calendar" size={18} />{trend.length}<span className="ledger-chevron" aria-hidden="true">⌄</span></span></summary><p className="sr-only">{t.chartDataBelow}</p><div>{trend.map(row => <Link key={row.date} href={`/?date=${row.date}`} className="daily-record"><span>{row.date}</span><span><small>{metricLabel}</small>{formatMyr(BigInt(trendValueSen(row, trendMetric)))}<span aria-hidden="true"> ›</span></span></Link>)}</div></details>}
         {trend.length > 0 && <section className="overview-trend panel" aria-labelledby="trend-heading">
           <div className="panel-heading"><h2 id="trend-heading">{trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}</h2><span className="record-count">{t.recordedDays}: {trend.length}</span></div>
           <div className="metric-tabs" aria-label={t.trendMetric}>{(["revenue", "cost"] as const).map(metric => <button key={metric} type="button" aria-pressed={trendMetric === metric} onClick={() => setTrendMetric(metric)}>{metric === "revenue" ? t.sheetRevCol : t.sheetCostCol}</button>)}</div>
@@ -158,7 +159,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
         {(Boolean(split?.totalSen) || costs.length > 0) && <div className="overview-composition">
           <section className="overview-split panel" aria-labelledby="split-heading"><h2 id="split-heading">{t.revenueSplit}</h2>
             {!split?.totalSen ? <p className="empty-note">{t.noRevenueData}</p> : <>
-              <dl className="account-balances"><div className="cash-account"><dt><span aria-hidden="true"><ChannelIcon channel="cash" /></span>{t.cashRevenue}</dt><dd>{formatMyr(BigInt(split.cashSen))}</dd><small>{cashPct}%</small></div><div className="tng-account"><dt><span aria-hidden="true"><ChannelIcon channel="tng" /></span>{t.tngRevenue}</dt><dd>{formatMyr(BigInt(split.tngSen))}</dd><small>{tngPct}%</small></div></dl>
+              <dl className="account-balances"><div className="cash-account"><dt><span aria-hidden="true"><ChannelIcon channel="cash" /></span>{t.cashRevenueShort}</dt><dd>{formatMyr(BigInt(split.cashSen))}</dd><small>{cashPct}%</small></div><div className="tng-account"><dt><span aria-hidden="true"><ChannelIcon channel="tng" /></span>{t.tngRevenueShort}</dt><dd>{formatMyr(BigInt(split.tngSen))}</dd><small>{tngPct}%</small></div></dl>
             </>}
           </section>
           <section className="overview-costs panel" aria-labelledby="cost-heading"><h2 id="cost-heading">{t.costDistribution}</h2>

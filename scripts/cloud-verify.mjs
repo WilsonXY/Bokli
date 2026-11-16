@@ -46,7 +46,7 @@ let ok = false;
 
 async function openAs(who) {
   const context = await browser.newContext({
-    baseURL: server.baseURL, viewport, recordVideo: { dir: evidence, size: viewport },
+    baseURL: server.baseURL, viewport, isMobile: mobile, hasTouch: mobile, recordVideo: { dir: evidence, size: viewport },
     extraHTTPHeaders: { "Cf-Access-Jwt-Assertion": signTestJwt(server, TEST_EMAILS[who]) },
   });
   context.setDefaultTimeout(15000);

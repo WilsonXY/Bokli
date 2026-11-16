@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionIcon } from "./ActionIcon";
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { amountSizeClass, formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
@@ -733,17 +734,6 @@ export function ExpensesView({
 
           {/* Operating Expenses Section */}
           <section aria-label={t.operatingExpenses} className="operating-expenses space-y-2.5">
-            {/* Standalone Clickable "+ Add Cost" Button at bottom */}
-            {!isClosed && !isDraftOpen && (
-              <button
-                type="button"
-                onClick={() => setIsDraftOpen(true)}
-                className="add-expense-action relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-brand-broccoli-light/40 hover:bg-brand-broccoli-light/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden"
-              >
-                <span className="text-lg leading-none relative z-10">+</span>
-                <span className="relative z-10">{t.addExpense}</span>
-              </button>
-            )}
             {/* Active Draft Form Card (Daily-sheet style) */}
             {isDraftOpen && !isClosed && (
               <div className="bg-white border-2 border-brand-broccoli ring-2 ring-brand-broccoli/20 rounded-xl shadow-xs overflow-hidden transition-all">
@@ -857,37 +847,33 @@ export function ExpensesView({
                       }}
                       className="flex-1 h-11 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary font-semibold text-sm transition-colors cursor-pointer"
                     >
-                      {t.cancel}
+                      <ActionIcon name="close" /><span className="sr-only">{t.cancel}</span>
                     </button>
                     <button
                       type="submit"
                       disabled={adding}
                       className="flex-1 h-11 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                      {adding ? t.saving : t.addExpense}
+                      <span className={adding ? "animate-spin" : undefined}><ActionIcon name={adding ? "refresh" : "check"} /></span><span className="sr-only">{adding ? t.saving : t.addExpense}</span>
                     </button>
                   </div>
                 </form>
               </div>
             )}
 
-            <div data-readonly={isClosed || undefined} className="section-heading expense-records-heading flex items-center justify-between">
-              <h2 className="text-base font-medium text-ink-primary">
-                {t.savedExpensesTitle}
-              </h2>
-              <span className="text-sm font-bold text-ink-secondary tabular-nums">
-                {formatMyr(totalExpenseSen)}
-              </span>
+            <div data-readonly={isClosed || undefined} className="expense-records-heading expense-toolbar">
+              <h2 className="sr-only">{t.savedExpensesTitle}</h2>
+              {!isClosed && !isDraftOpen && <button type="button" className="expense-add-icon" aria-label={t.addExpense} title={t.addExpense} onClick={() => setIsDraftOpen(true)}><ActionIcon name="add" size={24} /></button>}
+              <span className="expense-list-total">{formatMyr(totalExpenseSen)}</span>
             </div>
 
-            {!isClosed && mergedExpenses.length > 0 && <p className="records-help">{t.recordActionsHint}</p>}
             {/* Dynamic Cost Cards */}
             {mergedExpenses.length > 0 && (
               <div className="space-y-2">
                 {mergedExpenses.map((item) => {
                   const Record = isClosed ? "div" : "details";
                   const Heading = isClosed ? "div" : "summary";
-                  return <Record key={item.key} className="expense-record" data-readonly={isClosed || undefined}>
+                  return <Record key={item.key} className="expense-record" data-readonly={isClosed || undefined} onToggle={e => { const record = e.currentTarget as HTMLDetailsElement; if (record.open) record.querySelector<HTMLElement>(".record-delete")?.scrollIntoView({ block: "nearest" }); }}>
                     <Heading className="expense-record-summary">
                       <span className="expense-record-category">{getCategoryLabel(item.type)}{item.ids.length > 1 && <small> ×{item.ids.length}</small>}</span>
                       <span className={`expense-record-amount ${amountSizeClass(formatMyr(BigInt(item.amountSen)), "text-xs", "text-base")} font-bold text-ink-secondary tabular-nums`}>{formatMyr(BigInt(item.amountSen))}</span>
@@ -895,7 +881,7 @@ export function ExpensesView({
                       {item.note && <p className="expense-record-note">{item.note}</p>}
                     </Heading>
                     {!isClosed && <div className="expense-record-actions"><button type="button" onClick={() => setPendingDeleteExpense(item)} aria-label={t.delete} className="record-delete">
-                      <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5" /></svg><span>{t.delete}</span>
+                      <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5" /></svg><span className="sr-only">{t.delete}</span>
                     </button></div>}
                   </Record>;
                 })}
@@ -975,7 +961,7 @@ export function ExpensesView({
                     onClick={() => setPendingDeleteExpense(null)}
                     className="flex-1 h-11 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary font-semibold text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-surface-border disabled:opacity-50"
                   >
-                    {t.cancel}
+                    <ActionIcon name="close" /><span className="sr-only">{t.cancel}</span>
                   </button>
                   <button
                     type="button"

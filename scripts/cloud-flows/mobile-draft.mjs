@@ -26,6 +26,7 @@ export default async function flow({ page, shot: rawShot }) {
   await shot("save-action-clear-of-inputs");
   assert.equal(await protectedFromUnload(), true);
   await page.getByRole("button", { name: "Revert changes", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Confirm Revert", exact: true }).click();
   await page.waitForTimeout(100);
   assert.equal(await protectedFromUnload(), false);
 

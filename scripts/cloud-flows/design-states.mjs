@@ -6,6 +6,10 @@ const previous = new Date(Date.UTC(kl.getUTCFullYear(), kl.getUTCMonth() - 1, 1)
 export default async function flow({ page, shot: rawShot }) {
   page.setDefaultNavigationTimeout(60000);
   const shot = async name => { await page.waitForTimeout(1100); await rawShot(name, page, { fullPage: false }); };
+  const revert = async () => {
+    await page.getByRole("button", { name: "撤销修改", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "确认撤销", exact: true }).click();
+  };
   await page.goto(`/dashboard?month=${current}`);
   await page.getByText("本月暂无每日账单记录").waitFor();
   assert.equal(await page.locator(".overview-composition").count(), 0);
@@ -37,7 +41,7 @@ export default async function flow({ page, shot: rawShot }) {
   await page.getByRole("dialog").getByRole("button", { name: "确认保存", exact: true }).click();
   await page.locator("#other-note-error-0").waitFor();
   await shot("required-note-feedback");
-  await page.getByRole("button", { name: "撤销修改", exact: true }).click();
+  await revert();
   await page.getByRole("button", { name: /添加开销/ }).click();
   await page.locator('input[inputmode="decimal"]').nth(2).fill("10");
   await page.getByRole("button", { name: "删除这笔开销", exact: true }).click();
@@ -49,7 +53,7 @@ export default async function flow({ page, shot: rawShot }) {
   await page.getByRole("dialog").waitFor();
   assert.equal(await page.locator(".zero-revenue-warning").count(), 0, "Entered revenue must not show a blank-revenue reminder");
   await page.getByRole("dialog").getByRole("button", { name: "取消", exact: true }).click();
-  await page.getByRole("button", { name: "撤销修改", exact: true }).click();
+  await revert();
   await page.goto(`/close?month=${previous}`);
   await page.locator("#close-cash").waitFor();
   await page.locator(".close-calculation > summary").click();

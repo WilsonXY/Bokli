@@ -13,7 +13,7 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
-  const { t, lang } = useI18n();
+  const { t } = useI18n();
   const [destinations, setDestinations] = React.useState<Record<string, string>>({});
   const items = [
     { href: "/", label: t.navSheet, short: t.navSheetShort, path: "M12 5v14M5 12h14" },
@@ -22,7 +22,6 @@ export function AppShell({ children }: AppShellProps) {
     { href: "/close", label: t.navClose, short: t.navClose, path: "M5 10h14v11H5zM8 10V6a4 4 0 0 1 8 0v4M12 14v3" },
     { href: "/settings", label: t.navSettings, short: t.navSettings, path: "M4 7h16M4 17h16M9 4v6M15 14v6" },
   ];
-  const active = items.find(item => item.href === pathname) ?? items[0];
   function navigation(mobile: boolean) {
     return <nav aria-label={t.mainNavigation} className={mobile ? "mobile-navigation" : "desktop-navigation"} onClickCapture={() => {
       const search = window.location.search;
@@ -30,9 +29,9 @@ export function AppShell({ children }: AppShellProps) {
     }}>
       {items.filter(item => !mobile || item.href !== "/close").map(item => {
         const selected = pathname === item.href || (mobile && pathname === "/close" && item.href === "/dashboard");
-        return <Link key={item.href} href={destinations[item.href] ?? item.href} aria-label={item.label} aria-current={selected ? "page" : undefined} className={`workspace-nav-link ${item.href === "/" ? "nav-record" : ""}`}>
+        return <Link key={item.href} href={destinations[item.href] ?? item.href} aria-label={item.label} title={item.label} aria-current={selected ? "page" : undefined} className={`workspace-nav-link ${item.href === "/" ? "nav-record" : ""}`}>
           <span className="nav-icon"><svg aria-hidden="true" width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d={item.path} /></svg></span>
-          <span>{mobile ? item.short : item.label}</span>
+          <span className="nav-label">{mobile ? item.short : item.label}</span>
         </Link>;
       })}
     </nav>;
@@ -40,20 +39,15 @@ export function AppShell({ children }: AppShellProps) {
   return <div className="app-workspace">
     <a href="#main-content" className="skip-link">{t.skipToContent}</a>
     <aside className="workspace-sidebar">
-      <Link href="/" className="brand-lockup" aria-label={t.homeLabel}><span className="brand-mark" aria-hidden="true">b<span /></span><span className="brand-name">Bokli<small>簿里 · {t.brandSubtitle}</small></span></Link>
-      <p className="sidebar-caption">{t.workspaceLabel}</p>
+      <Link href="/" className="brand-lockup" aria-label={t.homeLabel}><span className="brand-mark" aria-hidden="true">b<span /></span><span className="brand-name">Bokli<small>簿里</small></span></Link>
       {navigation(false)}
       {navigation(true)}
-      <div className="sidebar-footer"><span className="currency-mark">RM</span><div>{t.currencyLabel}<small>{t.klTime}</small></div></div>
     </aside>
     <div className="workspace-body">
       <header className="workspace-header">
         <Link href="/" className="mobile-brand" aria-label={t.homeLabel}><span className="mobile-brand-mark" aria-hidden="true">b<span /></span><span>Bokli <small>簿里</small></span></Link>
-        <div className="workspace-breadcrumb"><span>{t.brandSubtitle}</span><span aria-hidden="true">/</span><span>{active.label}</span></div>
-        <span className="header-currency"><span className="desktop-currency">{lang === "zh" ? "马来西亚令吉" : "Malaysian Ringgit"}</span><span className="currency-code">MYR</span></span>
       </header>
       <main id="main-content" tabIndex={-1} className={`workspace-main ${pathname === "/dashboard" ? "workspace-main-wide" : ""}`} data-page={pathname}>{children}</main>
-      <footer className="workspace-footer"><span>Bokli · {t.brandSubtitle}</span><span>{t.klTime} · MYR</span></footer>
     </div>
   </div>;
 }

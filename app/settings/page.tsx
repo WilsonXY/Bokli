@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionIcon } from "@/components/ActionIcon";
 import { useUnsavedDrafts } from "@/components/DraftProvider";
 import { useRef } from "react";
 import { useI18n } from "@/lib/i18n";
@@ -17,9 +18,9 @@ export default function SettingsPage() {
         <div><h2>{t.appearanceTitle}</h2><p>{t.appearanceHint}</p></div>
         <fieldset className="preference-options"><legend className="sr-only">{t.appearanceTitle}</legend>
           {(["light", "dark"] as const).map(option => <label key={option} className="appearance-choice">
-            <input type="radio" name="appearance" value={option} checked={theme === option} onChange={() => setTheme(option)} />
-            <span aria-hidden="true" className={`theme-swatch theme-swatch-${option}`}><i /><i /><i /></span>
-            <span>{option === "light" ? t.lightMode : t.darkMode}{option === "light" && <small>{t.defaultLabel}</small>}</span>
+            <input type="radio" name="appearance" value={option} aria-label={option === "light" ? t.lightMode : t.darkMode} checked={theme === option} onChange={() => setTheme(option)} />
+            <span className="appearance-symbol"><ActionIcon name={option === "light" ? "sun" : "moon"} size={30} /></span>
+            <span className="sr-only">{option === "light" ? t.defaultLabel : t.darkMode}</span>
           </label>)}
         </fieldset>
       </section>

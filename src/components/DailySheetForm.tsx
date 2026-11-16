@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionIcon } from "./ActionIcon";
 import { ChannelIcon } from "./ChannelIcon";
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -470,6 +471,7 @@ export function DailySheetForm({
 
   // Feedback states
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const revertDialog = useRef<HTMLDialogElement>(null);
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
   const [showDeleteSheetModal, setShowDeleteSheetModal] = useState(false);
   const [deletingSheet, setDeletingSheet] = useState(false);
@@ -1048,7 +1050,7 @@ export function DailySheetForm({
 
   return (
     <div className="daily-layout page-stack">
-      <div className="page-heading sheet-page-heading"><div><h1>{t.sheetTitle}</h1><p className="page-description">{t.sheetHint}</p></div><span role="status" className={`sheet-status ${isModified ? "sheet-status-draft" : savedSheet ? "sheet-status-saved" : "sheet-status-new"}`}><span aria-hidden="true" />{isModified ? t.draftStatus : savedSheet ? t.savedStatus : t.newSheetStatus}</span></div>
+      <div className="page-heading sheet-page-heading"><div><h1>{t.sheetTitle}</h1><p className="page-description">{t.sheetHint}</p></div><span role="status" title={isModified ? t.draftStatus : savedSheet ? t.savedStatus : t.newSheetStatus} className={`sheet-status ${isModified ? "sheet-status-draft" : savedSheet ? "sheet-status-saved" : "sheet-status-new"}`}>{savedSheet && !isModified ? <ActionIcon name="check" size={18} /> : <i className="draft-dot" aria-hidden="true" />}<span className="sr-only">{isModified ? t.draftStatus : savedSheet ? t.savedStatus : t.newSheetStatus}</span></span></div>
       {/* Date Bar with Calendar Toggle Popover & Lock Notice */}
       <div className="sheet-date-bar bg-white border border-surface-border rounded-xl p-3 shadow-xs flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
@@ -1081,19 +1083,13 @@ export function DailySheetForm({
                 <span className="text-base font-bold text-ink-primary group-hover:text-brand-broccoli transition-colors">
                   {date}
                 </span>
-                {isToday && (
-                  <span className="date-today-badge text-[13px] px-2 py-0.5 rounded bg-brand-broccoli-light font-semibold text-brand-broccoli">
-                    {t.today}
-                  </span>
-                )}
-                <svg aria-hidden="true" className="date-chevron w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </div>
               <p className="sheet-date-meta text-[13px] text-ink-muted">
                 {t.klTime}
               </p>
             </button>
 
-            {!isToday && <button type="button" className="return-today" aria-label={t.returnToday} onClick={() => router.push(`/?date=${todayKl}`)}>{t.returnTodayShort}</button>}
+            <span className="date-today-slot">{isToday ? <span className="date-today-badge">{t.today}</span> : <button type="button" className="return-today" aria-label={t.returnToday} onClick={() => router.push(`/?date=${todayKl}`)}>{t.returnTodayShort}</button>}</span>
             {/* Calendar Popover */}
             <CalendarPopover
               date={date}
@@ -1328,7 +1324,7 @@ export function DailySheetForm({
                       {isExpanded && !isClosed && (
                         <div className="cost-editor border-t border-surface-border bg-surface-canvas/30">
                           <div className="cost-category-row">
-                            <label htmlFor={`cost-category-${idx}`}>{t.selectCategory}</label>
+                            <label htmlFor={`cost-category-${idx}`}>{t.categoryShort}</label>
                             <select id={`cost-category-${idx}`} className="category-select" value={line.category} disabled={saving} onChange={e => handleUpdateCostLine(idx, { category: e.target.value as CostCategory })}>
                               {categories.map(cat => <option key={cat.key} value={cat.key}>{cat.label}</option>)}
                             </select>
@@ -1428,7 +1424,7 @@ export function DailySheetForm({
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5" />
-                              </svg><span>{t.deleteCostLine}</span>
+                              </svg><span className="sr-only">{t.deleteCostLine}</span>
                             </button>
                           )}
                             <button type="button" className="finish-cost-action" disabled={saving} onClick={() => {
@@ -1445,7 +1441,7 @@ export function DailySheetForm({
                               }
                               handleToggleCostLine(idx);
                               requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".add-cost-action")?.focus({ preventScroll: true }));
-                            }}>{t.finishCost}</button>
+                            }} aria-label={t.finishCost} title={t.finishCost}><ActionIcon name="check" size={22} /></button>
                           </div>
                         </div>
                       )}
@@ -1463,8 +1459,8 @@ export function DailySheetForm({
             onClick={handleCreateNewCostLine}
             className="add-cost-action relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-brand-broccoli-light/40 hover:bg-brand-broccoli-light/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden disabled:opacity-50"
           >
-            <span className="text-lg leading-none relative z-10">+</span>
-            <span className="relative z-10">{t.addCostLine}</span>
+            <ActionIcon name="add" size={24} />
+            <span className="sr-only">{t.addCostLine}</span>
           </button>
         )}
       </section>
@@ -1521,7 +1517,7 @@ export function DailySheetForm({
                     "text-base",
                     "text-xl"
                   )} font-bold ${
-                    grossProfitSen !== null && grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
+                    grossProfitSen !== null && grossProfitSen > 0n ? "text-brand-broccoli" : grossProfitSen === 0n ? "text-ink-primary" : "text-finance-loss"
                   }`}
                 >
                   {grossProfitSen !== null ? formatMyr(grossProfitSen) : "—"}
@@ -1533,11 +1529,11 @@ export function DailySheetForm({
                   {isModified && (
                     <button
                       type="button"
-                      onClick={handleRevert}
+                      onClick={() => revertDialog.current?.showModal()}
                       disabled={saving}
                       title={t.undoChanges}
                       aria-label={t.undoChanges}
-                      className="h-12 w-12 shrink-0 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary hover:text-ink-primary shadow-xs flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 active:scale-95 cursor-pointer disabled:opacity-50 animate-in fade-in zoom-in-95 duration-150"
+                      className="sheet-revert-action h-12 w-12 shrink-0 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary hover:text-ink-primary shadow-xs flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 active:scale-95 cursor-pointer disabled:opacity-50 animate-in fade-in zoom-in-95 duration-150"
                     >
                       <svg
                         className="w-5 h-5 text-ink-secondary"
@@ -1552,7 +1548,7 @@ export function DailySheetForm({
                           d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"
                         />
                       </svg>
-                      <span>{t.undoChanges}</span>
+                      <span className="sr-only">{t.undoChanges}</span>
                     </button>
                   )}
 
@@ -1579,19 +1575,24 @@ export function DailySheetForm({
                       setExpandedIndex(null);
                       setShowConfirmModal(true);
                     }}
-                    className="sheet-save-action h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
+                    aria-label={saving ? t.saving : t.saveSheet} className="sheet-save-action h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
                   >
-                    {saving ? (
-                      <span>{t.saving}</span>
-                    ) : (
-                      <span>{t.saveSheet}</span>
-                    )}
+                    <span className={saving ? "animate-spin" : undefined}><ActionIcon name={saving ? "refresh" : "save"} /></span>
+                    <span>{t.saveShort}</span>
                   </button>
                 </div>
               )}
             </div>
           </div>
 
+      {isModified && <dialog ref={revertDialog} className="account-dialog" aria-labelledby="revert-title" onClick={e => { if (e.target === e.currentTarget) revertDialog.current?.close(); }}>
+        <h2 id="revert-title">{t.confirmRevertTitle}</h2>
+        <p>{t.confirmRevertDesc}</p>
+        <div className="dialog-actions">
+          <button type="button" className="secondary-button" aria-label={t.cancel} autoFocus onClick={() => revertDialog.current?.close()}><ActionIcon name="close" /></button>
+          <button type="button" className="primary-button" aria-label={t.confirmRevertBtn} onClick={() => { revertDialog.current?.close(); handleRevert(); requestAnimationFrame(() => document.getElementById("cash-input")?.focus({ preventScroll: true })); }}><ActionIcon name="undo" /></button>
+        </div>
+      </dialog>}
       {/* Deletion stays separate from the primary save action. */}
       {sheetExists && (
         <div className="pt-6 pb-4">
@@ -1685,7 +1686,7 @@ export function DailySheetForm({
                 onClick={() => setShowDeleteSheetModal(false)}
                 className="flex-1 h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary font-semibold text-sm transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer disabled:opacity-50"
               >
-                {t.cancel}
+                <ActionIcon name="close" /><span className="sr-only">{t.cancel}</span>
               </button>
               <button
                 type="button"
@@ -1758,7 +1759,7 @@ export function DailySheetForm({
                 onClick={() => setPendingDeleteIndex(null)}
                 className="flex-1 h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary font-semibold text-sm transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer"
               >
-                {t.cancel}
+                <ActionIcon name="close" /><span className="sr-only">{t.cancel}</span>
               </button>
               <button
                 type="button"
@@ -1792,12 +1793,12 @@ export function DailySheetForm({
               <h3 id="confirm-modal-title" className="text-lg font-bold text-ink-primary">
                 {t.confirmSaveTitle}
               </h3>
-              <p id="confirm-modal-desc" className="text-xs text-ink-muted leading-relaxed">
+              <p id="confirm-modal-desc" className="sr-only">
                 {t.confirmSaveDesc}
               </p>
             </div>
 
-            {!cashInput.trim() && !tngInput.trim() && <p className="zero-revenue-warning" role="note">{t.noRevenueWarning}</p>}
+            {!cashInput.trim() && !tngInput.trim() && <p className="zero-revenue-warning" role="note" aria-label={t.noRevenueWarning}><ActionIcon name="warning" /><span>— → RM 0.00</span></p>}
             {/* Modal Summary Info */}
             <div className="p-3.5 rounded-xl bg-surface-subtle border border-surface-border space-y-2">
               <div className="flex justify-between text-sm">
@@ -1816,7 +1817,7 @@ export function DailySheetForm({
                 <span className="font-bold text-ink-primary">{t.grossProfit}</span>
                 <span
                   className={`font-black tabular-nums ${
-                    grossProfitSen !== null && grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
+                    grossProfitSen !== null && grossProfitSen > 0n ? "text-brand-broccoli" : grossProfitSen === 0n ? "text-ink-primary" : "text-finance-loss"
                   }`}
                 >
                   {grossProfitSen !== null ? formatMyr(grossProfitSen) : "—"}
@@ -1831,7 +1832,7 @@ export function DailySheetForm({
                 onClick={() => setShowConfirmModal(false)}
                 className="flex-1 h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary font-semibold text-sm transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer disabled:opacity-50"
               >
-                {t.cancel}
+                <ActionIcon name="close" /><span className="sr-only">{t.cancel}</span>
               </button>
               <button
                 type="button"
@@ -1842,7 +1843,8 @@ export function DailySheetForm({
                 }}
                 className="flex-1 h-11 rounded-xl bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer disabled:opacity-50"
               >
-                {saving ? t.saving : t.confirmSaveBtn}
+                <ActionIcon name="check" />
+                <span className="sr-only">{saving ? t.saving : t.confirmSaveBtn}</span>
               </button>
             </div>
           </div>

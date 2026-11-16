@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
+import { ActionIcon } from "./ActionIcon";
 import { cloudRead } from "@/lib/cloud-client";
 
 interface CalendarPopoverProps {
@@ -32,6 +33,7 @@ export function CalendarPopover({
   );
 
   const viewPeriod = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}`;
+  const [retrySequence, setRetrySequence] = useState(0);
   const [recorded, setRecorded] = useState<{ month: string; dates: string[]; failed?: boolean } | null>(null);
   useEffect(() => {
     if (!isOpen) return;
@@ -42,7 +44,7 @@ export function CalendarPopover({
       () => { if (active) setRecorded({ month: viewPeriod, dates: [], failed: true }); },
     );
     return () => { active = false; };
-  }, [isOpen, viewPeriod]);
+  }, [isOpen, viewPeriod, retrySequence]);
 
   // Sync viewing month when date changes or popover opens
   useEffect(() => {
@@ -238,12 +240,16 @@ export function CalendarPopover({
               }`}
             >
               {day}
-              {isRecorded && <span className="calendar-recorded-dot" aria-hidden="true" />}
+              {isRecorded && <span className="calendar-recorded-mark" aria-hidden="true"><ActionIcon name="check" size={10} /></span>}
             </button>
           );
         })}
       </div>
-      <p id="calendar-recorded-legend" className="calendar-legend" role="status">{recorded?.month !== viewPeriod ? t.recordedDaysLoading : recorded.failed ? t.recordedDaysFailed : recorded.dates.length === 0 ? t.noRecordedDays : <><span className="calendar-recorded-dot" aria-hidden="true" />{t.recordedSheet}</>}</p>
+      <span id="calendar-recorded-legend" className="sr-only">{t.recordedSheet}</span>
+      {(recorded?.month !== viewPeriod || recorded.failed || recorded.dates.length === 0) && <div className="calendar-activity" data-state={recorded?.month !== viewPeriod ? "loading" : recorded.failed ? "failed" : "empty"} role="status">
+        <span className="sr-only">{recorded?.month !== viewPeriod ? t.recordedDaysLoading : recorded.failed ? t.recordedDaysFailed : t.noRecordedDays}</span>
+        {recorded?.month !== viewPeriod ? <span className="animate-spin"><ActionIcon name="refresh" /></span> : recorded.failed ? <><ActionIcon name="warning" /><button type="button" className="calendar-retry" aria-label={t.retry} title={t.retry} onClick={() => setRetrySequence(value => value + 1)}><ActionIcon name="refresh" /></button></> : <><ActionIcon name="calendar" /><span aria-hidden="true">—</span></>}
+      </div>}
     </div>
     </>
   );

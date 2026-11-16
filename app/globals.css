@@ -119,7 +119,7 @@
 .sheet-profit-summary>div:last-child { font-size: 28px; line-height: 1.4; }
 .sheet-actions { display: flex; width: 100%; gap: 12px; }
 .sheet-save-action { min-height: 56px; flex: 1; justify-content: center; border-radius: 12px; font-size: 18px; }
-.sheet-actions>button[aria-label] { height: 56px; width: 56px; border-radius: 12px; order: 2; }
+.sheet-actions>.sheet-revert-action { height: 56px; width: 56px; border-radius: 12px; order: 2; }
 .dashboard-layout { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: start; gap: 28px; }
 .dashboard-layout>.page-heading, .dashboard-layout>.empty-month, .overview-composition { grid-column: 1/-1; }
 .dashboard-layout.has-records .overview-summary { grid-column: 1; grid-row: 2 / span 2; }
@@ -334,7 +334,7 @@
 .overview-summary.is-empty .profit-status { display: none; }
 .ledger-chevron { display: inline-block; font-size: 20px; margin-left: 10px; transition: transform .16s; }
 .daily-records[open] .ledger-chevron { transform: rotate(180deg); }
-.sheet-actions>button[aria-label] { width: auto; min-width: 48px; gap: 7px; padding: 0 12px; font-size: 16px; }
+.sheet-actions>.sheet-revert-action { width: auto; min-width: 48px; gap: 7px; padding: 0 12px; font-size: 16px; }
 .cost-entry-card .text-xs { font-size: 14px; line-height: 20px; }
 .daily-revenue .section-heading>span, .daily-costs .section-heading>span { font-size: 15px; }
 .empty-month p, .counts-hint { text-wrap: balance; }
@@ -363,7 +363,7 @@
   .mobile-back-link { display: inline-flex; align-items: center; align-self: flex-start; gap: 8px; min-height: 44px; color: rgb(var(--brand)); font-size: 16px; margin-bottom: -14px; }
   .mobile-back-link>span { font-size: 28px; line-height: 1; }
   .close-expectation.has-counts .close-expected-total>strong { font-size: 24px; }
-  .sheet-actions>button[aria-label] { font-size: 15px; padding: 0 10px; gap: 5px; }
+  .sheet-actions>.sheet-revert-action { font-size: 15px; padding: 0 10px; gap: 5px; }
   .expense-record-category { font-size: 16px; }
 }
 .account-balances dd[data-long] { font-size: 18px; }
@@ -561,3 +561,89 @@
 }
 
 @media (max-width:359px) { .date-picker-group:has(.return-today) .date-trigger-label>svg:first-child { display: none; } }
+
+/* Symbol-first phone controls; text remains for data and financial decisions. */
+.workspace-footer, .sidebar-footer, .sidebar-caption { display: none; }
+.desktop-navigation { margin-top: 36px; }
+.workspace-main { padding-top: 32px; }
+.workspace-header { display: none; }
+.workspace-main[data-page="/dashboard"] .page-description,
+.workspace-main[data-page="/expenses"] .page-description,
+.workspace-main[data-page="/settings"] .page-description,
+.settings-page .eyebrow, .settings-section p, .preferences-footnote { display: none; }
+.profit-headline, .profit-headline.is-loss, .expense-month-summary, .close-expectation { background: rgb(var(--surface)); color: rgb(var(--ink)); }
+.profit-headline { padding: 22px 24px; }
+.profit-headline h2 { color: rgb(var(--secondary)); }
+.profit-headline .metric-headline { margin-top: 12px; margin-bottom: 0; color: rgb(var(--profit)); }
+.profit-headline.is-loss .metric-headline { color: rgb(var(--loss)); }
+.profit-headline .metric-headline[data-zero] { color: rgb(var(--ink)); }
+.profit-headline:after { content: none; }
+.overview-summary { border: 1px solid rgb(var(--border)); }
+.expense-month-summary, .close-expectation { border: 1px solid rgb(var(--border)); }
+.daily-record-counter { display: inline-flex; align-items: center; gap: 7px; }
+.daily-record-counter .ledger-chevron { margin-left: 4px; }
+.month-close-action { min-height: 64px; padding: 14px 18px; }
+.month-close-icon { width: 32px; height: 32px; background: transparent; border-radius: 0; }
+.sheet-actions>.sheet-revert-action { width: 48px; min-width: 48px; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.sheet-save-action { justify-content: center; }
+.sheet-status { min-width: 18px; width: 18px; height: 24px; padding: 0; border: 0; background: transparent; border-radius: 0; justify-content: center; }
+.sheet-status>span { background: transparent; }
+.draft-dot { display: block; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.cost-delete-action { width: 44px; height: 44px; padding: 0; justify-content: center; }
+.finish-cost-action { width: 56px; min-width: 56px; padding: 0; display: grid; place-items: center; background: rgb(var(--brand-light)); border-color: transparent; }
+.cost-entry-card:not(:has(.cost-editor)), .cost-entry-card:not(:has(.cost-editor)) .cost-record-summary { background: rgb(var(--surface)); border-color: rgb(var(--border)); }
+.expense-toolbar { display: flex; align-items: center; gap: 16px; min-height: 48px; }
+.expense-list-total { margin-left: auto; }
+.expense-add-icon { display: grid; place-items: center; width: 48px; height: 48px; border: 1px solid rgb(var(--border-strong)); border-radius: 10px; color: rgb(var(--brand)); background: rgb(var(--surface)); }
+.expense-month-summary.is-editing .expense-month-total { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 20px; }
+.expense-month-summary.is-editing .expense-month-total>span { min-width: 0; }
+.expense-month-summary.is-editing .expense-month-total>strong { max-width: none; white-space: nowrap; }
+.expense-record-actions { padding-top: 12px; padding-bottom: 20px; justify-content: flex-end; }
+.expense-record-actions .record-delete { width: 48px; height: 48px; min-height: 48px; padding: 0; color: rgb(var(--loss)); border: 1px solid rgb(var(--loss-border)); border-radius: 10px; background: rgb(var(--surface)); scroll-margin-bottom: 104px; }
+.zero-revenue-warning { display: flex; align-items: center; gap: 12px; }
+.date-picker-trigger { border: 1px solid rgb(var(--border)); background: rgb(var(--surface)); }
+.date-picker-group { gap: 4px; }
+.date-today-slot { width: 64px; flex-shrink: 0; height: 44px; display: grid; place-items: center; }
+.date-today-badge { font-size: 14px; line-height: 24px; padding: 0 5px; border-radius: 0; background: transparent; color: rgb(var(--secondary)); }
+.skeleton-period-slot { width: 48px; height: 26px; border-radius: 6px; background: rgb(var(--subtle)); }
+.calendar-popover { max-height: min(480px,calc(100dvh - 220px)); }
+.calendar-day[data-recorded="true"]:not([aria-pressed="true"]) { background: rgb(var(--brand-light)); }
+.calendar-recorded-mark { position: absolute; top: 2px; right: 2px; color: currentColor; }
+.calendar-activity { min-height: 32px; margin-top: 10px; display: flex; gap: 10px; align-items: center; justify-content: center; color: rgb(var(--secondary)); }
+.calendar-activity[data-state="failed"] { color: rgb(var(--cost)); }
+.calendar-retry { width: 44px; height: 44px; border: 1px solid rgb(var(--border-strong)); border-radius: 8px; display: grid; place-items: center; background: rgb(var(--surface)); }
+.settings-page { max-width: none; }
+.appearance-choice { display: flex; align-items: center; justify-content: center; min-height: 78px; padding: 16px; }
+.appearance-choice input { top: 10px; right: 10px; bottom: auto; }
+.appearance-symbol { color: rgb(var(--secondary)); }
+@media (max-width:767px) {
+  html { scroll-padding-bottom: 84px; }
+  .workspace-header { display: flex; height: 56px; }
+  .workspace-sidebar { padding-top: 6px; padding-bottom: max(6px,env(safe-area-inset-bottom)); }
+  .mobile-navigation { min-height: 56px; padding: 2px 4px; border-radius: 16px; }
+  .mobile-navigation .workspace-nav-link { height: 50px; min-height: 50px; padding: 3px 0; }
+  .mobile-navigation .nav-label { display: none; }
+  .mobile-navigation .nav-icon { width: 52px; height: 40px; }
+  .mobile-navigation .nav-icon svg { width: 25px; height: 25px; }
+  .workspace-body { padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
+  .workspace-main { padding-top: 12px; min-height: calc(100dvh - 136px); }
+  .sheet-status { font-size: 16px; }
+}
+@media (max-width:359px) {
+  .date-picker-group:has(.return-today) .date-trigger-label>svg:first-child { display: block; }
+  .date-picker-trigger { padding-left: 4px; padding-right: 4px; }
+  .date-trigger-label { gap: 3px; }
+}
+
+.skeleton-date-body { height: auto; }
+.skeleton-date-body>button { font-size: 14px; }
+.skeleton-date-body>button svg { flex-shrink: 0; }
+.workspace-main[data-page="/"] .page-description { display: none; }
+.sheet-save-action.skeleton-action, .reconciliation-form>.skeleton-action { gap: 8px; }
+
+.reconciliation-result-line>strong { display: inline-flex; align-items: center; gap: 8px; }
+
+.sheet-date-meta, .sheet-date-bar>div:first-child>button>span { display: none; }
+.expense-month-context { border-color: rgb(var(--border)); }
+
+.loading-layout .profit-headline .metric-headline { color: transparent; }

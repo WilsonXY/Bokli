@@ -1074,7 +1074,7 @@ describe("DailySheetForm long money amount dynamic sizing", () => {
 
     // Sticky bottom bar gross profit: RM 0.00 (6 chars) -> text-xl
     expect(html).toContain("RM 0.00");
-    expect(html).toMatch(/class="[^"]*text-xl font-bold text-brand-broccoli"[^>]*>RM 0\.00/);
+    expect(html).toMatch(/class="[^"]*text-xl font-bold text-ink-primary"[^>]*>RM 0\.00/);
     expect(html).not.toMatch(/class="[^"]*text-base font-bold text-brand-broccoli"[^>]*>RM 0\.00/);
   });
 });

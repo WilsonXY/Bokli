@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ActionIcon } from "./ActionIcon";
 import React, { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMyr, sanitizeMoneyInput, tryParseSen } from "@/lib/money";
@@ -491,7 +492,7 @@ export function MonthCloseView({
                 </div>
               )}
 
-              <p id="counts-hint" className="counts-hint">{t.zeroBalanceHint}</p>
+              <p id="counts-hint" className="counts-hint">{t.zeroBalanceShort}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {/* Physical Cash Counted */}
                 <div>
@@ -577,8 +578,9 @@ export function MonthCloseView({
                   <span className="font-bold text-ink-primary text-base tabular-nums">{formatMyr(expectedNetSen)}</span>
                 </div>
                 <div className={`reconciliation-result ${!countsComplete ? "is-pending" : hasParseError ? "is-invalid" : isBalanced ? "is-balanced" : "is-mismatch"}`} aria-live="polite">
-                  <div className="reconciliation-result-line"><span>{t.reconciliationDiff}</span><strong>{!countsComplete ? t.awaitingCounts : varianceSen !== null ? formatMyr(varianceSen) : "—"}</strong></div>
-                  {countsComplete && !hasParseError && <p>{isBalanced ? t.reconciliationBalanced : <><strong>{t.reconciliationMismatch}</strong>{t.fieldColon}{t.reconciliationMismatchHelp}</>}</p>}
+                  <div className="reconciliation-result-line"><span>{t.reconciliationDiff}</span><strong>{!countsComplete ? "—" : varianceSen !== null ? <>{varianceSen !== 0n && <span aria-hidden="true">{varianceSen < 0n ? "↓" : "↑"} </span>}{formatMyr(varianceSen)}{isBalanced && <ActionIcon name="check" size={20} />}</> : "—"}</strong></div>
+                  {!countsComplete && <span className="sr-only">{t.awaitingCounts}</span>}
+                  {countsComplete && !hasParseError && <span className="sr-only">{isBalanced ? t.reconciliationBalanced : t.reconciliationMismatch}</span>}
                 </div>
               </div>
 
@@ -624,14 +626,15 @@ export function MonthCloseView({
                 </label>
               )}
 
-              {!countsComplete && <p className="close-action-hint">{t.enterBothToClose}</p>}
+              {!countsComplete && <p className="sr-only">{t.enterBothToClose}</p>}
               {/* Submit Action Button */}
               <button
                 type="submit"
+                aria-label={submitting ? t.closingMonth : t.btnPerformClose}
                 disabled={submitting || !countsComplete}
                 className="w-full h-12 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center justify-center transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
               >
-                {submitting ? t.closingMonth : t.btnPerformClose}
+                <ActionIcon name="lock" /><span>{submitting ? t.closingMonth : t.closeShort}</span>
               </button>
 
               {/* Contextual Error Message */}
