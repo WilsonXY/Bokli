@@ -46,8 +46,8 @@ export default async function quickEntry({ page, shot: rawShot }) {
   const calendar=page.getByRole("dialog",{name:"选择日期"});
   await calendar.locator('[aria-current="date"]').waitFor();
   await calendar.getByRole("button",{name:"上个月",exact:true}).click();
-  await calendar.locator(".calendar-recorded-dot").first().waitFor();
-  assert.equal(await calendar.locator(".calendar-recorded-dot").count(),3);
+  await calendar.locator(".calendar-day .calendar-recorded-dot").first().waitFor();
+  assert.equal(await calendar.locator(".calendar-day .calendar-recorded-dot").count(),3);
   await shot("recorded-days-calendar");
   await page.keyboard.press("Escape");
   await page.route("**/api/cloud-v1/dashboard*",route=>route.abort());
