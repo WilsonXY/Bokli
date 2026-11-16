@@ -9,7 +9,7 @@ const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // The page's blocks and their children: x, y, width, height.
 const layout = (page) =>
-  page.locator("main .page-stack").first().evaluate((root) =>
+  page.locator("main .page-stack:visible").first().evaluate((root) =>
     [...root.children].flatMap((block) => [block, ...block.children]).map((e) => {
       const r = e.getBoundingClientRect();
       return [r.x, r.y, r.width, r.height].map(Math.round);
