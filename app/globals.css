@@ -192,7 +192,7 @@
 .expense-month-summary { padding: 28px; border-radius: 18px; background: rgb(var(--cost-light)); }
 .expense-month-total { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; }
 .expense-month-total>span { display: block; font-size: 16px; color: rgb(var(--secondary)); }
-.expense-month-total>strong { display: block; margin: 0; font-size: 36px; line-height: 1.2; letter-spacing: -.04em; overflow-wrap: anywhere; }
+.expense-month-total>strong { display: block; margin: 0; flex-shrink: 0; max-width: 65%; font-size: 36px; line-height: 1.2; letter-spacing: -.04em; overflow-wrap: anywhere; }
 .expense-month-context { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin-top: 20px; padding-top: 16px; border-top: 1px solid rgb(var(--cost) / .2); }
 .expense-month-context span { display: block; font-size: 14px; color: rgb(var(--secondary)); }
 .expense-month-context strong { display: block; margin-top: 6px; font-size: 20px; overflow-wrap: anywhere; }
@@ -311,6 +311,13 @@
   .close-expectation { padding: 22px; }.close-expected-total>strong { font-size: 40px; }.reconciliation-form { padding: 0; }.close-layout input:not([type="checkbox"]), .expenses-layout input { min-height: 50px; }.workspace-main label { font-size: 16px; }.workspace-main [role="alert"] { font-size: 14px; }
   .settings-section { grid-template-columns: 1fr; gap: 20px; padding: 28px 0; }.settings-section h2 { font-size: 20px; }.settings-section p { font-size: 16px; }.theme-swatch { height: 64px; }.settings-page>.page-heading { margin-bottom: 0; }
   .month-options { left: 0; right: auto; max-width: calc(100vw - 44px); }
+  .workspace-main [role="dialog"][aria-modal="true"] { align-items: flex-end; padding: 0; }
+  .workspace-main [role="dialog"][aria-modal="true"]>div { width: 100%; max-width: 100%; max-height: calc(100dvh - 48px); overflow-y: auto; border-radius: 24px 24px 0 0; padding: 26px 24px max(26px,env(safe-area-inset-bottom)); }
+  .workspace-main [role="dialog"][aria-modal="true"] h3 { font-size: 22px; line-height: 1.4; }
+  .workspace-main [role="dialog"][aria-modal="true"] p { font-size: 16px; line-height: 1.6; }
+  .workspace-main [role="dialog"][aria-modal="true"] button { min-height: 52px; font-size: 16px; }
+  .workspace-main [role="dialog"][aria-modal="true"] .text-xs { font-size: 14px; }
+  .account-dialog { position: fixed; inset: auto 0 0; width: 100%; max-width: 100%; margin: 0; border-radius: 24px 24px 0 0; padding-bottom: max(28px,env(safe-area-inset-bottom)); }
   .skeleton-date-body { height: 44px; }.skeleton-count-field, .skeleton-close-note { height: 50px; }
 }
 @media (max-width:359px) {
