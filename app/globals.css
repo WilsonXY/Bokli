@@ -190,7 +190,6 @@
 .btn-wave { position: relative; overflow: hidden; transition: background-color .16s,border-color .16s,transform .16s; }.btn-wave:active { transform: translateY(1px); }
 .bg-brand-broccoli.text-white, .bg-status-closed.text-white { background-color: #216948; }.hover\:bg-brand-broccoli-dark:hover { background-color: #185036; }.bg-finance-loss.text-white { background-color: #b53e37; }
 .skeleton-date-body { height: 51.5px; }
-.skeleton-revenue-body { height: 84px; }
 .loading-layout .panel { background: rgb(var(--subtle)); border-color: transparent; }
 .loading-layout .panel>* { visibility: hidden; }
 .skeleton-picker button, .loading-layout .page-heading button { background: rgb(var(--subtle)); border-color: transparent; }
@@ -246,7 +245,7 @@
   .workspace-main { padding: 22px 20px 24px; min-height: calc(100dvh - 148px); }
   .page-stack { gap: 20px; }.page-heading { gap: 14px; flex-wrap: wrap; align-items: flex-start; }.page-heading h1 { font-size: 24px; }.page-description { font-size: 16px; margin-top: 6px; }
   .sheet-page-heading { align-items: center; gap: 10px; flex-wrap: nowrap; }.sheet-page-heading .page-description { display: none; }.sheet-status { font-size: 14px; padding: 7px 8px; }.sheet-date-meta { display: none; }
-  .skeleton-date-body { height: 44px; }.skeleton-revenue-body { height: 74px; }
+  .skeleton-date-body { height: 44px; }.skeleton-close-note { min-height: 48px; }
   .sheet-date-bar { padding: 10px 12px; }.sheet-date-bar button { min-height: 44px; }.daily-revenue .section-heading { align-items: baseline; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }.daily-revenue .section-heading>span, .daily-costs .section-heading>span { font-size: 14px; color: rgb(var(--secondary)); }
   .revenue-fields { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }.revenue-field { padding: 14px; min-width: 0; }.revenue-field label { font-size: 16px; line-height: 24px; }.revenue-field .revenue-input { height: 54px; font-size: 24px; padding-left: 34px; padding-right: 8px; }.revenue-field input+span { font-size: 12px; }.revenue-field .absolute { left: 10px; font-size: 14px; pointer-events: none; }
   .daily-costs { padding: 16px; }.daily-costs .section-heading { margin-bottom: 12px; }.sheet-save-panel { padding: 14px; gap: 10px; }.sheet-save-action { min-width: 0; padding: 0 16px; font-size: 16px; }.sheet-profit-summary>div:first-child { font-size: 14px; color: rgb(var(--secondary)); }.sheet-profit-summary>div:last-child { line-height: 1.3; }

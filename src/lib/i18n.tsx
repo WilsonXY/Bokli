@@ -65,7 +65,7 @@ export const DICTIONARY = {
     // Revenue
     revenueTitle: "营业收入",
     cashRevenue: "现金收入",
-    tngRevenue: "Touch 'n Go 收入",
+    tngRevenue: "TnG 收入",
     totalRevenue: "营业总额",
     // Daily Costs
     costsTitle: "日常开销",

@@ -16,7 +16,7 @@ export function DailySheetSkeleton() {
     <div className="page-heading sheet-page-heading"><div><h1 className="invisible">{t.sheetTitle}</h1><p className="page-description invisible">{t.sheetHint}</p></div><span className="sheet-status invisible"><span />{t.newSheetStatus}</span></div>
     <div className={`sheet-date-bar ${block}`}><div className="skeleton-date-body" /></div>
     <section className="daily-revenue space-y-2"><div className="section-heading h-6 invisible" />
-      <div className="revenue-fields grid grid-cols-1 sm:grid-cols-2 gap-2.5">{[0, 1].map(index => <div key={index} className={`revenue-field ${block}`}><div className="skeleton-revenue-body" /></div>)}</div>
+      <div className="revenue-fields grid grid-cols-1 sm:grid-cols-2 gap-2.5">{[0, 1].map(index => <div key={index} className={`revenue-field ${block}`}><div><div className="flex items-center gap-1.5 mb-1.5"><span className="w-2 h-2" /><label className="text-sm">{index === 0 ? t.cashRevenue : t.tngRevenue}</label></div><div className="revenue-input" /></div></div>)}</div>
     </section>
     <section className="daily-costs space-y-2.5"><div className="section-heading h-6 invisible" /><div className={`${block} h-[60px]`} /></section>
     <div className="sheet-save-bar"><div className={`sheet-save-panel ${block}`}><div className="h-12" /></div></div>
@@ -48,19 +48,20 @@ export function ExpensesSkeleton() {
   return <div className="expenses-layout page-stack" aria-busy="true" inert>
     <MonthHeader title={t.expensesTitle} hint={t.expensesHint} />
     <section className={`financial-snapshot grid grid-cols-2 ${block}`}><Stat label={t.monthGrossProfit} /><Stat label={t.operatingExpenses} className="border-l" /><Total label={t.netProfit} columns="col-span-2" /></section>
-    <section className="operating-expenses space-y-2.5"><div className="section-heading h-6 invisible" /><div className="space-y-2">{[0, 1].map(index => <div key={index} className={`${block} px-4 py-3`}><div className="h-9" /></div>)}</div><div className={`${block} h-[60px]`} /></section>
+    <section className="operating-expenses space-y-2.5"><div className="section-heading h-6 invisible" /><div className="space-y-2">{[0, 1].map(index => <div key={index} className="expense-record bg-surface-subtle [&>*]:invisible animate-pulse"><div className="expense-record-heading"><span className="expense-record-category">{index === 0 ? t.catRental : t.catUtilities}</span><span className="text-base">{amount}</span></div><div className="expense-record-actions"><span className="record-delete">{t.delete}</span></div></div>)}</div><div className={`${block} h-[60px]`} /></section>
   </div>;
 }
 export function MonthCloseSkeleton() {
   const { t } = useI18n();
-  const field = (label: string) => <div><div className="text-sm mb-1.5">{label}</div><div className="h-12" /></div>;
+  const field = (label: string) => <div><label className="block text-sm mb-1.5">{label}</label><div className="h-12" /></div>;
   return <div className="close-layout page-stack" aria-busy="true" inert>
     <MonthHeader title={t.closeTitle} hint={t.closeHint} />
     <section className={`financial-snapshot grid grid-cols-3 ${block}`}><Stat label={t.totalRevenue} /><Stat label={t.costsTitle} className="border-x" /><Stat label={t.operatingExpenses} /><Total label={t.expectedNet} columns="col-span-3" /></section>
     <div className={`${block} p-4 space-y-3.5`}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">{field(t.cashOnHand)}{field(t.tngOnHand)}</div>
       <div className="p-3 border space-y-2"><div className="flex text-base">{amount}</div><div className="flex text-base">{amount}</div><div className="pt-2 border-t text-base">{amount}</div></div>
-      <div><div className="text-sm mb-1">{t.closeNote}</div><div className="h-11" /></div>
+      <div><label className="block text-sm mb-1">{t.closeNote}</label><div className="skeleton-close-note h-11" /></div>
+      <p className="counts-hint">{t.countsHint}</p>
       <div className="h-12" />
     </div>
   </div>;
