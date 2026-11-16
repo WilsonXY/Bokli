@@ -1,5 +1,7 @@
 import React from "react";
 
+export const monthCloseIconPath = "M8 3h8v4H8zM7 5H5v16h14V5h-2M8 12l2 2 5-5M8 18h8";
+
 const paths = {
   add: "M12 5v14M5 12h14",
   check: "m5 12 4 4L19 6",
@@ -14,6 +16,7 @@ const paths = {
   moon: "M20.8 13.1A9 9 0 0 1 10.9 3.2 9 9 0 1 0 20.8 13.1Z",
   unlock: "M5 11h14v10H5V11ZM8 11V6a4 4 0 0 1 7.7-1.5M12 15v3",
   receipt: "M5 3h14v18l-3-2-4 2-4-2-3 2V3ZM8 7h8M8 11h8M8 15h4",
+  monthClose: monthCloseIconPath,
   logout: "M9 3H4v18h5M13 7l5 5-5 5M8 12h10",
   lock: "M5 10h14v11H5zM8 10V6a4 4 0 0 1 8 0v4M12 14v3",
 } as const;

@@ -9,6 +9,7 @@ export default async function quickEntry({ page, shot: rawShot }) {
   await page.getByRole("button",{name:"完成此项",exact:true}).click();
   assert.equal(await page.locator(".cost-editor").count(),0);
   assert.equal(await page.locator(".cost-entry-card").count(),1);
+  await page.locator(".pending-save-mark").waitFor();
   assert.equal(await page.evaluate(async () => (await (await fetch("/api/cloud-v1/sheets")).json()).data),null,"Done collapses a draft; it must not save it");
   await shot("cost-completed-in-draft");
   await page.getByRole("button",{name:/添加开销/}).click();
@@ -57,7 +58,7 @@ export default async function quickEntry({ page, shot: rawShot }) {
   await shot("calendar-activity-unavailable");
   await page.unrouteAll({behavior:"wait"});
   await page.getByRole("button",{name:"重试",exact:true}).click();
-  await page.locator('.calendar-activity[data-state="empty"]').waitFor();
+  await page.locator('[data-state="empty"]').waitFor({state:"attached"});
   await page.keyboard.press("Escape");
   await page.getByRole("button",{name:"前一天",exact:true}).click();
   await page.locator("#cash-input").waitFor();

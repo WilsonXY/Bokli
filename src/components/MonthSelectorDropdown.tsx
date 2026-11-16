@@ -119,7 +119,7 @@ export function MonthSelectorDropdown({
           {currentMonth || "0000-00"}
         </span>
         <span id={descriptionId} className="sr-only">{currentMonth} {loadingLabel || getStatusLabel(currentStatus)}</span>
-        {showStatusInTrigger && <span className={`month-status-symbol${loadingLabel ? " animate-spin" : ""}`} aria-hidden="true"><ActionIcon name={loadingLabel ? "refresh" : currentStatus === "closed" ? "lock" : "unlock"} size={18} /></span>}
+        {showStatusInTrigger && <span className={`month-status-symbol${loadingLabel ? " animate-spin" : ""}`} aria-hidden="true">{loadingLabel ? <ActionIcon name="refresh" size={18} /> : currentStatus === "closed" ? <ActionIcon name="lock" size={18} /> : null}</span>}
         <svg
           aria-hidden="true"
           className={`w-4 h-4 text-ink-muted transition-transform duration-200 shrink-0 ${
@@ -169,7 +169,7 @@ export function MonthSelectorDropdown({
                 }`}
               >
                 <span className="truncate">{opt.month}</span>
-                <span className="month-status-symbol" title={getStatusLabel(status)}><ActionIcon name={status === "closed" ? "lock" : "unlock"} size={18} /><span className="sr-only">{getStatusLabel(status)}</span></span>
+                <span className="month-status-symbol" title={getStatusLabel(status)}>{status === "closed" && <ActionIcon name="lock" size={18} />}<span className="sr-only">{getStatusLabel(status)}</span></span>
               </button>
             );
           })}

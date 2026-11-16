@@ -1050,7 +1050,7 @@ export function DailySheetForm({
 
   return (
     <div className="daily-layout page-stack">
-      <div className="page-heading sheet-page-heading"><div><h1>{t.sheetTitle}</h1><p className="page-description">{t.sheetHint}</p></div><span role="status" title={isModified ? t.draftStatus : savedSheet ? t.savedStatus : t.newSheetStatus} className={`sheet-status ${isModified ? "sheet-status-draft" : savedSheet ? "sheet-status-saved" : "sheet-status-new"}`}>{savedSheet && !isModified ? <ActionIcon name="check" size={18} /> : <i className="draft-dot" aria-hidden="true" />}<span className="sr-only">{isModified ? t.draftStatus : savedSheet ? t.savedStatus : t.newSheetStatus}</span></span></div>
+      <div className="page-heading sheet-page-heading"><div><h1>{t.sheetTitle}</h1><p className="page-description">{t.sheetHint}</p><span role="status" className="sr-only">{isModified ? t.draftStatus : savedSheet ? t.savedStatus : t.newSheetStatus}</span></div></div>
       {/* Date Bar with Calendar Toggle Popover & Lock Notice */}
       <div className="sheet-date-bar bg-white border border-surface-border rounded-xl p-3 shadow-xs flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
@@ -1422,9 +1422,7 @@ export function DailySheetForm({
                               disabled={saving}
                               className="cost-delete-action"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5" />
-                              </svg><span className="sr-only">{t.deleteCostLine}</span>
+                              <ActionIcon name="trash" /><span className="sr-only">{t.deleteCostLine}</span>
                             </button>
                           )}
                             <button type="button" className="finish-cost-action" disabled={saving} onClick={() => {
@@ -1577,8 +1575,8 @@ export function DailySheetForm({
                     }}
                     aria-label={saving ? t.saving : t.saveSheet} className="sheet-save-action h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
                   >
-                    <span className={saving ? "animate-spin" : undefined}><ActionIcon name={saving ? "refresh" : "save"} /></span>
-                    <span>{t.saveShort}</span>
+                    <span className={`save-state-icon${saving ? " animate-spin" : ""}`}><ActionIcon name={saving ? "refresh" : savedSheet && !isModified ? "check" : "save"} />{isModified && !saving && <i className="pending-save-mark" aria-hidden="true" />}</span>
+                    <span>{savedSheet && !isModified ? t.savedStatus : t.saveShort}</span>
                   </button>
                 </div>
               )}
@@ -1590,7 +1588,7 @@ export function DailySheetForm({
         <p>{t.confirmRevertDesc}</p>
         <div className="dialog-actions">
           <button type="button" className="secondary-button" aria-label={t.cancel} autoFocus onClick={() => revertDialog.current?.close()}><ActionIcon name="close" /></button>
-          <button type="button" className="primary-button" aria-label={t.confirmRevertBtn} onClick={() => { revertDialog.current?.close(); handleRevert(); requestAnimationFrame(() => document.getElementById("cash-input")?.focus({ preventScroll: true })); }}><ActionIcon name="undo" /></button>
+          <button type="button" className="secondary-button discard-confirm-action" aria-label={t.confirmRevertBtn} onClick={() => { revertDialog.current?.close(); handleRevert(); requestAnimationFrame(() => document.getElementById("cash-input")?.focus({ preventScroll: true })); }}><ActionIcon name="undo" /></button>
         </div>
       </dialog>}
       {/* Deletion stays separate from the primary save action. */}
@@ -1798,7 +1796,7 @@ export function DailySheetForm({
               </p>
             </div>
 
-            {!cashInput.trim() && !tngInput.trim() && <p className="zero-revenue-warning" role="note" aria-label={t.noRevenueWarning}><ActionIcon name="warning" /><span>— → RM 0.00</span></p>}
+            {!cashInput.trim() && !tngInput.trim() && <p className="zero-revenue-warning" role="note" aria-label={t.noRevenueWarning}><ActionIcon name="warning" /><span>{t.cashRevenueShort} / {t.tngRevenueShort}<span className="zero-warning-rule">{t.blankRevenueZeroShort}</span></span></p>}
             {/* Modal Summary Info */}
             <div className="p-3.5 rounded-xl bg-surface-subtle border border-surface-border space-y-2">
               <div className="flex justify-between text-sm">

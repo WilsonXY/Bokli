@@ -727,8 +727,8 @@ export function ExpensesView({
             </div>
           )}
 
-          {summary && <section className={`expense-month-summary${isDraftOpen ? " is-editing" : ""}`} aria-label={t.monthSummary}>
-            <div className="expense-month-total"><span>{isDraftOpen ? <><ActionIcon name="receipt" /><span className="sr-only">{t.operatingExpenses}</span></> : t.operatingExpenses}</span><strong>{formatMyr(totalExpenseSen)}</strong></div>
+          {summary && !isDraftOpen && <section className="expense-month-summary" aria-label={t.monthSummary}>
+            <div className="expense-month-total"><span>{t.operatingExpenses}</span><strong>{formatMyr(totalExpenseSen)}</strong></div>
             <div className="expense-month-context"><div><span>{t.monthGrossProfit}</span><strong>{formatMyr(BigInt(summary.grossSen))}</strong></div><div><span>{t.netProfit}</span><strong className={BigInt(summary.grossSen) - totalExpenseSen >= 0n ? "text-finance-profit" : "text-finance-loss"}>{formatMyr(BigInt(summary.grossSen) - totalExpenseSen)}</strong></div></div>
           </section>}
 
@@ -738,8 +738,8 @@ export function ExpensesView({
             {isDraftOpen && !isClosed && (
               <div className="bg-white border-2 border-brand-broccoli ring-2 ring-brand-broccoli/20 rounded-xl shadow-xs overflow-hidden transition-all">
                 <form onSubmit={handleAddExpense} className="p-4 bg-surface-canvas/30 space-y-3">
-                  <div>
-                    <label htmlFor="expense-category" className="field-label block font-medium text-ink-secondary mb-2">{t.selectExpenseCategory}</label>
+                  <div className="cost-category-row">
+                    <label htmlFor="expense-category" className="field-label block font-medium text-ink-secondary mb-2">{t.categoryShort}</label>
                     <select id="expense-category" className="category-select" disabled={adding} value={newType} onChange={e => {
                       setNewType(e.target.value as OperatingExpenseItem["type"]);
                       if (e.target.value !== "other") setNoteError(false);
@@ -748,8 +748,8 @@ export function ExpensesView({
                   </div>
 
                   {/* Amount & Note Inputs */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <div>
+                  <div className="expense-entry-fields space-y-2.5">
+                    <div className="cost-money-row">
                       <label htmlFor="expense-amount" className="block text-sm font-medium text-ink-secondary mb-1">
                         {t.amount} <span className="text-finance-loss">*</span>
                       </label>
@@ -845,7 +845,7 @@ export function ExpensesView({
                         setNoteError(false);
                         if (inlineError) setInlineError(null);
                       }}
-                      className="flex-1 h-11 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary font-semibold text-sm transition-colors cursor-pointer"
+                      className="icon-action-button flex-1 h-11 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary font-semibold text-sm transition-colors cursor-pointer"
                     >
                       <ActionIcon name="close" /><span className="sr-only">{t.cancel}</span>
                     </button>
@@ -861,10 +861,9 @@ export function ExpensesView({
               </div>
             )}
 
-            <div data-readonly={isClosed || undefined} className="expense-records-heading expense-toolbar">
+            <div hidden={isClosed || isDraftOpen} data-readonly={isClosed || undefined} className="expense-records-heading expense-toolbar">
               <h2 className="sr-only">{t.savedExpensesTitle}</h2>
               {!isClosed && !isDraftOpen && <button type="button" className="expense-add-icon" aria-label={t.addExpense} title={t.addExpense} onClick={() => setIsDraftOpen(true)}><ActionIcon name="add" size={24} /></button>}
-              <span className="expense-list-total">{formatMyr(totalExpenseSen)}</span>
             </div>
 
             {/* Dynamic Cost Cards */}
@@ -959,7 +958,7 @@ export function ExpensesView({
                     type="button"
                     disabled={deletingKey !== null}
                     onClick={() => setPendingDeleteExpense(null)}
-                    className="flex-1 h-11 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary font-semibold text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-surface-border disabled:opacity-50"
+                    className="icon-action-button flex-1 h-11 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary font-semibold text-sm transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-surface-border disabled:opacity-50"
                   >
                     <ActionIcon name="close" /><span className="sr-only">{t.cancel}</span>
                   </button>

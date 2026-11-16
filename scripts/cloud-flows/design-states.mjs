@@ -37,6 +37,9 @@ export default async function flow({ page, shot: rawShot }) {
   await page.locator('input[inputmode="decimal"]').nth(2).fill("20");
   await page.getByRole("button", { name: "保存账单", exact: true }).click();
   await page.locator(".zero-revenue-warning").waitFor();
+  assert.match(await page.locator(".zero-revenue-warning").innerText(), /现金/);
+  assert.match(await page.locator(".zero-revenue-warning").innerText(), /TnG/);
+  assert.match(await page.locator(".zero-revenue-warning").innerText(), /空白按 0/);
   await shot("save-confirmation");
   await page.getByRole("dialog").getByRole("button", { name: "确认保存", exact: true }).click();
   await page.locator("#other-note-error-0").waitFor();

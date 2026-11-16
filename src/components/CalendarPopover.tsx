@@ -246,10 +246,7 @@ export function CalendarPopover({
         })}
       </div>
       <span id="calendar-recorded-legend" className="sr-only">{t.recordedSheet}</span>
-      {(recorded?.month !== viewPeriod || recorded.failed || recorded.dates.length === 0) && <div className="calendar-activity" data-state={recorded?.month !== viewPeriod ? "loading" : recorded.failed ? "failed" : "empty"} role="status">
-        <span className="sr-only">{recorded?.month !== viewPeriod ? t.recordedDaysLoading : recorded.failed ? t.recordedDaysFailed : t.noRecordedDays}</span>
-        {recorded?.month !== viewPeriod ? <span className="animate-spin"><ActionIcon name="refresh" /></span> : recorded.failed ? <><ActionIcon name="warning" /><button type="button" className="calendar-retry" aria-label={t.retry} title={t.retry} onClick={() => setRetrySequence(value => value + 1)}><ActionIcon name="refresh" /></button></> : <><ActionIcon name="calendar" /><span aria-hidden="true">—</span></>}
-      </div>}
+      {recorded?.month !== viewPeriod ? <div className="calendar-activity" data-state="loading" role="status"><span className="animate-spin"><ActionIcon name="refresh" /></span><span className="sr-only">{t.recordedDaysLoading}</span></div> : recorded.failed ? <div className="calendar-activity" data-state="failed" role="status"><ActionIcon name="warning" /><span>{t.recordedDaysFailed}</span><button type="button" className="calendar-retry" aria-label={t.retry} title={t.retry} onClick={() => setRetrySequence(value => value + 1)}><ActionIcon name="refresh" /></button></div> : recorded.dates.length === 0 ? <span className="sr-only" data-state="empty" role="status">{t.noRecordedDays}</span> : null}
     </div>
     </>
   );

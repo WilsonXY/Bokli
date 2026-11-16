@@ -7,7 +7,8 @@ export type Language = "zh" | "en";
 export const DICTIONARY = {
   zh: {
     closeShort: "结账",
-    zeroBalanceShort: "无余额 → 0",
+    zeroBalanceShort: "无余额填 0",
+    blankRevenueZeroShort: "空白按 0",
     expensesTitleShort: "固定支出",
     dailySheetsLabel: "账单",
     categoryShort: "类别",
@@ -22,7 +23,7 @@ export const DICTIONARY = {
     recordedSheet: "已记录每日账单",
     noRecordedDays: "本月暂无已记录账单",
     recordedDaysLoading: "正在读取已记录日期…",
-    recordedDaysFailed: "暂时无法显示已记录日期",
+    recordedDaysFailed: "记录标记未加载",
     enterBothToClose: "填写两项余额后可结账。",
     cashRevenueShort: "现金",
     tngRevenueShort: "TnG",
@@ -234,7 +235,8 @@ export const DICTIONARY = {
   },
   en: {
     closeShort: "Close",
-    zeroBalanceShort: "Zero balance → 0",
+    zeroBalanceShort: "None? Enter 0",
+    blankRevenueZeroShort: "Blank → 0",
     expensesTitleShort: "Expenses",
     dailySheetsLabel: "Daily Sheets",
     categoryShort: "Category",
@@ -249,7 +251,7 @@ export const DICTIONARY = {
     recordedSheet: "Daily Sheet recorded",
     noRecordedDays: "No Daily Sheets recorded this month",
     recordedDaysLoading: "Loading recorded dates…",
-    recordedDaysFailed: "Recorded dates are unavailable",
+    recordedDaysFailed: "Record marks unavailable",
     enterBothToClose: "Enter both balances to enable Month Close.",
     cashRevenueShort: "Cash",
     tngRevenueShort: "TnG",
