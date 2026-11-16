@@ -64,7 +64,7 @@ export function DashboardSkeleton() {
 export function ExpensesSkeleton() {
   const { t } = useI18n();
   return <div className="expenses-layout page-stack" aria-busy="true">
-    <MonthHeader title={t.expensesTitle} hint={t.expensesHint} />
+    <MonthHeader title={t.expensesTitleShort} hint={t.expensesHint} />
     <section className="expense-month-summary"><div className="expense-month-total"><span>{t.operatingExpenses}</span><strong className={value} aria-hidden="true">{amount}</strong></div><div className="expense-month-context"><div><span>{t.monthGrossProfit}</span><strong className={value} aria-hidden="true">{amount}</strong></div><div><span>{t.netProfit}</span><strong className={value} aria-hidden="true">{amount}</strong></div></div></section>
     <section className="operating-expenses space-y-2.5"><div className="expense-records-heading expense-toolbar"><h2 className="sr-only">{t.savedExpensesTitle}</h2><button disabled className="expense-add-icon" aria-label={t.addExpense}><ActionIcon name="add" size={24} /></button><span className={`expense-list-total ${value}`} aria-hidden="true">{amount}</span></div><div className="space-y-2">{[0, 1].map(index => <div key={index} className="expense-record" aria-hidden="true"><div className="expense-record-summary"><span className={`expense-record-category ${value}`}>{index ? t.catUtilities : t.catRental}</span><span className={`expense-record-amount text-base ${value}`}>{amount}</span><span className="record-chevron" aria-hidden="true">⌄</span></div></div>)}</div></section>
   </div>;

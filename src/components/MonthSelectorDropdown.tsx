@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback, useId } from "react";
+import { ActionIcon } from "./ActionIcon";
 import { useI18n } from "@/lib/i18n";
 import type { MonthStatus } from "@/services/dashboard";
 
@@ -34,6 +35,23 @@ export function MonthSelectorDropdown({
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const containerRef = useRef<HTMLDivElement>(null);
+  const descriptionId = useId();
+  const [menuPosition, setMenuPosition] = useState<React.CSSProperties>({});
+  const positionMenu = useCallback(() => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const width = Math.min(224, window.innerWidth - 32);
+    const maxHeight = Math.max(48, Math.min(256, window.innerHeight - 32));
+    const top = rect.bottom + maxHeight + 6 > window.innerHeight - 16 ? Math.max(16, rect.top - maxHeight - 6) : rect.bottom + 6;
+    setMenuPosition({ position: "fixed", left: Math.max(16, Math.min(rect.right - width, window.innerWidth - width - 16)), top, width, maxHeight });
+  }, []);
+  useEffect(() => {
+    if (!isOpen) return;
+    positionMenu();
+    window.addEventListener("resize", positionMenu);
+    window.addEventListener("scroll", positionMenu, true);
+    return () => { window.removeEventListener("resize", positionMenu); window.removeEventListener("scroll", positionMenu, true); };
+  }, [isOpen, positionMenu]);
 
   // Click outside and Escape key to close
   useEffect(() => {
@@ -76,17 +94,6 @@ export function MonthSelectorDropdown({
     }
   }
 
-  function getStatusBadgeStyle(status?: MonthStatus) {
-    switch (status) {
-      case "closed":
-        return "bg-status-closed-bg text-status-closed border-status-closed/20";
-      case "reopened":
-        return "bg-status-reopened-bg text-status-reopened border-status-reopened/20";
-      default:
-        return "bg-status-open-bg text-status-open border-status-open/20";
-    }
-  }
-
   // Ensure currentMonth is present in options list
   const fullOptions = options.some((opt) => opt.month === currentMonth)
     ? options
@@ -99,7 +106,9 @@ export function MonthSelectorDropdown({
         type="button"
         disabled={Boolean(loadingLabel)}
         data-loading={loadingLabel ? true : undefined}
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={() => { positionMenu(); setIsOpen((prev) => !prev); }}
+        aria-describedby={descriptionId}
+        title={`${currentMonth} ${loadingLabel || getStatusLabel(currentStatus)}`}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-busy={loadingLabel ? true : undefined}
@@ -109,24 +118,8 @@ export function MonthSelectorDropdown({
         <span data-unknown={!currentMonth || undefined} className="month-picker-date font-bold text-sm text-ink-primary tracking-tight">
           {currentMonth || "0000-00"}
         </span>
-        {showStatusInTrigger && (
-          // Every status label in one grid cell, only the current one visible:
-          // the badge keeps the widest label's width, so the picker doesn't
-          // change size between months (or from the loading skeleton).
-          <span
-            data-loading={loadingLabel ? true : undefined}
-            className={`month-status-badge grid text-center text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${getStatusBadgeStyle(
-              currentStatus,
-            )}`}
-          >
-            {(["open", "closed", "reopened"] as const).map((status) => (
-              <span key={status} className={`col-start-1 row-start-1${status === currentStatus ? "" : " invisible"}`}>
-                {getStatusLabel(status)}
-              </span>
-            ))}
-            {loadingLabel && <span className="month-loading-label col-start-1 row-start-1" role="status">{loadingLabel}</span>}
-          </span>
-        )}
+        <span id={descriptionId} className="sr-only">{currentMonth} {loadingLabel || getStatusLabel(currentStatus)}</span>
+        {showStatusInTrigger && <span className={`month-status-symbol${loadingLabel ? " animate-spin" : ""}`} aria-hidden="true"><ActionIcon name={loadingLabel ? "refresh" : currentStatus === "closed" ? "lock" : "unlock"} size={18} /></span>}
         <svg
           aria-hidden="true"
           className={`w-4 h-4 text-ink-muted transition-transform duration-200 shrink-0 ${
@@ -145,6 +138,7 @@ export function MonthSelectorDropdown({
       {isOpen && !loadingLabel && (
         <div
           role="listbox"
+          style={menuPosition}
           aria-label={ariaLabel || t.monthSelect}
           className="month-options absolute right-0 top-full mt-1.5 z-50 w-56 max-h-64 overflow-y-auto bg-white border border-surface-border rounded-xl shadow-lg p-1.5 space-y-1 animate-dropdown focus:outline-none"
         >
@@ -175,13 +169,7 @@ export function MonthSelectorDropdown({
                 }`}
               >
                 <span className="truncate">{opt.month}</span>
-                <span
-                  className={`month-status-badge text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${getStatusBadgeStyle(
-                    status,
-                  )}`}
-                >
-                  {getStatusLabel(status)}
-                </span>
+                <span className="month-status-symbol" title={getStatusLabel(status)}><ActionIcon name={status === "closed" ? "lock" : "unlock"} size={18} /><span className="sr-only">{getStatusLabel(status)}</span></span>
               </button>
             );
           })}

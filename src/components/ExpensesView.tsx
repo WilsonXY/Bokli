@@ -636,7 +636,7 @@ export function ExpensesView({
       {/* Page heading and period selection */}
       <div className="page-heading">
         <div><h1 className="text-xl font-bold text-ink-primary tracking-tight">
-          {isDraftOpen ? t.addExpense : t.expensesTitle}
+          {isDraftOpen ? t.addExpense : t.expensesTitleShort}
         </h1><p className="page-description">{t.expensesHint}</p></div>
 
         <MonthSelectorDropdown
@@ -728,7 +728,7 @@ export function ExpensesView({
           )}
 
           {summary && <section className={`expense-month-summary${isDraftOpen ? " is-editing" : ""}`} aria-label={t.monthSummary}>
-            <div className="expense-month-total"><span>{t.operatingExpenses}</span><strong>{formatMyr(totalExpenseSen)}</strong></div>
+            <div className="expense-month-total"><span>{isDraftOpen ? <><ActionIcon name="receipt" /><span className="sr-only">{t.operatingExpenses}</span></> : t.operatingExpenses}</span><strong>{formatMyr(totalExpenseSen)}</strong></div>
             <div className="expense-month-context"><div><span>{t.monthGrossProfit}</span><strong>{formatMyr(BigInt(summary.grossSen))}</strong></div><div><span>{t.netProfit}</span><strong className={BigInt(summary.grossSen) - totalExpenseSen >= 0n ? "text-finance-profit" : "text-finance-loss"}>{formatMyr(BigInt(summary.grossSen) - totalExpenseSen)}</strong></div></div>
           </section>}
 

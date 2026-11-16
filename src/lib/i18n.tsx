@@ -8,6 +8,7 @@ export const DICTIONARY = {
   zh: {
     closeShort: "结账",
     zeroBalanceShort: "无余额 → 0",
+    expensesTitleShort: "固定支出",
     dailySheetsLabel: "账单",
     categoryShort: "类别",
     saveShort: "保存",
@@ -234,6 +235,7 @@ export const DICTIONARY = {
   en: {
     closeShort: "Close",
     zeroBalanceShort: "Zero balance → 0",
+    expensesTitleShort: "Expenses",
     dailySheetsLabel: "Daily Sheets",
     categoryShort: "Category",
     saveShort: "Save",
@@ -385,7 +387,7 @@ export const DICTIONARY = {
     invalidAmount: "Please enter a valid amount",
     otherNoteRequired: "Note is required when category is 'Other'",
     // Dashboard
-    overviewTitle: "Monthly Overview",
+    overviewTitle: "Overview",
     monthTiles: "Month Tiles",
     currentViewing: "Viewing",
     noMonthsRecorded: "No recorded months yet",

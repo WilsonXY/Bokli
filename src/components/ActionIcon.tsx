@@ -12,6 +12,8 @@ const paths = {
   calendar: "M4 5h16v16H4zM8 3v4m8-4v4M4 10h16",
   sun: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5",
   moon: "M20.8 13.1A9 9 0 0 1 10.9 3.2 9 9 0 1 0 20.8 13.1Z",
+  unlock: "M5 11h14v10H5V11ZM8 11V6a4 4 0 0 1 7.7-1.5M12 15v3",
+  receipt: "M5 3h14v18l-3-2-4 2-4-2-3 2V3ZM8 7h8M8 11h8M8 15h4",
   logout: "M9 3H4v18h5M13 7l5 5-5 5M8 12h10",
   lock: "M5 10h14v11H5zM8 10V6a4 4 0 0 1 8 0v4M12 14v3",
 } as const;

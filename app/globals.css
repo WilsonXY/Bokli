@@ -656,3 +656,6 @@
 
 .date-trigger-label>span { min-width: 10ch; font-variant-numeric: tabular-nums; }
 @media (min-width:640px) { .skeleton-date-body>button { width: auto; } }
+
+.month-status-symbol { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.month-picker-date { min-width: 7ch; font-variant-numeric: tabular-nums; }
