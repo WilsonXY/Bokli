@@ -437,7 +437,8 @@
 .skeleton-date-body { display: flex; align-items: center; justify-content: space-between; }
 .skeleton-date-body>button { width: 44px; height: 44px; border: 1px solid rgb(var(--border)); border-radius: 8px; font-size: 24px; color: rgb(var(--muted)); }
 .skeleton-action { min-height: 56px; border: 1px solid transparent; border-radius: 12px; background: rgb(var(--subtle)) !important; color: rgb(var(--secondary)); font-size: 16px; }
-.skeleton-close-note { height: 50px; background: rgb(var(--subtle)); border-radius: 8px; }
+.skeleton-close-note { height: 44px; background: rgb(var(--subtle)); border-radius: 8px; }
+@media (max-width: 767px) { .skeleton-close-note { height: 50px; } }
 .loading-layout .panel, .loading-layout .month-close-action, .loading-layout .daily-ledger { background: rgb(var(--surface)); border-color: rgb(var(--border)); }
 .loading-layout .panel>*, .loading-layout .month-close-action>*, .loading-layout .daily-ledger>* { visibility: visible; }
 .loading-layout .profit-headline { background: rgb(var(--subtle)); }.loading-layout .profit-headline h2 { color: rgb(var(--ink)); }
