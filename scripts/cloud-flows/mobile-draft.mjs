@@ -45,7 +45,7 @@ export default async function flow({ page, shot: rawShot }) {
   await page.getByRole("navigation").getByRole("link", { name: "Overview", exact: true }).click();
   await page.getByRole("button", { name: "Month", exact: true }).click();
   await page.getByRole("option", { name: new RegExp(previousMonth) }).click();
-  await page.locator(".month-close-action").click();
+  await page.locator(`.month-close-action[href="/close?month=${previousMonth}"]`).click();
   await page.locator("#close-cash").fill("123.45");
   await page.locator("#close-note").fill("Count in progress");
   await page.getByRole("navigation").getByRole("link", { name: "Settings", exact: true }).click();
@@ -53,9 +53,12 @@ export default async function flow({ page, shot: rawShot }) {
   await page.getByRole("button", { name: "退出", exact: true }).click();
   await page.getByText("还有未保存的修改。退出会丢弃这些修改。").waitFor();
   await page.getByRole("dialog").getByRole("button", { name: "取消", exact: true }).click();
-  await page.getByRole("navigation").getByRole("link", { name: "概览", exact: true }).click();
+  const overviewLink = page.getByRole("navigation").getByRole("link", { name: "概览", exact: true });
+  assert.equal(await overviewLink.getAttribute("href"), `/dashboard?month=${previousMonth}`, "Overview must link back to the selected month");
+  await overviewLink.click();
+  await page.locator(".month-close-action").waitFor();
   assert.equal(new URL(page.url()).searchParams.get("month"), previousMonth, "Returning from Settings must retain the Month Close month");
-  await page.locator(".month-close-action").click();
+  await page.locator(`.month-close-action[href="/close?month=${previousMonth}"]`).click();
   assert.equal(await page.locator("#close-cash").inputValue(), "123.45");
   assert.equal(await page.locator("#close-note").inputValue(), "Count in progress");
   await page.locator("form").scrollIntoViewIfNeeded();
