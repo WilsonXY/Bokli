@@ -319,7 +319,7 @@ export function MonthCloseView({
       <div className="page-heading">
         <div><h1 className="text-xl font-bold text-ink-primary tracking-tight">
           {t.closeTitle}
-        </h1><p className="page-description">{t.closeHint}</p></div>
+        </h1>{!isClosed && <p className="page-description">{t.closeHint}</p>}</div>
 
         {/* Month Dropdown */}
         <MonthSelectorDropdown
@@ -489,7 +489,6 @@ export function MonthCloseView({
                 </div>
               )}
 
-              <p id="counts-hint" className="counts-hint">{t.zeroBalanceShort}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {/* Physical Cash Counted */}
                 <div>
@@ -499,7 +498,7 @@ export function MonthCloseView({
                   <div className="relative flex items-center">
                     <span data-money-prefix className="absolute left-2.5 text-sm font-bold text-channel-cash select-none">RM</span>
                     <input id="close-cash"
-                      aria-describedby="counts-hint" disabled={submitting} type="text"
+                      disabled={submitting} type="text"
                       inputMode="decimal"
                       value={cashOnHandInput}
                       onChange={(e) => {
@@ -509,7 +508,7 @@ export function MonthCloseView({
                           if (errorMessage) setErrorMessage(null);
                         }
                       }}
-                      placeholder={t.enterAmount}
+                      placeholder={t.zeroBalanceShort}
                       className={`money-input w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
                         cashError ? "border-finance-loss" : "border-surface-border"
                       } text-lg font-bold text-ink-primary tabular-nums focus:outline-none focus:bg-white ${
@@ -534,7 +533,7 @@ export function MonthCloseView({
                   <div className="relative flex items-center">
                     <span data-money-prefix className="absolute left-2.5 text-sm font-bold text-channel-tng select-none">RM</span>
                     <input id="close-tng"
-                      aria-describedby="counts-hint" disabled={submitting} type="text"
+                      disabled={submitting} type="text"
                       inputMode="decimal"
                       value={tngOnHandInput}
                       onChange={(e) => {
@@ -544,7 +543,7 @@ export function MonthCloseView({
                           if (errorMessage) setErrorMessage(null);
                         }
                       }}
-                      placeholder={t.enterAmount}
+                      placeholder={t.zeroBalanceShort}
                       className={`money-input w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
                         tngError ? "border-finance-loss" : "border-surface-border"
                       } text-lg font-bold text-ink-primary tabular-nums focus:outline-none focus:bg-white ${
@@ -631,7 +630,7 @@ export function MonthCloseView({
                 disabled={submitting || !countsComplete}
                 className="w-full h-12 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center justify-center transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
               >
-                <ActionIcon name="lock" /><span>{submitting ? t.closingMonth : t.closeShort}</span>
+                <span className={submitting ? "animate-spin" : undefined}><ActionIcon name={submitting ? "loading" : "lock"} /></span><span>{submitting ? t.closingMonth : countsComplete ? t.closeShort : t.fillBothBalancesShort}</span>
               </button>
 
               {/* Contextual Error Message */}

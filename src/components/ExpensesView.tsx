@@ -854,7 +854,7 @@ export function ExpensesView({
                       disabled={adding}
                       className="flex-1 h-11 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                      <span className={adding ? "animate-spin" : undefined}><ActionIcon name={adding ? "refresh" : "check"} /></span><span className="sr-only">{adding ? t.saving : t.addExpense}</span>
+                      <span className={adding ? "animate-spin" : undefined}><ActionIcon name={adding ? "loading" : "check"} /></span><span className="sr-only">{adding ? t.saving : t.addExpense}</span>
                     </button>
                   </div>
                 </form>
@@ -905,7 +905,7 @@ export function ExpensesView({
               aria-modal="true"
               aria-labelledby="confirm-delete-expense-title"
               aria-describedby="confirm-delete-expense-desc"
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-slide-down"
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 animate-slide-down"
               onClick={(e) => {
                 if (e.target === e.currentTarget && deletingKey === null) {
                   setPendingDeleteExpense(null);

@@ -31,13 +31,13 @@ export interface SerializedDailyTrendRow {
 
 export type TrendMetric = "revenue" | "cost";
 
-/** Line colours per trend metric: revenue in TnG blue, Daily Cost in finance-cost amber. */
+/** Theme-aware trend colours. */
 const TREND_METRIC_COLORS: Record<
   TrendMetric,
   { line: string; active: string; halo: string }
 > = {
-  revenue: { line: "var(--trend-revenue, #2563eb)", active: "#1d4ed8", halo: "#bfdbfe" },
-  cost: { line: "var(--trend-cost, #d97706)", active: "#b45309", halo: "#fde68a" },
+  revenue: { line: "var(--trend-revenue, #126756)", active: "#126756", halo: "#e5f1ec" },
+  cost: { line: "var(--trend-cost, #485b52)", active: "#485b52", halo: "#dfe5df" },
 };
 
 export function trendValueSen(row: SerializedDailyTrendRow, metric: TrendMetric): number {
@@ -132,12 +132,11 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
           <span className="month-close-icon" aria-hidden="true"><ActionIcon name="monthClose" size={23} /></span>
           <span><strong>{t.closeMonthAction}</strong><small className="sr-only">{t.closeMonthHint}</small></span><span className="action-arrow" aria-hidden="true">›</span>
         </Link>
-        {trend.length > 0 && <details className="daily-records daily-ledger" open={trend.length <= 7}><summary>{t.dailySheetsLabel}<span className="daily-record-counter" aria-label={`${trend.length} ${t.recordedDays}`}><span className="recorded-count-symbol" aria-hidden="true"><ActionIcon name="check" size={16} /></span>{trend.length}<span className="ledger-chevron" aria-hidden="true">⌄</span></span></summary><p className="sr-only">{t.chartDataBelow}</p><div>{trend.map(row => <Link key={row.date} href={`/?date=${row.date}`} className="daily-record"><span>{row.date}</span><span><small>{metricLabel}</small>{formatMyr(BigInt(trendValueSen(row, trendMetric)))}<span aria-hidden="true"> ›</span></span></Link>)}</div></details>}
+        {trend.length > 0 && <details className="daily-records daily-ledger" open={trend.length <= 7}><summary>{t.dailySheetsLabel}<span className="daily-record-counter" aria-label={`${trend.length} ${t.recordedDays}`}>{trend.length}{t.daysUnit}<span className="ledger-chevron" aria-hidden="true">⌄</span></span></summary><p className="sr-only">{t.chartDataBelow}</p><div><div className="daily-record-column-heading">{metricLabel}</div>{trend.map(row => <Link key={row.date} href={`/?date=${row.date}`} className="daily-record"><span>{row.date}</span><span><small className="sr-only">{metricLabel}</small>{formatMyr(BigInt(trendValueSen(row, trendMetric)))}<span aria-hidden="true"> ›</span></span></Link>)}</div></details>}
         {trend.length > 0 && <section className="overview-trend panel" aria-labelledby="trend-heading">
-          <div className="panel-heading"><h2 id="trend-heading">{trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}</h2><span className="record-count">{t.recordedDays}: {trend.length}</span></div>
+          <div className="panel-heading"><h2 id="trend-heading">{trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}</h2></div>
           <div className="metric-tabs" aria-label={t.trendMetric}>{(["revenue", "cost"] as const).map(metric => <button key={metric} type="button" aria-pressed={trendMetric === metric} onClick={() => setTrendMetric(metric)}>{metric === "revenue" ? t.sheetRevCol : t.sheetCostCol}</button>)}</div>
           <>
-            <div className="trend-range"><span>MYR</span><span>0 – {formatMyr(BigInt(maximum))}</span></div>
             <div className="trend-frame" ref={chartRef}><svg key={trendMetric} className="trend-plot animate-chart-swap" viewBox={`0 0 ${chartW} ${chartH}`} aria-hidden="true" focusable="false">
               <defs><linearGradient id={`trendGradient-${trendMetric}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={chartColor} stopOpacity="0.18" /><stop offset="100%" stopColor={chartColor} stopOpacity="0.01" /></linearGradient></defs>
               {[padY, chartH / 2, chartH - padY].map(y => <line key={y} x1={padX} x2={chartW - padX} y1={y} y2={y} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />)}

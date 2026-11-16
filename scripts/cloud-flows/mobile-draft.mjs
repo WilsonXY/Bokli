@@ -30,13 +30,13 @@ export default async function flow({ page, shot: rawShot }) {
   await page.waitForTimeout(100);
   assert.equal(await protectedFromUnload(), false);
 
-  await page.getByRole("navigation").getByRole("link", { name: "Operating Expenses", exact: true }).click();
+  await page.getByRole("navigation").getByRole("link", { name: "Expenses", exact: true }).click();
   await page.getByRole("button", { name: /Add Expense/ }).click();
   await page.locator("#expense-amount").fill("11.23");
   await page.locator("#expense-note").fill("Round trip check");
   await page.getByRole("navigation").getByRole("link", { name: "Settings", exact: true }).click();
   await page.getByRole("radio", { name: "Dark mode", exact: true }).check();
-  await page.getByRole("navigation").getByRole("link", { name: "Operating Expenses", exact: true }).click();
+  await page.getByRole("navigation").getByRole("link", { name: "Expenses", exact: true }).click();
   assert.equal(await page.locator("#expense-amount").inputValue(), "11.23");
   assert.equal(await page.locator("#expense-note").inputValue(), "Round trip check");
   await page.locator("form").scrollIntoViewIfNeeded();
@@ -54,7 +54,7 @@ export default async function flow({ page, shot: rawShot }) {
   await page.getByRole("button", { name: "退出", exact: true }).click();
   await page.getByText("还有未保存的修改。退出会丢弃这些修改。").waitFor();
   await page.getByRole("dialog").getByRole("button", { name: "取消", exact: true }).click();
-  const overviewLink = page.getByRole("navigation").getByRole("link", { name: "概览", exact: true });
+  const overviewLink = page.getByRole("navigation").getByRole("link", { name: "经营概览", exact: true });
   assert.equal(await overviewLink.getAttribute("href"), `/dashboard?month=${previousMonth}`, "Overview must link back to the selected month");
   await overviewLink.click();
   await page.locator(".month-close-action").waitFor();

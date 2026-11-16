@@ -136,13 +136,7 @@ export function CalendarPopover({
   const weekHeadersEn = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
   const weekHeaders = lang === "zh" ? weekHeadersZh : weekHeadersEn;
 
-  const monthTitle =
-    lang === "zh"
-      ? `${viewYear}年 ${viewMonth + 1}月`
-      : new Date(viewYear, viewMonth, 1).toLocaleString("en-US", {
-          month: "short",
-          year: "numeric",
-        });
+  const monthTitle = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}`;
 
   return (
     <>
@@ -240,13 +234,13 @@ export function CalendarPopover({
               }`}
             >
               {day}
-              {isRecorded && <span className="calendar-recorded-mark" aria-hidden="true"><ActionIcon name="check" size={10} /></span>}
+              {isRecorded && <span className="calendar-recorded-mark" aria-hidden="true"><ActionIcon name="check" size={16} /></span>}
             </button>
           );
         })}
       </div>
       <span id="calendar-recorded-legend" className="sr-only">{t.recordedSheet}</span>
-      {recorded?.month !== viewPeriod ? <div className="calendar-activity" data-state="loading" role="status"><span className="animate-spin"><ActionIcon name="refresh" /></span><span className="sr-only">{t.recordedDaysLoading}</span></div> : recorded.failed ? <div className="calendar-activity" data-state="failed" role="status"><ActionIcon name="warning" /><span>{t.recordedDaysFailed}</span><button type="button" className="calendar-retry" aria-label={t.retry} title={t.retry} onClick={() => setRetrySequence(value => value + 1)}><ActionIcon name="refresh" /></button></div> : recorded.dates.length === 0 ? <span className="sr-only" data-state="empty" role="status">{t.noRecordedDays}</span> : null}
+      {recorded?.month !== viewPeriod ? <div className="calendar-activity" data-state="loading" role="status"><span className="animate-spin"><ActionIcon name="loading" /></span><span className="sr-only">{t.recordedDaysLoading}</span></div> : recorded.failed ? <div className="calendar-activity" data-state="failed" role="status"><ActionIcon name="warning" /><span>{t.recordedDaysFailed}</span><button type="button" className="calendar-retry" aria-label={t.retry} title={t.retry} onClick={() => setRetrySequence(value => value + 1)}><ActionIcon name="refresh" /></button></div> : recorded.dates.length === 0 ? <span className="sr-only" data-state="empty" role="status">{t.noRecordedDays}</span> : null}
     </div>
     </>
   );

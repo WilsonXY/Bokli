@@ -68,6 +68,7 @@ export default async function flow({ page, shot: rawShot }) {
   await page.getByRole("button", { name: "Sign Out", exact: true }).click();
   const dialog = page.getByRole("dialog");
   assert.equal(await dialog.isVisible(), true);
+  await pause(700); await shot("sign-out-confirmation");
   await page.keyboard.press("Escape");
   assert.equal(await dialog.isVisible(), false);
   assert.equal(await page.getByRole("button", { name: "Sign Out", exact: true }).evaluate(el => el === document.activeElement), true);

@@ -35,7 +35,7 @@ export default function SettingsPage() {
       <p className="preferences-footnote">{t.savedOnDevice}</p>
       <dialog ref={dialog} className="account-dialog" aria-labelledby="signout-title" onClick={e => { if (e.target === e.currentTarget) dialog.current?.close(); }}>
         <h2 id="signout-title">{t.confirmSignOutTitle}</h2><p>{hasDrafts ? t.signOutDraftHint : t.signOutHint}</p>
-        <div className="dialog-actions"><button autoFocus className="secondary-button" aria-label={t.cancel} onClick={() => dialog.current?.close()}><ActionIcon name="close" /></button><button className="primary-button" aria-label={t.confirmSignOutBtn} onClick={() => { discardAll(); window.location.assign("/cdn-cgi/access/logout"); }}><ActionIcon name="logout" /></button></div>
+        <div className="dialog-actions"><button autoFocus className="secondary-button" aria-label={t.cancel} onClick={() => dialog.current?.close()}><ActionIcon name="close" /></button><button className="primary-button danger-action" aria-label={t.confirmSignOutBtn} onClick={() => { discardAll(); window.location.assign("/cdn-cgi/access/logout"); }}><ActionIcon name="logout" /></button></div>
       </dialog>
     </div>
   );

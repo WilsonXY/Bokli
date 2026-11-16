@@ -7,10 +7,12 @@ export type Language = "zh" | "en";
 export const DICTIONARY = {
   zh: {
     closeShort: "结账",
+    fillBothBalancesShort: "填写两项余额",
+    daysUnit: "天",
     zeroBalanceShort: "无余额填 0",
     blankRevenueZeroShort: "空白按 0",
     expensesTitleShort: "固定支出",
-    dailySheetsLabel: "账单",
+    dailySheetsLabel: "每日账单",
     categoryShort: "类别",
     saveShort: "保存",
     confirmRevertTitle: "撤销修改？",
@@ -87,10 +89,10 @@ export const DICTIONARY = {
     roleOperator: "操作员",
     roleAdmin: "管理员",
     // Navigation
-    navSheet: "记账",
-    navDashboard: "概览",
-    navExpenses: "支出",
-    navClose: "结账",
+    navSheet: "每日账单",
+    navDashboard: "经营概览",
+    navExpenses: "固定支出",
+    navClose: "月度结账",
     // Date & Navigation
     prevDay: "前一天",
     nextDay: "后一天",
@@ -235,6 +237,8 @@ export const DICTIONARY = {
   },
   en: {
     closeShort: "Close",
+    fillBothBalancesShort: "Fill both balances",
+    daysUnit: " days",
     zeroBalanceShort: "None? Enter 0",
     blankRevenueZeroShort: "Blank → 0",
     expensesTitleShort: "Expenses",
@@ -317,7 +321,7 @@ export const DICTIONARY = {
     // Navigation
     navSheet: "Daily Sheet",
     navDashboard: "Overview",
-    navExpenses: "Operating Expenses",
+    navExpenses: "Expenses",
     navClose: "Month Close",
     // Date & Navigation
     prevDay: "Prev Day",

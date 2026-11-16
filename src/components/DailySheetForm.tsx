@@ -1150,8 +1150,8 @@ export function DailySheetForm({
             </div>
 
             <div className="revenue-field-control relative flex items-center">
-              <span data-money-prefix className="absolute left-2.5 text-sm font-bold text-channel-cash select-none">RM</span>
-              <input
+              {!isClosed && <span data-money-prefix className="absolute left-2.5 text-sm font-bold text-channel-cash select-none">RM</span>}
+              {isClosed ? <output id="cash-input" className={`locked-money-value ${amountSizeClass(formatMyr(cashSen ?? 0n), "text-base", "text-2xl")}`} aria-label={t.cashRevenue}>{formatMyr(cashSen ?? 0n)}</output> : <input
                 id="cash-input" aria-label={t.cashRevenue}
                 aria-invalid={cashError || undefined}
                 aria-describedby={cashError ? "cash-error" : undefined}
@@ -1176,7 +1176,7 @@ export function DailySheetForm({
                     ? "focus:border-finance-loss focus-visible:ring-finance-loss/50"
                     : "focus:border-channel-cash focus-visible:ring-channel-cash/50"
                 } focus-visible:ring-2 disabled:opacity-60 transition-colors`}
-              />
+              />}
             </div>
             {cashError && (
               <div id="cash-error" role="alert" className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
@@ -1198,8 +1198,8 @@ export function DailySheetForm({
             </div>
 
             <div className="revenue-field-control relative flex items-center">
-              <span data-money-prefix className="absolute left-2.5 text-sm font-bold text-channel-tng select-none">RM</span>
-              <input
+              {!isClosed && <span data-money-prefix className="absolute left-2.5 text-sm font-bold text-channel-tng select-none">RM</span>}
+              {isClosed ? <output id="tng-input" className={`locked-money-value ${amountSizeClass(formatMyr(tngSen ?? 0n), "text-base", "text-2xl")}`} aria-label={t.tngRevenue}>{formatMyr(tngSen ?? 0n)}</output> : <input
                 id="tng-input" aria-label={t.tngRevenue}
                 aria-invalid={tngError || undefined}
                 aria-describedby={tngError ? "tng-error" : undefined}
@@ -1224,7 +1224,7 @@ export function DailySheetForm({
                     ? "focus:border-finance-loss focus-visible:ring-finance-loss/50"
                     : "focus:border-channel-tng focus-visible:ring-channel-tng/50"
                 } focus-visible:ring-2 disabled:opacity-60 transition-colors`}
-              />
+              />}
             </div>
             {tngError && (
               <div id="tng-error" role="alert" className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
@@ -1267,9 +1267,9 @@ export function DailySheetForm({
                           if (isClosed) return;
                           handleToggleCostLine(idx);
                         }}
-                        role="button"
-                        tabIndex={isClosed ? -1 : 0}
-                        aria-expanded={isExpanded}
+                        role={isClosed ? undefined : "button"}
+                        tabIndex={isClosed ? undefined : 0}
+                        aria-expanded={isClosed ? undefined : isExpanded}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
@@ -1281,17 +1281,7 @@ export function DailySheetForm({
                         }`}
                       >
                         <div className="cost-record-text flex flex-wrap items-center gap-2.5 min-w-0">
-                          <div className="w-5 h-5 flex items-center justify-center text-slate-400 shrink-0">
-                            <svg
-                              className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2.5"
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                            </svg>
-                          </div>
+
                           <span className="text-xs font-semibold px-2 py-0.5 rounded bg-surface-subtle border border-surface-border text-ink-secondary whitespace-nowrap">
                             {getCategoryLabel(line.category)}
                           </span>
@@ -1312,8 +1302,7 @@ export function DailySheetForm({
                           >
                             {formatMyr(BigInt(line.amountSen))}
                           </span>
-
-
+                          {!isClosed && <span className="record-chevron" aria-hidden="true">⌄</span>}
                         </div>
                       </div>
 
@@ -1436,7 +1425,7 @@ export function DailySheetForm({
                               }
                               handleToggleCostLine(idx);
                               requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".add-cost-action")?.focus({ preventScroll: true }));
-                            }} aria-label={t.finishCost} title={t.finishCost}><ActionIcon name="check" size={22} /></button>
+                            }} aria-label={t.finishCost} title={t.finishCost}><ActionIcon name="collapse" size={24} /></button>
                           </div>
                         </div>
                       )}
@@ -1572,8 +1561,8 @@ export function DailySheetForm({
                     }}
                     aria-label={saving ? t.saving : t.saveSheet} className="sheet-save-action h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
                   >
-                    <span className={`save-state-icon${saving ? " animate-spin" : ""}`}><ActionIcon name={saving ? "refresh" : savedSheet && !isModified ? "check" : "save"} />{isModified && !saving && <i className="pending-save-mark" aria-hidden="true" />}</span>
-                    <span>{savedSheet && !isModified ? t.savedStatus : t.saveShort}</span>
+                    <span className={`save-state-icon${saving ? " animate-spin" : ""}`}><ActionIcon name={saving ? "loading" : savedSheet && !isModified ? "check" : "save"} /></span>
+                    <span>{savedSheet && !isModified ? t.savedStatus : t.saveShort}</span>{isModified && !saving && <span className="pending-save-status">{t.draftStatus}</span>}
                   </button>
                 </div>
               )}
@@ -1585,11 +1574,11 @@ export function DailySheetForm({
         <p>{t.confirmRevertDesc}</p>
         <div className="dialog-actions">
           <button type="button" className="secondary-button" aria-label={t.cancel} autoFocus onClick={() => revertDialog.current?.close()}><ActionIcon name="close" /></button>
-          <button type="button" className="secondary-button discard-confirm-action" aria-label={t.confirmRevertBtn} onClick={() => { revertDialog.current?.close(); handleRevert(); requestAnimationFrame(() => document.getElementById("cash-input")?.focus({ preventScroll: true })); }}><ActionIcon name="undo" /></button>
+          <button type="button" className="primary-button danger-action" aria-label={t.confirmRevertBtn} onClick={() => { revertDialog.current?.close(); handleRevert(); requestAnimationFrame(() => document.getElementById("cash-input")?.focus({ preventScroll: true })); }}><ActionIcon name="undo" /></button>
         </div>
       </dialog>}
       {/* Deletion stays separate from the primary save action. */}
-      {sheetExists && (
+      {sheetExists && !isClosed && (
         <div className="pt-6 pb-4">
           <button
             ref={deleteSheetBtnRef}
@@ -1624,7 +1613,7 @@ export function DailySheetForm({
           aria-modal="true"
           aria-labelledby="confirm-delete-sheet-title"
           aria-describedby="confirm-delete-sheet-desc"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-slide-down"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 animate-slide-down"
           onClick={(e) => {
             if (e.target === e.currentTarget && !deletingSheet) setShowDeleteSheetModal(false);
           }}
@@ -1702,7 +1691,7 @@ export function DailySheetForm({
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-delete-cost-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-slide-down"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 animate-slide-down"
           onClick={(e) => {
             if (e.target === e.currentTarget) setPendingDeleteIndex(null);
           }}
@@ -1778,7 +1767,7 @@ export function DailySheetForm({
           aria-modal="true"
           aria-labelledby="confirm-modal-title"
           aria-describedby="confirm-modal-desc"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-slide-down"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 animate-slide-down"
           onClick={(e) => {
             if (e.target === e.currentTarget && !saving) setShowConfirmModal(false);
           }}

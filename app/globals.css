@@ -5,7 +5,7 @@
 @layer base {
   :root {
     color-scheme: light;
-    --trend-revenue: #2563eb; --trend-cost: #b96808;
+    --trend-revenue: #126756; --trend-cost: #485b52;
     --brand: 18 103 86; --brand-dark: 13 77 65; --brand-light: 229 241 236;
     --surface: 255 255 255; --canvas: 247 248 247; --subtle: 240 244 242;
     --border: 223 229 223; --border-strong: 186 199 187;
@@ -20,7 +20,7 @@
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --trend-revenue: #94beff; --trend-cost: #f1bd69;
+    --trend-revenue: #8bcfa3; --trend-cost: #c3d1c5;
     --brand: 139 207 163; --brand-dark: 166 223 185; --brand-light: 35 62 45;
     --surface: 28 36 30; --canvas: 19 26 21; --subtle: 35 45 38;
     --border: 57 72 61; --border-strong: 91 111 95;
@@ -252,7 +252,7 @@
 .secondary-button { border: 1px solid rgb(var(--border-strong)); background: rgb(var(--surface)); }.secondary-button:hover { background: rgb(var(--subtle)); }
 .primary-button:active, .secondary-button:active { transform: translateY(1px); }
 .account-dialog { width: min(420px,calc(100% - 32px)); padding: 28px; border: 1px solid rgb(var(--border)); border-radius: 20px; background: rgb(var(--surface)); color: rgb(var(--ink)); box-shadow: 0 20px 80px #0003; }
-.account-dialog::backdrop { background: #101b1670; backdrop-filter: blur(3px); }.account-dialog h2 { font-size: 22px; }.account-dialog p { color: rgb(var(--secondary)); font-size: 16px; margin-top: 12px; line-height: 1.7; }.dialog-actions { display: flex; gap: 12px; margin-top: 26px; }.dialog-actions>button { flex: 1; }
+.account-dialog::backdrop { background: rgb(0 0 0 / .45); }.account-dialog h2 { font-size: 22px; }.account-dialog p { color: rgb(var(--secondary)); font-size: 16px; margin-top: 12px; line-height: 1.7; }.dialog-actions { display: flex; gap: 12px; margin-top: 26px; }.dialog-actions>button { flex: 1; }
 .touch-target { min-height: 48px; min-width: 48px; }
 .btn-wave { position: relative; overflow: hidden; transition: background-color .16s,border-color .16s,transform .16s; }.btn-wave:active { transform: translateY(1px); }
 .bg-brand-broccoli.text-white, .bg-status-closed.text-white { background-color: #126756; }.hover\:bg-brand-broccoli-dark:hover { background-color: #0d4d41; }.bg-finance-loss.text-white { background-color: #b53e37; }
@@ -607,8 +607,10 @@
 .date-today-badge { font-size: 14px; line-height: 24px; padding: 0 5px; border-radius: 0; background: transparent; color: rgb(var(--secondary)); }
 .skeleton-period-slot { width: 48px; height: 26px; border-radius: 6px; background: rgb(var(--subtle)); }
 .calendar-popover { max-height: min(480px,calc(100dvh - 220px)); }
-.calendar-day[data-recorded="true"]:not([aria-pressed="true"]) { background: rgb(var(--brand-light)); }
-.calendar-recorded-mark { position: absolute; top: 2px; right: 2px; color: currentColor; }
+.calendar-day[data-recorded="true"]:not([aria-pressed="true"]) { background: rgb(var(--brand) / .15); color: rgb(var(--brand)); border: 1px solid rgb(var(--brand) / .5); }
+.calendar-recorded-mark { position: absolute; bottom: 1px; right: calc(50% - 8px); color: currentColor; }
+.calendar-recorded-mark svg { stroke-width: 2.6; }
+.calendar-day { padding-bottom: 12px; }
 .calendar-activity { min-height: 32px; margin-top: 10px; display: flex; gap: 10px; align-items: center; justify-content: center; color: rgb(var(--secondary)); }
 .calendar-activity[data-state="failed"] { color: rgb(var(--cost)); }
 .calendar-retry { width: 44px; height: 44px; border: 1px solid rgb(var(--border-strong)); border-radius: 8px; display: grid; place-items: center; background: rgb(var(--surface)); }
@@ -662,14 +664,21 @@
 
 /* Status stays beside the action it describes. */
 .save-state-icon { position: relative; display: inline-flex; }
-.pending-save-mark { position: absolute; width: 8px; height: 8px; right: -4px; top: -3px; border-radius: 50%; background: #f6c16b; border: 1px solid rgb(var(--brand)); }
+.pending-save-status { margin-left: 8px; padding: 3px 8px; border-radius: 6px; background: #f6d497; color: #573a10; font-size: 14px; line-height: 22px; white-space: nowrap; }
 .recorded-count-symbol { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 5px; background: rgb(var(--brand-light)); color: rgb(var(--brand)); }
-.discard-confirm-action { color: rgb(var(--loss)); border-color: rgb(var(--loss-border)); }
+.danger-action { color: white; background: rgb(var(--loss)); border-color: rgb(var(--loss)); }
+.danger-action:hover { background: rgb(var(--loss)); filter: brightness(.93); }
 .icon-action-button { display: flex; align-items: center; justify-content: center; }
 .expense-toolbar[hidden] { display: none; }
 .reconciliation-form>button[type="submit"] { gap: 8px; }
 @media (min-width:768px) { .sheet-date-bar>div:first-child { justify-content: center; gap: 12px; } }
 
 .locked-period-notice, .closed-audit-heading { display: flex; align-items: center; gap: 8px; color: rgb(var(--secondary)); font-size: 16px; line-height: 24px; }
-.locked-period-notice { padding: 10px 12px; border: 1px solid rgb(var(--border)); border-radius: 10px; background: rgb(var(--surface)); }
+.locked-period-notice { padding: 10px 12px; border-left: 3px solid rgb(var(--brand)); border-radius: 6px; background: rgb(var(--subtle)); }
 .closed-audit-heading { padding-bottom: 10px; border-bottom: 1px solid rgb(var(--border)); }
+
+.locked-money-value { display: block; width: 100%; text-align: right; color: rgb(var(--ink)); line-height: 1.4; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.cost-record-summary[aria-expanded="true"] .record-chevron { transform: rotate(180deg); }
+.daily-record-column-heading { padding: 10px 0 0; text-align: right; color: rgb(var(--secondary)); font-size: 14px; }
+
+.workspace-main[data-page="/close"] .page-description { display: none; }

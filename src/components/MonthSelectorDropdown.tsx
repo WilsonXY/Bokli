@@ -119,7 +119,7 @@ export function MonthSelectorDropdown({
           {currentMonth || "0000-00"}
         </span>
         <span id={descriptionId} className="sr-only">{currentMonth} {loadingLabel || getStatusLabel(currentStatus)}</span>
-        {showStatusInTrigger && <span className={`month-status-symbol${loadingLabel ? " animate-spin" : ""}`} aria-hidden="true">{loadingLabel ? <ActionIcon name="refresh" size={18} /> : currentStatus === "closed" ? <ActionIcon name="lock" size={18} /> : null}</span>}
+        {showStatusInTrigger && <span className={`month-status-symbol${loadingLabel ? " animate-spin" : ""}`} aria-hidden="true">{loadingLabel ? <ActionIcon name="loading" size={18} /> : currentStatus === "closed" ? <ActionIcon name="lock" size={18} /> : null}</span>}
         <svg
           aria-hidden="true"
           className={`w-4 h-4 text-ink-muted transition-transform duration-200 shrink-0 ${

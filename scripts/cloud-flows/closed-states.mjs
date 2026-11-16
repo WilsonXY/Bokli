@@ -21,8 +21,10 @@ export default async function closedStates({ page, shot: rawShot }) {
   await shot("closed-expenses");
   await page.goto(`/?date=${month}-03`);
   await page.locator("#cash-input").waitFor();
-  assert.equal(await page.locator("#cash-input").isDisabled(), true);
-  assert.equal(await page.locator("#tng-input").isDisabled(), true);
+  assert.equal(await page.locator("#cash-input").innerText(), "RM 450.00");
+  assert.equal(await page.locator("#tng-input").innerText(), "RM 120.00");
+  assert.equal(await page.locator(".daily-revenue input").count(), 0);
+  assert.equal(await page.locator(".cost-record-summary[role=button]").count(), 0);
   assert.equal(await page.getByRole("button", { name: "保存账单", exact: true }).count(), 0);
   assert.equal(await page.getByRole("button", { name: /添加开销/ }).count(), 0);
   await page.evaluate(() => document.fonts.ready);

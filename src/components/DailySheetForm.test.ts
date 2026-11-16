@@ -1367,10 +1367,12 @@ describe("Delete Daily Sheet button and sticky summary bar", () => {
     expect(deleteSheetButton(html)).not.toBeNull();
   });
 
-  it("is disabled when the Month is closed", () => {
-    const btn = deleteSheetButton(render({ savedSheet: SAVED, isClosed: true }));
-    expect(btn).not.toBeNull();
-    expect(btn).toMatch(/disabled=""/);
+  it("shows locked amounts as readable values and removes deletion", () => {
+    const html = render({ savedSheet: SAVED, isClosed: true });
+    expect(deleteSheetButton(html)).toBeNull();
+    expect(html).toMatch(/<output id="cash-input"[^>]*>RM 50\.00<\/output>/);
+    expect(html).toMatch(/<output id="tng-input"[^>]*>RM 20\.00<\/output>/);
+    expect(html).not.toContain("<input");
   });
 
   it("comes after the sticky summary bar in the DOM, with its own bottom spacing", () => {

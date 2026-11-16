@@ -4,6 +4,8 @@ export const monthCloseIconPath = "M8 3h8v4H8zM7 5H5v16h14V5h-2M8 12l2 2 5-5M8 1
 
 const paths = {
   add: "M12 5v14M5 12h14",
+  loading: "M21 12a9 9 0 1 1-6.2-8.55",
+  collapse: "m6 15 6-6 6 6",
   check: "m5 12 4 4L19 6",
   close: "m6 6 12 12M18 6 6 18",
   trash: "M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5",
