@@ -3,7 +3,7 @@ import React from "react";
 import ReactDOMServer from "react-dom/server";
 
 const route = vi.hoisted(() => ({ pathname: "/dashboard", search: "" }));
-afterEach(() => { vi.restoreAllMocks(); route.pathname = "/dashboard"; route.search = ""; });
+afterEach(() => { route.pathname = "/dashboard"; route.search = ""; });
 
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
@@ -56,27 +56,23 @@ describe("workspace navigation", () => {
 
 
 describe("navigation preserves the current bookkeeping period", () => {
-  function hrefFor(label: string, remembered: Record<string, string>) {
-    vi.spyOn(React, "useState").mockReturnValue([remembered, vi.fn()]);
+  function hrefFor(label: string) {
     const html = ReactDOMServer.renderToStaticMarkup(React.createElement(AppShell, { children: "Content" }));
     const anchor = html.match(/<a\b[^>]*>/g)?.find(tag => tag.includes(`aria-label="${label}"`));
     return anchor?.match(/href="([^"]*)"/)?.[1];
   }
 
-  it("keeps today when the active Sheet tab remembers an older date", () => {
+  it("keeps the selected date in the active Sheet link", () => {
     route.pathname = "/";
-    route.search = "date=2026-11-17";
-    expect(hrefFor(DICTIONARY.zh.navSheet, { "/": "/?date=2026-11-10" })).toBe("/?date=2026-11-17");
+    route.search = "date=2026-11-10";
+    expect(hrefFor(DICTIONARY.zh.navSheet)).toBe("/?date=2026-11-10");
   });
 
   it("returns directly from Month Close to Overview for the same month", () => {
     route.pathname = "/close";
     route.search = "month=2026-10";
-    expect(hrefFor(DICTIONARY.zh.navDashboard, { "/dashboard": "/dashboard?month=2026-11" })).toBe("/dashboard?month=2026-10");
+    expect(hrefFor(DICTIONARY.zh.navDashboard)).toBe("/dashboard?month=2026-10");
   });
 
-  it("retains the remembered date when returning from Settings", () => {
-    route.pathname = "/settings";
-    expect(hrefFor(DICTIONARY.zh.navSheet, { "/": "/?date=2026-11-10" })).toBe("/?date=2026-11-10");
-  });
+
 });

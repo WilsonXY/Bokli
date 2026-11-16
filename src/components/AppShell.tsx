@@ -15,6 +15,14 @@ function WorkspaceNavigation({ search = "" }: { search?: string }) {
   const { t } = useI18n();
   const [destinations, setDestinations] = React.useState<Record<string, string>>({});
   const suffix = search ? `?${search}` : "";
+  React.useEffect(() => {
+    const current = pathname + suffix;
+    const overview = pathname === "/close" ? "/dashboard" + suffix : undefined;
+    setDestinations(previous => {
+      if (previous[pathname] === current && (!overview || previous["/dashboard"] === overview)) return previous;
+      return { ...previous, [pathname]: current, ...(overview ? { "/dashboard": overview } : {}) };
+    });
+  }, [pathname, suffix]);
   const items = [
     { href: "/", label: t.navSheet, short: t.navSheetShort, path: "M14 3H4v18h16V11M8 16l1-4 9-9 3 3-9 9-4 1Z" },
     { href: "/dashboard", label: t.navDashboard, short: t.navDashboard, path: "M4 20V10m8 10V4m8 16v-7" },
@@ -23,9 +31,7 @@ function WorkspaceNavigation({ search = "" }: { search?: string }) {
     { href: "/settings", label: t.navSettings, short: t.navSettings, path: "M10 2h4v3l3 1.7 2.6-1.5 2 3.5-2.6 1.5v3.6l2.6 1.5-2 3.5-2.6-1.5-3 1.7v3h-4v-3l-3-1.7-2.6 1.5-2-3.5L5 13.8v-3.6L2.4 8.7l2-3.5L7 6.7 10 5V2ZM15 12a3 3 0 1 0-6 0 3 3 0 0 0 6 0" },
   ];
   function navigation(mobile: boolean) {
-    return <nav aria-label={t.mainNavigation} className={mobile ? "mobile-navigation" : "desktop-navigation"} onClickCapture={() => {
-      setDestinations(previous => ({ ...previous, [pathname]: pathname + suffix, ...(pathname === "/close" ? { "/dashboard": "/dashboard" + suffix } : {}) }));
-    }}>
+    return <nav aria-label={t.mainNavigation} className={mobile ? "mobile-navigation" : "desktop-navigation"}>
       {items.filter(item => !mobile || item.href !== "/close").map(item => {
         const selected = pathname === item.href || (mobile && pathname === "/close" && item.href === "/dashboard");
         const href = item.href === pathname ? pathname + suffix

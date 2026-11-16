@@ -44,4 +44,17 @@ export default async function navigationContext({ page, shot }) {
   assert.equal(new URL(page.url()).searchParams.get("month"), previousMonth);
   await page.locator(".month-picker-date").filter({ hasText: previousMonth }).waitFor();
   await shot("close-returns-to-same-overview-month", page, { fullPage: false });
+
+  // A route reached through a page link must be remembered just like a tab visit.
+  await page.goto("/dashboard");
+  await page.getByRole("button", { name: "月份", exact: true }).click();
+  await page.getByRole("option", { name: new RegExp(previousMonth) }).click();
+  await page.locator(`.daily-record[href="/?date=${previousMonth}-03"]`).click();
+  await page.locator("#cash-input").waitFor();
+  assert.equal(await tab("经营概览").getAttribute("href"), `/dashboard?month=${previousMonth}`, "A Daily Sheet body link must preserve the Overview month for the return tab");
+  await tab("经营概览").click();
+  await page.waitForTimeout(700);
+  assert.equal(new URL(page.url()).searchParams.get("month"), previousMonth);
+  await shot("body-link-retains-overview-month", page, { fullPage: false });
+
 }
