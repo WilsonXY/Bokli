@@ -124,7 +124,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
             <p className="sr-only">{t.netProfitFormula}</p>
           </div>
           {!noActivity && <div className="summary-metrics">{metrics.map(metric => {
-            const amount = `${metric.kind === "revenue" ? "" : "− "}${formatMyr(BigInt(metric.value))}`;
+            const amount = formatMyr(BigInt(metric.value) * (metric.kind === "revenue" ? 1n : -1n));
             return <div className={`summary-metric metric-${metric.kind}`} key={metric.label}><span className="metric-label">{metric.label}</span><span data-long={amount.length > 12 || undefined} data-very-long={amount.length > 14 || undefined} className={`metric-value ${amountSizeClass(amount, "text-xs", "text-sm")} sm:text-xl font-bold ${metric.ink} tabular-nums`}>{amount}</span></div>;
           })}</div>}
         </section>

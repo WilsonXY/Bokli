@@ -376,8 +376,8 @@ export function MonthCloseView({
             <div className="close-expected-total"><span>{t.expectedNet}</span><strong className={expectedNetSen >= 0n ? "text-finance-profit" : "text-finance-loss"}>{formatMyr(expectedNetSen)}</strong></div>
             <details className="close-calculation"><summary>{t.viewCalculation}<span className="calculation-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span></summary><dl>
               <div><dt>{t.totalRevenue}</dt><dd>{formatMyr(BigInt(financials.revenueSen))}</dd></div>
-              <div><dt>{t.costsTitle}</dt><dd>− {formatMyr(BigInt(financials.dailyCostSen))}</dd></div>
-              <div><dt>{t.operatingExpenses}</dt><dd>− {formatMyr(BigInt(financials.operatingSen))}</dd></div>
+              <div><dt>{t.costsTitle}</dt><dd>{formatMyr(-BigInt(financials.dailyCostSen))}</dd></div>
+              <div><dt>{t.operatingExpenses}</dt><dd>{formatMyr(-BigInt(financials.operatingSen))}</dd></div>
             </dl></details>
           </section>}
 
@@ -574,7 +574,7 @@ export function MonthCloseView({
                   <span className="font-bold text-ink-primary text-base tabular-nums">{formatMyr(expectedNetSen)}</span>
                 </div>
                 <div className={`reconciliation-result ${!countsComplete ? "is-pending" : hasParseError ? "is-invalid" : isBalanced ? "is-balanced" : "is-mismatch"}`} aria-live="polite">
-                  <div className="reconciliation-result-line"><span>{t.reconciliationDiff}</span><strong>{!countsComplete ? "—" : varianceSen !== null ? <>{varianceSen !== 0n && <span aria-hidden="true">{varianceSen < 0n ? "↓" : "↑"} </span>}{formatMyr(varianceSen)}{isBalanced && <ActionIcon name="check" size={20} />}</> : "—"}</strong></div>
+                  <div className="reconciliation-result-line"><span>{t.reconciliationDiff}</span><strong>{!countsComplete ? "—" : varianceSen !== null ? <>{formatMyr(varianceSen)}{isBalanced && <ActionIcon name="check" size={20} />}</> : "—"}</strong></div>
                   {!countsComplete && <span className="sr-only">{t.awaitingCounts}</span>}
                   {countsComplete && !hasParseError && <span className="sr-only">{isBalanced ? t.reconciliationBalanced : t.reconciliationMismatch}</span>}
                 </div>

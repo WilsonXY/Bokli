@@ -26,7 +26,7 @@ function WorkspaceNavigation({ search = "" }: { search?: string }) {
   const items = [
     { href: "/", label: t.navSheet, short: t.navSheetShort, path: "M20 10V5H4v16h7M8 3v4m8-4v4M4 10h16m-6 8 5-5 2 2-5 5-3 1 1-3Z" },
     { href: "/dashboard", label: t.navDashboard, short: t.navDashboard, path: "M4 20V10m8 10V4m8 16v-7" },
-    { href: "/expenses", label: t.navExpenses, short: t.navExpensesShort, path: "M20 10V5H4v16h6M8 3v4m8-4v4M4 10h16m-1 3 2 2-2 2m2-2h-5a3 3 0 0 0-3 3m2 3-2-2 2-2m-2 2h5a3 3 0 0 0 3-3" },
+    { href: "/expenses", label: t.navExpenses, short: t.navExpensesShort, path: "M5 3h14v18l-3-2-4 2-4-2-3 2V3ZM8 8h8M8 13h8" },
     { href: "/close", label: t.navClose, short: t.navClose, path: monthCloseIconPath },
     { href: "/settings", label: t.navSettings, short: t.navSettings, path: "M10 2h4v3l3 1.7 2.6-1.5 2 3.5-2.6 1.5v3.6l2.6 1.5-2 3.5-2.6-1.5-3 1.7v3h-4v-3l-3-1.7-2.6 1.5-2-3.5L5 13.8v-3.6L2.4 8.7l2-3.5L7 6.7 10 5V2ZM15 12a3 3 0 1 0-6 0 3 3 0 0 0 6 0" },
   ];
@@ -38,7 +38,7 @@ function WorkspaceNavigation({ search = "" }: { search?: string }) {
           : pathname === "/close" && item.href === "/dashboard" ? "/dashboard" + suffix
           : destinations[item.href] ?? item.href;
         return <Link key={item.href} href={href} aria-label={item.label} title={item.label} aria-current={selected ? "page" : undefined} className={`workspace-nav-link ${item.href === "/" ? "nav-record" : ""}`}>
-          <span className="nav-icon"><svg aria-hidden="true" width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d={item.path} /></svg></span>
+          <span className="nav-icon"><svg aria-hidden="true" width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={item.path} /></svg></span>
           <span className="nav-label">{mobile ? item.short : item.label}</span>
         </Link>;
       })}

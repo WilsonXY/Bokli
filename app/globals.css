@@ -464,8 +464,8 @@
 .expense-records-heading h2 { font-size: 18px; color: rgb(var(--ink)); letter-spacing: 0; text-transform: none; }
 .metric-label, .expense-month-context span { font-size: 16px; line-height: 24px; color: rgb(var(--secondary)); }
 .metric-daily-cost .metric-value, .metric-operating .metric-value { margin-top: auto; }
-.expense-record { display: block; padding: 0; }
-.expense-record-summary { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) 20px; gap: 4px 12px; align-items: baseline; padding: 14px 0; min-height: 60px; list-style: none; cursor: pointer; }
+.expense-record { display: block; padding: 0; border: 1px solid rgb(var(--border)); border-radius: 12px; background: rgb(var(--surface)); }
+.expense-record-summary { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) 20px; gap: 4px 12px; align-items: center; padding: 14px; min-height: 60px; list-style: none; cursor: pointer; }
 .expense-record-summary::-webkit-details-marker { display: none; }
 .expense-record-summary:focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: 4px; border-radius: 6px; }
 .expense-record-category { grid-column: 1; grid-row: 1; }
@@ -505,7 +505,6 @@
 .cost-fields { display: grid; gap: 10px; }
 .cost-money-row>[role="alert"] { grid-column: 2; margin-top: 0; }
 .cost-editor-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.finish-cost-action { min-height: 44px; padding: 8px 14px; border: 1px solid rgb(var(--border-strong)); border-radius: 8px; color: rgb(var(--brand)); background: rgb(var(--surface)); font-size: 16px; white-space: nowrap; }
 .date-picker-group { display: flex; align-items: center; gap: 3px; }
 .return-today { flex-shrink: 0; padding: 4px 7px; min-height: 44px; color: rgb(var(--brand)); font-size: 16px; border: 1px solid rgb(var(--border-strong)); background: rgb(var(--surface)); border-radius: 8px; }
 .return-today:hover { background: rgb(var(--brand-light)); }
@@ -564,11 +563,10 @@
 .sheet-save-action { justify-content: center; }
 .draft-dot { display: block; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .cost-delete-action { width: 44px; height: 44px; padding: 0; justify-content: center; border: 1px solid rgb(var(--border-strong)); border-radius: 8px; background: rgb(var(--surface)); }
-.finish-cost-action { width: 56px; min-width: 56px; padding: 0; display: grid; place-items: center; background: rgb(var(--surface)); border-color: rgb(var(--brand)); }
 .cost-entry-card:not(:has(.cost-editor)), .cost-entry-card:not(:has(.cost-editor)) .cost-record-summary { background: rgb(var(--surface)); border-color: rgb(var(--border)); }
 .expense-toolbar { display: flex; align-items: center; gap: 16px; min-height: 48px; }
 .expense-add-icon { display: grid; place-items: center; width: 100%; min-height: 52px; border: 1px solid rgb(var(--border-strong)); border-radius: 10px; color: rgb(var(--brand)); background: rgb(var(--surface)); }
-.expense-record-actions { padding-top: 6px; padding-bottom: 0; justify-content: flex-end; border-top: 0; }
+.expense-record-actions { padding: 0 14px 14px; justify-content: flex-end; border-top: 0; }
 .expense-record-actions .record-delete { width: 44px; height: 44px; min-height: 44px; padding: 0; color: rgb(var(--secondary)); border: 1px solid rgb(var(--border-strong)); border-radius: 8px; background: rgb(var(--surface)); scroll-margin-bottom: 104px; }
 .zero-revenue-warning { display: flex; align-items: center; gap: 12px; }
 .zero-warning-rule { margin-left: 12px; white-space: nowrap; }
@@ -661,11 +659,16 @@
 .date-today-badge { display: grid; place-items: center; width: 48px; height: 44px; padding: 0 5px; border: 1px solid rgb(var(--border)); border-radius: 8px; color: rgb(var(--secondary)); background: rgb(var(--subtle)); }
 
 /* Draft completion is separate from persisting the full sheet. */
-.cost-draft-status { margin-left: auto; padding: 3px 8px; border: 1px solid rgb(var(--cost) / .3); border-radius: 6px; color: rgb(var(--cost)); background: rgb(var(--cost-light)); font-size: 14px; line-height: 22px; white-space: nowrap; }
 .calendar-header { display: grid; grid-template-columns: 44px minmax(0,1fr) 44px 44px; gap: 6px; align-items: center; text-align: center; }
 .calendar-header button:disabled { opacity: 1; color: rgb(var(--muted)); background: rgb(var(--subtle)); }
 .calendar-close { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid rgb(var(--border)); border-radius: 8px; color: rgb(var(--secondary)); background: rgb(var(--surface)); }
 .month-picker-trigger { width: 148px; flex-shrink: 0; }
 .sheet-date-bar>div:first-child { display: grid; grid-template-columns: 44px minmax(0,1fr) 44px; gap: 8px; }
 .date-picker-group { justify-content: center; gap: 8px; }
-.sheet-date-bar button:disabled { opacity: 1; color: rgb(var(--secondary)); background: rgb(var(--subtle)); border-color: rgb(var(--border)); }
+.sheet-date-bar>div:first-child>button:disabled, .sheet-date-bar .date-picker-trigger:disabled { opacity: 1; color: rgb(var(--secondary)); background: rgb(var(--subtle)); border-color: rgb(var(--border)); }
+
+.calendar-day:disabled { color: rgb(var(--muted)); opacity: .45; background: transparent; border-color: transparent; box-shadow: none; }
+.sheet-date-bar>div:first-child>button:disabled { color: rgb(var(--muted)); }
+.sheet-date-bar>div:first-child>button:disabled svg { opacity: .55; }
+.cost-editor-footer { justify-content: flex-end; }
+.expense-record-summary .record-chevron { display: grid; place-items: center; align-self: center; }

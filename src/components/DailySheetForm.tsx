@@ -1411,22 +1411,7 @@ export function DailySheetForm({
                               <ActionIcon name="trash" /><span className="sr-only">{t.deleteCostLine}</span>
                             </button>
                           )}
-                            {isModified && <span className="cost-draft-status">{t.draftStatus}</span>}
-                            <button type="button" className="finish-cost-action" disabled={saving} onClick={() => {
-                              const amount = tryParseSen(line.amountInput ?? senToDecimalStr(line.amountSen));
-                              if (amount === null || amount <= 0n) {
-                                setCostAmountErrorIndex(idx);
-                                requestAnimationFrame(() => costAmountErrorRef.current?.focus());
-                                return;
-                              }
-                              if (isOtherNoteMissing(line.category, line.note)) {
-                                setNoteErrorIndex(idx);
-                                requestAnimationFrame(() => noteErrorRef.current?.focus());
-                                return;
-                              }
-                              handleToggleCostLine(idx);
-                              requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".add-cost-action")?.focus({ preventScroll: true }));
-                            }} aria-label={t.finishCost} title={t.finishCost}><ActionIcon name="check" size={24} /></button>
+
                           </div>
                         </div>
                       )}
@@ -1545,6 +1530,15 @@ export function DailySheetForm({
                       }
                       }
                       setCostAmountErrorIndex(null);
+                      const missingNoteIndex = findMissingOtherNoteIndex(costLines);
+                      if (missingNoteIndex !== -1) {
+                        setExpandedIndex(missingNoteIndex);
+                        setNoteErrorIndex(missingNoteIndex);
+                        setErrorMessage(null);
+                        requestAnimationFrame(() => noteErrorRef.current?.focus());
+                        return;
+                      }
+                      setNoteErrorIndex(null);
                       setExpandedIndex(null);
                       setShowConfirmModal(true);
                     }}

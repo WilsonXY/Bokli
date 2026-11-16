@@ -33,7 +33,6 @@ export default async function flow({ page, shot: rawShot }) {
   await shot("calendar");
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: /添加开销/ }).click();
-  await page.locator(".cost-editor select").selectOption("other");
   await page.locator('input[inputmode="decimal"]').nth(2).fill("20");
   await page.getByRole("button", { name: "保存账单", exact: true }).click();
   await page.locator(".zero-revenue-warning").waitFor();
@@ -41,8 +40,12 @@ export default async function flow({ page, shot: rawShot }) {
   assert.match(await page.locator(".zero-revenue-warning").innerText(), /TnG/);
   assert.match(await page.locator(".zero-revenue-warning").innerText(), /空白按 0/);
   await shot("save-confirmation");
-  await page.getByRole("dialog").getByRole("button", { name: "确认保存", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "取消", exact: true }).click();
+  await page.locator(".cost-record-summary").click();
+  await page.locator(".cost-editor select").selectOption("other");
+  await page.getByRole("button", { name: "保存账单", exact: true }).click();
   await page.locator("#other-note-error-0").waitFor();
+  assert.equal(await page.getByRole("dialog").count(),0);
   await shot("required-note-feedback");
   await revert();
   await page.getByRole("button", { name: /添加开销/ }).click();
