@@ -116,6 +116,11 @@ describe("formatMyr", () => {
 });
 
 describe("amountSizeClass", () => {
+  it("keeps grouped ordinary totals readable and only compacts genuinely long amounts", () => {
+    expect(amountSizeClass("RM 500,000.00")).toBe("");
+    expect(amountSizeClass("-RM 50,000.00")).toBe("");
+    expect(amountSizeClass("RM 1,000,000.00")).toBe("text-xs");
+  });
   it("returns empty string by default when string length <= 11", () => {
     expect(amountSizeClass("RM500000.00")).toBe("");
     expect(amountSizeClass("RM12.34")).toBe("");

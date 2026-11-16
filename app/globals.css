@@ -140,7 +140,7 @@
 .metric-operating { border-left: 1px solid rgb(var(--border)); padding-left: 20px; }
 .metric-label { font-size: 14px; color: rgb(var(--secondary)); }
 .metric-value { font-size: 20px; line-height: 28px; overflow-wrap: anywhere; }
-.metric-value[data-long] { font-size: 14px; }
+.metric-value[data-long] { font-size: 18px; }
 .month-close-action { min-width: 0; display: flex; align-items: center; gap: 14px; padding: 20px; border: 1px solid rgb(var(--border)); border-radius: 16px; background: rgb(var(--surface)); }
 .month-close-icon { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 50%; color: rgb(var(--brand)); background: rgb(var(--brand-light)); flex-shrink: 0; }
 .month-close-action strong { display: block; font-size: 16px; }
@@ -262,7 +262,7 @@
 .loading-layout .panel>*, .loading-layout .month-close-action>*, .loading-layout .daily-ledger>* { visibility: hidden; }
 .skeleton-picker button, .loading-layout .page-heading button { background: rgb(var(--subtle)); border-color: transparent; }
 .skeleton-picker button>*, .loading-layout .page-heading button>* { visibility: hidden; }
-.skeleton-date-body { height: 66px; }
+.skeleton-date-body { height: 74px; }
 .skeleton-count-field { height: 48px; }.skeleton-close-note { height: 44px; }
 @keyframes slide-in-down { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 .animate-slide-down, .animate-dropdown { animation: slide-in-down .18s ease-out; transform-origin: top right; }
@@ -302,7 +302,7 @@
   .revenue-field { padding: 14px; gap: 12px; grid-template-columns: minmax(0,.9fr) minmax(0,1.1fr); }.revenue-field-label { gap: 8px; }.revenue-field-label:before { width: 26px; height: 26px; font-size: 18px; }.revenue-field label { font-size: 16px; }.revenue-field .revenue-input { height: 52px; font-size: 26px; padding-right: 10px; padding-left: 32px; }.revenue-field-control>span { font-size: 12px; left: 10px; }
   .daily-costs { padding-top: 20px; }.add-cost-action { min-height: 52px; }.sheet-save-panel { gap: 12px; }.sheet-profit-summary>div:last-child { font-size: 26px; }.sheet-save-action { font-size: 18px; }
   .dashboard-layout { display: flex; flex-direction: column; gap: 24px; }.dashboard-layout>* { width: 100%; }.panel { padding: 24px; }.panel h2 { font-size: 18px; }.overview-summary { padding: 0; }
-  .profit-headline { padding: 26px; }.profit-headline .metric-headline { font-size: 44px; margin-top: 16px; }.profit-headline .metric-headline[data-long] { font-size: 28px; }.summary-metrics { padding: 4px 24px 8px; }.summary-metric { padding-top: 16px; padding-bottom: 16px; }.metric-operating { padding-left: 18px; }.metric-value { font-size: 20px; }.metric-value[data-long] { font-size: 13px; }
+  .profit-headline { padding: 26px; }.profit-headline .metric-headline { font-size: 44px; margin-top: 16px; }.profit-headline .metric-headline[data-long] { font-size: 28px; }.summary-metrics { padding: 4px 24px 8px; }.summary-metric { padding-top: 16px; padding-bottom: 16px; }.metric-operating { padding-left: 18px; }.metric-value { font-size: 20px; }.metric-value[data-long] { font-size: 18px; }
   .month-close-action { padding: 16px; }.month-close-action small { font-size: 14px; }.month-close-icon { width: 42px; height: 42px; }.action-arrow { font-size: 24px; }
   .daily-ledger { padding: 0 20px; }.daily-records summary { font-size: 18px; min-height: 64px; }.daily-record { font-size: 16px; min-height: 76px; }.panel-heading { flex-wrap: wrap; gap: 8px; }
   .metric-tabs { display: flex; min-width: 0; width: 100%; margin: 16px 0; }.trend-frame, .trend-plot { height: 180px; }.trend-dates, .trend-range { font-size: 14px; }
@@ -318,7 +318,7 @@
   .workspace-main [role="dialog"][aria-modal="true"] button { min-height: 52px; font-size: 16px; }
   .workspace-main [role="dialog"][aria-modal="true"] .text-xs { font-size: 14px; }
   .account-dialog { position: fixed; inset: auto 0 0; width: 100%; max-width: 100%; margin: 0; border-radius: 24px 24px 0 0; padding-bottom: max(28px,env(safe-area-inset-bottom)); }
-  .skeleton-date-body { height: 44px; }.skeleton-count-field, .skeleton-close-note { height: 50px; }
+  .skeleton-date-body { height: 52px; }.skeleton-count-field, .skeleton-close-note { height: 50px; }
 }
 @media (max-width:359px) {
   .workspace-main { padding-left: 16px; padding-right: 16px; }.workspace-header { padding-left: 16px; padding-right: 16px; }.page-heading h1 { font-size: 27px; }.sheet-page-heading h1 { font-size: 25px; }.sheet-status { font-size: 13px; }.date-today-badge { display: none; }
@@ -382,3 +382,7 @@
 
 .reconciliation-form input[inputmode="decimal"], .expenses-layout input[inputmode="decimal"] { font-size: 22px; }
 .cost-entry-card input[inputmode="decimal"] { font-size: 20px; }
+
+.skeleton-block { background: rgb(var(--subtle)); border-color: transparent; }
+
+.metric-value[data-very-long] { font-size: 16px; }

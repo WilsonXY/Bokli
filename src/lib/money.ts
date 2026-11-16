@@ -75,7 +75,8 @@ export function formatMyr(sen: bigint): string {
 
 /**
  * Dynamic sizing class for formatted money strings to prevent overflow on mobile.
- * Returns shrinkClass (default "text-xs") if formatted string exceeds 11 characters;
+ * Grouping commas and the currency gap do not make an ordinary amount "long".
+ * Returns shrinkClass (default "text-xs") if the ungrouped string exceeds 11 characters;
  * otherwise returns baseClass (default "").
  */
 export function amountSizeClass(
@@ -83,7 +84,11 @@ export function amountSizeClass(
   shrinkClass: string = "text-xs",
   baseClass: string = ""
 ): string {
-  return formatted.length > 11 ? shrinkClass : baseClass;
+  return isLongAmount(formatted) ? shrinkClass : baseClass;
+}
+
+export function isLongAmount(formatted: string): boolean {
+  return formatted.replace(/[,\s]/g, "").length > 11;
 }
 
 /** Sum a list of sen amounts with range checking. */

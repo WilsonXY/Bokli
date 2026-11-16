@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
-import { amountSizeClass, formatMyr } from "@/lib/money";
+import { amountSizeClass, formatMyr, isLongAmount } from "@/lib/money";
 import type { MonthStatus } from "@/services/dashboard";
 import { MonthSelectorDropdown } from "@/components/MonthSelectorDropdown";
 
@@ -117,12 +117,12 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
         <section className={`overview-summary panel${noActivity ? " is-empty" : ""}`} aria-label={t.monthSummary}>
           <div className={`profit-headline${isProfitPositive ? "" : " is-loss"}`}>
             <h2>{t.netProfit}<span className="profit-status">{!activeTile?.netSen ? t.evenStatus : isProfitPositive ? t.profitStatus : t.lossStatus}</span></h2>
-            <span data-long={headline.length > 11 || undefined} className={`metric-headline ${amountSizeClass(headline, "text-2xl", "text-3xl")} sm:text-4xl font-extrabold tracking-tight tabular-nums ${isProfitPositive ? "text-finance-profit" : "text-finance-loss"}`}>{headline}</span>
+            <span data-long={isLongAmount(headline) || undefined} className={`metric-headline ${amountSizeClass(headline, "text-2xl", "text-3xl")} sm:text-4xl font-extrabold tracking-tight tabular-nums ${isProfitPositive ? "text-finance-profit" : "text-finance-loss"}`}>{headline}</span>
             <p>{t.netProfitFormula}</p>
           </div>
           {!noActivity && <div className="summary-metrics">{metrics.map(metric => {
             const amount = formatMyr(BigInt(metric.value));
-            return <div className={`summary-metric metric-${metric.kind}`} key={metric.label}><span className="metric-label">{metric.label}</span><span data-long={amount.length > 11 || undefined} className={`metric-value ${amountSizeClass(amount, "text-xs", "text-sm")} sm:text-xl font-bold ${metric.ink} tabular-nums`}>{amount}</span></div>;
+            return <div className={`summary-metric metric-${metric.kind}`} key={metric.label}><span className="metric-label">{metric.label}</span><span data-long={amount.length > 12 || undefined} data-very-long={amount.length > 14 || undefined} className={`metric-value ${amountSizeClass(amount, "text-xs", "text-sm")} sm:text-xl font-bold ${metric.ink} tabular-nums`}>{amount}</span></div>;
           })}</div>}
         </section>
         <Link className="month-close-action" href={`/close?month=${activeMonth}`}>
