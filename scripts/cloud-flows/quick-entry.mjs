@@ -40,6 +40,7 @@ export default async function quickEntry({ page, shot: rawShot }) {
   await page.keyboard.press("Escape");
   await page.getByRole("button",{name:"回到今天",exact:true}).click();
   await page.locator(".date-trigger-label").filter({hasText:today}).waitFor();
+  await page.locator("#cash-input").waitFor();
   assert.equal(await page.locator(".cost-entry-card").count(),3,"Returning to today must retain its unsaved draft");
   await shot("returned-to-today");
   await page.getByTitle("日期",{exact:true}).click();
