@@ -466,3 +466,4 @@
 .add-cost-action.skeleton-action { min-height: 52px; }
 .sheet-save-action.skeleton-action, .reconciliation-form>.skeleton-action { font-size: 18px; }
 .close-layout [aria-label="Closed Month Reconciliation Audit"] .text-xs { font-size: 16px; line-height: 24px; }
+.skeleton-action { display: flex; align-items: center; justify-content: center; }
