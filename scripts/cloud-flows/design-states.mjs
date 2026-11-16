@@ -44,6 +44,11 @@ export default async function flow({ page, shot: rawShot }) {
   await shot("daily-cost-delete-confirmation");
   await page.getByRole("dialog").getByRole("button", { name: "确认删除", exact: true }).click();
   await page.locator(".cost-entry-card").waitFor({ state: "detached" });
+  await page.locator("#cash-input").fill("5");
+  await page.getByRole("button", { name: "保存账单", exact: true }).click();
+  assert.equal(await page.locator(".zero-revenue-warning").count(), 0, "Entered revenue must not show a blank-revenue reminder");
+  await page.getByRole("dialog").getByRole("button", { name: "取消", exact: true }).click();
+  await page.getByRole("button", { name: "撤销修改", exact: true }).click();
   await page.goto(`/close?month=${previous}`);
   await page.locator("#close-cash").waitFor();
   await page.locator(".close-calculation > summary").click();
