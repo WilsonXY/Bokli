@@ -44,7 +44,9 @@ export default async function flow({ page, shot: rawShot }) {
   await page.getByRole("dialog").getByRole("button", { name: "确认删除", exact: true }).click();
   await page.locator(".cost-entry-card").waitFor({ state: "detached" });
   await page.goto(`/close?month=${previous}`);
+  await page.locator("#close-cash").waitFor();
   await page.getByText("查看账本计算", { exact: true }).click();
+  assert.equal(await page.locator(".close-calculation").evaluate(el => el.open), true);
   await shot("calculation-expanded");
 
   await page.goto(`/expenses?month=${previous}`);
