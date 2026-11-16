@@ -88,6 +88,12 @@ export default async function flow({ page, shot: rawShot }) {
     await page.setViewportSize({ width, height: 900 });
     for (const path of ["/", "/dashboard", "/expenses", "/close", "/settings"]) {
       await page.goto(path); await loaded(page); await fits(page);
+      if (path === "/") {
+        const cash = await page.locator("#cash-input").boundingBox();
+        const tng = await page.locator("#tng-input").boundingBox();
+        assert(cash && tng && Math.abs(cash.y - tng.y) <= 1, "Revenue inputs must align at narrow widths");
+        await shot(`sheet-${width}`);
+      }
     }
     await pause(1000); await shot(`settings-${width}`);
   }
