@@ -16,11 +16,11 @@ export function AppShell({ children }: AppShellProps) {
   const { t } = useI18n();
   const [destinations, setDestinations] = React.useState<Record<string, string>>({});
   const items = [
-    { href: "/", label: t.navSheet, short: t.navSheetShort, path: "M12 5v14M5 12h14" },
+    { href: "/", label: t.navSheet, short: t.navSheetShort, path: "M14 3H4v18h16V11M8 16l1-4 9-9 3 3-9 9-4 1Z" },
     { href: "/dashboard", label: t.navDashboard, short: t.navDashboard, path: "M4 20V10m8 10V4m8 16v-7" },
-    { href: "/expenses", label: t.navExpenses, short: t.navExpensesShort, path: "M4 5h16v15H4zM8 5V3m8 2V3M8 10h8M8 15h5" },
+    { href: "/expenses", label: t.navExpenses, short: t.navExpensesShort, path: "M5 3h14v18l-3-2-4 2-4-2-3 2V3ZM8 7h8M8 11h8M8 15h4" },
     { href: "/close", label: t.navClose, short: t.navClose, path: "M5 10h14v11H5zM8 10V6a4 4 0 0 1 8 0v4M12 14v3" },
-    { href: "/settings", label: t.navSettings, short: t.navSettings, path: "M4 7h16M4 17h16M9 4v6M15 14v6" },
+    { href: "/settings", label: t.navSettings, short: t.navSettings, path: "M10 2h4v3l3 1.7 2.6-1.5 2 3.5-2.6 1.5v3.6l2.6 1.5-2 3.5-2.6-1.5-3 1.7v3h-4v-3l-3-1.7-2.6 1.5-2-3.5L5 13.8v-3.6L2.4 8.7l2-3.5L7 6.7 10 5V2ZM15 12a3 3 0 1 0-6 0 3 3 0 0 0 6 0" },
   ];
   function navigation(mobile: boolean) {
     return <nav aria-label={t.mainNavigation} className={mobile ? "mobile-navigation" : "desktop-navigation"} onClickCapture={() => {
