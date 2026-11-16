@@ -299,7 +299,7 @@
   .sheet-page-heading { flex-wrap: nowrap; align-items: center; }.sheet-page-heading h1 { font-size: 28px; }.sheet-page-heading .page-description { display: none; }.sheet-status { font-size: 14px; }.sheet-date-meta { display: none; }
   .daily-layout { gap: 20px; }.sheet-date-bar { padding: 0; }.sheet-date-bar button { min-height: 44px; }.sheet-date-bar>div:first-child>button { background: rgb(var(--surface)); border-color: rgb(var(--border)); }.date-trigger-label>span { font-size: 16px; }
   .daily-revenue .section-heading, .daily-costs .section-heading { margin-bottom: 12px; }.daily-revenue .section-heading { align-items: center; flex-wrap: wrap; gap: 6px; }.daily-revenue .section-heading h2, .daily-costs .section-heading h2 { font-size: 18px; }.daily-revenue .section-heading>span, .daily-costs .section-heading>span { font-size: 14px; }
-  .revenue-field { padding: 14px; gap: 12px; grid-template-columns: minmax(0,.9fr) minmax(0,1.1fr); }.revenue-field-label { gap: 8px; }.revenue-field-label:before { width: 26px; height: 26px; font-size: 18px; }.revenue-field label { font-size: 16px; }.revenue-input { height: 52px; font-size: 26px; padding-right: 10px; padding-left: 32px; }.revenue-field-control>span { font-size: 12px; left: 10px; }
+  .revenue-field { padding: 14px; gap: 12px; grid-template-columns: minmax(0,.9fr) minmax(0,1.1fr); }.revenue-field-label { gap: 8px; }.revenue-field-label:before { width: 26px; height: 26px; font-size: 18px; }.revenue-field label { font-size: 16px; }.revenue-field .revenue-input { height: 52px; font-size: 26px; padding-right: 10px; padding-left: 32px; }.revenue-field-control>span { font-size: 12px; left: 10px; }
   .daily-costs { padding-top: 20px; }.add-cost-action { min-height: 52px; }.sheet-save-panel { gap: 12px; }.sheet-profit-summary>div:last-child { font-size: 26px; }.sheet-save-action { font-size: 18px; }
   .dashboard-layout { display: flex; flex-direction: column; gap: 24px; }.dashboard-layout>* { width: 100%; }.panel { padding: 24px; }.panel h2 { font-size: 18px; }.overview-summary { padding: 0; }
   .profit-headline { padding: 26px; }.profit-headline .metric-headline { font-size: 44px; margin-top: 16px; }.profit-headline .metric-headline[data-long] { font-size: 28px; }.summary-metrics { padding: 4px 24px 8px; }.summary-metric { padding-top: 16px; padding-bottom: 16px; }.metric-operating { padding-left: 18px; }.metric-value { font-size: 20px; }.metric-value[data-long] { font-size: 13px; }
@@ -322,7 +322,7 @@
 }
 @media (max-width:359px) {
   .workspace-main { padding-left: 16px; padding-right: 16px; }.workspace-header { padding-left: 16px; padding-right: 16px; }.page-heading h1 { font-size: 27px; }.sheet-page-heading h1 { font-size: 25px; }.sheet-status { font-size: 13px; }.date-today-badge { display: none; }
-  .revenue-field { padding: 12px; gap: 8px; }.revenue-field-label:before { display: none; }.revenue-input { font-size: 24px; }.panel { padding: 20px; }.overview-summary { padding: 0; }.profit-headline { padding: 24px; }.profit-headline .metric-headline { font-size: 38px; }.account-balances dd { font-size: 19px; }.month-close-action { padding: 14px; gap: 10px; }
+  .revenue-field { padding: 12px; gap: 8px; }.revenue-field-label:before { display: none; }.revenue-field .revenue-input { font-size: 24px; }.panel { padding: 20px; }.overview-summary { padding: 0; }.profit-headline { padding: 24px; }.profit-headline .metric-headline { font-size: 38px; }.account-balances dd { font-size: 19px; }.month-close-action { padding: 14px; gap: 10px; }
 }
 @media (prefers-reduced-motion:reduce) { *,::before,::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
 
@@ -379,3 +379,6 @@
   .account-balances dd, .account-balances dd[data-long] { font-size: 18px; margin: 0; text-align: right; }
   .account-balances small { text-align: right; margin: 0; }
 }
+
+.reconciliation-form input[inputmode="decimal"], .expenses-layout input[inputmode="decimal"] { font-size: 22px; }
+.cost-entry-card input[inputmode="decimal"] { font-size: 20px; }
