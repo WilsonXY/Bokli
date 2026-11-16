@@ -7,7 +7,7 @@ const financialPages = [["/", "sheet"], [`/dashboard?month=${previousMonth}`, "o
 const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
 const loaded = async page => {
   await page.locator("main h1").waitFor();
-  await page.locator('[aria-busy="true"]').waitFor({ state: "detached" });
+  await page.locator('[aria-busy="true"]').first().waitFor({ state: "detached" });
   await page.evaluate(() => document.fonts.ready);
 };
 const fits = async page => {

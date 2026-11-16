@@ -53,13 +53,13 @@ const monthPages = [
 async function monthPage(page, path, api, button, name, shot) {
   const release = await hold(page, api);
   await page.goto(path, { waitUntil: "commit" });
-  await page.locator('[aria-busy="true"]').waitFor();
+  await page.locator('[aria-busy="true"]').first().waitFor();
   await languageReady(page, button);
   await pause(1200);
   const skeleton = await layout(page);
   await shot(`${name}-skeleton`);
   release();
-  await page.locator('[aria-busy="true"]').waitFor({ state: "detached" });
+  await page.locator('[aria-busy="true"]').first().waitFor({ state: "detached" });
   await pause(1200);
   const loaded = await layout(page);
   await shot(`${name}-loaded`);
@@ -76,7 +76,7 @@ export default async function flow({ page, shot }) {
 
     const release = await hold(page, "sheets");
     await page.locator("main button").first().click(); // Prev Day
-    await page.locator('[aria-busy="true"]').waitFor();
+    await page.locator('[aria-busy="true"]').first().waitFor();
     await pause(1200);
     const skeleton = await layout(page);
     await shot(`${lang}-sheet-skeleton`);
