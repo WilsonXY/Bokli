@@ -116,6 +116,8 @@ export async function startCloudLocal({ port = 8787, testIdentity = false, build
   run(["d1", "execute", "BOKLI_DB", "--local", "--config", config, "--persist-to", state, "--file", path.join(dir, "seed.sql")], env);
 
   const child = spawn(wrangler, ["dev", "--config", config, "--persist-to", state, "--ip", "127.0.0.1", "--port", String(port),
+    // Verification can coexist with the shared preview's default inspector.
+    ...(testIdentity ? ["--inspector-port", "0"] : []),
     "--show-interactive-dev-session=false"], { cwd: dir, env, stdio: ["ignore", "inherit", "inherit"], detached: true });
   const baseURL = `http://127.0.0.1:${port}`;
   const stop = () => {

@@ -56,4 +56,11 @@ export default async function quickEntry({ page, shot: rawShot }) {
   await shot("calendar-activity-unavailable");
   await page.keyboard.press("Escape");
   await page.unrouteAll({behavior:"wait"});
+  await page.getByRole("button",{name:"前一天",exact:true}).click();
+  await page.locator("#cash-input").waitFor();
+  await page.setViewportSize({width:320,height:844});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  const shortcut=await page.getByRole("button",{name:"回到今天",exact:true}).boundingBox();
+  assert(shortcut && shortcut.x>=0 && shortcut.x+shortcut.width<=320);
+  await shot("past-date-320");
 }
