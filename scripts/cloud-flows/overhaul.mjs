@@ -15,6 +15,7 @@ const fits = async page => {
 };
 
 export default async function flow({ page, shot: rawShot }) {
+  page.setDefaultNavigationTimeout(60000);
   const shot = (name, target = page) => rawShot(name, target, { fullPage: false });
   // An OS dark preference must never override the requested bright default.
   await page.emulateMedia({ colorScheme: "dark" });

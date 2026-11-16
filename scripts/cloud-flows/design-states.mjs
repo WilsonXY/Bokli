@@ -9,7 +9,7 @@ export default async function flow({ page, shot: rawShot }) {
   await page.getByText("本月暂无每日账单记录").waitFor();
   assert.equal(await page.locator(".overview-composition").count(), 0);
   await shot("empty-month");
-  await page.getByRole("button", { name: "选择月份", exact: true }).click();
+  await page.getByRole("button", { name: "月份", exact: true }).click();
   const monthPicker = await page.getByRole("listbox").boundingBox();
   assert(monthPicker && monthPicker.x >= 0 && monthPicker.x + monthPicker.width <= page.viewportSize().width, "Month choices must fit the phone");
   await shot("month-picker");
