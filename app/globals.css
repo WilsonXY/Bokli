@@ -115,7 +115,7 @@
 .add-cost-action, .add-expense-action { min-height: 52px; border: 1px solid rgb(var(--border-strong)); background: rgb(var(--surface)); color: rgb(var(--brand)); border-radius: 12px; box-shadow: none; font-size: 16px; }
 .add-cost-action:hover { background: rgb(var(--brand-light)); }
 .sheet-save-bar { position: static; }
-.sheet-save-panel { padding: 0; border: 0; background: transparent; border-radius: 0; display: grid; gap: 14px; }
+.sheet-save-panel { padding: 0; border: 0; background: transparent; border-radius: 0; display: grid; grid-template-columns: minmax(0,1fr); gap: 14px; }
 .sheet-profit-summary { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; min-width: 0; overflow-wrap: anywhere; }
 .sheet-profit-summary>div:first-child { font-size: 16px; color: rgb(var(--secondary)); }
 .sheet-profit-summary>div:last-child { font-size: 28px; line-height: 1.4; }
@@ -185,12 +185,15 @@
 .empty-month p { font-size: 16px; color: rgb(var(--secondary)); line-height: 1.7; }
 .empty-month .primary-button { width: 100%; }
 .empty-note { padding: 24px 0; color: rgb(var(--secondary)); font-size: 16px; line-height: 1.7; }
-.overview-summary.is-empty .profit-headline { padding: 24px; }
-.overview-summary.is-empty .metric-headline { font-size: 36px; }
+.overview-summary.is-empty .profit-headline { padding: 24px; display: flex; align-items: baseline; justify-content: space-between; gap: 16px; background: rgb(var(--surface)); }
+.overview-summary.is-empty .profit-headline h2 { color: rgb(var(--secondary)); }
+.overview-summary.is-empty .metric-headline { font-size: 28px; color: rgb(var(--profit)); margin: 0; }
+.overview-summary.is-empty .profit-headline p, .overview-summary.is-empty .profit-headline:after { display: none; }
 .expense-month-summary { padding: 28px; border-radius: 18px; background: rgb(var(--cost-light)); }
+.expense-month-total { display: flex; align-items: baseline; justify-content: space-between; gap: 20px; }
 .expense-month-total>span { display: block; font-size: 16px; color: rgb(var(--secondary)); }
-.expense-month-total>strong { display: block; margin: 10px 0 24px; font-size: 42px; line-height: 1.2; letter-spacing: -.04em; overflow-wrap: anywhere; }
-.expense-month-context { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; padding-top: 20px; border-top: 1px solid rgb(var(--cost) / .2); }
+.expense-month-total>strong { display: block; margin: 0; font-size: 36px; line-height: 1.2; letter-spacing: -.04em; overflow-wrap: anywhere; }
+.expense-month-context { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin-top: 20px; padding-top: 16px; border-top: 1px solid rgb(var(--cost) / .2); }
 .expense-month-context span { display: block; font-size: 14px; color: rgb(var(--secondary)); }
 .expense-month-context strong { display: block; margin-top: 6px; font-size: 20px; overflow-wrap: anywhere; }
 .operating-expenses { padding: 0; border: 0; background: transparent; }
@@ -304,7 +307,7 @@
   .daily-ledger { padding: 0 20px; }.daily-records summary { font-size: 18px; min-height: 64px; }.daily-record { font-size: 16px; min-height: 76px; }.panel-heading { flex-wrap: wrap; gap: 8px; }
   .metric-tabs { display: flex; min-width: 0; width: 100%; margin: 16px 0; }.trend-frame, .trend-plot { height: 180px; }.trend-dates, .trend-range { font-size: 14px; }
   .overview-composition { display: flex; flex-direction: column; gap: 24px; }.overview-composition>section { width: 100%; }.account-balances { gap: 10px; }.account-balances>div { padding: 16px 12px; }.account-balances dd { font-size: 22px; }
-  .expense-month-summary { padding: 24px; }.expense-month-total>strong { font-size: 40px; margin-bottom: 22px; }.expense-month-context strong { font-size: 20px; }.expense-record-category { font-size: 18px; }
+  .expense-month-summary { padding: 24px; }.expense-month-total>strong { font-size: 34px; margin-bottom: 0; }.expense-month-context strong { font-size: 20px; }.expense-record-category { font-size: 18px; }
   .close-expectation { padding: 22px; }.close-expected-total>strong { font-size: 40px; }.reconciliation-form { padding: 0; }.close-layout input:not([type="checkbox"]), .expenses-layout input { min-height: 50px; }.workspace-main label { font-size: 16px; }.workspace-main [role="alert"] { font-size: 14px; }
   .settings-section { grid-template-columns: 1fr; gap: 20px; padding: 28px 0; }.settings-section h2 { font-size: 20px; }.settings-section p { font-size: 16px; }.theme-swatch { height: 64px; }.settings-page>.page-heading { margin-bottom: 0; }
   .month-options { left: 0; right: auto; max-width: calc(100vw - 44px); }

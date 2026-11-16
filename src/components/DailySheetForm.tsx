@@ -1594,11 +1594,7 @@ export function DailySheetForm({
             </div>
           </div>
 
-      {/* Delete Daily Sheet button: after the sticky bar in the DOM, so it is only
-          reached at the true bottom of the page. At full scroll the sticky bar
-          sits in normal flow above it (sticky only shifts upward), and the
-          bottom padding here plus AppShell's main pb-24 keeps it clear of the
-          fixed bottom nav even on a short day that barely scrolls. */}
+      {/* Deletion stays separate from the primary save action. */}
       {sheetExists && (
         <div className="pt-6 pb-4">
           <button

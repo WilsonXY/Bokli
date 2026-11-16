@@ -39,7 +39,7 @@ export default async function flow({ page, shot: rawShot }) {
   await shot("expense-entry");
   await page.locator("form").getByRole("button", { name: "Add Expense", exact: true }).click();
   await page.getByText("Expense added successfully").waitFor();
-  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.getByText("Additional stall rent", { exact: true }).scrollIntoViewIfNeeded();
   await shot("expense-saved");
   await page.goto(`/dashboard?month=${previous}`);
   await page.getByText("-RM195.00", { exact: true }).waitFor();

@@ -93,6 +93,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
     { kind: "daily-cost", label: t.costsTitle, value: activeTile?.dailyCostSen ?? 0, ink: "text-ink-secondary" },
     { kind: "operating", label: t.operatingExpenses, value: activeTile?.operatingSen ?? 0, ink: "text-ink-secondary" },
   ];
+  const noActivity = trend.length === 0 && metrics.every(metric => metric.value === 0);
   const cashPct = split?.totalSen ? Math.round(split.cashSen / split.totalSen * 100) : 0;
   const tngPct = split?.totalSen ? 100 - cashPct : 0;
   const metricLabel = trendMetric === "revenue" ? t.sheetRevCol : t.sheetCostCol;
@@ -113,16 +114,16 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
       </div>
       {loadError ? <div role="alert" className="page-error">{t.loadError}<p>{loadError}</p></div> : <>
         {!trend.length && <section className="empty-month panel"><h2>{t.noDailyEntries}</h2><p>{t.emptyMonthHint}</p><Link className="primary-button" href="/">{t.recordDailySheet}</Link></section>}
-        <section className={`overview-summary panel${trend.length ? "" : " is-empty"}`} aria-label={t.monthSummary}>
+        <section className={`overview-summary panel${noActivity ? " is-empty" : ""}`} aria-label={t.monthSummary}>
           <div className={`profit-headline${isProfitPositive ? "" : " is-loss"}`}>
             <h2>{t.netProfit}</h2>
             <span data-long={headline.length > 11 || undefined} className={`metric-headline ${amountSizeClass(headline, "text-2xl", "text-3xl")} sm:text-4xl font-extrabold tracking-tight tabular-nums ${isProfitPositive ? "text-finance-profit" : "text-finance-loss"}`}>{headline}</span>
             <p>{t.netProfitFormula}</p>
           </div>
-          <div className="summary-metrics">{metrics.map(metric => {
+          {!noActivity && <div className="summary-metrics">{metrics.map(metric => {
             const amount = formatMyr(BigInt(metric.value));
             return <div className={`summary-metric metric-${metric.kind}`} key={metric.label}><span className="metric-label">{metric.label}</span><span data-long={amount.length > 11 || undefined} className={`metric-value ${amountSizeClass(amount, "text-xs", "text-sm")} sm:text-xl font-bold ${metric.ink} tabular-nums`}>{amount}</span></div>;
-          })}</div>
+          })}</div>}
         </section>
         <Link className="month-close-action" href={`/close?month=${activeMonth}`}>
           <span className="month-close-icon" aria-hidden="true"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path strokeLinecap="round" strokeLinejoin="round" d="M8 3h8v4H8zM7 5H5v16h14V5h-2M8 12l2 2 5-5M8 18h8" /></svg></span>

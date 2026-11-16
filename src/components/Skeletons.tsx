@@ -28,7 +28,7 @@ function MonthHeader({ title, hint }: { title: string; hint: string }) {
 const tile: SerializedMonthTile = { month: "2026-10", revenueSen: 30000, dailyCostSen: 10000, grossSen: 20000, operatingSen: 5000, netSen: 15000, status: "open" };
 export function DashboardSkeleton() {
   return <div className="loading-layout" aria-busy="true" inert><DashboardView tiles={[tile]} activeMonth="2026-10" activeTile={tile}
-    trend={[{ date: "2026-10-03", cashSen: 20000, tngSen: 10000, totalSen: 30000, costSen: 10000 }]}
+    trend={[3, 10, 17].map(day => ({ date: `2026-10-${String(day).padStart(2,"0")}`, cashSen: 20000, tngSen: 10000, totalSen: 30000, costSen: 10000 }))}
     split={{ cashSen: 20000, tngSen: 10000, totalSen: 30000 }}
     costByCategory={{ restock: 5000, gas: 5000, transport: 0, "wages-daily": 0, maintenance: 0, other: 0 }} /></div>;
 }
