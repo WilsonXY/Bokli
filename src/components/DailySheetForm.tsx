@@ -1093,7 +1093,7 @@ export function DailySheetForm({
               </p>
             </button>
 
-            {!isToday && <button type="button" className="return-today" aria-label={t.returnToday} onClick={() => router.push(`/?date=${todayKl}`)}>{t.today}</button>}
+            {!isToday && <button type="button" className="return-today" aria-label={t.returnToday} onClick={() => router.push(`/?date=${todayKl}`)}>{t.returnTodayShort}</button>}
             {/* Calendar Popover */}
             <CalendarPopover
               date={date}

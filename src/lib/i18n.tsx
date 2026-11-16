@@ -7,6 +7,7 @@ export type Language = "zh" | "en";
 export const DICTIONARY = {
   zh: {
     returnToday: "回到今天",
+    returnTodayShort: "回今天",
     finishCost: "完成此项",
     recordActionsHint: "点按记录，查看操作。",
     recordedSheet: "已记录每日账单",
@@ -224,6 +225,7 @@ export const DICTIONARY = {
   },
   en: {
     returnToday: "Return to today",
+    returnTodayShort: "Today",
     finishCost: "Done",
     recordActionsHint: "Tap a record to see its actions.",
     recordedSheet: "Daily Sheet recorded",
