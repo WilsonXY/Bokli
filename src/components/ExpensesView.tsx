@@ -631,15 +631,16 @@ export function ExpensesView({
   }, [expenses]);
 
   return (
-    <div className="expenses-layout page-stack">
+    <div className={`expenses-layout page-stack${isDraftOpen ? " is-entering" : ""}`}>
       {/* Page heading and period selection */}
       <div className="page-heading">
         <div><h1 className="text-xl font-bold text-ink-primary tracking-tight">
-          {t.expensesTitle}
+          {isDraftOpen ? t.addExpense : t.expensesTitle}
         </h1><p className="page-description">{t.expensesHint}</p></div>
 
         <MonthSelectorDropdown
           currentMonth={currentMonth}
+          showStatusInTrigger={!isDraftOpen}
           options={
             monthOptions ??
             availableMonths.map((m) => ({
@@ -747,36 +748,13 @@ export function ExpensesView({
             {isDraftOpen && !isClosed && (
               <div className="bg-white border-2 border-brand-broccoli ring-2 ring-brand-broccoli/20 rounded-xl shadow-xs overflow-hidden transition-all">
                 <form onSubmit={handleAddExpense} className="p-4 bg-surface-canvas/30 space-y-3">
-                  {/* Category Selection */}
                   <div>
-                    <span className="field-label block font-medium text-ink-secondary mb-2">
-                      {t.selectExpenseCategory}
-                    </span>
-                    <div className="expense-category-options">
-                      {categories.map((cat) => {
-                        const isSelected = newType === cat.key;
-                        return (
-                          <button
-                            key={cat.key}
-                            type="button"
-                            disabled={adding}
-                            aria-pressed={isSelected}
-                            onClick={() => {
-                              setNewType(cat.key);
-                              if (cat.key !== "other" && noteError) setNoteError(false);
-                              if (inlineError) setInlineError(null);
-                            }}
-                            className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold border btn-wave transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 disabled:opacity-50 ${
-                              isSelected
-                                ? "bg-brand-broccoli text-white border-brand-broccoli shadow-xs"
-                                : "bg-surface-canvas border-surface-border text-ink-secondary hover:border-ink-muted hover:text-ink-primary"
-                            }`}
-                          >
-                            {cat.label}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    <label htmlFor="expense-category" className="field-label block font-medium text-ink-secondary mb-2">{t.selectExpenseCategory}</label>
+                    <select id="expense-category" className="category-select" disabled={adding} value={newType} onChange={e => {
+                      setNewType(e.target.value as OperatingExpenseItem["type"]);
+                      if (e.target.value !== "other") setNoteError(false);
+                      setInlineError(null);
+                    }}>{categories.map(cat => <option key={cat.key} value={cat.key}>{cat.label}</option>)}</select>
                   </div>
 
                   {/* Amount & Note Inputs */}
@@ -893,7 +871,7 @@ export function ExpensesView({
               </div>
             )}
 
-            <div className="section-heading expense-records-heading flex items-center justify-between">
+            <div data-readonly={isClosed || undefined} className="section-heading expense-records-heading flex items-center justify-between">
               <h2 className="text-base font-medium text-ink-primary">
                 {t.savedExpensesTitle}
               </h2>
@@ -902,6 +880,7 @@ export function ExpensesView({
               </span>
             </div>
 
+            {!isClosed && mergedExpenses.length > 0 && <p className="records-help">{t.recordActionsHint}</p>}
             {/* Dynamic Cost Cards */}
             {mergedExpenses.length > 0 && (
               <div className="space-y-2">

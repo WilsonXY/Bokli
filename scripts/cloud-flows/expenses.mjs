@@ -9,7 +9,7 @@ const stored = (page) => page.evaluate(async (m) => {
 async function draft(page, category, amount) {
   await page.getByRole("button", { name: "Add Expense" }).click();
   const form = page.locator("form");
-  await form.getByRole("button", { name: category }).click();
+  await form.locator("#expense-category").selectOption({ label: category });
   await form.locator("#expense-amount").fill(amount);
   return form.getByRole("button", { name: "Add Expense" });
 }

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
+import { cloudRead } from "@/lib/cloud-client";
 
 interface CalendarPopoverProps {
   date: string; // YYYY-MM-DD
@@ -30,6 +31,19 @@ export function CalendarPopover({
     initialMonth !== undefined ? initialMonth - 1 : 8,
   );
 
+  const viewPeriod = `${viewYear}-${String(viewMonth + 1).padStart(2, "0")}`;
+  const [recorded, setRecorded] = useState<{ month: string; dates: string[]; failed?: boolean } | null>(null);
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    setRecorded(null);
+    cloudRead("dashboard", `?month=${viewPeriod}`).then(
+      page => { if (active) setRecorded({ month: viewPeriod, dates: page.trend.map(row => row.date) }); },
+      () => { if (active) setRecorded({ month: viewPeriod, dates: [], failed: true }); },
+    );
+    return () => { active = false; };
+  }, [isOpen, viewPeriod]);
+
   // Sync viewing month when date changes or popover opens
   useEffect(() => {
     if (isOpen) {
@@ -52,7 +66,7 @@ export function CalendarPopover({
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleClickOutside = (e: MouseEvent) => {
+    const handleClickOutside = (e: Event) => {
       const target = e.target as Node;
       if (
         popoverRef.current &&
@@ -70,10 +84,12 @@ export function CalendarPopover({
     };
 
     document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("focusin", handleClickOutside);
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("focusin", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen, onClose, triggerRef]);
@@ -127,6 +143,8 @@ export function CalendarPopover({
         });
 
   return (
+    <>
+    <div className="calendar-backdrop" aria-hidden="true" />
     <div
       ref={popoverRef}
       className="calendar-popover absolute top-full mt-2 left-1/2 z-50 bg-white border border-surface-border rounded-2xl shadow-xl p-3.5 w-72 max-w-[calc(100vw-2rem)] select-none animate-popover"
@@ -193,6 +211,7 @@ export function CalendarPopover({
           const isSelected = cellDate === date;
           const isToday = cellDate === todayKl;
           const isFuture = cellDate > todayKl;
+          const isRecorded = recorded?.month === viewPeriod && recorded.dates.includes(cellDate);
 
           return (
             <button
@@ -204,9 +223,11 @@ export function CalendarPopover({
                 onClose();
               }}
               aria-label={cellDate}
+              aria-describedby={isRecorded ? "calendar-recorded-legend" : undefined}
+              data-recorded={isRecorded || undefined}
               aria-current={isToday ? "date" : undefined}
               aria-pressed={isSelected}
-              className={`h-11 w-full mx-auto rounded-lg btn-wave text-sm font-medium flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
+              className={`calendar-day relative h-11 w-full mx-auto rounded-lg btn-wave text-sm font-medium flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                 isSelected
                   ? "bg-brand-broccoli text-white font-bold shadow-xs scale-105"
                   : isFuture
@@ -217,10 +238,13 @@ export function CalendarPopover({
               }`}
             >
               {day}
+              {isRecorded && <span className="calendar-recorded-dot" aria-hidden="true" />}
             </button>
           );
         })}
       </div>
+      <p id="calendar-recorded-legend" className="calendar-legend" role="status">{recorded?.month !== viewPeriod ? t.recordedDaysLoading : recorded.failed ? t.recordedDaysFailed : recorded.dates.length === 0 ? t.noRecordedDays : <><span className="calendar-recorded-dot" aria-hidden="true" />{t.recordedSheet}</>}</p>
     </div>
+    </>
   );
 }

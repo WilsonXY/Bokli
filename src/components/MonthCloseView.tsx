@@ -567,13 +567,13 @@ export function MonthCloseView({
               {/* Live Reconciliation Preview Bar */}
               <div className="reconciliation-preview p-3 rounded-lg bg-surface-subtle border border-surface-border space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-ink-muted font-medium">{t.actualTotal}{t.fieldColon}</span>
+                  <span className="text-ink-muted font-medium">{t.actualTotal}</span>
                   <span className="font-bold text-ink-primary text-base tabular-nums">
                     {countsComplete && actualCountedSen !== null ? formatMyr(actualCountedSen) : "—"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-ink-muted font-medium">{t.expectedNet}{t.fieldColon}</span>
+                  <span className="text-ink-muted font-medium">{t.expectedNet}</span>
                   <span className="font-bold text-ink-primary text-base tabular-nums">{formatMyr(expectedNetSen)}</span>
                 </div>
                 <div className={`reconciliation-result ${!countsComplete ? "is-pending" : hasParseError ? "is-invalid" : isBalanced ? "is-balanced" : "is-mismatch"}`} aria-live="polite">
@@ -624,6 +624,7 @@ export function MonthCloseView({
                 </label>
               )}
 
+              {!countsComplete && <p className="close-action-hint">{t.enterBothToClose}</p>}
               {/* Submit Action Button */}
               <button
                 type="submit"

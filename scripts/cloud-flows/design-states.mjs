@@ -29,7 +29,7 @@ export default async function flow({ page, shot: rawShot }) {
   await shot("calendar");
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: /添加开销/ }).click();
-  await page.getByRole("button", { name: "其他", exact: true }).click();
+  await page.locator(".cost-editor select").selectOption("other");
   await page.locator('input[inputmode="decimal"]').nth(2).fill("20");
   await page.getByRole("button", { name: "保存账单", exact: true }).click();
   await page.locator(".zero-revenue-warning").waitFor();

@@ -1066,7 +1066,7 @@ export function DailySheetForm({
           </button>
 
           {/* Toggleable Date Button with Calendar Popover */}
-          <div className="relative min-w-0">
+          <div className="date-picker-group relative min-w-0">
             <button
               ref={dateBtnRef}
               type="button"
@@ -1093,6 +1093,7 @@ export function DailySheetForm({
               </p>
             </button>
 
+            {!isToday && <button type="button" className="return-today" aria-label={t.returnToday} onClick={() => router.push(`/?date=${todayKl}`)}>{t.today}</button>}
             {/* Calendar Popover */}
             <CalendarPopover
               date={date}
@@ -1151,14 +1152,14 @@ export function DailySheetForm({
                 htmlFor="cash-input"
                 className="text-sm font-semibold text-ink-primary"
               >
-                {t.cashRevenue}
+                {t.cashRevenueShort}
               </label>
             </div>
 
             <div className="revenue-field-control relative flex items-center">
               <span data-money-prefix className="absolute left-2.5 text-sm font-bold text-channel-cash select-none">RM</span>
               <input
-                id="cash-input"
+                id="cash-input" aria-label={t.cashRevenue}
                 aria-invalid={cashError || undefined}
                 aria-describedby={cashError ? "cash-error" : undefined}
                 type="text"
@@ -1199,14 +1200,14 @@ export function DailySheetForm({
                 htmlFor="tng-input"
                 className="text-sm font-semibold text-ink-primary"
               >
-                {t.tngRevenue}
+                {t.tngRevenueShort}
               </label>
             </div>
 
             <div className="revenue-field-control relative flex items-center">
               <span data-money-prefix className="absolute left-2.5 text-sm font-bold text-channel-tng select-none">RM</span>
               <input
-                id="tng-input"
+                id="tng-input" aria-label={t.tngRevenue}
                 aria-invalid={tngError || undefined}
                 aria-describedby={tngError ? "tng-error" : undefined}
                 type="text"
@@ -1326,45 +1327,25 @@ export function DailySheetForm({
                   {/* Expanded Form Body */}
                       {isExpanded && !isClosed && (
                         <div className="cost-editor border-t border-surface-border bg-surface-canvas/30">
-                          {/* Category Selection */}
-                          <div>
-                            <span className="block text-xs font-semibold text-ink-secondary mb-2">
-                              {t.costCategory ?? t.selectCategory}
-                            </span>
-                            <div className="flex flex-wrap gap-1.5">
-                              {categories.map((cat) => {
-                                const isSelected = line.category === cat.key;
-                                return (
-                                  <button
-                                    key={cat.key}
-                                    type="button"
-                                    disabled={isClosed || saving}
-                                    aria-pressed={isSelected}
-                                    onClick={() => handleUpdateCostLine(idx, { category: cat.key })}
-                                    className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold border btn-wave transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 disabled:opacity-50 ${
-                                      isSelected
-                                        ? "bg-brand-broccoli text-white border-brand-broccoli shadow-xs"
-                                        : "bg-surface-canvas border-surface-border text-ink-secondary hover:border-ink-muted hover:text-ink-primary"
-                                    }`}
-                                  >
-                                    {cat.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
+                          <div className="cost-category-row">
+                            <label htmlFor={`cost-category-${idx}`}>{t.selectCategory}</label>
+                            <select id={`cost-category-${idx}`} className="category-select" value={line.category} disabled={saving} onChange={e => handleUpdateCostLine(idx, { category: e.target.value as CostCategory })}>
+                              {categories.map(cat => <option key={cat.key} value={cat.key}>{cat.label}</option>)}
+                            </select>
                           </div>
 
                           {/* Amount & Note Inputs */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                            <div>
-                              <label className="block text-xs font-semibold text-ink-secondary mb-1">
-                                {t.amount}
+                          <div className="cost-fields">
+                            <div className="cost-money-row">
+                              <label htmlFor={`cost-amount-${idx}`} className="block text-xs font-semibold text-ink-secondary mb-1">
+                                {t.amount} <span className="text-finance-loss">*</span>
                               </label>
                               <div className="revenue-field-control relative flex items-center">
                                 <span data-money-prefix className="absolute left-3 text-sm font-bold text-ink-muted select-none">RM</span>
                                 <input
                                   type="text"
                                   inputMode="decimal"
+                                  id={`cost-amount-${idx}`}
                                   disabled={isClosed || saving}
                                   value={line.amountInput ?? (line.amountSen > 0 ? senToDecimalStr(line.amountSen) : "")}
                                   ref={idx === costAmountErrorIndex ? costAmountErrorRef : undefined}
@@ -1450,6 +1431,21 @@ export function DailySheetForm({
                               </svg><span>{t.deleteCostLine}</span>
                             </button>
                           )}
+                            <button type="button" className="finish-cost-action" disabled={saving} onClick={() => {
+                              const amount = tryParseSen(line.amountInput ?? senToDecimalStr(line.amountSen));
+                              if (amount === null || amount <= 0n) {
+                                setCostAmountErrorIndex(idx);
+                                requestAnimationFrame(() => costAmountErrorRef.current?.focus());
+                                return;
+                              }
+                              if (isOtherNoteMissing(line.category, line.note)) {
+                                setNoteErrorIndex(idx);
+                                requestAnimationFrame(() => noteErrorRef.current?.focus());
+                                return;
+                              }
+                              handleToggleCostLine(idx);
+                              requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".add-cost-action")?.focus({ preventScroll: true }));
+                            }}>{t.finishCost}</button>
                           </div>
                         </div>
                       )}
