@@ -142,7 +142,14 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
               {[padY, chartH / 2, chartH - padY].map(y => <line key={y} x1={padX} x2={chartW - padX} y1={y} y2={y} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />)}
               <path d={area} fill={`url(#trendGradient-${trendMetric})`} />
               <path d={line} fill="none" stroke={chartColor} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-              {points.map((point, index) => <g key={trend[index].date}><circle className="point-circle transition-[r,fill]" cx={point.x} cy={point.y} r="3.5" fill={chartColor} stroke="rgb(var(--surface))" vectorEffect="non-scaling-stroke" />{(index === 0 || index === points.length - 1 || (points.length <= 3 && chartW >= 280)) && <text x={point.x} y={point.y - 14} textAnchor={index === 0 ? "start" : index === points.length - 1 ? "end" : "middle"} className="trend-value-label" fill="rgb(var(--ink))" fontSize="14" fontWeight="500">{formatMyr(BigInt(trendValueSen(trend[index], trendMetric)))}</text>}</g>)}
+              {points.map((point, index) => {
+                const label = formatMyr(BigInt(trendValueSen(trend[index], trendMetric)));
+                const single = points.length === 1;
+                const labelSpace = single ? chartW - padX * 2 : (chartW - padX * 2) / (points.length <= 3 ? points.length : 2);
+                // Exact values remain in the dated records; omit labels that would collide.
+                const showLabel = label.length * 8.5 <= labelSpace && (index === 0 || index === points.length - 1 || (points.length <= 3 && chartW >= 280));
+                return <g key={trend[index].date}><circle className="point-circle transition-[r,fill]" cx={point.x} cy={point.y} r="3.5" fill={chartColor} stroke="rgb(var(--surface))" vectorEffect="non-scaling-stroke" />{showLabel && <text x={point.x} y={point.y - 14} textAnchor={single ? "middle" : index === 0 ? "start" : index === points.length - 1 ? "end" : "middle"} className="trend-value-label" fill="rgb(var(--ink))" fontSize="14" fontWeight="500">{label}</text>}</g>;
+              })}
             </svg></div>
             <div className="trend-dates"><span>{trend[0].date}</span><span>{trend[trend.length - 1].date}</span></div>
 
