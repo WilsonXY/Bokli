@@ -16,6 +16,11 @@ const layout = (page) =>
     }),
   );
 
+const dateControls = page => page.locator(".sheet-date-bar:visible .date-picker-trigger, .sheet-date-bar:visible .date-today-slot").evaluateAll(elements => elements.map(element => {
+  const rect = element.getBoundingClientRect();
+  return [rect.x, rect.y, rect.width, rect.height].map(Math.round);
+}));
+
 const kl = new Date(Date.now() + 8 * 3600e3);
 const lastMonth = new Date(Date.UTC(kl.getUTCFullYear(), kl.getUTCMonth() - 1, 1)).toISOString().slice(0, 7);
 const languages = [["en", "en"], ["zh", "zh-Hans"]];
@@ -81,6 +86,7 @@ export default async function flow({ page, shot }) {
     await page.locator('[aria-busy="true"]').first().waitFor();
     await pause(1200);
     const skeleton = await layout(page);
+    const skeletonDateControls = await dateControls(page);
     const requestedDate = new URL(page.url()).searchParams.get("date");
     if (!requestedDate || await page.locator(".loading-period").innerText() !== requestedDate) throw new Error("Loading must keep the requested date visible");
     await shot(`${lang}-sheet-skeleton`);
@@ -88,6 +94,7 @@ export default async function flow({ page, shot }) {
     await page.locator("#cash-input").waitFor();
     await pause(1200);
     compare(`${lang} Daily Sheet`, skeleton, await layout(page));
+    compare(`${lang} date controls`, skeletonDateControls, await dateControls(page));
     await shot(`${lang}-sheet-loaded`);
 
     for (const [path, api] of monthPages) {

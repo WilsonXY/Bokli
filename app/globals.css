@@ -653,3 +653,6 @@
 .signout-icon { width: 48px; min-width: 48px; padding: 0; }
 .empty-month p { display: none; }
 .empty-month .primary-button { width: 48px; min-width: 48px; padding: 0; }
+
+.date-trigger-label>span { min-width: 10ch; font-variant-numeric: tabular-nums; }
+@media (min-width:640px) { .skeleton-date-body>button { width: auto; } }
