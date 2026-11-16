@@ -50,10 +50,12 @@ export default async function flow({ page, shot: rawShot }) {
       if (name === "overview") {
         if (!await page.locator(".daily-records").evaluate(el => el.open)) await page.locator(".daily-records > summary").click();
         await page.locator(".daily-record").first().waitFor();
+        await page.locator(".daily-records").scrollIntoViewIfNeeded();
         await pause(1000); await shot(`en-${theme}-daily-sheets`);
         await page.locator(".daily-records > summary").click();
         await page.getByRole("button", { name: "Costs", exact: true }).click();
         await page.getByRole("heading", { name: "Daily Cost Trend", exact: true }).waitFor();
+        await page.locator(".overview-trend").scrollIntoViewIfNeeded();
         await pause(1000); await shot(`en-${theme}-cost-trend`);
         await page.getByRole("button", { name: "Revenue", exact: true }).click();
         await page.locator(".overview-composition").scrollIntoViewIfNeeded();

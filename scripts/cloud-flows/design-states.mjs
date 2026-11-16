@@ -46,6 +46,7 @@ export default async function flow({ page, shot: rawShot }) {
   await page.locator(".cost-entry-card").waitFor({ state: "detached" });
   await page.locator("#cash-input").fill("5");
   await page.getByRole("button", { name: "保存账单", exact: true }).click();
+  await page.getByRole("dialog").waitFor();
   assert.equal(await page.locator(".zero-revenue-warning").count(), 0, "Entered revenue must not show a blank-revenue reminder");
   await page.getByRole("dialog").getByRole("button", { name: "取消", exact: true }).click();
   await page.getByRole("button", { name: "撤销修改", exact: true }).click();
