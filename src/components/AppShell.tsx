@@ -1,21 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import React from "react";
 import { monthCloseIconPath } from "./ActionIcon";
 import { useI18n } from "@/lib/i18n";
 
 interface AppShellProps {
   children: React.ReactNode;
-  userRole?: string;
-  todayKl?: string;
 }
 
-export function AppShell({ children }: AppShellProps) {
+function WorkspaceNavigation({ search = "" }: { search?: string }) {
   const pathname = usePathname();
   const { t } = useI18n();
   const [destinations, setDestinations] = React.useState<Record<string, string>>({});
+  const suffix = search ? `?${search}` : "";
   const items = [
     { href: "/", label: t.navSheet, short: t.navSheetShort, path: "M14 3H4v18h16V11M8 16l1-4 9-9 3 3-9 9-4 1Z" },
     { href: "/dashboard", label: t.navDashboard, short: t.navDashboard, path: "M4 20V10m8 10V4m8 16v-7" },
@@ -25,24 +24,36 @@ export function AppShell({ children }: AppShellProps) {
   ];
   function navigation(mobile: boolean) {
     return <nav aria-label={t.mainNavigation} className={mobile ? "mobile-navigation" : "desktop-navigation"} onClickCapture={() => {
-      const search = window.location.search;
-      setDestinations(previous => ({ ...previous, [pathname]: window.location.pathname + search, ...(pathname === "/close" ? { "/dashboard": "/dashboard" + search } : {}) }));
+      setDestinations(previous => ({ ...previous, [pathname]: pathname + suffix, ...(pathname === "/close" ? { "/dashboard": "/dashboard" + suffix } : {}) }));
     }}>
       {items.filter(item => !mobile || item.href !== "/close").map(item => {
         const selected = pathname === item.href || (mobile && pathname === "/close" && item.href === "/dashboard");
-        return <Link key={item.href} href={destinations[item.href] ?? item.href} aria-label={item.label} title={item.label} aria-current={selected ? "page" : undefined} className={`workspace-nav-link ${item.href === "/" ? "nav-record" : ""}`}>
+        const href = item.href === pathname ? pathname + suffix
+          : pathname === "/close" && item.href === "/dashboard" ? "/dashboard" + suffix
+          : destinations[item.href] ?? item.href;
+        return <Link key={item.href} href={href} aria-label={item.label} title={item.label} aria-current={selected ? "page" : undefined} className={`workspace-nav-link ${item.href === "/" ? "nav-record" : ""}`}>
           <span className="nav-icon"><svg aria-hidden="true" width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d={item.path} /></svg></span>
           <span className="nav-label">{mobile ? item.short : item.label}</span>
         </Link>;
       })}
     </nav>;
   }
+  return <>{navigation(false)}{navigation(true)}</>;
+}
+
+function LiveWorkspaceNavigation() {
+  const search = useSearchParams();
+  return <WorkspaceNavigation search={search?.toString() ?? ""} />;
+}
+
+export function AppShell({ children }: AppShellProps) {
+  const pathname = usePathname();
+  const { t } = useI18n();
   return <div className="app-workspace">
     <a href="#main-content" className="skip-link">{t.skipToContent}</a>
     <aside className="workspace-sidebar">
       <Link href="/" className="brand-lockup" aria-label={t.homeLabel}><span className="brand-mark" aria-hidden="true">b<span /></span><span className="brand-name">Bokli<small>簿里</small></span></Link>
-      {navigation(false)}
-      {navigation(true)}
+      <React.Suspense fallback={<WorkspaceNavigation />}><LiveWorkspaceNavigation /></React.Suspense>
     </aside>
     <div className="workspace-body">
       <header className="workspace-header">

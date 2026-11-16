@@ -1,10 +1,14 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import React from "react";
 import ReactDOMServer from "react-dom/server";
 
+const route = vi.hoisted(() => ({ pathname: "/dashboard", search: "" }));
+afterEach(() => { vi.restoreAllMocks(); route.pathname = "/dashboard"; route.search = ""; });
+
 // Mock next/navigation
 vi.mock("next/navigation", () => ({
-  usePathname: () => "/dashboard",
+  usePathname: () => route.pathname,
+  useSearchParams: () => new URLSearchParams(route.search),
   useRouter: () => ({
     push: vi.fn(),
     refresh: vi.fn(),
@@ -19,7 +23,7 @@ describe("AppShell bottom navigation order", () => {
     const html = ReactDOMServer.renderToStaticMarkup(
       React.createElement(
         AppShell,
-        { userRole: "operator", children: React.createElement("div", null, "Child Content") }
+        { children: React.createElement("div", null, "Child Content") }
       )
     );
 
@@ -27,7 +31,7 @@ describe("AppShell bottom navigation order", () => {
     expect(html).toContain(DICTIONARY.zh.navDashboard);
     expect(html).toContain(DICTIONARY.zh.navSheet);
 
-    // Verify /dashboard link appears before / link in the bottom navigation
+    // Verify the Daily Sheet link precedes Overview.
     const navigation = html.slice(html.indexOf("<nav"), html.indexOf("</nav>"));
     const dashIndex = navigation.indexOf("href=\"/dashboard\"");
     const sheetIndex = navigation.indexOf("href=\"/\"");
@@ -47,5 +51,32 @@ describe("workspace navigation", () => {
     expect(html).toContain('href="#main-content"');
     expect(html).not.toContain('Switch to English');
     expect(html).not.toContain('Switch to Chinese');
+  });
+});
+
+
+describe("navigation preserves the current bookkeeping period", () => {
+  function hrefFor(label: string, remembered: Record<string, string>) {
+    vi.spyOn(React, "useState").mockReturnValue([remembered, vi.fn()]);
+    const html = ReactDOMServer.renderToStaticMarkup(React.createElement(AppShell, { children: "Content" }));
+    const anchor = html.match(/<a\b[^>]*>/g)?.find(tag => tag.includes(`aria-label="${label}"`));
+    return anchor?.match(/href="([^"]*)"/)?.[1];
+  }
+
+  it("keeps today when the active Sheet tab remembers an older date", () => {
+    route.pathname = "/";
+    route.search = "date=2026-11-17";
+    expect(hrefFor(DICTIONARY.zh.navSheet, { "/": "/?date=2026-11-10" })).toBe("/?date=2026-11-17");
+  });
+
+  it("returns directly from Month Close to Overview for the same month", () => {
+    route.pathname = "/close";
+    route.search = "month=2026-10";
+    expect(hrefFor(DICTIONARY.zh.navDashboard, { "/dashboard": "/dashboard?month=2026-11" })).toBe("/dashboard?month=2026-10");
+  });
+
+  it("retains the remembered date when returning from Settings", () => {
+    route.pathname = "/settings";
+    expect(hrefFor(DICTIONARY.zh.navSheet, { "/": "/?date=2026-11-10" })).toBe("/?date=2026-11-10");
   });
 });

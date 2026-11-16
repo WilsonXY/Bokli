@@ -55,7 +55,6 @@
 .brand-mark>span { position: absolute; width: 9px; height: 5px; right: 6px; top: 8px; border-radius: 7px 0 7px 0; background: #c8e6b7; transform: rotate(-24deg); }
 .brand-name { font-size: 26px; letter-spacing: -1px; }
 .brand-name small { display: block; font-size: 11px; letter-spacing: 0; color: rgb(var(--muted)); margin-top: 4px; }
-.sidebar-caption { margin: 52px 14px 16px; font-size: 12px; color: rgb(var(--muted)); }
 .desktop-navigation { display: flex; flex-direction: column; gap: 8px; }
 .mobile-navigation { display: none; }
 .workspace-nav-link { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 10px 14px; border-radius: 12px; color: rgb(var(--secondary)); font-size: 15px; transition: color .16s,background .16s; }
@@ -63,19 +62,12 @@
 .workspace-nav-link[aria-current="page"] { color: rgb(var(--brand)); background: rgb(var(--brand-light)); }
 .nav-icon { display: grid; place-items: center; flex-shrink: 0; width: 28px; height: 28px; }
 .desktop-navigation .workspace-nav-link:last-child { margin-top: 32px; }
-.sidebar-footer { display: flex; gap: 12px; align-items: center; margin-top: auto; padding: 24px 12px 0; font-size: 12px; color: rgb(var(--secondary)); }
-.sidebar-footer small { display: block; margin-top: 4px; font-size: 11px; color: rgb(var(--muted)); }
 .currency-mark { display: grid; place-items: center; width: 38px; height: 38px; border: 1px solid rgb(var(--border)); border-radius: 50%; }
 .workspace-body { margin-left: 236px; }
 .workspace-header { height: 76px; padding: 0 48px; display: flex; justify-content: space-between; align-items: center; }
-.workspace-breadcrumb { display: flex; gap: 16px; font-size: 13px; color: rgb(var(--muted)); }
-.workspace-breadcrumb>span:last-child { color: rgb(var(--ink)); }
-.header-currency { display: flex; align-items: center; gap: 10px; font-size: 12px; color: rgb(var(--muted)); }
-.currency-code { padding: 6px 9px; border: 1px solid rgb(var(--border)); border-radius: 6px; font-size: 12px; }
 .mobile-brand { display: none; }
 .workspace-main { max-width: 1056px; margin: 0 auto; padding: 20px 48px 48px; min-height: calc(100dvh - 130px); }
 .workspace-main-wide { max-width: 1360px; }
-.workspace-footer { display: flex; justify-content: space-between; max-width: 1264px; margin: 0 auto; padding: 16px 48px 24px; font-size: 11px; color: rgb(var(--muted)); }
 .page-stack { display: flex; flex-direction: column; gap: 28px; }
 .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
 .page-heading h1 { font-size: 32px; line-height: 1.4; letter-spacing: -.045em; }
@@ -87,10 +79,6 @@
 .month-picker-trigger { min-height: 48px; padding-left: 16px; padding-right: 12px; border: 1px solid rgb(var(--border)); border-radius: 12px; background: rgb(var(--surface)); box-shadow: none; }
 .month-options [role="option"] { min-height: 48px; font-size: 16px; }
 .page-error { padding: 20px; color: rgb(var(--loss)); background: rgb(var(--loss-light)); border: 1px solid rgb(var(--loss-border)); border-radius: 12px; }
-.sheet-status { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: rgb(var(--secondary)); white-space: nowrap; }
-.sheet-status>span { height: 6px; width: 6px; border-radius: 50%; background: rgb(var(--brand)); }
-.sheet-status-draft { color: rgb(var(--cost)); }
-.sheet-status-draft>span { background: currentColor; }
 .sheet-date-bar { border: 0; background: transparent; padding: 0; box-shadow: none; }
 .sheet-date-meta { font-size: 12px; margin-top: 4px; }
 .date-trigger-label { min-height: 44px; }
@@ -275,14 +263,14 @@
   .sheet-save-panel { grid-template-columns: 1fr 1fr; align-items: center; gap: 36px; padding-top: 24px; border-top: 1px solid rgb(var(--border)); }
 }
 @media (max-width:1099px) and (min-width:768px) {
-  .workspace-sidebar { width: 204px; padding-left: 12px; padding-right: 12px; }.workspace-body { margin-left: 204px; }.workspace-header { padding: 0 28px; }.workspace-main { padding-left: 28px; padding-right: 28px; }.workspace-footer { padding-left: 28px; padding-right: 28px; }
+  .workspace-sidebar { width: 204px; padding-left: 12px; padding-right: 12px; }.workspace-body { margin-left: 204px; }.workspace-header { padding: 0 28px; }.workspace-main { padding-left: 28px; padding-right: 28px; }
   .dashboard-layout { display: flex; flex-direction: column; }.dashboard-layout>* { width: 100%; }.overview-composition { grid-template-columns: 1fr; }.settings-section { grid-template-columns: 1fr; }
 }
 @media (max-width:767px) {
   html { scroll-padding-top: 20px; scroll-padding-bottom: 112px; }
   input[type="text"], textarea, select { font-size: 16px; scroll-margin-block: 100px; }
   .workspace-sidebar { inset: auto 0 0; width: 100%; padding: 8px 12px max(8px,env(safe-area-inset-bottom)); background: rgb(var(--canvas) / .94); border: 0; backdrop-filter: blur(12px); }
-  .workspace-sidebar>.brand-lockup, .sidebar-caption, .sidebar-footer, .desktop-navigation, .workspace-breadcrumb, .desktop-currency, .workspace-footer { display: none; }
+  .workspace-sidebar>.brand-lockup, .desktop-navigation, .desktop-currency { display: none; }
   .mobile-navigation { display: flex; border: 1px solid rgb(var(--border)); border-radius: 20px; padding: 4px; background: rgb(var(--surface)); box-shadow: 0 4px 24px #142b2010; }
   .workspace-nav-link { flex: 1; flex-direction: column; justify-content: center; gap: 3px; min-width: 0; height: 66px; padding: 3px 0; border-radius: 14px; font-size: 14px; line-height: 20px; }
   .workspace-nav-link .nav-icon { width: 44px; height: 32px; border-radius: 12px; }
@@ -291,10 +279,9 @@
   .workspace-body { margin-left: 0; padding-bottom: calc(98px + env(safe-area-inset-bottom)); }
   .workspace-header { height: 68px; padding: 0 22px; }
   .mobile-brand { display: flex; align-items: center; gap: 9px; font-size: 21px; letter-spacing: -.6px; }.mobile-brand small { font-size: 13px; margin-left: 3px; letter-spacing: 0; color: rgb(var(--secondary)); }.mobile-brand-mark { width: 28px; height: 31px; border-radius: 8px 8px 8px 3px; font-size: 24px; }
-  .currency-code { border: 0; padding: 0; font-size: 13px; letter-spacing: .05em; }
   .workspace-main { padding: 12px 22px 28px; min-height: calc(100dvh - 168px); }
   .page-stack { gap: 24px; }.page-heading { align-items: flex-start; flex-wrap: wrap; gap: 18px; }.page-heading h1 { font-size: 30px; line-height: 1.4; }.page-description { font-size: 16px; margin-top: 6px; }
-  .sheet-page-heading { flex-wrap: nowrap; align-items: center; }.sheet-page-heading h1 { font-size: 28px; }.sheet-page-heading .page-description { display: none; }.sheet-status { font-size: 14px; }.sheet-date-meta { display: none; }
+  .sheet-page-heading { flex-wrap: nowrap; align-items: center; }.sheet-page-heading h1 { font-size: 28px; }.sheet-page-heading .page-description { display: none; }.sheet-date-meta { display: none; }
   .daily-layout { gap: 20px; }.sheet-date-bar { padding: 0; }.sheet-date-bar button { min-height: 44px; }.sheet-date-bar>div:first-child>button { background: rgb(var(--surface)); border-color: rgb(var(--border)); }.date-trigger-label>span { font-size: 16px; }
   .daily-revenue .section-heading, .daily-costs .section-heading { margin-bottom: 12px; }.daily-revenue .section-heading { align-items: center; flex-wrap: wrap; gap: 6px; }.daily-revenue .section-heading h2, .daily-costs .section-heading h2 { font-size: 18px; }.daily-revenue .section-heading>span, .daily-costs .section-heading>span { font-size: 14px; }
   .revenue-field { padding: 14px; gap: 12px; grid-template-columns: minmax(0,.9fr) minmax(0,1.1fr); }.revenue-field-label { gap: 8px; }.revenue-field-label:before { width: 26px; height: 26px; font-size: 18px; }.revenue-field label { font-size: 16px; }.revenue-field .revenue-input { height: 52px; font-size: 26px; padding-right: 10px; padding-left: 32px; }.revenue-field-control>span { font-size: 12px; left: 10px; }
@@ -319,7 +306,7 @@
   .skeleton-date-body { height: 52px; }.skeleton-count-field, .skeleton-close-note { height: 50px; }
 }
 @media (max-width:359px) {
-  .workspace-main { padding-left: 16px; padding-right: 16px; }.workspace-header { padding-left: 16px; padding-right: 16px; }.page-heading h1 { font-size: 27px; }.sheet-page-heading h1 { font-size: 25px; }.sheet-status { font-size: 13px; }.date-today-badge { display: none; }
+  .workspace-main { padding-left: 16px; padding-right: 16px; }.workspace-header { padding-left: 16px; padding-right: 16px; }.page-heading h1 { font-size: 27px; }.sheet-page-heading h1 { font-size: 25px; }.date-today-badge { display: none; }
   .revenue-field { padding: 12px; gap: 8px; }.revenue-field-label:before { display: none; }.revenue-field .revenue-input { font-size: 24px; }.panel { padding: 20px; }.overview-summary { padding: 0; }.profit-headline { padding: 24px; }.profit-headline .metric-headline { font-size: 38px; }.account-balances dd { font-size: 19px; }.month-close-action { padding: 14px; gap: 10px; }
 }
 @media (prefers-reduced-motion:reduce) { *,::before,::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
@@ -394,8 +381,6 @@
 .revenue-field-label:before { content: none; display: none; }
 .revenue-field-label>.revenue-channel-icon { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; color: rgb(var(--cash)); background: rgb(var(--cash-light)); }
 .tng-revenue .revenue-field-label>.revenue-channel-icon { color: rgb(var(--tng)); background: rgb(var(--tng-light)); }
-.sheet-status { min-width: 112px; justify-content: flex-end; font-size: 16px; line-height: 24px; }
-.sheet-status>span { background: rgb(var(--muted)); }.sheet-status-saved>span { background: rgb(var(--brand)); }.sheet-status-draft>span { background: rgb(var(--cost)); }
 .daily-revenue .section-heading>span, .daily-costs .section-heading>span, .cost-entry-card .text-xs, .cost-entry-card .text-sm, .field-label { font-size: 16px; line-height: 24px; }
 .cost-entry-card button, .operating-expenses form button { font-size: 16px; }
 .cost-editor-footer { border-top: 1px solid rgb(var(--border)); padding-top: 12px; }
@@ -427,9 +412,6 @@
 .record-delete { font-size: 16px; }
 .calendar-popover button, .calendar-month-label { font-size: 18px; line-height: 24px; }.calendar-weekday { font-size: 16px; line-height: 24px; height: 24px; }
 .workspace-main [role="dialog"][aria-modal="true"] .text-xs, .workspace-main [role="dialog"][aria-modal="true"] .text-sm { font-size: 16px; line-height: 24px; }
-.month-status-badge[data-loading]>:not(.month-loading-label) { visibility: hidden; }
-.month-loading-label { font-size: 16px; color: rgb(var(--secondary)); }
-.month-status-badge[data-loading] { background: rgb(var(--subtle)); border-color: transparent; }
 .month-picker-trigger .month-picker-date[data-unknown] { visibility: hidden; }
 .skeleton-picker button>*, .loading-layout .page-heading button>* { visibility: visible; }
 
@@ -460,7 +442,7 @@
   .date-trigger-label { gap: 4px; }
 }
 
-.month-picker-date, .month-status-badge { font-size: 16px; line-height: 24px; }
+.month-picker-date { font-size: 16px; line-height: 24px; }
 
 .close-calculation dl>div { font-size: 16px; line-height: 24px; }
 .loading-layout .daily-records summary>span { visibility: hidden; }
@@ -480,10 +462,6 @@
 .cost-editor { display: grid; gap: 10px; padding: 12px; }
 .cost-editor-footer { padding-top: 2px; }
 .cost-editor .mb-2 { margin-bottom: 4px; }
-
-.expense-month-summary.is-editing { padding: 14px 18px; }
-.expense-month-summary.is-editing .expense-month-context { display: none; }
-.expense-month-summary.is-editing .expense-month-total>strong { font-size: 24px; }
 .expense-records-heading h2 { font-size: 18px; color: rgb(var(--ink)); letter-spacing: 0; text-transform: none; }
 .metric-label, .expense-month-context span { font-size: 16px; line-height: 24px; color: rgb(var(--secondary)); }
 .metric-daily-cost .metric-value, .metric-operating .metric-value { margin-top: auto; }
@@ -532,8 +510,6 @@
 .date-picker-group { display: flex; align-items: center; gap: 3px; }
 .return-today { flex-shrink: 0; padding: 4px 7px; min-height: 44px; color: rgb(var(--brand)); font-size: 16px; border: 1px solid rgb(var(--border-strong)); background: rgb(var(--surface)); border-radius: 8px; }
 .return-today:hover { background: rgb(var(--brand-light)); }
-.sheet-status { background: rgb(var(--subtle)); color: rgb(var(--secondary)); border-radius: 999px; padding: 4px 9px; cursor: default; }
-.sheet-status-draft { color: rgb(var(--cost)); }.sheet-status-saved { color: rgb(var(--brand)); }
 .expense-records-heading>span { padding-right: 32px; color: rgb(var(--ink)); font-size: 18px; line-height: 27px; }
 .expense-records-heading[data-readonly]>span { padding-right: 0; }
 .records-help { font-size: 16px; color: rgb(var(--secondary)); }
@@ -563,14 +539,15 @@
 @media (max-width:359px) { .date-picker-group:has(.return-today) .date-trigger-label>svg:first-child { display: none; } }
 
 /* Symbol-first phone controls; text remains for data and financial decisions. */
-.workspace-footer, .sidebar-footer, .sidebar-caption { display: none; }
 .desktop-navigation { margin-top: 36px; }
 .workspace-main { padding-top: 32px; }
 .workspace-header { display: none; }
 .workspace-main[data-page="/dashboard"] .page-description,
 .workspace-main[data-page="/expenses"] .page-description,
 .workspace-main[data-page="/settings"] .page-description,
-.settings-page .eyebrow, .settings-section p, .preferences-footnote { display: none; }
+.settings-page .eyebrow,
+.settings-section p,
+.preferences-footnote { display: none; }
 .profit-headline, .profit-headline.is-loss, .expense-month-summary, .close-expectation { background: rgb(var(--surface)); color: rgb(var(--ink)); }
 .profit-headline { padding: 22px 24px; }
 .profit-headline h2 { color: rgb(var(--secondary)); }
@@ -586,17 +563,12 @@
 .month-close-icon { width: 32px; height: 32px; background: transparent; border-radius: 0; }
 .sheet-actions>.sheet-revert-action { width: 48px; min-width: 48px; padding: 0; border: 0; background: transparent; box-shadow: none; }
 .sheet-save-action { justify-content: center; }
-.sheet-status { min-width: 18px; width: 18px; height: 24px; padding: 0; border: 0; background: transparent; border-radius: 0; justify-content: center; }
-.sheet-status>span { background: transparent; }
 .draft-dot { display: block; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .cost-delete-action { width: 44px; height: 44px; padding: 0; justify-content: center; border: 1px solid rgb(var(--border-strong)); border-radius: 8px; background: rgb(var(--surface)); }
 .finish-cost-action { width: 56px; min-width: 56px; padding: 0; display: grid; place-items: center; background: rgb(var(--surface)); border-color: rgb(var(--brand)); }
 .cost-entry-card:not(:has(.cost-editor)), .cost-entry-card:not(:has(.cost-editor)) .cost-record-summary { background: rgb(var(--surface)); border-color: rgb(var(--border)); }
 .expense-toolbar { display: flex; align-items: center; gap: 16px; min-height: 48px; }
 .expense-add-icon { display: grid; place-items: center; width: 100%; min-height: 52px; border: 1px solid rgb(var(--border-strong)); border-radius: 10px; color: rgb(var(--brand)); background: rgb(var(--surface)); }
-.expense-month-summary.is-editing .expense-month-total { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 20px; }
-.expense-month-summary.is-editing .expense-month-total>span { min-width: 0; }
-.expense-month-summary.is-editing .expense-month-total>strong { max-width: none; white-space: nowrap; }
 .expense-record-actions { padding-top: 8px; padding-bottom: 8px; justify-content: flex-end; }
 .expense-record-actions .record-delete { width: 48px; height: 48px; min-height: 48px; padding: 0; color: rgb(var(--loss)); border: 1px solid rgb(var(--loss-border)); border-radius: 10px; background: rgb(var(--surface)); scroll-margin-bottom: 104px; }
 .zero-revenue-warning { display: flex; align-items: center; gap: 12px; }
@@ -629,7 +601,6 @@
   .mobile-navigation .nav-icon svg { width: 25px; height: 25px; }
   .workspace-body { padding-bottom: calc(78px + env(safe-area-inset-bottom)); }
   .workspace-main { padding-top: 12px; min-height: calc(100dvh - 136px); }
-  .sheet-status { font-size: 16px; }
 }
 @media (max-width:359px) {
   .date-picker-group:has(.return-today) .date-trigger-label>svg:first-child { display: block; }
