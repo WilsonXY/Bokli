@@ -669,3 +669,7 @@
 .expense-toolbar[hidden] { display: none; }
 .reconciliation-form>button[type="submit"] { gap: 8px; }
 @media (min-width:768px) { .sheet-date-bar>div:first-child { justify-content: center; gap: 12px; } }
+
+.locked-period-notice, .closed-audit-heading { display: flex; align-items: center; gap: 8px; color: rgb(var(--secondary)); font-size: 16px; line-height: 24px; }
+.locked-period-notice { padding: 10px 12px; border: 1px solid rgb(var(--border)); border-radius: 10px; background: rgb(var(--surface)); }
+.closed-audit-heading { padding-bottom: 10px; border-bottom: 1px solid rgb(var(--border)); }

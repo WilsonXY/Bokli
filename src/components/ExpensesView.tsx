@@ -682,9 +682,9 @@ export function ExpensesView({
         <>
           {/* Read-only banner if closed */}
           {isClosed && (
-            <div className="p-3 bg-surface-canvas border border-surface-border rounded-xl text-ink-muted text-xs font-semibold flex items-center gap-2 shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-slate-400 shrink-0" />
-              <span>{t.monthLocked}</span>
+            <div className="locked-period-notice" role="status" aria-label={t.monthLocked}>
+              <ActionIcon name="lock" size={18} />
+              <span>{t.closedStatus}</span>
             </div>
           )}
 
