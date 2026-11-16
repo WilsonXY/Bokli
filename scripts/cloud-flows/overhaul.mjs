@@ -14,7 +14,8 @@ const fits = async page => {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true, "Page must fit the viewport");
 };
 
-export default async function flow({ page, shot }) {
+export default async function flow({ page, shot: rawShot }) {
+  const shot = (name, target = page) => rawShot(name, target, { fullPage: false });
   // An OS dark preference must never override the requested bright default.
   await page.emulateMedia({ colorScheme: "dark" });
   await page.goto("/settings");
@@ -45,6 +46,18 @@ export default async function flow({ page, shot }) {
       assert.equal(await page.getByRole("navigation").locator('a[aria-current="page"]').count(), 1);
       assert.equal(await page.locator("header input").count(), 0);
       await pause(1300); await shot(`en-${theme}-${name}`);
+      if (name === "overview") {
+        await page.locator(".daily-records > summary").click();
+        await page.locator(".daily-record").first().waitFor();
+        await pause(1000); await shot(`en-${theme}-daily-sheets`);
+        await page.locator(".daily-records > summary").click();
+        await page.getByRole("button", { name: "Costs", exact: true }).click();
+        await page.getByRole("heading", { name: "Daily Cost Trend", exact: true }).waitFor();
+        await pause(1000); await shot(`en-${theme}-cost-trend`);
+        await page.getByRole("button", { name: "Revenue", exact: true }).click();
+        await page.locator(".overview-composition").scrollIntoViewIfNeeded();
+        await pause(1000); await shot(`en-${theme}-composition`);
+      }
     }
   }
   await page.goto("/settings");
@@ -59,6 +72,10 @@ export default async function flow({ page, shot }) {
   for (const [path, name] of financialPages) {
     await page.goto(path); await loaded(page); await fits(page);
     await pause(1300); await shot(`zh-light-${name}`);
+    if (name === "overview") {
+      await page.locator(".overview-composition").scrollIntoViewIfNeeded();
+      await pause(1000); await shot("zh-light-composition");
+    }
   }
   // Keyboard skip navigation and narrow/tablet layouts.
   await page.goto("/"); await loaded(page);

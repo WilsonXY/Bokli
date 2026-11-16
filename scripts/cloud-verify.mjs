@@ -57,9 +57,9 @@ async function openAs(who) {
 }
 
 const page = await openAs(user);
-const shot = async (name, target = page) => {
+const shot = async (name, target = page, { fullPage = true } = {}) => {
   const file = path.join(evidence, `${String(++shots).padStart(2, "0")}-${name}.png`);
-  await target.screenshot({ path: file, fullPage: true });
+  await target.screenshot({ path: file, fullPage, animations: "disabled" });
   console.log("SHOT:", file);
 };
 try {

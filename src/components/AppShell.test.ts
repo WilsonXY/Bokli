@@ -15,7 +15,7 @@ import { AppShell } from "./AppShell";
 import { DICTIONARY } from "@/lib/i18n";
 
 describe("AppShell bottom navigation order", () => {
-  it("renders Overview (navDashboard) first and Daily Sheet (navSheet) second", () => {
+  it("puts the primary Daily Sheet task before Overview", () => {
     const html = ReactDOMServer.renderToStaticMarkup(
       React.createElement(
         AppShell,
@@ -34,7 +34,7 @@ describe("AppShell bottom navigation order", () => {
 
     expect(dashIndex).toBeGreaterThan(-1);
     expect(sheetIndex).toBeGreaterThan(-1);
-    expect(dashIndex).toBeLessThan(sheetIndex);
+    expect(sheetIndex).toBeLessThan(dashIndex);
   });
 });
 

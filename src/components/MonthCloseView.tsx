@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMyr, sanitizeMoneyInput, tryParseSen } from "@/lib/money";
+import { useDraftCache } from "@/components/DraftProvider";
 import { apiFetch } from "@/lib/cloud-client";
 import { useI18n, translateApiError, apiErrorPayloadFrom, type TranslationMap } from "@/lib/i18n";
 import { MonthSelectorDropdown, MonthOption } from "@/components/MonthSelectorDropdown";
@@ -197,15 +198,18 @@ export function MonthCloseView({
   const { t } = useI18n();
   const [, startTransition] = useTransition();
 
+  const [cachedDraft, rememberDraft] = useDraftCache<{ cash: string; tng: string; note: string; confirmEmpty: boolean; reopenReason: string; reopenOpen: boolean }>(`close:${currentMonth}`);
+  const restoredDraft = closeRecord?.isClosed ? undefined : cachedDraft;
+
   // Input state for reconciliation
-  const [cashOnHandInput, setCashOnHandInput] = useState(initialCashOnHandInput);
-  const [tngOnHandInput, setTngOnHandInput] = useState(initialTngOnHandInput);
-  const [closeNote, setCloseNote] = useState(initialCloseNote);
-  const [confirmEmpty, setConfirmEmpty] = useState(initialConfirmEmpty);
+  const [cashOnHandInput, setCashOnHandInput] = useState(restoredDraft?.cash ?? initialCashOnHandInput);
+  const [tngOnHandInput, setTngOnHandInput] = useState(restoredDraft?.tng ?? initialTngOnHandInput);
+  const [closeNote, setCloseNote] = useState(restoredDraft?.note ?? initialCloseNote);
+  const [confirmEmpty, setConfirmEmpty] = useState(restoredDraft?.confirmEmpty ?? initialConfirmEmpty);
 
   // Admin reopen state
-  const [showReopenBox, setShowReopenBox] = useState(false);
-  const [reopenReasonInput, setReopenReasonInput] = useState("");
+  const [showReopenBox, setShowReopenBox] = useState(userRole === "Admin" && Boolean(cachedDraft?.reopenOpen));
+  const [reopenReasonInput, setReopenReasonInput] = useState(userRole === "Admin" ? cachedDraft?.reopenReason ?? "" : "");
 
   // UI state
   const [submitting, setSubmitting] = useState(false);
@@ -235,6 +239,11 @@ export function MonthCloseView({
   const isClosed = Boolean(closeRecord?.isClosed);
   const isReopened = Boolean(closeRecord?.isReopened);
 
+  useEffect(() => {
+    const dirty = (!isClosed && (cashOnHandInput.trim() || tngOnHandInput.trim() || closeNote.trim() || confirmEmpty)) || (userRole === "Admin" && isClosed && reopenReasonInput.trim());
+    rememberDraft(dirty ? { cash: cashOnHandInput, tng: tngOnHandInput, note: closeNote, confirmEmpty, reopenReason: reopenReasonInput, reopenOpen: showReopenBox } : null);
+  }, [rememberDraft, isClosed, userRole, cashOnHandInput, tngOnHandInput, closeNote, confirmEmpty, reopenReasonInput, showReopenBox]);
+
   // Handle Month Close submission
   async function handlePerformClose(e: React.FormEvent) {
     e.preventDefault();
@@ -249,6 +258,7 @@ export function MonthCloseView({
       setSubmitting,
       setSuccessMessage,
       onClosed: () => {
+        rememberDraft(draft => draft && (draft.cash !== cashOnHandInput || draft.tng !== tngOnHandInput || draft.note !== closeNote || draft.confirmEmpty !== confirmEmpty) ? draft : null);
         startTransition(() => {
           refresh();
         });
@@ -284,6 +294,7 @@ export function MonthCloseView({
         throw Object.assign(new Error(data.error ?? ""), { code: data.code });
       }
 
+      rememberDraft(draft => draft && (draft.reopenReason !== reopenReasonInput || draft.cash !== cashOnHandInput || draft.tng !== tngOnHandInput || draft.note !== closeNote) ? draft : null);
       setShowReopenBox(false);
       setReopenReasonInput("");
       setSuccessMessage(t.reopenSuccess);
@@ -361,40 +372,40 @@ export function MonthCloseView({
           {/* Financial Snapshot Summary Strip (Single Unified Ledger Container) */}
           {financials && (
 
-            <section aria-label="Month Financial Snapshot" className="bg-white border border-surface-border rounded-xl shadow-xs grid grid-cols-3 overflow-hidden">
-              <div className="p-3 text-center sm:text-left border-b border-surface-border">
-                <div className="text-sm font-medium text-ink-muted mb-0.5">
+            <section aria-label="Month Financial Snapshot" className="financial-snapshot bg-white border border-surface-border rounded-xl shadow-xs grid grid-cols-3 overflow-hidden">
+              <div className="financial-stat p-3 text-center sm:text-left border-b border-surface-border">
+                <div className="financial-stat-label text-sm font-medium text-ink-muted mb-0.5">
                   {t.totalRevenue}
                 </div>
-                <div className="text-base sm:text-xl font-bold text-ink-primary tabular-nums">
+                <div className="financial-value text-base sm:text-xl font-bold text-ink-primary tabular-nums">
                   {formatMyr(BigInt(financials.revenueSen))}
                 </div>
               </div>
 
-              <div className="p-3 text-center sm:text-left border-x border-b border-surface-border">
-                <div className="text-sm font-medium text-ink-muted mb-0.5">
+              <div className="financial-stat p-3 text-center sm:text-left border-x border-b border-surface-border">
+                <div className="financial-stat-label text-sm font-medium text-ink-muted mb-0.5">
                   {t.costsTitle}
                 </div>
-                <div className="text-base sm:text-xl font-bold text-ink-secondary tabular-nums">
+                <div className="financial-value text-base sm:text-xl font-bold text-ink-secondary tabular-nums">
                   {formatMyr(BigInt(financials.dailyCostSen))}
                 </div>
               </div>
 
-              <div className="p-3 text-center sm:text-left border-b border-surface-border">
-                <div className="text-sm font-medium text-ink-muted mb-0.5">
+              <div className="financial-stat p-3 text-center sm:text-left border-b border-surface-border">
+                <div className="financial-stat-label text-sm font-medium text-ink-muted mb-0.5">
                   {t.operatingExpenses}
                 </div>
-                <div className="text-base sm:text-xl font-bold text-ink-secondary tabular-nums">
+                <div className="financial-value text-base sm:text-xl font-bold text-ink-secondary tabular-nums">
                   {formatMyr(BigInt(financials.operatingSen))}
                 </div>
               </div>
 
-              <div className="col-span-3 p-3.5 sm:px-5 bg-surface-subtle/40 flex items-center justify-between">
+              <div className="financial-total col-span-3 p-3.5 sm:px-5 bg-surface-subtle/40 flex items-center justify-between">
                 <div className="text-base font-bold text-ink-secondary">
                   {t.expectedNet}
                 </div>
                 <div
-                  className={`text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums ${
+                  className={`financial-value text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums ${
                     expectedNetSen >= 0n ? "text-finance-profit" : "text-finance-loss"
                   }`}
                 >
@@ -471,11 +482,10 @@ export function MonthCloseView({
                     </button>
                   ) : (
                     <form onSubmit={handlePerformReopen} className="space-y-2.5 bg-surface-subtle p-3 rounded-lg border border-surface-border">
-                      <label className="block text-sm font-semibold text-ink-primary">
+                      <label htmlFor="reopen-reason" className="block text-sm font-semibold text-ink-primary">
                         {t.reopenReason} <span className="text-finance-loss">*</span>
                       </label>
-                      <input
-                        type="text"
+                      <input id="reopen-reason" disabled={submitting} type="text"
                         value={reopenReasonInput}
                         onChange={(e) => setReopenReasonInput(e.target.value)}
                         placeholder={t.reopenPlaceholder}
@@ -519,15 +529,14 @@ export function MonthCloseView({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {/* Physical Cash Counted */}
                 <div>
-                  <label className="block text-sm font-semibold text-ink-secondary mb-1.5">
+                  <label htmlFor="close-cash" className="block text-sm font-semibold text-ink-secondary mb-1.5">
                     {t.cashOnHand}
                   </label>
                   <div className="relative flex items-center">
                     <span className="absolute left-2.5 text-sm font-bold text-channel-cash select-none">
                       RM
                     </span>
-                    <input
-                      type="text"
+                    <input id="close-cash" disabled={submitting} type="text"
                       inputMode="decimal"
                       value={cashOnHandInput}
                       onChange={(e) => {
@@ -556,15 +565,14 @@ export function MonthCloseView({
 
                 {/* TnG Balance */}
                 <div>
-                  <label className="block text-sm font-semibold text-ink-secondary mb-1.5">
+                  <label htmlFor="close-tng" className="block text-sm font-semibold text-ink-secondary mb-1.5">
                     {t.tngOnHand}
                   </label>
                   <div className="relative flex items-center">
                     <span className="absolute left-2.5 text-sm font-bold text-channel-tng select-none">
                       RM
                     </span>
-                    <input
-                      type="text"
+                    <input id="close-tng" disabled={submitting} type="text"
                       inputMode="decimal"
                       value={tngOnHandInput}
                       onChange={(e) => {
@@ -635,13 +643,15 @@ export function MonthCloseView({
 
               {/* Note input */}
               <div>
-                <label className="block text-xs font-semibold text-ink-secondary mb-1">
+                <label htmlFor="close-note" className="block text-sm font-medium text-ink-secondary mb-1">
                   {t.closeNote}{" "}
                   {!isBalanced && hasInputs && !hasParseError && (
                     <span className="text-finance-loss">({t.noteRequiredBadge})</span>
                   )}
                 </label>
                 <input
+                  id="close-note"
+                  disabled={submitting}
                   type="text"
                   value={closeNote}
                   onChange={(e) => {
@@ -662,6 +672,7 @@ export function MonthCloseView({
                 <label className="flex items-center gap-2.5 text-sm font-medium text-ink-secondary cursor-pointer select-none py-1">
                   <input
                     type="checkbox"
+                    disabled={submitting}
                     checked={confirmEmpty}
                     onChange={(e) => setConfirmEmpty(e.target.checked)}
                     className="w-5 h-5 rounded border-surface-border accent-brand-broccoli cursor-pointer focus:ring-2 focus:ring-brand-broccoli/50"

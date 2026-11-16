@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { amountSizeClass, formatMyr, sanitizeMoneyInput, tryParseSen } from "@/lib/money";
+import { useDraftCache } from "@/components/DraftProvider";
 import { apiFetch } from "@/lib/cloud-client";
 import { useI18n, translateApiError, apiErrorPayloadFrom } from "@/lib/i18n";
 import { CalendarPopover } from "@/components/CalendarPopover";
@@ -452,16 +453,19 @@ export function DailySheetForm({
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const dateBtnRef = useRef<HTMLButtonElement>(null);
 
+  const [cachedDraft, rememberDraft] = useDraftCache<{ cashInput: string; tngInput: string; costLines: CostLineItem[]; expandedIndex: number | null }>(`sheet:${date}`);
+  const restoredDraft = isClosed ? undefined : cachedDraft;
+
   // Revenue inputs state
   const initCashStr = initialCashInput !== undefined ? initialCashInput : senToDecimalStr(initialCashSen);
   const initTngStr = initialTngInput !== undefined ? initialTngInput : senToDecimalStr(initialTngSen);
-  const [cashInput, setCashInput] = useState(initCashStr);
-  const [tngInput, setTngInput] = useState(initTngStr);
+  const [cashInput, setCashInput] = useState(restoredDraft?.cashInput ?? initCashStr);
+  const [tngInput, setTngInput] = useState(restoredDraft?.tngInput ?? initTngStr);
 
   // Cost lines state - merged on frontend if same category and same note
-  const [costLines, setCostLines] = useState<CostLineItem[]>(() =>
-    mergeCostLines(initialCostLines)
-  );
+  const [costLines, setCostLines] = useState<CostLineItem[]>(() => restoredDraft
+    ? rebaseCostLinesAfterSave(restoredDraft.costLines, mergeCostLines(initialCostLines), true)
+    : mergeCostLines(initialCostLines));
 
   // Feedback states
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -547,6 +551,7 @@ export function DailySheetForm({
     };
   }, [showDeleteSheetModal]);
   const [expandedIndex, setExpandedIndex] = useState<number | null>(() => {
+    if (restoredDraft) return restoredDraft.expandedIndex;
     if (initialExpandedIndex !== undefined) {
       return initialExpandedIndex;
     }
@@ -650,7 +655,7 @@ export function DailySheetForm({
   // back on the baseline (e.g. retyped "12.50" over "12.5" — same sen, so
   // isModified is false), and the full-reset branch would then wipe the
   // retyped formatting. Cleared only by explicit date navigation.
-  const draftEverTouchedRef = useRef(false);
+  const draftEverTouchedRef = useRef(Boolean(restoredDraft));
 
   // Baseline state representing the saved/initial state for the selected date
   const [baseline, setBaseline] = useState(() => ({
@@ -680,6 +685,10 @@ export function DailySheetForm({
     }
     return false;
   }, [cashInput, tngInput, costLines, baseline]);
+
+  useEffect(() => {
+    rememberDraft(!isClosed && isModified ? { cashInput, tngInput, costLines, expandedIndex } : null);
+  }, [rememberDraft, isClosed, isModified, cashInput, tngInput, costLines, expandedIndex]);
 
   // Mirror the dirty flag into a ref so the prop-sync effect can consult it
   // without re-running (and resetting the form) on every keystroke.
@@ -936,6 +945,8 @@ export function DailySheetForm({
         }
       }
 
+      if (!(touchedDuringSaveRef.current?.size)) rememberDraft(draft =>
+        draft && (draft.cashInput !== cashInput || draft.tngInput !== tngInput || JSON.stringify(draft.costLines) !== JSON.stringify(consolidated)) ? draft : null);
       if (!navigatedAway) {
         if (data.sheet) {
           setSavedSheet({ id: data.sheet.id, updatedAt: data.sheet.updatedAt });
@@ -981,6 +992,7 @@ export function DailySheetForm({
         throw Object.assign(new Error(data.error ?? ""), { code: data.code });
       }
 
+      rememberDraft(draft => draft && (draft.cashInput !== cashInput || draft.tngInput !== tngInput || JSON.stringify(draft.costLines) !== JSON.stringify(costLines)) ? draft : null);
       // Cross-date guard, same as handleSave: if she navigated to another date
       // while the delete was in flight, the form already holds the new date.
       const navigatedAwayNow = prevDateRef.current !== savedDate;
@@ -1035,9 +1047,9 @@ export function DailySheetForm({
 
   return (
     <div className="daily-layout page-stack">
-      <div className="page-heading"><div><h1>{t.sheetTitle}</h1><p className="page-description">{t.sheetHint}</p></div><span className={`sheet-status ${isModified ? "sheet-status-draft" : ""}`}><span aria-hidden="true" />{isModified ? t.draftStatus : savedSheet ? t.savedStatus : t.newSheetStatus}</span></div>
+      <div className="page-heading sheet-page-heading"><div><h1>{t.sheetTitle}</h1><p className="page-description">{t.sheetHint}</p></div><span role="status" className={`sheet-status ${isModified ? "sheet-status-draft" : ""}`}><span aria-hidden="true" />{isModified ? t.draftStatus : savedSheet ? t.savedStatus : t.newSheetStatus}</span></div>
       {/* Date Bar with Calendar Toggle Popover & Lock Notice */}
-      <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs flex flex-col gap-2.5">
+      <div className="sheet-date-bar bg-white border border-surface-border rounded-xl p-3 shadow-xs flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
           <button
             type="button"
@@ -1073,7 +1085,7 @@ export function DailySheetForm({
                   </span>
                 )}
               </div>
-              <p className="text-[13px] text-ink-muted">
+              <p className="sheet-date-meta text-[13px] text-ink-muted">
                 {t.klTime}
               </p>
             </button>
@@ -1118,7 +1130,7 @@ export function DailySheetForm({
 
       {/* Section 1: Revenue Entry */}
       <section aria-label={t.revenueTitle} className="daily-revenue space-y-2">
-        <div className="flex items-center justify-between px-0.5">
+        <div className="section-heading flex items-center justify-between px-0.5">
           <h2 className="text-base font-medium text-ink-primary">
             {t.revenueTitle}
           </h2>
@@ -1127,9 +1139,9 @@ export function DailySheetForm({
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div className="revenue-fields grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {/* Cash Revenue Card */}
-          <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-cash transition-all">
+          <div className="revenue-field bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-cash transition-all">
             <div className="flex items-center gap-1.5 mb-1.5">
               <span className="w-2 h-2 rounded-full bg-channel-cash inline-block shrink-0" />
               <label
@@ -1146,6 +1158,8 @@ export function DailySheetForm({
               </span>
               <input
                 id="cash-input"
+                aria-invalid={cashError || undefined}
+                aria-describedby={cashError ? "cash-error" : undefined}
                 type="text"
                 inputMode="decimal"
                 disabled={isClosed || saving}
@@ -1160,7 +1174,7 @@ export function DailySheetForm({
                   }
                 }}
                 placeholder="0.00"
-                className={`w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
+                className={`revenue-input w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
                   cashError ? "border-finance-loss" : "border-surface-border"
                 } text-lg font-bold text-ink-primary focus:outline-none focus:bg-white ${
                   cashError
@@ -1170,14 +1184,14 @@ export function DailySheetForm({
               />
             </div>
             {cashError && (
-              <div className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
+              <div id="cash-error" role="alert" className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
                 <span>{t.invalidAmount}</span>
               </div>
             )}
           </div>
 
           {/* TnG Revenue Card */}
-          <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-tng transition-all">
+          <div className="revenue-field bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-tng transition-all">
             <div className="flex items-center gap-1.5 mb-1.5">
               <span className="w-2 h-2 rounded-full bg-channel-tng inline-block shrink-0" />
               <label
@@ -1194,6 +1208,8 @@ export function DailySheetForm({
               </span>
               <input
                 id="tng-input"
+                aria-invalid={tngError || undefined}
+                aria-describedby={tngError ? "tng-error" : undefined}
                 type="text"
                 inputMode="decimal"
                 disabled={isClosed || saving}
@@ -1208,7 +1224,7 @@ export function DailySheetForm({
                   }
                 }}
                 placeholder="0.00"
-                className={`w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
+                className={`revenue-input w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
                   tngError ? "border-finance-loss" : "border-surface-border"
                 } text-lg font-bold text-ink-primary focus:outline-none focus:bg-white ${
                   tngError
@@ -1218,7 +1234,7 @@ export function DailySheetForm({
               />
             </div>
             {tngError && (
-              <div className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
+              <div id="tng-error" role="alert" className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
                 <span>{t.invalidAmount}</span>
               </div>
             )}
@@ -1228,10 +1244,7 @@ export function DailySheetForm({
 
       {/* Section 2: Itemized Daily Costs */}
       <section aria-label={t.costsTitle} className="daily-costs space-y-2.5">
-        <div className="pt-2 pb-0.5" aria-hidden="true">
-          <hr className="border-t border-surface-border" />
-        </div>
-        <div className="flex items-center justify-between px-0.5">
+        <div className="section-heading flex items-center justify-between px-0.5">
           <h2 className="text-base font-medium text-ink-primary">
             {t.costsTitle}
           </h2>
@@ -1474,13 +1487,10 @@ export function DailySheetForm({
             <span className="relative z-10">{t.addCostLine}</span>
           </button>
         )}
-        <div className="pt-2 pb-0.5" aria-hidden="true">
-          <hr className="border-t border-surface-border" />
-        </div>
       </section>
 
       {/* Sticky Bottom Action Bar & Notifications */}
-      <div className="sheet-save-bar sticky bottom-16 z-30 space-y-2">
+      <div className="sheet-save-bar space-y-2">
             {errorMessage && (
               <div className="py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-md animate-slide-down">
                 <div className="flex items-center gap-2 min-w-0">
@@ -1492,7 +1502,7 @@ export function DailySheetForm({
                 <button
                   type="button"
                   onClick={() => setErrorMessage(null)}
-                  className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss w-7 h-7 flex items-center justify-center rounded-md shrink-0"
+                  className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss w-11 h-11 flex items-center justify-center rounded-md shrink-0"
                   aria-label="Close"
                 >
                   ✕
@@ -1511,7 +1521,7 @@ export function DailySheetForm({
                 <button
                   type="button"
                   onClick={dismissSuccessMessage}
-                  className="text-xs font-bold ml-2 text-ink-muted hover:text-brand-broccoli w-7 h-7 flex items-center justify-center rounded-md shrink-0"
+                  className="text-xs font-bold ml-2 text-ink-muted hover:text-brand-broccoli w-11 h-11 flex items-center justify-center rounded-md shrink-0"
                   aria-label="Close"
                 >
                   ✕
@@ -1519,8 +1529,8 @@ export function DailySheetForm({
               </div>
             )}
 
-            <div className="bg-white/95 backdrop-blur-md border border-surface-border rounded-xl p-3 shadow-sm flex items-center justify-between gap-3">
-              <div>
+            <div className="sheet-save-panel bg-white border border-surface-border rounded-xl p-3 flex items-center justify-between gap-3">
+              <div className="sheet-profit-summary">
                 <div className="text-[13px] text-ink-muted font-medium">
                   {t.grossProfit}
                 </div>
@@ -1538,7 +1548,7 @@ export function DailySheetForm({
               </div>
 
               {!isClosed && (
-                <div className="flex items-center gap-2">
+                <div className="sheet-actions flex items-center gap-2">
                   {isModified && (
                     <button
                       type="button"
@@ -1587,7 +1597,7 @@ export function DailySheetForm({
                       setExpandedIndex(null);
                       setShowConfirmModal(true);
                     }}
-                    className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
+                    className="sheet-save-action h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
                   >
                     {saving ? (
                       <span>{t.saving}</span>

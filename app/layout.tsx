@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { AppearanceProvider } from "@/components/AppearanceProvider";
+import { DraftProvider } from "@/components/DraftProvider";
 import { AppShell } from "@/components/AppShell";
 import { I18nProvider } from "@/lib/i18n";
 import "../public/fonts/noto-sans-sc.css";
@@ -26,7 +27,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className="bg-surface-canvas text-ink-primary antialiased selection:bg-brand-broccoli-light selection:text-brand-broccoli-dark">
         <AppearanceProvider>
           <I18nProvider>
-            <AppShell>{children}</AppShell>
+            <DraftProvider><AppShell>{children}</AppShell></DraftProvider>
           </I18nProvider>
         </AppearanceProvider>
       </body>

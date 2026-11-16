@@ -385,3 +385,11 @@ describe("DashboardView trend chart metric switch", () => {
     expect(html).toMatch(/<svg[^>]*class="[^"]*animate-chart-swap/);
   });
 });
+
+describe("chart label contrast", () => {
+  it("uses light ink on blue and dark ink on amber regardless of the page theme", async () => {
+    const { chartLabelInk } = await import("./DashboardView");
+    expect(chartLabelInk("#2563eb")).toBe("#ffffff");
+    expect(chartLabelInk("#f59e0b")).toBe("#000000");
+  });
+});

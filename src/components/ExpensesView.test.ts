@@ -122,7 +122,7 @@ describe("ExpensesView frontend review fixes", () => {
       expect(html).toContain("100.00");
     });
 
-    it("renders simplified headers, 本月毛利润, and omits the total count badge from list header", () => {
+    it("renders simplified headers, 月度毛利润, and omits the total count badge from list header", () => {
       const html = ReactDOMServer.renderToStaticMarkup(
         React.createElement(ExpensesView, {
           currentMonth: "2026-05",
@@ -153,8 +153,8 @@ describe("ExpensesView frontend review fixes", () => {
       // P5: Removed counter/expenseTotal row from list header
       expect(html).not.toContain("固定支出总计");
 
-      // P6: Financial impact card renders 本月毛利润 instead of 当日毛利润
-      expect(html).toContain("本月毛利润");
+      // P6: Financial impact card renders 月度毛利润 instead of 当日毛利润
+      expect(html).toContain("月度毛利润");
       expect(html).not.toContain("当日毛利润");
     });
   });

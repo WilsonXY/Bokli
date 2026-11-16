@@ -1374,7 +1374,7 @@ describe("Delete Daily Sheet button and sticky summary bar", () => {
         { id: 2, category: "gas", amountSen: 500 },
       ],
     });
-    const barIdx = html.indexOf('class="sheet-save-bar sticky bottom-16 z-30 space-y-2"');
+    const barIdx = html.indexOf('class="sheet-save-bar space-y-2"');
     const btnIdx = html.indexOf(t.deleteSheetBtn);
     expect(barIdx).toBeGreaterThan(-1);
     expect(btnIdx).toBeGreaterThan(barIdx);
@@ -1382,10 +1382,10 @@ describe("Delete Daily Sheet button and sticky summary bar", () => {
     expect(html.slice(wrapperStart, html.indexOf(">", wrapperStart) + 1)).toContain("pb-4");
   });
 
-  it("summary bar keeps its sticky positioning class (not fixed)", () => {
+  it("keeps the summary and save action in the page flow", () => {
     for (const savedSheet of [null, SAVED]) {
       const html = render({ savedSheet });
-      expect(html).toContain('class="sheet-save-bar sticky bottom-16 z-30 space-y-2"');
+      expect(html).toContain('class="sheet-save-bar space-y-2"');
     }
   });
 

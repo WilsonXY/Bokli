@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { amountSizeClass, formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
+import { useDraftCache } from "@/components/DraftProvider";
 import { apiFetch } from "@/lib/cloud-client";
 import { useI18n, translateApiError, apiErrorPayloadFrom } from "@/lib/i18n";
 import { MonthSelectorDropdown, MonthOption } from "@/components/MonthSelectorDropdown";
@@ -302,14 +303,20 @@ export function ExpensesView({
     [expenses],
   );
 
+  const [cachedDraft, rememberDraft] = useDraftCache<{ type: OperatingExpenseItem["type"]; amount: string; note: string; open: boolean }>(`expenses:${currentMonth}`);
+  const restoredDraft = isClosed ? undefined : cachedDraft;
+
   // New expense draft form
-  const [newType, setNewType] = useState<OperatingExpenseItem["type"]>(initialNewType);
-  const [amountInput, setAmountInput] = useState("");
-  const [noteInput, setNoteInput] = useState(initialNoteInput);
-  const [isDraftOpen, setIsDraftOpen] = useState(initialIsDraftOpen);
+  const [newType, setNewType] = useState<OperatingExpenseItem["type"]>(restoredDraft?.type ?? initialNewType);
+  const [amountInput, setAmountInput] = useState(restoredDraft?.amount ?? "");
+  const [noteInput, setNoteInput] = useState(restoredDraft?.note ?? initialNoteInput);
+  const [isDraftOpen, setIsDraftOpen] = useState(restoredDraft?.open ?? initialIsDraftOpen);
   const [amountError, setAmountError] = useState(initialAmountError);
   const [noteError, setNoteError] = useState(initialNoteError);
   const noteInputRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    rememberDraft(!isClosed && (amountInput.trim() || noteInput.trim()) ? { type: newType, amount: amountInput, note: noteInput, open: isDraftOpen } : null);
+  }, [rememberDraft, isClosed, newType, amountInput, noteInput, isDraftOpen]);
 
   useEffect(() => {
     if (noteError) {
@@ -556,6 +563,12 @@ export function ExpensesView({
       const rebase = resolveExpenseDraftAfterAdd(
         touchedDuringAddRef.current ?? new Set<ExpenseDraftField>()
       );
+      rememberDraft(draft => {
+        if (!draft) return null;
+        const amount = rebase.clearAmount && draft.amount === amountInput ? "" : draft.amount;
+        const note = rebase.clearNote && draft.note === noteInput ? "" : draft.note;
+        return amount.trim() || note.trim() ? { ...draft, amount, note, open: true } : null;
+      });
       if (rebase.clearAmount) setAmountInput("");
       if (rebase.clearNote) setNoteInput("");
       setAmountError(false);
@@ -714,13 +727,13 @@ export function ExpensesView({
 
           {/* Month Financial Snapshot Summary Strip (Unified Container matching MonthCloseView) */}
           {summary && (
-            <section aria-label="Month Financial Snapshot" className="bg-white border border-surface-border rounded-xl shadow-xs grid grid-cols-2 overflow-hidden">
-              <div className="p-3 text-center sm:text-left border-b border-surface-border">
-                <div className="text-sm font-medium text-ink-muted mb-0.5">
+            <section aria-label="Month Financial Snapshot" className="financial-snapshot bg-white border border-surface-border rounded-xl shadow-xs grid grid-cols-2 overflow-hidden">
+              <div className="financial-stat p-3 text-center sm:text-left border-b border-surface-border">
+                <div className="financial-stat-label text-sm font-medium text-ink-muted mb-0.5">
                   {t.monthGrossProfit}
                 </div>
                 <div
-                  className={`${amountSizeClass(
+                  className={`financial-value ${amountSizeClass(
                     formatMyr(BigInt(summary.grossSen)),
                     "text-xs",
                     "text-base"
@@ -730,12 +743,12 @@ export function ExpensesView({
                 </div>
               </div>
 
-              <div className="p-3 text-center sm:text-left border-l border-b border-surface-border">
-                <div className="text-sm font-medium text-ink-muted mb-0.5">
+              <div className="financial-stat p-3 text-center sm:text-left border-l border-b border-surface-border">
+                <div className="financial-stat-label text-sm font-medium text-ink-muted mb-0.5">
                   {t.operatingExpenses}
                 </div>
                 <div
-                  className={`${amountSizeClass(
+                  className={`financial-value ${amountSizeClass(
                     formatMyr(totalExpenseSen),
                     "text-xs",
                     "text-base"
@@ -745,12 +758,12 @@ export function ExpensesView({
                 </div>
               </div>
 
-              <div className="col-span-2 p-3.5 sm:px-5 bg-surface-subtle/40 flex items-center justify-between">
+              <div className="financial-total col-span-2 p-3.5 sm:px-5 bg-surface-subtle/40 flex items-center justify-between">
                 <div className="text-base font-bold text-ink-secondary">
                   {t.netProfit}
                 </div>
                 <div
-                  className={`${amountSizeClass(
+                  className={`financial-value ${amountSizeClass(
                     formatMyr(BigInt(summary.grossSen) - totalExpenseSen),
                     "text-xl",
                     "text-2xl"
@@ -768,10 +781,7 @@ export function ExpensesView({
 
           {/* Operating Expenses Section */}
           <section aria-label={t.operatingExpenses} className="operating-expenses space-y-2.5">
-            <div className="pt-2 pb-0.5" aria-hidden="true">
-              <hr className="border-t border-surface-border" />
-            </div>
-            <div className="flex items-center justify-between px-0.5">
+            <div className="section-heading flex items-center justify-between px-0.5">
               <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
                 {t.expensesTitle}
               </h2>
@@ -883,7 +893,7 @@ export function ExpensesView({
                   {/* Amount & Note Inputs */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     <div>
-                      <label className="block text-xs font-semibold text-ink-secondary mb-1">
+                      <label htmlFor="expense-amount" className="block text-sm font-medium text-ink-secondary mb-1">
                         {t.amount} <span className="text-finance-loss">*</span>
                       </label>
                       <div className="relative flex items-center">
@@ -891,6 +901,7 @@ export function ExpensesView({
                           RM
                         </span>
                         <input
+                          id="expense-amount"
                           type="text"
                           inputMode="decimal"
                           disabled={adding}
@@ -928,10 +939,11 @@ export function ExpensesView({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-semibold text-ink-secondary mb-1">
+                      <label htmlFor="expense-note" className="block text-sm font-medium text-ink-secondary mb-1">
                         {t.note} {newType === "other" && <span className="text-finance-loss">*</span>}
                       </label>
                       <input
+                        id="expense-note"
                         ref={noteInputRef}
                         type="text"
                         disabled={adding}
