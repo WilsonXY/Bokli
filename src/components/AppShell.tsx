@@ -16,7 +16,7 @@ export function AppShell({ children }: AppShellProps) {
   const { t, lang } = useI18n();
   const [destinations, setDestinations] = React.useState<Record<string, string>>({});
   const items = [
-    { href: "/", label: t.navSheet, short: t.navSheet, path: "M12 5v14M5 12h14" },
+    { href: "/", label: t.navSheet, short: t.navSheetShort, path: "M12 5v14M5 12h14" },
     { href: "/dashboard", label: t.navDashboard, short: t.navDashboard, path: "M4 20V10m8 10V4m8 16v-7" },
     { href: "/expenses", label: t.navExpenses, short: t.navExpensesShort, path: "M4 5h16v15H4zM8 5V3m8 2V3M8 10h8M8 15h5" },
     { href: "/close", label: t.navClose, short: t.navClose, path: "M5 10h14v11H5zM8 10V6a4 4 0 0 1 8 0v4M12 14v3" },

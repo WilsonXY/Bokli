@@ -286,9 +286,16 @@ describe("mergeCostLines, getCostLineKey, and deletion logic", () => {
     // The merged line amount RM 50.00 is rendered
     expect(html).toContain("RM 50.00");
 
-    // Exactly one delete button is rendered for the single merged row
-    const deleteButtonMatches = html.match(new RegExp(`aria-label="${t.delete}"`, "g")) || [];
-    expect(deleteButtonMatches).toHaveLength(1);
+    // Deletion is only offered after opening the merged Cost Line.
+    expect(html).not.toContain(`aria-label="${t.delete}"`);
+  });
+
+  it("keeps deletion out of the collapsed Cost Line and names it inside the editor", () => {
+    const props = { date: "2026-05-15", todayKl: "2026-05-15", initialCashSen: 0, initialTngSen: 0, isClosed: false, initialCostLines: [{ id: 1, category: "restock" as const, amountSen: 2000 }] };
+    const collapsed = ReactDOMServer.renderToStaticMarkup(React.createElement(DailySheetForm, { ...props, initialExpandedIndex: null }));
+    expect(collapsed).not.toContain(`aria-label="${t.delete}"`);
+    const editing = ReactDOMServer.renderToStaticMarkup(React.createElement(DailySheetForm, { ...props, initialExpandedIndex: 0 }));
+    expect(editing).toContain("删除这笔开销");
   });
 
   it("cost-line stable keys and controlled values: deleting middle line keeps values attached to correct lines and reload/revert refreshes input values", () => {
@@ -936,7 +943,7 @@ describe("DailySheetForm component cost item accordion and close behavior", () =
 
     // Rendered expanded: aria-expanded="true" and cost amount input is rendered
     expect(costSection).toContain('aria-expanded="true"');
-    expect(costSection).toContain('placeholder="0.00"');
+    expect(costSection).toContain(`placeholder="${t.enterAmount}"`);
   });
 
   it("accordion behavior: expanding a second item collapses the first (only ONE item expanded at a time)", () => {

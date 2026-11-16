@@ -80,10 +80,10 @@ describe("ExpensesView frontend review fixes", () => {
     });
 
     it("formats delete modal record count correctly for single and plural counts", () => {
-      expect(formatDeleteModalRecordCount(1)).toBe("removes 1 record");
-      expect(formatDeleteModalRecordCount(2)).toBe("removes 2 records");
-      expect(formatDeleteModalRecordCount(3)).toBe("removes 3 records");
-      expect(formatDeleteModalRecordCount(5)).toBe("removes 5 records");
+      expect(formatDeleteModalRecordCount(1)).toBe("Deletes 1 record");
+      expect(formatDeleteModalRecordCount(2)).toBe("Deletes 2 records");
+      expect(formatDeleteModalRecordCount(3)).toBe("Deletes 3 records");
+      expect(formatDeleteModalRecordCount(5)).toBe("Deletes 5 records");
     });
   });
 
@@ -113,7 +113,7 @@ describe("ExpensesView frontend review fixes", () => {
       expect(html).toContain('id="confirm-delete-expense-desc"');
 
       // Verify redundant record count is omitted from description and details table
-      expect(html).not.toContain("removes 3 records</span> — ");
+      expect(html).not.toContain("Deletes 3 records</span> — ");
       expect(html).not.toContain('data-testid="modal-record-count"');
       expect(html).not.toContain("Records:");
 

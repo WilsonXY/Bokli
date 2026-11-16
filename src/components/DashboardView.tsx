@@ -1,5 +1,6 @@
 "use client";
 
+import { ChannelIcon } from "./ChannelIcon";
 import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -63,9 +64,10 @@ interface DashboardViewProps {
   } | null;
   costByCategory: SerializedCostByCategory | null;
   loadError?: string | null;
+  loading?: boolean;
 }
 
-export function DashboardView({ tiles, activeMonth, activeTile, trend, split, costByCategory, loadError }: DashboardViewProps) {
+export function DashboardView({ tiles, activeMonth, activeTile, trend, split, costByCategory, loadError, loading = false }: DashboardViewProps) {
   const router = useRouter();
   const { t } = useI18n();
   const [trendMetric, setTrendMetric] = useState<TrendMetric>("revenue");
@@ -110,7 +112,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
     <div className={`dashboard-layout page-stack ${trend.length ? "has-records" : "no-records"}`}>
       <div className="page-heading">
         <div><h1>{t.overviewTitle}</h1><p className="page-description">{t.overviewHint}</p></div>
-        <MonthSelectorDropdown currentMonth={activeMonth} options={tiles.map(tile => ({ month: tile.month, status: tile.status }))} onSelect={month => router.push(`/dashboard?month=${month}`)} />
+        <MonthSelectorDropdown loadingLabel={loading ? t.loadingShort : undefined} currentMonth={activeMonth} options={tiles.map(tile => ({ month: tile.month, status: tile.status }))} onSelect={month => router.push(`/dashboard?month=${month}`)} />
       </div>
       {loadError ? <div role="alert" className="page-error">{t.loadError}<p>{loadError}</p></div> : <>
         {!trend.length && <section className="empty-month panel"><h2>{t.noDailyEntries}</h2><p>{t.emptyMonthHint}</p><Link className="primary-button" href="/">{t.recordDailySheet}</Link></section>}
@@ -149,7 +151,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
         {(Boolean(split?.totalSen) || costs.length > 0) && <div className="overview-composition">
           <section className="overview-split panel" aria-labelledby="split-heading"><h2 id="split-heading">{t.revenueSplit}</h2>
             {!split?.totalSen ? <p className="empty-note">{t.noRevenueData}</p> : <>
-              <dl className="account-balances"><div className="cash-account"><dt><span aria-hidden="true">↙</span>{t.cashRevenue}</dt><dd data-long={formatMyr(BigInt(split.cashSen)).length > 10 || undefined}>{formatMyr(BigInt(split.cashSen))}</dd><small>{cashPct}%</small></div><div className="tng-account"><dt><span aria-hidden="true">↙</span>{t.tngRevenue}</dt><dd data-long={formatMyr(BigInt(split.tngSen)).length > 10 || undefined}>{formatMyr(BigInt(split.tngSen))}</dd><small>{tngPct}%</small></div></dl>
+              <dl className="account-balances"><div className="cash-account"><dt><span aria-hidden="true"><ChannelIcon channel="cash" /></span>{t.cashRevenue}</dt><dd>{formatMyr(BigInt(split.cashSen))}</dd><small>{cashPct}%</small></div><div className="tng-account"><dt><span aria-hidden="true"><ChannelIcon channel="tng" /></span>{t.tngRevenue}</dt><dd>{formatMyr(BigInt(split.tngSen))}</dd><small>{tngPct}%</small></div></dl>
             </>}
           </section>
           <section className="overview-costs panel" aria-labelledby="cost-heading"><h2 id="cost-heading">{t.costDistribution}</h2>

@@ -18,6 +18,7 @@ interface MonthSelectorDropdownProps {
   showStatusInTrigger?: boolean;
   className?: string;
   defaultOpen?: boolean;
+  loadingLabel?: string;
 }
 
 export function MonthSelectorDropdown({
@@ -28,6 +29,7 @@ export function MonthSelectorDropdown({
   showStatusInTrigger = true,
   className = "",
   defaultOpen = false,
+  loadingLabel,
 }: MonthSelectorDropdownProps) {
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -95,13 +97,17 @@ export function MonthSelectorDropdown({
       {/* Dropdown Trigger Button */}
       <button
         type="button"
+        disabled={Boolean(loadingLabel)}
+        data-loading={loadingLabel ? true : undefined}
         onClick={() => setIsOpen((prev) => !prev)}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
-        aria-label={ariaLabel || t.monthSelect}
+        aria-busy={loadingLabel ? true : undefined}
+        aria-label={loadingLabel ? `${ariaLabel || t.monthSelect}${t.fieldColon}${loadingLabel}` : ariaLabel || t.monthSelect}
         className="month-picker-trigger h-11 pl-3 pr-2.5 rounded-xl border border-surface-border bg-white hover:bg-surface-subtle active:scale-[0.98] transition-all flex items-center gap-2 shadow-xs cursor-pointer btn-wave focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
       >
-        <span className="font-bold text-sm text-ink-primary tracking-tight">
+        {loadingLabel && <span className="month-loading-label" role="status">{loadingLabel}</span>}
+        <span className="month-picker-date font-bold text-sm text-ink-primary tracking-tight">
           {currentMonth}
         </span>
         {showStatusInTrigger && (
@@ -109,7 +115,7 @@ export function MonthSelectorDropdown({
           // the badge keeps the widest label's width, so the picker doesn't
           // change size between months (or from the loading skeleton).
           <span
-            className={`grid text-center text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${getStatusBadgeStyle(
+            className={`month-status-badge grid text-center text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${getStatusBadgeStyle(
               currentStatus,
             )}`}
           >
@@ -135,7 +141,7 @@ export function MonthSelectorDropdown({
       </button>
 
       {/* Styled Dropdown Menu */}
-      {isOpen && (
+      {isOpen && !loadingLabel && (
         <div
           role="listbox"
           aria-label={ariaLabel || t.monthSelect}
@@ -169,7 +175,7 @@ export function MonthSelectorDropdown({
               >
                 <span className="truncate">{opt.month}</span>
                 <span
-                  className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${getStatusBadgeStyle(
+                  className={`month-status-badge text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${getStatusBadgeStyle(
                     status,
                   )}`}
                 >

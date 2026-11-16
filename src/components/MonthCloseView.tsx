@@ -371,9 +371,9 @@ export function MonthCloseView({
             </div>
           )}
 
-          {financials && <section className={`close-expectation${countsComplete ? " has-counts" : ""}`} aria-label="Month Financial Snapshot">
+          {financials && <section className="close-expectation" aria-label="Month Financial Snapshot">
             <div className="close-expected-total"><span>{t.expectedNet}</span><strong className={expectedNetSen >= 0n ? "text-finance-profit" : "text-finance-loss"}>{formatMyr(expectedNetSen)}</strong></div>
-            <details className="close-calculation"><summary>{t.viewCalculation}<span aria-hidden="true">＋</span></summary><dl>
+            <details className="close-calculation"><summary>{t.viewCalculation}<span className="calculation-chevron" aria-hidden="true">⌄</span></summary><dl>
               <div><dt>{t.totalRevenue}</dt><dd>{formatMyr(BigInt(financials.revenueSen))}</dd></div>
               <div><dt>{t.costsTitle}</dt><dd>− {formatMyr(BigInt(financials.dailyCostSen))}</dd></div>
               <div><dt>{t.operatingExpenses}</dt><dd>− {formatMyr(BigInt(financials.operatingSen))}</dd></div>
@@ -498,9 +498,7 @@ export function MonthCloseView({
                     {t.cashOnHand}
                   </label>
                   <div className="relative flex items-center">
-                    <span className="absolute left-2.5 text-sm font-bold text-channel-cash select-none">
-                      RM
-                    </span>
+                    <span data-money-prefix className="absolute left-2.5 text-sm font-bold text-channel-cash select-none">RM</span>
                     <input id="close-cash" disabled={submitting} type="text"
                       inputMode="decimal"
                       value={cashOnHandInput}
@@ -511,8 +509,8 @@ export function MonthCloseView({
                           if (errorMessage) setErrorMessage(null);
                         }
                       }}
-                      placeholder={t.enterCountedAmount}
-                      className={`w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
+                      placeholder={t.enterAmount}
+                      className={`money-input w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
                         cashError ? "border-finance-loss" : "border-surface-border"
                       } text-lg font-bold text-ink-primary tabular-nums focus:outline-none focus:bg-white ${
                         cashError
@@ -534,9 +532,7 @@ export function MonthCloseView({
                     {t.tngOnHand}
                   </label>
                   <div className="relative flex items-center">
-                    <span className="absolute left-2.5 text-sm font-bold text-channel-tng select-none">
-                      RM
-                    </span>
+                    <span data-money-prefix className="absolute left-2.5 text-sm font-bold text-channel-tng select-none">RM</span>
                     <input id="close-tng" disabled={submitting} type="text"
                       inputMode="decimal"
                       value={tngOnHandInput}
@@ -547,8 +543,8 @@ export function MonthCloseView({
                           if (errorMessage) setErrorMessage(null);
                         }
                       }}
-                      placeholder={t.enterCountedAmount}
-                      className={`w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
+                      placeholder={t.enterAmount}
+                      className={`money-input w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
                         tngError ? "border-finance-loss" : "border-surface-border"
                       } text-lg font-bold text-ink-primary tabular-nums focus:outline-none focus:bg-white ${
                         tngError
@@ -624,7 +620,7 @@ export function MonthCloseView({
                 </label>
               )}
 
-              {!countsComplete && <p className="counts-hint">{t.countsHint}</p>}
+              {!countsComplete && <p className="counts-hint"><span>{t.countsHint}</span><span>{t.zeroBalanceHint}</span></p>}
               {/* Submit Action Button */}
               <button
                 type="submit"

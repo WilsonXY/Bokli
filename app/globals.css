@@ -85,8 +85,6 @@
 .panel h2, .section-heading h2 { font-size: 18px; line-height: 28px; letter-spacing: -.015em; }
 .panel-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
 .month-picker-trigger { min-height: 48px; padding-left: 16px; padding-right: 12px; border: 1px solid rgb(var(--border)); border-radius: 12px; background: rgb(var(--surface)); box-shadow: none; }
-.month-picker-trigger>span:first-child { font-size: 16px; }
-.month-picker-trigger>span:nth-child(2) { font-size: 13px; }
 .month-options [role="option"] { min-height: 48px; font-size: 16px; }
 .page-error { padding: 20px; color: rgb(var(--loss)); background: rgb(var(--loss-light)); border: 1px solid rgb(var(--loss-border)); border-radius: 12px; }
 .sheet-status { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: rgb(var(--secondary)); white-space: nowrap; }
@@ -386,3 +384,82 @@
 .skeleton-block { background: rgb(var(--subtle)); border-color: transparent; }
 
 .metric-value[data-very-long] { font-size: 16px; }
+
+/* Shared amount-entry language across all bookkeeping forms. */
+.workspace-main input.money-input, .skeleton-money-field { width: 100%; height: 56px; min-height: 56px; padding-left: 44px; padding-right: 14px; border: 1px solid rgb(var(--border-strong)); border-radius: 10px; background: rgb(var(--surface)); color: rgb(var(--ink)); font-size: 26px; line-height: 1.4; letter-spacing: -.02em; text-align: right; font-variant-numeric: tabular-nums; }
+.workspace-main input.money-input::placeholder { font-size: 16px; color: rgb(var(--muted)); }
+.workspace-main input.money-input:focus { border-color: rgb(var(--brand)); }
+.workspace-main input.money-input.border-finance-loss, .workspace-main input.money-input[aria-invalid="true"] { border-color: rgb(var(--loss)); }
+.workspace-main [data-money-prefix] { position: absolute; left: 14px; font-size: 16px; line-height: 24px; color: rgb(var(--secondary)); pointer-events: none; }
+.revenue-field-label:before { content: none; display: none; }
+.revenue-field-label>.revenue-channel-icon { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; color: rgb(var(--cash)); background: rgb(var(--cash-light)); }
+.tng-revenue .revenue-field-label>.revenue-channel-icon { color: rgb(var(--tng)); background: rgb(var(--tng-light)); }
+.sheet-status { min-width: 112px; justify-content: flex-end; font-size: 16px; line-height: 24px; }
+.sheet-status>span { background: rgb(var(--muted)); }.sheet-status-saved>span { background: rgb(var(--brand)); }.sheet-status-draft>span { background: rgb(var(--cost)); }
+.daily-revenue .section-heading>span, .daily-costs .section-heading>span, .cost-entry-card .text-xs, .cost-entry-card .text-sm, .field-label { font-size: 16px; line-height: 24px; }
+.cost-entry-card button, .operating-expenses form button { font-size: 16px; }
+.cost-editor-footer { border-top: 1px solid rgb(var(--border)); padding-top: 12px; }
+.cost-delete-action { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px 0; font-size: 16px; color: rgb(var(--secondary)); }
+.cost-delete-action:hover { color: rgb(var(--loss)); }
+.account-balances { display: flex; flex-direction: column; gap: 0; margin-top: 12px; }
+.account-balances>div, .account-balances>.tng-account { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.15fr); align-items: center; gap: 0 16px; padding: 18px 0; background: transparent; border-radius: 0; border-bottom: 1px solid rgb(var(--border)); }
+.account-balances>div:last-child { border-bottom: 0; padding-bottom: 0; }
+.account-balances dt { grid-row: 1 / span 2; display: flex; flex-direction: row; align-items: center; gap: 10px; font-size: 16px; }
+.account-balances dt>span { display: grid; place-items: center; flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; color: rgb(var(--cash)); background: rgb(var(--cash-light)); }
+.tng-account dt>span { color: rgb(var(--tng)); background: rgb(var(--tng-light)); }
+.account-balances dd, .account-balances dd[data-long] { margin: 0; font-size: 20px; line-height: 30px; text-align: right; }
+.account-balances small { margin: 0; font-size: 16px; line-height: 24px; text-align: right; }
+.close-expectation { padding: 20px 22px; }
+.close-expected-total { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; }
+.close-expected-total>strong { margin: 0; font-size: 28px; line-height: 1.4; }
+.close-calculation { margin-top: 8px; }
+.close-calculation summary, .skeleton-calculation-label { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding-top: 12px; font-size: 16px; }
+.calculation-chevron { display: inline-block; font-size: 22px; transition: transform .16s; }.close-calculation[open] .calculation-chevron { transform: rotate(180deg); }
+.counts-hint { width: 100%; max-width: none; text-wrap: pretty; }.counts-hint>span { display: block; }
+.reconciliation-result:not(.is-pending) .reconciliation-result-line>strong { font-size: 32px; }
+.expense-record { grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 6px 14px; }
+.expense-record[data-readonly] { grid-template-columns: minmax(0,1fr) auto; }
+.expense-record-heading, .expense-record-heading[data-long] { display: contents; }
+.expense-record-category { grid-column: 1; grid-row: 1; overflow-wrap: anywhere; }
+.expense-record-heading>span:last-child { grid-column: 2; grid-row: 1; text-align: right; }
+.expense-record-note { grid-column: 1 / span 2; grid-row: 2; }
+.expense-record-actions { grid-column: 3; grid-row: 1; align-self: center; }
+.record-delete { font-size: 16px; }
+.calendar-popover button, .calendar-month-label { font-size: 18px; line-height: 24px; }.calendar-weekday { font-size: 16px; line-height: 24px; height: 24px; }
+.workspace-main [role="dialog"][aria-modal="true"] .text-xs, .workspace-main [role="dialog"][aria-modal="true"] .text-sm { font-size: 16px; line-height: 24px; }
+.month-picker-trigger[data-loading] > :not(.month-loading-label) { visibility: hidden; }
+.month-loading-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; color: rgb(var(--secondary)); }
+.skeleton-picker button>*, .loading-layout .page-heading button>* { visibility: visible; }
+.skeleton-picker button[data-loading]>:not(.month-loading-label), .loading-layout .page-heading button[data-loading]>:not(.month-loading-label) { visibility: hidden; }
+.skeleton-value { color: transparent !important; background: rgb(var(--subtle)); border-radius: 5px; user-select: none; animation: pulse 2s cubic-bezier(.4,0,.6,1) infinite; }
+.skeleton-money-field { position: relative; background: rgb(var(--subtle)); border-color: transparent; }
+.skeleton-money-field>[data-money-prefix] { top: 50%; transform: translateY(-50%); }
+.skeleton-date-body { display: flex; align-items: center; justify-content: space-between; }
+.skeleton-date-body>button { width: 44px; height: 44px; border: 1px solid rgb(var(--border)); border-radius: 8px; font-size: 24px; color: rgb(var(--muted)); }
+.skeleton-action { min-height: 56px; border: 1px solid transparent; border-radius: 12px; background: rgb(var(--subtle)) !important; color: rgb(var(--secondary)); font-size: 16px; }
+.skeleton-close-note { height: 50px; background: rgb(var(--subtle)); border-radius: 8px; }
+.loading-layout .panel, .loading-layout .month-close-action, .loading-layout .daily-ledger { background: rgb(var(--surface)); border-color: rgb(var(--border)); }
+.loading-layout .panel>*, .loading-layout .month-close-action>*, .loading-layout .daily-ledger>* { visibility: visible; }
+.loading-layout .profit-headline { background: rgb(var(--subtle)); }.loading-layout .profit-headline h2 { color: rgb(var(--ink)); }
+.loading-layout .metric-headline, .loading-layout .metric-value, .loading-layout .record-count, .loading-layout .account-balances dd, .loading-layout .account-balances small { color: transparent; background: rgb(var(--subtle)); border-radius: 5px; }
+.loading-layout .profit-headline .metric-headline { background: rgb(var(--border)); }
+.loading-layout .profit-status, .loading-layout .trend-frame>*, .loading-layout .trend-dates>*, .loading-layout .trend-range>span:last-child, .loading-layout .daily-ledger>div>*, .loading-layout .cost-bars>* { visibility: hidden; }
+.loading-layout .trend-frame, .loading-layout .daily-ledger>div, .loading-layout .cost-bars { background: rgb(var(--subtle)); border-radius: 8px; }
+@media (max-width:767px) {
+  .mobile-navigation .workspace-nav-link { font-size: 16px; line-height: 24px; }
+  .workspace-main input.money-input { font-size: 26px; }
+  .close-expected-total>strong { font-size: 28px; }
+}
+@media (max-width:359px) {
+  .workspace-main input.money-input { font-size: 24px; }
+  .revenue-field-label>.revenue-channel-icon { width: 26px; height: 26px; }
+  .date-today-badge { display: inline-flex; padding-left: 6px; padding-right: 6px; }
+  .date-trigger-label { gap: 4px; }
+}
+
+.month-picker-date, .month-status-badge { font-size: 16px; line-height: 24px; }
+
+.close-calculation dl>div { font-size: 16px; line-height: 24px; }
+.loading-layout .daily-records summary>span { visibility: hidden; }
+
+.loading-layout .month-close-action { opacity: .6; }

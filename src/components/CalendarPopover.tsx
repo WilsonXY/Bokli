@@ -147,7 +147,7 @@ export function CalendarPopover({
           </svg>
         </button>
 
-        <span className="text-sm font-bold text-ink-primary">
+        <span className="calendar-month-label text-sm font-bold text-ink-primary">
           {monthTitle}
         </span>
 
@@ -169,7 +169,7 @@ export function CalendarPopover({
         {weekHeaders.map((w) => (
           <span
             key={w}
-            className="text-[13px] font-semibold text-ink-muted h-5 flex items-center justify-center"
+            className="calendar-weekday text-[13px] font-semibold text-ink-muted h-5 flex items-center justify-center"
           >
             {w}
           </span>

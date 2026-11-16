@@ -1,5 +1,6 @@
 "use client";
 
+import { ChannelIcon } from "./ChannelIcon";
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { amountSizeClass, formatMyr, sanitizeMoneyInput, tryParseSen } from "@/lib/money";
@@ -1047,7 +1048,7 @@ export function DailySheetForm({
 
   return (
     <div className="daily-layout page-stack">
-      <div className="page-heading sheet-page-heading"><div><h1>{t.sheetTitle}</h1><p className="page-description">{t.sheetHint}</p></div><span role="status" className={`sheet-status ${isModified ? "sheet-status-draft" : ""}`}><span aria-hidden="true" />{isModified ? t.draftStatus : savedSheet ? t.savedStatus : t.newSheetStatus}</span></div>
+      <div className="page-heading sheet-page-heading"><div><h1>{t.sheetTitle}</h1><p className="page-description">{t.sheetHint}</p></div><span role="status" className={`sheet-status ${isModified ? "sheet-status-draft" : savedSheet ? "sheet-status-saved" : "sheet-status-new"}`}><span aria-hidden="true" />{isModified ? t.draftStatus : savedSheet ? t.savedStatus : t.newSheetStatus}</span></div>
       {/* Date Bar with Calendar Toggle Popover & Lock Notice */}
       <div className="sheet-date-bar bg-white border border-surface-border rounded-xl p-3 shadow-xs flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
@@ -1144,7 +1145,7 @@ export function DailySheetForm({
           {/* Cash Revenue Card */}
           <div className="revenue-field cash-revenue bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-cash transition-all">
             <div className="revenue-field-label flex items-center gap-1.5 mb-1.5">
-              <span className="w-2 h-2 rounded-full bg-channel-cash inline-block shrink-0" />
+              <span className="revenue-channel-icon"><ChannelIcon channel="cash" /></span>
               <label
                 htmlFor="cash-input"
                 className="text-sm font-semibold text-ink-primary"
@@ -1154,9 +1155,7 @@ export function DailySheetForm({
             </div>
 
             <div className="revenue-field-control relative flex items-center">
-              <span className="absolute left-2.5 text-sm font-bold text-channel-cash select-none">
-                RM
-              </span>
+              <span data-money-prefix className="absolute left-2.5 text-sm font-bold text-channel-cash select-none">RM</span>
               <input
                 id="cash-input"
                 aria-invalid={cashError || undefined}
@@ -1174,8 +1173,8 @@ export function DailySheetForm({
                     if (successMessage) dismissSuccessMessage();
                   }
                 }}
-                placeholder="0.00"
-                className={`revenue-input w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
+                placeholder={t.enterAmount}
+                className={`money-input revenue-input w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
                   cashError ? "border-finance-loss" : "border-surface-border"
                 } text-lg font-bold text-ink-primary focus:outline-none focus:bg-white ${
                   cashError
@@ -1194,7 +1193,7 @@ export function DailySheetForm({
           {/* TnG Revenue Card */}
           <div className="revenue-field tng-revenue bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-tng transition-all">
             <div className="revenue-field-label flex items-center gap-1.5 mb-1.5">
-              <span className="w-2 h-2 rounded-full bg-channel-tng inline-block shrink-0" />
+              <span className="revenue-channel-icon"><ChannelIcon channel="tng" /></span>
               <label
                 htmlFor="tng-input"
                 className="text-sm font-semibold text-ink-primary"
@@ -1204,9 +1203,7 @@ export function DailySheetForm({
             </div>
 
             <div className="revenue-field-control relative flex items-center">
-              <span className="absolute left-2.5 text-sm font-bold text-channel-tng select-none">
-                RM
-              </span>
+              <span data-money-prefix className="absolute left-2.5 text-sm font-bold text-channel-tng select-none">RM</span>
               <input
                 id="tng-input"
                 aria-invalid={tngError || undefined}
@@ -1224,8 +1221,8 @@ export function DailySheetForm({
                     if (successMessage) dismissSuccessMessage();
                   }
                 }}
-                placeholder="0.00"
-                className={`revenue-input w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
+                placeholder={t.enterAmount}
+                className={`money-input revenue-input w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
                   tngError ? "border-finance-loss" : "border-surface-border"
                 } text-lg font-bold text-ink-primary focus:outline-none focus:bg-white ${
                   tngError
@@ -1321,22 +1318,7 @@ export function DailySheetForm({
                             {formatMyr(BigInt(line.amountSen))}
                           </span>
 
-                          {!isClosed && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPendingDeleteIndex(idx);
-                              }}
-                              aria-label={t.delete}
-                              title={t.delete}
-                              className="record-delete"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5" />
-                              </svg>
-                            </button>
-                          )}
+
                         </div>
                       </div>
 
@@ -1356,6 +1338,7 @@ export function DailySheetForm({
                                     key={cat.key}
                                     type="button"
                                     disabled={isClosed || saving}
+                                    aria-pressed={isSelected}
                                     onClick={() => handleUpdateCostLine(idx, { category: cat.key })}
                                     className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold border btn-wave transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 disabled:opacity-50 ${
                                       isSelected
@@ -1377,9 +1360,7 @@ export function DailySheetForm({
                                 {t.amount}
                               </label>
                               <div className="revenue-field-control relative flex items-center">
-                                <span className="absolute left-3 text-sm font-bold text-ink-muted select-none">
-                                  RM
-                                </span>
+                                <span data-money-prefix className="absolute left-3 text-sm font-bold text-ink-muted select-none">RM</span>
                                 <input
                                   type="text"
                                   inputMode="decimal"
@@ -1399,8 +1380,8 @@ export function DailySheetForm({
                                     }
                                   }}
                                   onFocus={() => setExpandedIndex(idx)}
-                                  placeholder="0.00"
-                                  className={`w-full h-11 pl-10 pr-2.5 rounded-lg bg-surface-canvas border text-base font-semibold text-ink-primary tabular-nums focus:outline-none focus:bg-white focus-visible:ring-2 transition-colors ${
+                                  placeholder={t.enterAmount}
+                                  className={`money-input w-full h-11 pl-10 pr-2.5 rounded-lg bg-surface-canvas border text-base font-semibold text-ink-primary tabular-nums focus:outline-none focus:bg-white focus-visible:ring-2 transition-colors ${
                                     idx === costAmountErrorIndex
                                       ? "border-finance-loss focus:border-finance-loss focus-visible:ring-finance-loss/50"
                                       : "border-surface-border focus:border-ink-primary focus-visible:ring-brand-broccoli/50"
@@ -1450,6 +1431,24 @@ export function DailySheetForm({
                                 </p>
                               )}
                             </div>
+                          </div>
+                          <div className="cost-editor-footer">                          {!isClosed && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPendingDeleteIndex(idx);
+                              }}
+                              aria-label={t.deleteCostLine}
+                              title={t.deleteCostLine}
+                              disabled={saving}
+                              className="cost-delete-action"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5" />
+                              </svg><span>{t.deleteCostLine}</span>
+                            </button>
+                          )}
                           </div>
                         </div>
                       )}

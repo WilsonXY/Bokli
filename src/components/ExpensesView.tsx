@@ -45,7 +45,7 @@ export function formatDeleteModalRecordCount(
   if (t?.removesRecordPlural && count > 1) {
     return t.removesRecordPlural.replace("{count}", String(count));
   }
-  return count === 1 ? "removes 1 record" : `removes ${count} records`;
+  return count === 1 ? "Deletes 1 record" : `Deletes ${count} records`;
 }
 
 export function mergeOperatingExpenses(items: OperatingExpenseItem[]): MergedExpenseItem[] {
@@ -749,8 +749,8 @@ export function ExpensesView({
                 <form onSubmit={handleAddExpense} className="p-4 bg-surface-canvas/30 space-y-3">
                   {/* Category Selection */}
                   <div>
-                    <span className="block text-xs font-semibold text-ink-secondary mb-2">
-                      {t.selectCategory}
+                    <span className="field-label block font-medium text-ink-secondary mb-2">
+                      {t.selectExpenseCategory}
                     </span>
                     <div className="flex flex-wrap gap-1.5">
                       {categories.map((cat) => {
@@ -760,6 +760,7 @@ export function ExpensesView({
                             key={cat.key}
                             type="button"
                             disabled={adding}
+                            aria-pressed={isSelected}
                             onClick={() => {
                               setNewType(cat.key);
                               if (cat.key !== "other" && noteError) setNoteError(false);
@@ -785,9 +786,7 @@ export function ExpensesView({
                         {t.amount} <span className="text-finance-loss">*</span>
                       </label>
                       <div className="relative flex items-center">
-                        <span className="absolute left-3 text-sm font-bold text-ink-muted select-none">
-                          RM
-                        </span>
+                        <span data-money-prefix className="absolute left-3 text-sm font-bold text-ink-muted select-none">RM</span>
                         <input
                           id="expense-amount"
                           type="text"
@@ -805,8 +804,8 @@ export function ExpensesView({
                               if (inlineError) setInlineError(null);
                             }
                           }}
-                          placeholder="0.00"
-                          className={`w-full h-11 pl-10 pr-2.5 rounded-lg bg-surface-canvas border ${
+                          placeholder={t.enterAmount}
+                          className={`money-input w-full h-11 pl-10 pr-2.5 rounded-lg bg-surface-canvas border ${
                             amountError ? "border-finance-loss" : "border-surface-border"
                           } text-base font-semibold text-ink-primary tabular-nums focus:outline-none focus:bg-white ${
                             amountError
@@ -907,7 +906,7 @@ export function ExpensesView({
             {mergedExpenses.length > 0 && (
               <div className="space-y-2">
                 {mergedExpenses.map((item) => (
-                  <div key={item.key} className="expense-record">
+                  <div key={item.key} className="expense-record" data-readonly={isClosed || undefined}>
                     <div className="expense-record-heading" data-long={formatMyr(BigInt(item.amountSen)).length > 15 || undefined}>
                       <span className="expense-record-category">{getCategoryLabel(item.type)}{item.ids.length > 1 && <small> ×{item.ids.length}</small>}</span>
                       <span className={`${amountSizeClass(formatMyr(BigInt(item.amountSen)), "text-xs", "text-base")} font-bold text-ink-secondary tabular-nums whitespace-nowrap`}>{formatMyr(BigInt(item.amountSen))}</span>
@@ -958,7 +957,7 @@ export function ExpensesView({
                       {t.confirmDeleteItemTitle}
                     </h3>
                     <p id="confirm-delete-expense-desc" className="text-xs text-ink-muted mt-0.5">
-                      {formatDeleteModalRecordCount(pendingDeleteExpense.ids.length, t)} · {t.confirmDeleteItemDesc}
+                      {formatDeleteModalRecordCount(pendingDeleteExpense.ids.length, t)}{t.sentenceSeparator}{t.confirmDeleteItemDesc}
                     </p>
                   </div>
                 </div>

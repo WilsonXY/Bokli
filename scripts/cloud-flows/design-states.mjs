@@ -37,7 +37,24 @@ export default async function flow({ page, shot: rawShot }) {
   await page.locator("#other-note-error-0").waitFor();
   await shot("required-note-feedback");
   await page.getByRole("button", { name: "撤销修改", exact: true }).click();
+  await page.getByRole("button", { name: /添加开销/ }).click();
+  await page.locator('input[inputmode="decimal"]').nth(2).fill("10");
+  await page.getByRole("button", { name: "删除这笔开销", exact: true }).click();
+  await shot("daily-cost-delete-confirmation");
+  await page.getByRole("dialog").getByRole("button", { name: "确认删除", exact: true }).click();
+  await page.locator(".cost-entry-card").waitFor({ state: "detached" });
+  await page.goto(`/close?month=${previous}`);
+  await page.getByText("查看账本计算", { exact: true }).click();
+  await shot("calculation-expanded");
+
   await page.goto(`/expenses?month=${previous}`);
+
+  await page.getByRole("button", { name: /添加支出/ }).click();
+  await page.locator("#expense-amount").fill("123.45");
+  await page.locator("#expense-note").fill("摊位额外租金");
+  await page.locator("form").scrollIntoViewIfNeeded();
+  await shot("zh-expense-entry");
+  await page.getByRole("button", { name: "取消", exact: true }).click();
   await chooseLanguage(page, "en");
   await page.getByRole("button", { name: /Add Expense/ }).click();
   await page.locator("#expense-amount").fill("500");
