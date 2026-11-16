@@ -20,7 +20,7 @@ export function CalendarPopover({
   onSelectDate,
   triggerRef,
 }: CalendarPopoverProps) {
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const popoverRef = useRef<HTMLDivElement>(null);
 
   // Parse initial year/month from date
@@ -40,6 +40,13 @@ export function CalendarPopover({
       }
     }
   }, [isOpen, date]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    popoverRef.current?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.focus({ preventScroll: true });
+    const trigger = triggerRef?.current;
+    return () => trigger?.focus({ preventScroll: true });
+  }, [isOpen, triggerRef]);
 
   // Click outside & Escape key detection
   useEffect(() => {
@@ -122,18 +129,18 @@ export function CalendarPopover({
   return (
     <div
       ref={popoverRef}
-      className="absolute top-full mt-2 left-1/2 z-50 bg-white border border-surface-border rounded-2xl shadow-xl p-3.5 w-72 max-w-[calc(100vw-2rem)] select-none animate-popover"
+      className="calendar-popover absolute top-full mt-2 left-1/2 z-50 bg-white border border-surface-border rounded-2xl shadow-xl p-3.5 w-72 max-w-[calc(100vw-2rem)] select-none animate-popover"
       role="dialog"
-      aria-modal="true"
-      aria-label="Date Picker"
+      aria-modal="false"
+      aria-label={t.calendarTitle}
     >
       {/* Month & Year Navigation Header */}
       <div className="flex items-center justify-between mb-2.5 px-0.5">
         <button
           type="button"
           onClick={prevMonth}
-          aria-label="Previous Month"
-          className="w-9 h-9 rounded-lg border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary flex items-center justify-center text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+          aria-label={t.prevMonth}
+          className="w-11 h-11 rounded-lg border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary flex items-center justify-center text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
         >
           <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -148,8 +155,8 @@ export function CalendarPopover({
           type="button"
           disabled={!canGoNextMonth}
           onClick={nextMonth}
-          aria-label="Next Month"
-          className="w-9 h-9 rounded-lg border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary flex items-center justify-center text-sm font-semibold transition-colors disabled:opacity-20 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+          aria-label={t.nextMonth}
+          className="w-11 h-11 rounded-lg border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary flex items-center justify-center text-sm font-semibold transition-colors disabled:opacity-20 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
         >
           <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -173,7 +180,7 @@ export function CalendarPopover({
       <div className="grid grid-cols-7 gap-1 text-center">
         {/* Empty slots before month start */}
         {Array.from({ length: startDayOffset }).map((_, i) => (
-          <div key={`empty-${i}`} className="h-7" />
+          <div key={`empty-${i}`} className="h-11" />
         ))}
 
         {/* Month Day Cells */}
@@ -197,7 +204,9 @@ export function CalendarPopover({
                 onClose();
               }}
               aria-label={cellDate}
-              className={`h-8 w-8 mx-auto rounded-lg btn-wave text-sm font-medium flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
+              aria-current={isToday ? "date" : undefined}
+              aria-pressed={isSelected}
+              className={`h-11 w-full mx-auto rounded-lg btn-wave text-sm font-medium flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                 isSelected
                   ? "bg-brand-broccoli text-white font-bold shadow-xs scale-105"
                   : isFuture

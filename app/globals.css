@@ -195,7 +195,8 @@
 @keyframes slide-in-down { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 .animate-slide-down, .animate-dropdown { animation: slide-in-down .18s ease-out; transform-origin: top right; }
 @keyframes popover-enter { from { opacity: 0; transform: translate(-50%,-4px); } to { opacity: 1; transform: translate(-50%,0); } }
-.animate-popover { animation: popover-enter .18s ease-out; transform-origin: top center; }
+.animate-popover { transform: translateX(-50%); animation: popover-enter .18s ease-out; transform-origin: top center; }
+.calendar-popover { width: 358px; max-width: calc(100vw - 28px); max-height: min(430px,calc(100dvh - 230px)); overflow-y: auto; }
 @keyframes chart-swap { from { opacity: .3; } }.animate-chart-swap { animation: chart-swap .2s ease-out; }
 @media (max-width:1199px) {
   .workspace-sidebar { width: 200px; padding-left: 12px; padding-right: 12px; }.workspace-body { margin-left: 200px; }.workspace-header { padding: 0 28px; }.workspace-main { padding: 32px 28px; }.workspace-footer { padding-left: 28px; padding-right: 28px; }

@@ -17,6 +17,9 @@ export default async function flow({ page, shot: rawShot }) {
     assert.equal(await button.evaluate(el => { const r = el.getBoundingClientRect(); const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return r.bottom < innerHeight - 76 && (el === hit || el.contains(hit)); }), true, `${name} must be exposed in the initial phone view`);
   }
   await page.getByTitle("日期", { exact: true }).click();
+  await page.waitForTimeout(250);
+  const calendar = await page.getByRole("dialog").boundingBox();
+  assert(calendar && calendar.x >= 0 && calendar.x + calendar.width <= page.viewportSize().width, "Calendar must stay inside the phone screen");
   await shot("calendar");
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: /添加开销/ }).click();

@@ -7,6 +7,9 @@ export type Language = "zh" | "en";
 export const DICTIONARY = {
   zh: {
     navSettings: "设置",
+    calendarTitle: "选择日期",
+    prevMonth: "上个月",
+    nextMonth: "下个月",
     recordedDays: "记账天数",
     trendMetric: "趋势数据",
     viewDailySheets: "查看每日账单",
@@ -187,6 +190,9 @@ export const DICTIONARY = {
   },
   en: {
     navSettings: "Settings",
+    calendarTitle: "Choose date",
+    prevMonth: "Previous month",
+    nextMonth: "Next month",
     recordedDays: "Days recorded",
     trendMetric: "Trend metric",
     viewDailySheets: "View Daily Sheets",

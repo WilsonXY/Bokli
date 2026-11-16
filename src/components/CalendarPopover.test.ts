@@ -55,8 +55,8 @@ describe("CalendarPopover", () => {
         }),
       );
       expect(html).toContain('role="dialog"');
-      expect(html).toContain('aria-modal="true"');
-      expect(html).toContain('aria-label="Date Picker"');
+      expect(html).toContain('aria-modal="false"');
+      expect(html).toContain('aria-label="选择日期"');
       expect(html).toContain("2026");
     });
   });
@@ -103,7 +103,7 @@ describe("CalendarPopover", () => {
           onSelectDate: vi.fn(),
         }),
       );
-      expect(html).toMatch(/<button[^>]*disabled=""[^>]*aria-label="Next Month"/);
+      expect(html).toMatch(/<button[^>]*disabled=""[^>]*aria-label="下个月"/);
     });
   });
 
