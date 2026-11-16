@@ -116,7 +116,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
         <MonthSelectorDropdown loadingLabel={loading ? t.loadingShort : undefined} currentMonth={activeMonth} options={tiles.map(tile => ({ month: tile.month, status: tile.status }))} onSelect={month => router.push(`/dashboard?month=${month}`)} />
       </div>
       {loadError ? <div role="alert" className="page-error">{t.loadError}<p>{loadError}</p></div> : <>
-        {!trend.length && <section className="empty-month panel"><h2>{t.noDailyEntries}</h2><p>{t.emptyMonthHint}</p><Link className="primary-button" href="/">{t.recordDailySheet}</Link></section>}
+        {!trend.length && <section className="empty-month panel"><h2>{t.noDailyEntries}</h2><p>{t.emptyMonthHint}</p><Link className="primary-button" href="/" aria-label={t.recordDailySheet} title={t.recordDailySheet}><ActionIcon name="add" size={24} /></Link></section>}
         <section className={`overview-summary panel${noActivity ? " is-empty" : ""}`} hidden={noActivity} aria-label={t.monthSummary}>
           <div className={`profit-headline${isProfitPositive ? "" : " is-loss"}`}>
             <h2>{t.netProfit}<span className="profit-status sr-only">{!activeTile?.netSen ? t.evenStatus : isProfitPositive ? t.profitStatus : t.lossStatus}</span></h2>

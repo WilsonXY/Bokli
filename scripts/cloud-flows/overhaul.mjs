@@ -23,6 +23,7 @@ export default async function flow({ page, shot: rawShot }) {
   await loaded(page);
   assert.equal(await page.locator("html").getAttribute("data-theme"), "light");
   assert.equal(await page.getByRole("radio", { name: /明亮模式/ }).isChecked(), true);
+  await page.evaluate(() => document.fonts.load('500 16px "Noto Sans SC"', '簿里账单'));
   const typography = await page.locator("body").evaluate(el => ({ family: getComputedStyle(el).fontFamily, weight: getComputedStyle(el).fontWeight, fontLoaded: document.fonts.check('500 16px "Noto Sans SC"', '簿里账单') }));
   assert.match(typography.family, /Noto Sans SC/);
   assert.equal(typography.weight, "500");

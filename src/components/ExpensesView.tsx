@@ -972,7 +972,7 @@ export function ExpensesView({
                     }}
                     className="flex-1 h-11 rounded-lg bg-finance-loss hover:bg-finance-loss/90 btn-wave text-white font-bold text-sm transition-colors shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {deletingKey !== null ? t.saving : t.confirmDeleteBtn}
+                    <ActionIcon name="trash" /><span className="sr-only">{deletingKey !== null ? t.saving : t.confirmDeleteBtn}</span>
                   </button>
                 </div>
               </div>

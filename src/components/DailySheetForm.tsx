@@ -1694,7 +1694,7 @@ export function DailySheetForm({
                 onClick={handleDeleteSheet}
                 className="flex-1 h-11 rounded-xl bg-finance-loss hover:bg-finance-loss/90 btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer disabled:opacity-50"
               >
-                {t.confirmDeleteBtn}
+                <ActionIcon name="trash" /><span className="sr-only">{t.confirmDeleteBtn}</span>
               </button>
             </div>
           </div>
@@ -1769,7 +1769,7 @@ export function DailySheetForm({
                 }}
                 className="flex-1 h-11 rounded-xl bg-finance-loss hover:bg-finance-loss/90 btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
               >
-                {t.confirmDeleteBtn}
+                <ActionIcon name="trash" /><span className="sr-only">{t.confirmDeleteBtn}</span>
               </button>
             </div>
           </div>

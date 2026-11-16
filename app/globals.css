@@ -647,3 +647,9 @@
 .expense-month-context { border-color: rgb(var(--border)); }
 
 .loading-layout .profit-headline .metric-headline { color: transparent; }
+
+.language-options label:has(input:checked) { background: rgb(var(--surface)); border-color: rgb(var(--brand)); }
+.account-section { display: flex; justify-content: flex-end; }
+.signout-icon { width: 48px; min-width: 48px; padding: 0; }
+.empty-month p { display: none; }
+.empty-month .primary-button { width: 48px; min-width: 48px; padding: 0; }
