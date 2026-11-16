@@ -908,7 +908,7 @@ export function ExpensesView({
               <div className="space-y-2">
                 {mergedExpenses.map((item) => (
                   <div key={item.key} className="expense-record">
-                    <div className="expense-record-heading">
+                    <div className="expense-record-heading" data-long={formatMyr(BigInt(item.amountSen)).length > 15 || undefined}>
                       <span className="expense-record-category">{getCategoryLabel(item.type)}{item.ids.length > 1 && <small> ×{item.ids.length}</small>}</span>
                       <span className={`${amountSizeClass(formatMyr(BigInt(item.amountSen)), "text-xs", "text-base")} font-bold text-ink-secondary tabular-nums whitespace-nowrap`}>{formatMyr(BigInt(item.amountSen))}</span>
                     </div>

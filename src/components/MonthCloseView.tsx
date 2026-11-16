@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import React, { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatMyr, sanitizeMoneyInput, tryParseSen } from "@/lib/money";
@@ -312,6 +313,7 @@ export function MonthCloseView({
 
   return (
     <div className="close-layout page-stack">
+      <Link className="mobile-back-link" href={`/dashboard?month=${currentMonth}`}><span aria-hidden="true">‹</span>{t.navDashboard}</Link>
       {/* Page heading and period selection */}
       <div className="page-heading">
         <div><h1 className="text-xl font-bold text-ink-primary tracking-tight">
@@ -369,7 +371,7 @@ export function MonthCloseView({
             </div>
           )}
 
-          {financials && <section className="close-expectation" aria-label="Month Financial Snapshot">
+          {financials && <section className={`close-expectation${countsComplete ? " has-counts" : ""}`} aria-label="Month Financial Snapshot">
             <div className="close-expected-total"><span>{t.expectedNet}</span><strong className={expectedNetSen >= 0n ? "text-finance-profit" : "text-finance-loss"}>{formatMyr(expectedNetSen)}</strong></div>
             <details className="close-calculation"><summary>{t.viewCalculation}<span aria-hidden="true">＋</span></summary><dl>
               <div><dt>{t.totalRevenue}</dt><dd>{formatMyr(BigInt(financials.revenueSen))}</dd></div>
@@ -564,43 +566,20 @@ export function MonthCloseView({
               </div>
 
               {/* Live Reconciliation Preview Bar */}
-              <div className="p-3 rounded-lg bg-surface-subtle border border-surface-border space-y-2">
+              <div className="reconciliation-preview p-3 rounded-lg bg-surface-subtle border border-surface-border space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-ink-muted font-medium">{t.actualTotal}:</span>
+                  <span className="text-ink-muted font-medium">{t.actualTotal}{t.fieldColon}</span>
                   <span className="font-bold text-ink-primary text-base tabular-nums">
                     {countsComplete && actualCountedSen !== null ? formatMyr(actualCountedSen) : "—"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-ink-muted font-medium">{t.expectedNet}:</span>
+                  <span className="text-ink-muted font-medium">{t.expectedNet}{t.fieldColon}</span>
                   <span className="font-bold text-ink-primary text-base tabular-nums">{formatMyr(expectedNetSen)}</span>
                 </div>
-                <div className="pt-2 border-t border-surface-border flex items-center justify-between text-sm">
-                  <span className="font-semibold text-ink-secondary">{t.reconciliationDiff}:</span>
-                  <div className="flex items-center gap-1.5">
-                    {countsComplete && !hasParseError && (
-                      <span
-                        className={`text-xs px-2 py-0.5 rounded font-semibold ${
-                          isBalanced
-                            ? "bg-finance-profit-light text-brand-broccoli"
-                            : "bg-finance-loss-light text-finance-loss"
-                        }`}
-                      >
-                        {isBalanced ? t.reconciliationBalanced : t.reconciliationMismatch}
-                      </span>
-                    )}
-                    <span
-                      className={`font-bold text-base tabular-nums ${
-                        !countsComplete || hasParseError
-                          ? "text-ink-muted"
-                          : isBalanced
-                          ? "text-brand-broccoli"
-                          : "text-finance-loss"
-                      }`}
-                    >
-                      {!countsComplete ? t.awaitingCounts : varianceSen !== null ? formatMyr(varianceSen) : "—"}
-                    </span>
-                  </div>
+                <div className={`reconciliation-result ${!countsComplete ? "is-pending" : hasParseError ? "is-invalid" : isBalanced ? "is-balanced" : "is-mismatch"}`} aria-live="polite">
+                  <div className="reconciliation-result-line"><span>{t.reconciliationDiff}</span><strong>{!countsComplete ? t.awaitingCounts : varianceSen !== null ? formatMyr(varianceSen) : "—"}</strong></div>
+                  {countsComplete && !hasParseError && <p>{isBalanced ? t.reconciliationBalanced : <><strong>{t.reconciliationMismatch}</strong>{t.fieldColon}{t.reconciliationMismatchHelp}</>}</p>}
                 </div>
               </div>
 

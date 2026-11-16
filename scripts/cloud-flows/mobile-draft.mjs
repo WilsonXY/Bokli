@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 export default async function flow({ page, shot: rawShot }) {
   page.setDefaultNavigationTimeout(60000);
   const shot = async name => { await page.waitForTimeout(1100); await rawShot(name, page, { fullPage: false }); };
+  const kl = new Date(Date.now() + 8 * 3600e3);
+  const previousMonth = new Date(Date.UTC(kl.getUTCFullYear(), kl.getUTCMonth() - 1, 1)).toISOString().slice(0, 7);
   const protectedFromUnload = () => page.evaluate(() => { const event = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; });
   await page.goto("/");
   await page.locator("#cash-input").fill("123.45");
@@ -23,7 +25,7 @@ export default async function flow({ page, shot: rawShot }) {
   await page.locator(".sheet-save-bar").scrollIntoViewIfNeeded();
   await shot("save-action-clear-of-inputs");
   assert.equal(await protectedFromUnload(), true);
-  await page.getByRole("button", { name: "Undo changes", exact: true }).click();
+  await page.getByRole("button", { name: "Revert changes", exact: true }).click();
   await page.waitForTimeout(100);
   assert.equal(await protectedFromUnload(), false);
 
@@ -41,6 +43,8 @@ export default async function flow({ page, shot: rawShot }) {
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
 
   await page.getByRole("navigation").getByRole("link", { name: "Overview", exact: true }).click();
+  await page.getByRole("button", { name: "Month", exact: true }).click();
+  await page.getByRole("option", { name: new RegExp(previousMonth) }).click();
   await page.locator(".month-close-action").click();
   await page.locator("#close-cash").fill("123.45");
   await page.locator("#close-note").fill("Count in progress");
@@ -50,6 +54,7 @@ export default async function flow({ page, shot: rawShot }) {
   await page.getByText("还有未保存的修改。退出会丢弃这些修改。").waitFor();
   await page.getByRole("dialog").getByRole("button", { name: "取消", exact: true }).click();
   await page.getByRole("navigation").getByRole("link", { name: "概览", exact: true }).click();
+  assert.equal(new URL(page.url()).searchParams.get("month"), previousMonth, "Returning from Settings must retain the Month Close month");
   await page.locator(".month-close-action").click();
   assert.equal(await page.locator("#close-cash").inputValue(), "123.45");
   assert.equal(await page.locator("#close-note").inputValue(), "Count in progress");

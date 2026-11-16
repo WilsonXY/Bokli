@@ -91,7 +91,7 @@ export default async function flow({ page, shot }) {
     }
   }
 
-  // Close last month (seeded net profit RM305.00, all counted as cash).
+  // Close last month (seeded net profit RM 305.00, all counted as cash).
   await page.goto(`/close?month=${lastMonth}`);
   await page.locator("#close-cash").fill("305");
   await page.locator("#close-tng").fill("0");

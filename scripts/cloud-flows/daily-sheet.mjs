@@ -23,7 +23,7 @@ export default async function flow({ page, shot }) {
 
   await page.reload();
   await expectValue(page.locator("#cash-input"), "450");
-  await page.getByText("RM80.00").first().waitFor();
+  await page.getByText("RM 80.00").first().waitFor();
   await page.locator("#cash-input").fill("500.00");
   await save(page);
   await page.reload();

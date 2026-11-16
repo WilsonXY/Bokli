@@ -1519,6 +1519,7 @@ export function DailySheetForm({
                   {t.grossProfit}
                 </div>
                 <div
+                  data-long={(grossProfitSen !== null ? formatMyr(grossProfitSen) : "—").length > 15 || undefined}
                   className={`${amountSizeClass(
                     grossProfitSen !== null ? formatMyr(grossProfitSen) : "—",
                     "text-base",
@@ -1555,6 +1556,7 @@ export function DailySheetForm({
                           d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"
                         />
                       </svg>
+                      <span>{t.undoChanges}</span>
                     </button>
                   )}
 

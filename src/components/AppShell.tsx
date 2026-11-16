@@ -24,7 +24,10 @@ export function AppShell({ children }: AppShellProps) {
   ];
   const active = items.find(item => item.href === pathname) ?? items[0];
   function navigation(mobile: boolean) {
-    return <nav aria-label={t.mainNavigation} className={mobile ? "mobile-navigation" : "desktop-navigation"} onClickCapture={() => setDestinations(previous => ({ ...previous, [pathname]: window.location.pathname + window.location.search }))}>
+    return <nav aria-label={t.mainNavigation} className={mobile ? "mobile-navigation" : "desktop-navigation"} onClickCapture={() => {
+      const search = window.location.search;
+      setDestinations(previous => ({ ...previous, [pathname]: window.location.pathname + search, ...(pathname === "/close" ? { "/dashboard": "/dashboard" + search } : {}) }));
+    }}>
       {items.filter(item => !mobile || item.href !== "/close").map(item => {
         const selected = pathname === item.href || (mobile && pathname === "/close" && item.href === "/dashboard");
         return <Link key={item.href} href={destinations[item.href] ?? item.href} aria-label={item.label} aria-current={selected ? "page" : undefined} className={`workspace-nav-link ${item.href === "/" ? "nav-record" : ""}`}>
@@ -45,7 +48,7 @@ export function AppShell({ children }: AppShellProps) {
     </aside>
     <div className="workspace-body">
       <header className="workspace-header">
-        <Link href="/" className="mobile-brand" aria-label={t.homeLabel}><span className="mobile-brand-mark" aria-hidden="true">b</span><span>Bokli <small>簿里</small></span></Link>
+        <Link href="/" className="mobile-brand" aria-label={t.homeLabel}><span className="mobile-brand-mark" aria-hidden="true">b<span /></span><span>Bokli <small>簿里</small></span></Link>
         <div className="workspace-breadcrumb"><span>{t.brandSubtitle}</span><span aria-hidden="true">/</span><span>{active.label}</span></div>
         <span className="header-currency"><span className="desktop-currency">{lang === "zh" ? "马来西亚令吉" : "Malaysian Ringgit"}</span><span className="currency-code">MYR</span></span>
       </header>

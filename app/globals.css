@@ -325,3 +325,57 @@
   .revenue-field { padding: 12px; gap: 8px; }.revenue-field-label:before { display: none; }.revenue-input { font-size: 24px; }.panel { padding: 20px; }.overview-summary { padding: 0; }.profit-headline { padding: 24px; }.profit-headline .metric-headline { font-size: 38px; }.account-balances dd { font-size: 19px; }.month-close-action { padding: 14px; gap: 10px; }
 }
 @media (prefers-reduced-motion:reduce) { *,::before,::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+
+/* Current location has one consistent visual treatment across all four tabs. */
+.desktop-navigation .workspace-nav-link:hover { background: rgb(var(--subtle)); }
+.mobile-back-link { display: none; }
+.profit-headline:after { content: none; }
+.profit-headline.is-loss:after { content: none; }
+.profit-headline h2 { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.profit-status { padding: 4px 9px; border: 1px solid #ffffff55; border-radius: 6px; font-size: 14px; line-height: 20px; color: white; }
+.overview-summary.is-empty .profit-status { display: none; }
+.ledger-chevron { display: inline-block; font-size: 20px; margin-left: 10px; transition: transform .16s; }
+.daily-records[open] .ledger-chevron { transform: rotate(180deg); }
+.sheet-actions>button[aria-label] { width: auto; min-width: 48px; gap: 7px; padding: 0 12px; font-size: 16px; }
+.cost-entry-card .text-xs { font-size: 14px; line-height: 20px; }
+.daily-revenue .section-heading>span, .daily-costs .section-heading>span { font-size: 15px; }
+.empty-month p, .counts-hint { text-wrap: balance; }
+.expense-record { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px 14px; align-items: center; padding: 16px 0; }
+.expense-record-heading { min-width: 0; gap: 12px; }
+.expense-record-note { grid-column: 1; margin-top: 0; }
+.expense-record-actions { grid-column: 2; grid-row: 1 / span 2; margin-top: 0; }
+.expense-record-actions .record-delete { border-color: transparent; color: rgb(var(--secondary)); background: transparent; padding-left: 8px; padding-right: 8px; }
+.expense-record-actions .record-delete:hover { background: rgb(var(--loss-light)); color: rgb(var(--loss)); }
+.reconciliation-preview>div>span:first-child { color: rgb(var(--ink)); font-size: 15px; }
+.reconciliation-result { border-top: 1px solid rgb(var(--border)); padding-top: 16px; margin-top: 16px; }
+.reconciliation-result-line { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; }
+.reconciliation-result-line>span { font-size: 16px; }
+.reconciliation-result-line>strong { font-size: 28px; line-height: 1.4; overflow-wrap: anywhere; }
+.reconciliation-result.is-pending strong { font-size: 16px; color: rgb(var(--secondary)); }
+.reconciliation-result.is-mismatch { color: rgb(var(--loss)); }
+.reconciliation-result.is-balanced { color: rgb(var(--profit)); }
+.reconciliation-result p { font-size: 16px; line-height: 1.7; margin-top: 10px; }
+.close-expectation.has-counts .close-expected-total { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.close-expectation.has-counts .close-expected-total>strong { font-size: 24px; margin-top: 0; }
+@media (max-width:767px) {
+  .mobile-navigation .workspace-nav-link:hover { background: transparent; }
+  .mobile-navigation .workspace-nav-link .nav-icon, .mobile-navigation .workspace-nav-link.nav-record .nav-icon { width: 44px; height: 32px; color: inherit; background: transparent; border-radius: 12px; }
+  .mobile-navigation .workspace-nav-link[aria-current="page"] .nav-icon { background: #126756; color: white; }
+  .mobile-brand-mark>span { position: absolute; width: 6px; height: 4px; right: 4px; top: 5px; border-radius: 5px 0 5px 0; background: #c8e6b7; transform: rotate(-24deg); }
+  .mobile-back-link { display: inline-flex; align-items: center; align-self: flex-start; gap: 8px; min-height: 44px; color: rgb(var(--brand)); font-size: 16px; margin-bottom: -14px; }
+  .mobile-back-link>span { font-size: 28px; line-height: 1; }
+  .close-expectation.has-counts .close-expected-total>strong { font-size: 24px; }
+  .sheet-actions>button[aria-label] { font-size: 15px; padding: 0 10px; gap: 5px; }
+  .expense-record-category { font-size: 16px; }
+}
+.account-balances dd[data-long] { font-size: 18px; }
+.expense-record-heading[data-long] { flex-direction: column; align-items: flex-start; gap: 4px; }
+.sheet-profit-summary { flex-wrap: wrap; }
+.sheet-profit-summary>div[data-long] { font-size: 18px; }
+@media (max-width:359px) {
+  .account-balances { grid-template-columns: 1fr; }
+  .account-balances>div { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 12px; }
+  .account-balances dt { grid-row: 1 / span 2; }.account-balances dt>span { display: none; }
+  .account-balances dd, .account-balances dd[data-long] { font-size: 18px; margin: 0; text-align: right; }
+  .account-balances small { text-align: right; margin: 0; }
+}

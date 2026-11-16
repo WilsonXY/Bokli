@@ -48,6 +48,6 @@ export default async function flow({ page, shot }) {
   await page.getByText("Expense added successfully").waitFor();
   await expectStored(page, "rental:5000,utilities:1234");
   await page.reload();
-  await page.getByText("RM50.00").first().waitFor();
+  await page.getByText("RM 50.00").first().waitFor();
   await shot("retried-one-row");
 };

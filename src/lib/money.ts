@@ -63,14 +63,14 @@ export function tryParseSen(val: string): bigint | null {
   }
 }
 
-/** Format integer sen as a MYR display string, e.g. 1234n -> "RM12.34". */
+/** Format integer sen as a MYR display string, e.g. 123400n -> "RM 1,234.00". */
 export function formatMyr(sen: bigint): string {
   assertRange(sen);
   const sign = sen < 0n ? "-" : "";
   const abs = sen < 0n ? -sen : sen;
-  const ringgit = abs / 100n;
+  const ringgit = (abs / 100n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   const cents = (abs % 100n).toString().padStart(2, "0");
-  return `${sign}RM${ringgit}.${cents}`;
+  return `${sign}RM ${ringgit}.${cents}`;
 }
 
 /**

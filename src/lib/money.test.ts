@@ -95,16 +95,22 @@ describe("sanitizeMoneyInput", () => {
 });
 
 describe("formatMyr", () => {
+  it("groups displayed MYR without losing sen or converting to floating point", () => {
+    expect(formatMyr(170000n)).toBe("RM 1,700.00");
+    expect(formatMyr(-142055n)).toBe("-RM 1,420.55");
+    expect(formatMyr(9007199254740991n)).toBe("RM 90,071,992,547,409.91");
+    expect(formatMyr(-9007199254740991n)).toBe("-RM 90,071,992,547,409.91");
+  });
   it("formats sen to RM strings", () => {
-    expect(formatMyr(1234n)).toBe("RM12.34");
-    expect(formatMyr(5n)).toBe("RM0.05");
-    expect(formatMyr(0n)).toBe("RM0.00");
-    expect(formatMyr(-150n)).toBe("-RM1.50");
+    expect(formatMyr(1234n)).toBe("RM 12.34");
+    expect(formatMyr(5n)).toBe("RM 0.05");
+    expect(formatMyr(0n)).toBe("RM 0.00");
+    expect(formatMyr(-150n)).toBe("-RM 1.50");
   });
 
   it("round-trips with parseSen", () => {
     for (const s of ["0", "12.34", "99.99", "1000.01"]) {
-      expect(formatMyr(parseSen(s))).toMatch(/^-?RM\d+\.\d\d$/);
+      expect(parseSen(sanitizeMoneyInput(formatMyr(parseSen(s)))!)).toBe(parseSen(s));
     }
   });
 });

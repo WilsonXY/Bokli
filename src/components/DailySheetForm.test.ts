@@ -68,7 +68,7 @@ describe("DailySheetForm parse error handling and tryParseSen helper", () => {
 
     // Verify revenue display shows "—" dash rather than counting unparseable input as RM 0.00
     expect(html).toContain("—");
-    expect(html).not.toContain("RM100.00</span>");
+    expect(html).not.toContain("RM 100.00</span>");
   });
 
   it("renders inline error message and error border for invalid TnG input", () => {
@@ -159,7 +159,7 @@ describe("DailySheetForm parse error handling and tryParseSen helper", () => {
 
     // Check gross profit summary
     expect(html).toContain(t.grossProfit);
-    expect(html).toContain("RM210.00");
+    expect(html).toContain("RM 210.00");
   });
 });
 
@@ -279,12 +279,12 @@ describe("mergeCostLines, getCostLineKey, and deletion logic", () => {
     const riceMatches = html.match(/>Rice<\/span>/g) || [];
     expect(riceMatches).toHaveLength(1);
 
-    // Unmerged individual amounts (RM20.00, RM30.00) must NOT appear anywhere in the rendered markup
-    expect(html).not.toContain("RM20.00");
-    expect(html).not.toContain("RM30.00");
+    // Unmerged individual amounts (RM 20.00, RM 30.00) must NOT appear anywhere in the rendered markup
+    expect(html).not.toContain("RM 20.00");
+    expect(html).not.toContain("RM 30.00");
 
-    // The merged line amount RM50.00 is rendered
-    expect(html).toContain("RM50.00");
+    // The merged line amount RM 50.00 is rendered
+    expect(html).toContain("RM 50.00");
 
     // Exactly one delete button is rendered for the single merged row
     const deleteButtonMatches = html.match(new RegExp(`aria-label="${t.delete}"`, "g")) || [];
@@ -342,11 +342,11 @@ describe("mergeCostLines, getCostLineKey, and deletion logic", () => {
       })
     );
     expect(html3).toContain("Rice");
-    expect(html3).toContain("RM10.00");
+    expect(html3).toContain("RM 10.00");
     expect(html3).toContain("Shell");
-    expect(html3).toContain("RM25.00");
+    expect(html3).toContain("RM 25.00");
     expect(html3).toContain("Stove");
-    expect(html3).toContain("RM40.00");
+    expect(html3).toContain("RM 40.00");
 
     // When a single row is rendered or an item is expanded, its inputs are controlled
     const htmlSingle = ReactDOMServer.renderToStaticMarkup(
@@ -374,11 +374,11 @@ describe("mergeCostLines, getCostLineKey, and deletion logic", () => {
       })
     );
     expect(html2).toContain("Rice");
-    expect(html2).toContain("RM10.00");
+    expect(html2).toContain("RM 10.00");
     expect(html2).toContain("Stove");
-    expect(html2).toContain("RM40.00");
+    expect(html2).toContain("RM 40.00");
     expect(html2).not.toContain("Shell");
-    expect(html2).not.toContain("RM25.00");
+    expect(html2).not.toContain("RM 25.00");
 
     // Reverting/reloading data refreshes the input values back to baseline
     const reloaded = mergeCostLines([lineA, lineB, lineC]);
@@ -1016,13 +1016,13 @@ describe("DailySheetForm long money amount dynamic sizing", () => {
     const html = ReactDOMServer.renderToStaticMarkup(
       React.createElement(DailySheetForm, {
         date: "2026-05-15",
-        initialCashSen: 100568612, // RM1005686.12 -> 12 chars
+        initialCashSen: 100568612, // RM 1,005,686.12 -> 12 chars
         initialTngSen: 0,
         initialCostLines: [
           {
             clientId: "c-long",
             category: "restock",
-            amountSen: 120000000, // RM1200000.00 -> 12 chars
+            amountSen: 120000000, // RM 1,200,000.00 -> 12 chars
             note: "Huge order",
           },
         ],
@@ -1031,28 +1031,28 @@ describe("DailySheetForm long money amount dynamic sizing", () => {
       })
     );
 
-    // Cost line summary amount: RM1200000.00 (12 chars) -> replaces text-base with text-xs (no coexistence)
-    expect(html).toContain("RM1200000.00");
-    expect(html).toMatch(/class="[^"]*text-xs font-bold text-ink-secondary tabular-nums whitespace-nowrap"[^>]*>RM1200000\.00/);
-    expect(html).not.toMatch(/class="[^"]*text-base[^"]*"[^>]*>RM1200000\.00/);
+    // Cost line summary amount: RM 1,200,000.00 (12 chars) -> replaces text-base with text-xs (no coexistence)
+    expect(html).toContain("RM 1,200,000.00");
+    expect(html).toMatch(/class="[^"]*text-xs font-bold text-ink-secondary tabular-nums whitespace-nowrap"[^>]*>RM 1,200,000\.00/);
+    expect(html).not.toMatch(/class="[^"]*text-base[^"]*"[^>]*>RM 1,200,000\.00/);
 
-    // Sticky bottom bar gross profit: 100568612 - 120000000 = -19431388 -> -RM194313.88 (13 chars) -> text-base
-    expect(html).toContain("-RM194313.88");
-    expect(html).toMatch(/class="[^"]*text-base font-bold text-finance-loss"[^>]*>-RM194313\.88/);
-    expect(html).not.toMatch(/class="[^"]*text-xl font-bold text-finance-loss"[^>]*>-RM194313\.88/);
+    // Sticky bottom bar gross profit: 100568612 - 120000000 = -19431388 -> -RM 194,313.88 (13 chars) -> text-base
+    expect(html).toContain("-RM 194,313.88");
+    expect(html).toMatch(/class="[^"]*text-base font-bold text-finance-loss"[^>]*>-RM 194,313\.88/);
+    expect(html).not.toMatch(/class="[^"]*text-xl font-bold text-finance-loss"[^>]*>-RM 194,313\.88/);
   });
 
   it("keeps standard base classes when formatted money amounts are <= 11 characters", () => {
     const html = ReactDOMServer.renderToStaticMarkup(
       React.createElement(DailySheetForm, {
         date: "2026-05-15",
-        initialCashSen: 50000000, // RM500000.00 -> 11 chars
+        initialCashSen: 500000, // RM 5,000.00 -> 11 chars
         initialTngSen: 0,
         initialCostLines: [
           {
             clientId: "c-normal",
             category: "restock",
-            amountSen: 50000000, // RM500000.00 -> 11 chars
+            amountSen: 500000, // RM 5,000.00 -> 11 chars
             note: "Standard order",
           },
         ],
@@ -1061,14 +1061,14 @@ describe("DailySheetForm long money amount dynamic sizing", () => {
       })
     );
 
-    // Cost line summary amount: RM500000.00 (11 chars) -> no text-xs
-    expect(html).toMatch(/class="[^"]*text-base font-bold text-ink-secondary tabular-nums whitespace-nowrap"[^>]*>RM500000\.00/);
-    expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
+    // Cost line summary amount: RM 5,000.00 (11 chars) -> no text-xs
+    expect(html).toMatch(/class="[^"]*text-base font-bold text-ink-secondary tabular-nums whitespace-nowrap"[^>]*>RM 5,000\.00/);
+    expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM 5,000\.00/);
 
-    // Sticky bottom bar gross profit: RM0.00 (6 chars) -> text-xl
-    expect(html).toContain("RM0.00");
-    expect(html).toMatch(/class="[^"]*text-xl font-bold text-brand-broccoli"[^>]*>RM0\.00/);
-    expect(html).not.toMatch(/class="[^"]*text-base font-bold text-brand-broccoli"[^>]*>RM0\.00/);
+    // Sticky bottom bar gross profit: RM 0.00 (6 chars) -> text-xl
+    expect(html).toContain("RM 0.00");
+    expect(html).toMatch(/class="[^"]*text-xl font-bold text-brand-broccoli"[^>]*>RM 0\.00/);
+    expect(html).not.toMatch(/class="[^"]*text-base font-bold text-brand-broccoli"[^>]*>RM 0\.00/);
   });
 });
 

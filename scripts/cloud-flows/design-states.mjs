@@ -53,7 +53,7 @@ export default async function flow({ page, shot: rawShot }) {
   await shot("expense-delete-confirmation");
   await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();
   await page.goto(`/dashboard?month=${previous}`);
-  await page.getByText("-RM195.00", { exact: true }).waitFor();
+  await page.getByText("-RM 195.00", { exact: true }).waitFor();
   assert.equal(await page.locator(".profit-headline.is-loss").count(), 1);
   await shot("loss-month");
 }

@@ -176,12 +176,12 @@ describe("MonthCloseView variance-gating", () => {
 
       // Verify counted total displays "—" dash rather than counting unparseable input as RM 0.00
       expect(html).toContain("—");
-      expect(html).not.toContain("RM0.00");
+      expect(html).not.toContain("RM 0.00");
     });
   });
 
   describe("Chinese UI label verification for month close", () => {
-    it("renders updated labels for 现金实际余额, Touch 'n Go 实际余额, and 实际总金额", () => {
+    it("renders updated labels for 现金实际余额, TnG 实际余额, and 实际总金额", () => {
       const html = ReactDOMServer.renderToStaticMarkup(
         React.createElement(MonthCloseView, {
           currentMonth: "2026-05",
@@ -198,8 +198,8 @@ describe("MonthCloseView variance-gating", () => {
       expect(html).toContain("现金实际余额");
       expect(html).not.toContain("实际现金盘点");
 
-      // P2: Touch 'n Go 实际余额 (handle HTML entity escaping)
-      expect(html).toContain("Touch &#x27;n Go 实际余额");
+      // P2: TnG 实际余额 (handle HTML entity escaping)
+      expect(html).toContain("TnG 实际余额");
       expect(html).not.toContain("Touch &#x27;n Go 期末余额");
 
       // P3: 实际总金额

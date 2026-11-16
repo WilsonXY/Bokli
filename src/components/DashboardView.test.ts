@@ -106,7 +106,7 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
 
       expect(html).toContain('class="cost-bar-row"');
       expect(html).toContain('width:100%');
-      expect(html).toContain('RM400.00');
+      expect(html).toContain('RM 400.00');
       expect(html).toContain("100%");
     });
   });
@@ -116,11 +116,11 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
       const mockTile: SerializedMonthTile = {
         month: "2026-05",
         status: "open",
-        revenueSen: 100568612, // RM1005686.12 -> 12 characters
-        dailyCostSen: 50000000, // RM500000.00 -> 11 characters
-        grossSen: 50568612,
-        operatingSen: 120000000, // RM1200000.00 -> 12 characters
-        netSen: -19431388,
+        revenueSen: 100568612, // RM 1,005,686.12 -> 12 characters
+        dailyCostSen: 500000, // RM 5,000.00 -> 11 characters
+        grossSen: 100068612,
+        operatingSen: 120000000, // RM 1,200,000.00 -> 12 characters
+        netSen: -19931388,
       };
 
       const html = ReactDOMServer.renderToStaticMarkup(
@@ -135,23 +135,23 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
       );
 
       // Revenue (12 chars): conditional replacement text-xs sm:text-xl (never coexists with text-sm)
-      expect(html).toContain("RM1005686.12");
-      expect(html).toMatch(/class="[^"]*text-xs sm:text-xl font-bold text-ink-primary tabular-nums"[^>]*>RM1005686\.12/);
-      expect(html).not.toMatch(/class="[^"]*text-sm[^"]*"[^>]*>RM1005686\.12/);
+      expect(html).toContain("RM 1,005,686.12");
+      expect(html).toMatch(/class="[^"]*text-xs sm:text-xl font-bold text-ink-primary tabular-nums"[^>]*>RM 1,005,686\.12/);
+      expect(html).not.toMatch(/class="[^"]*text-sm[^"]*"[^>]*>RM 1,005,686\.12/);
 
       // Daily cost (11 chars): keeps base text-sm sm:text-xl (never includes text-xs)
-      expect(html).toContain("RM500000.00");
-      expect(html).toMatch(/class="[^"]*text-sm sm:text-xl font-bold text-ink-secondary tabular-nums"[^>]*>RM500000\.00/);
-      expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
+      expect(html).toContain("RM 5,000.00");
+      expect(html).toMatch(/class="[^"]*text-sm sm:text-xl font-bold text-ink-secondary tabular-nums"[^>]*>RM 5,000\.00/);
+      expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM 5,000\.00/);
 
       // Operating expenses (12 chars): conditional replacement text-xs sm:text-xl (never coexists with text-sm)
-      expect(html).toContain("RM1200000.00");
-      expect(html).toMatch(/class="[^"]*text-xs sm:text-xl font-bold text-ink-secondary tabular-nums"[^>]*>RM1200000\.00/);
-      expect(html).not.toMatch(/class="[^"]*text-sm[^"]*"[^>]*>RM1200000\.00/);
+      expect(html).toContain("RM 1,200,000.00");
+      expect(html).toMatch(/class="[^"]*text-xs sm:text-xl font-bold text-ink-secondary tabular-nums"[^>]*>RM 1,200,000\.00/);
+      expect(html).not.toMatch(/class="[^"]*text-sm[^"]*"[^>]*>RM 1,200,000\.00/);
     });
 
     it("shrinks headline net profit to text-2xl on mobile when longer than 11 characters and keeps text-3xl otherwise", () => {
-      // Long headline amount: -RM194313.88 -> 13 characters
+      // Long headline amount: -RM 194,313.88 -> 13 characters
       const longTile: SerializedMonthTile = {
         month: "2026-05",
         status: "open",
@@ -173,11 +173,11 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
         })
       );
 
-      expect(longHtml).toContain("-RM194313.88");
-      expect(longHtml).toMatch(/class="[^"]*text-2xl sm:text-4xl font-extrabold tracking-tight tabular-nums text-finance-loss"[^>]*>-RM194313\.88/);
-      expect(longHtml).not.toMatch(/class="[^"]*text-3xl[^"]*"[^>]*>-RM194313\.88/);
+      expect(longHtml).toContain("-RM 194,313.88");
+      expect(longHtml).toMatch(/class="[^"]*text-2xl sm:text-4xl font-extrabold tracking-tight tabular-nums text-finance-loss"[^>]*>-RM 194,313\.88/);
+      expect(longHtml).not.toMatch(/class="[^"]*text-3xl[^"]*"[^>]*>-RM 194,313\.88/);
 
-      // Normal headline amount: RM5000.00 -> 9 characters <= 11
+      // Normal headline amount: RM 5,000.00 -> 9 characters <= 11
       const normalTile: SerializedMonthTile = {
         month: "2026-05",
         status: "open",
@@ -199,9 +199,9 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
         })
       );
 
-      expect(normalHtml).toContain("RM5000.00");
-      expect(normalHtml).toMatch(/class="[^"]*text-3xl sm:text-4xl font-extrabold tracking-tight tabular-nums text-finance-profit"[^>]*>RM5000\.00/);
-      expect(normalHtml).not.toMatch(/class="[^"]*text-2xl[^"]*"[^>]*>RM5000\.00/);
+      expect(normalHtml).toContain("RM 5,000.00");
+      expect(normalHtml).toMatch(/class="[^"]*text-3xl sm:text-4xl font-extrabold tracking-tight tabular-nums text-finance-profit"[^>]*>RM 5,000\.00/);
+      expect(normalHtml).not.toMatch(/class="[^"]*text-2xl[^"]*"[^>]*>RM 5,000\.00/);
     });
   });
 
