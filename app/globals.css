@@ -430,7 +430,7 @@
 .month-status-badge[data-loading]>:not(.month-loading-label) { visibility: hidden; }
 .month-loading-label { font-size: 16px; color: rgb(var(--secondary)); }
 .month-status-badge[data-loading] { background: rgb(var(--subtle)); border-color: transparent; }
-.month-picker-date[data-unknown] { visibility: hidden; }
+.month-picker-trigger .month-picker-date[data-unknown] { visibility: hidden; }
 .skeleton-picker button>*, .loading-layout .page-heading button>* { visibility: visible; }
 
 .skeleton-value { color: transparent !important; background: rgb(var(--subtle)); border-radius: 5px; user-select: none; animation: pulse 2s cubic-bezier(.4,0,.6,1) infinite; }
