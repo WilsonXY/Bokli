@@ -491,6 +491,7 @@ export function MonthCloseView({
                 </div>
               )}
 
+              <p id="counts-hint" className="counts-hint">{t.zeroBalanceHint}</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {/* Physical Cash Counted */}
                 <div>
@@ -499,7 +500,8 @@ export function MonthCloseView({
                   </label>
                   <div className="relative flex items-center">
                     <span data-money-prefix className="absolute left-2.5 text-sm font-bold text-channel-cash select-none">RM</span>
-                    <input id="close-cash" disabled={submitting} type="text"
+                    <input id="close-cash"
+                      aria-describedby="counts-hint" disabled={submitting} type="text"
                       inputMode="decimal"
                       value={cashOnHandInput}
                       onChange={(e) => {
@@ -533,7 +535,8 @@ export function MonthCloseView({
                   </label>
                   <div className="relative flex items-center">
                     <span data-money-prefix className="absolute left-2.5 text-sm font-bold text-channel-tng select-none">RM</span>
-                    <input id="close-tng" disabled={submitting} type="text"
+                    <input id="close-tng"
+                      aria-describedby="counts-hint" disabled={submitting} type="text"
                       inputMode="decimal"
                       value={tngOnHandInput}
                       onChange={(e) => {
@@ -584,8 +587,9 @@ export function MonthCloseView({
                 <label htmlFor="close-note" className="block text-sm font-medium text-ink-secondary mb-1">
                   {t.closeNote}{" "}
                   {!isBalanced && countsComplete && !hasParseError && (
-                    <span className="text-finance-loss">({t.noteRequiredBadge})</span>
+                    <span className="text-finance-loss">{t.noteRequiredBadge}</span>
                   )}
+                  {(!countsComplete || isBalanced) && <span className="optional-label">{t.optionalBadge}</span>}
                 </label>
                 <input
                   id="close-note"
@@ -599,9 +603,9 @@ export function MonthCloseView({
                   placeholder={
                     !isBalanced && countsComplete && !hasParseError
                       ? t.closeNotePlaceholder
-                      : t.closeNoteOptional
+                      : undefined
                   }
-                  className="w-full h-11 px-3 rounded-lg bg-surface-canvas border border-surface-border text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
+                  className="note-input w-full h-11 px-3 rounded-lg bg-surface-canvas border border-surface-border text-sm text-ink-primary focus:outline-none focus:bg-white focus:border-ink-primary focus-visible:ring-2 focus-visible:ring-brand-broccoli/50"
                 />
               </div>
 
@@ -620,7 +624,6 @@ export function MonthCloseView({
                 </label>
               )}
 
-              {!countsComplete && <p className="counts-hint"><span>{t.countsHint}</span><span>{t.zeroBalanceHint}</span></p>}
               {/* Submit Action Button */}
               <button
                 type="submit"

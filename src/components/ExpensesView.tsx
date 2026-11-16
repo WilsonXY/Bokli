@@ -725,7 +725,7 @@ export function ExpensesView({
             </div>
           )}
 
-          {summary && <section className="expense-month-summary" aria-label={t.monthSummary}>
+          {summary && <section className={`expense-month-summary${isDraftOpen ? " is-editing" : ""}`} aria-label={t.monthSummary}>
             <div className="expense-month-total"><span>{t.operatingExpenses}</span><strong>{formatMyr(totalExpenseSen)}</strong></div>
             <div className="expense-month-context"><div><span>{t.monthGrossProfit}</span><strong>{formatMyr(BigInt(summary.grossSen))}</strong></div><div><span>{t.netProfit}</span><strong className={BigInt(summary.grossSen) - totalExpenseSen >= 0n ? "text-finance-profit" : "text-finance-loss"}>{formatMyr(BigInt(summary.grossSen) - totalExpenseSen)}</strong></div></div>
           </section>}
@@ -752,7 +752,7 @@ export function ExpensesView({
                     <span className="field-label block font-medium text-ink-secondary mb-2">
                       {t.selectExpenseCategory}
                     </span>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="expense-category-options">
                       {categories.map((cat) => {
                         const isSelected = newType === cat.key;
                         return (
@@ -827,7 +827,7 @@ export function ExpensesView({
 
                     <div>
                       <label htmlFor="expense-note" className="block text-sm font-medium text-ink-secondary mb-1">
-                        {t.note} {newType === "other" && <span className="text-finance-loss">*</span>}
+                        {t.note} {newType === "other" ? <span className="text-finance-loss">*</span> : <span className="optional-label">{t.optionalBadge}</span>}
                       </label>
                       <input
                         id="expense-note"
@@ -843,8 +843,8 @@ export function ExpensesView({
                           if (noteError) setNoteError(false);
                           if (inlineError) setInlineError(null);
                         }}
-                        placeholder={newType === "other" ? t.noteRequired : t.noteOptional}
-                        className={`w-full h-11 px-3 rounded-lg bg-surface-canvas border ${
+                        placeholder={newType === "other" ? t.noteRequired : undefined}
+                        className={`note-input w-full h-11 px-3 rounded-lg bg-surface-canvas border ${
                           noteError ? "border-finance-loss" : "border-surface-border"
                         } text-sm text-ink-primary focus:outline-none focus:bg-white ${
                           noteError
@@ -893,8 +893,8 @@ export function ExpensesView({
               </div>
             )}
 
-            <div className="section-heading flex items-center justify-between px-0.5">
-              <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
+            <div className="section-heading expense-records-heading flex items-center justify-between">
+              <h2 className="text-base font-medium text-ink-primary">
                 {t.savedExpensesTitle}
               </h2>
               <span className="text-sm font-bold text-ink-secondary tabular-nums">
@@ -905,18 +905,21 @@ export function ExpensesView({
             {/* Dynamic Cost Cards */}
             {mergedExpenses.length > 0 && (
               <div className="space-y-2">
-                {mergedExpenses.map((item) => (
-                  <div key={item.key} className="expense-record" data-readonly={isClosed || undefined}>
-                    <div className="expense-record-heading" data-long={formatMyr(BigInt(item.amountSen)).length > 15 || undefined}>
+                {mergedExpenses.map((item) => {
+                  const Record = isClosed ? "div" : "details";
+                  const Heading = isClosed ? "div" : "summary";
+                  return <Record key={item.key} className="expense-record" data-readonly={isClosed || undefined}>
+                    <Heading className="expense-record-summary">
                       <span className="expense-record-category">{getCategoryLabel(item.type)}{item.ids.length > 1 && <small> ×{item.ids.length}</small>}</span>
-                      <span className={`${amountSizeClass(formatMyr(BigInt(item.amountSen)), "text-xs", "text-base")} font-bold text-ink-secondary tabular-nums whitespace-nowrap`}>{formatMyr(BigInt(item.amountSen))}</span>
-                    </div>
-                    {item.note && <p className="expense-record-note">{item.note}</p>}
-                    {!isClosed && <div className="expense-record-actions"><button type="button" onClick={() => setPendingDeleteExpense(item)} aria-label={t.delete} title={t.delete} className="record-delete">
+                      <span className={`expense-record-amount ${amountSizeClass(formatMyr(BigInt(item.amountSen)), "text-xs", "text-base")} font-bold text-ink-secondary tabular-nums`}>{formatMyr(BigInt(item.amountSen))}</span>
+                      {!isClosed && <span className="record-chevron" aria-hidden="true">⌄</span>}
+                      {item.note && <p className="expense-record-note">{item.note}</p>}
+                    </Heading>
+                    {!isClosed && <div className="expense-record-actions"><button type="button" onClick={() => setPendingDeleteExpense(item)} aria-label={t.delete} className="record-delete">
                       <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5" /></svg><span>{t.delete}</span>
                     </button></div>}
-                  </div>
-                ))}
+                  </Record>;
+                })}
               </div>
             )}
 

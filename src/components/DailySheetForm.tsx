@@ -1073,7 +1073,7 @@ export function DailySheetForm({
               onClick={() => setIsCalendarOpen((prev) => !prev)}
               aria-expanded={isCalendarOpen}
               aria-haspopup="dialog"
-              className="relative text-center group cursor-pointer px-2 py-1 rounded-lg hover:bg-surface-subtle transition-colors focus:outline-none max-w-full"
+              className="date-picker-trigger relative text-center group cursor-pointer px-2 py-1 rounded-lg hover:bg-surface-subtle transition-colors focus:outline-none max-w-full"
               title={t.sheetDate}
             >
               <div className="date-trigger-label flex items-center justify-center gap-1.5 whitespace-nowrap">
@@ -1086,6 +1086,7 @@ export function DailySheetForm({
                     {t.today}
                   </span>
                 )}
+                <svg aria-hidden="true" className="date-chevron w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </div>
               <p className="sheet-date-meta text-[13px] text-ink-muted">
                 {t.klTime}
@@ -1137,7 +1138,7 @@ export function DailySheetForm({
             {t.revenueTitle}
           </h2>
           <span className="text-sm font-medium text-ink-muted">
-            {t.totalRevenue}: <span className="font-semibold text-ink-primary">{totalRevenueSen !== null ? formatMyr(totalRevenueSen) : "—"}</span>
+            {t.totalRevenue}{t.fieldColon} <span className="font-semibold text-ink-primary">{totalRevenueSen !== null ? formatMyr(totalRevenueSen) : "—"}</span>
           </span>
         </div>
 
@@ -1248,7 +1249,7 @@ export function DailySheetForm({
           </h2>
           <span className="sr-only">{t.costCategory}</span>
           <span className="text-sm font-medium text-ink-muted">
-            {t.totalCosts}: <span className="font-semibold text-ink-primary">{formatMyr(totalCostSen)}</span>
+            {t.totalCosts}{t.fieldColon} <span className="font-semibold text-ink-primary">{formatMyr(totalCostSen)}</span>
           </span>
         </div>
 
@@ -1324,7 +1325,7 @@ export function DailySheetForm({
 
                   {/* Expanded Form Body */}
                       {isExpanded && !isClosed && (
-                        <div className="p-4 border-t border-surface-border bg-surface-canvas/30 space-y-3">
+                        <div className="cost-editor border-t border-surface-border bg-surface-canvas/30">
                           {/* Category Selection */}
                           <div>
                             <span className="block text-xs font-semibold text-ink-secondary mb-2">
@@ -1401,7 +1402,7 @@ export function DailySheetForm({
 
                             <div>
                               <label className="block text-xs font-semibold text-ink-secondary mb-1">
-                                {t.note} {line.category === "other" && <span className="text-finance-loss">*</span>}
+                                {t.note} {line.category === "other" ? <span className="text-finance-loss">*</span> : <span className="optional-label">{t.optionalBadge}</span>}
                               </label>
                               <input
                                 type="text"
@@ -1414,8 +1415,8 @@ export function DailySheetForm({
                                   handleUpdateCostLine(idx, { note: e.target.value });
                                 }}
                                 onFocus={() => setExpandedIndex(idx)}
-                                placeholder={line.category === "other" ? t.noteRequired : t.noteOptional}
-                                className={`w-full h-11 px-3 rounded-lg bg-surface-canvas border text-sm text-ink-primary focus:outline-none focus:bg-white focus-visible:ring-2 focus-visible:ring-brand-broccoli/50 transition-colors ${
+                                placeholder={line.category === "other" ? t.noteRequired : undefined}
+                                className={`note-input w-full h-11 px-3 rounded-lg bg-surface-canvas border text-sm text-ink-primary focus:outline-none focus:bg-white focus-visible:ring-2 focus-visible:ring-brand-broccoli/50 transition-colors ${
                                   idx === noteErrorIndex
                                     ? "border-finance-loss focus:border-finance-loss"
                                     : "border-surface-border focus:border-ink-primary"
@@ -1800,6 +1801,7 @@ export function DailySheetForm({
               </p>
             </div>
 
+            {!cashInput.trim() && !tngInput.trim() && <p className="zero-revenue-warning" role="note">{t.noRevenueWarning}</p>}
             {/* Modal Summary Info */}
             <div className="p-3.5 rounded-xl bg-surface-subtle border border-surface-border space-y-2">
               <div className="flex justify-between text-sm">

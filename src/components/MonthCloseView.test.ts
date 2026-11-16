@@ -123,8 +123,8 @@ describe("MonthCloseView variance-gating", () => {
       // Note label should NOT mark note as required
       expect(html).not.toContain(`(${t.noteRequiredBadge})`);
 
-      // Placeholder should indicate optional
-      expect(html).toContain(t.closeNoteOptional);
+      // The persistent label carries optional status even after typing.
+      expect(html).toContain(`class="optional-label">${t.optionalBadge}</span>`);
     });
   });
 

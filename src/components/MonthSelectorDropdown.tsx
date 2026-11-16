@@ -103,18 +103,18 @@ export function MonthSelectorDropdown({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-busy={loadingLabel ? true : undefined}
-        aria-label={loadingLabel ? `${ariaLabel || t.monthSelect}${t.fieldColon}${loadingLabel}` : ariaLabel || t.monthSelect}
+        aria-label={loadingLabel ? `${ariaLabel || t.monthSelect}${t.fieldColon}${currentMonth} ${loadingLabel}` : ariaLabel || t.monthSelect}
         className="month-picker-trigger h-11 pl-3 pr-2.5 rounded-xl border border-surface-border bg-white hover:bg-surface-subtle active:scale-[0.98] transition-all flex items-center gap-2 shadow-xs cursor-pointer btn-wave focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
       >
-        {loadingLabel && <span className="month-loading-label" role="status">{loadingLabel}</span>}
-        <span className="month-picker-date font-bold text-sm text-ink-primary tracking-tight">
-          {currentMonth}
+        <span data-unknown={!currentMonth || undefined} className="month-picker-date font-bold text-sm text-ink-primary tracking-tight">
+          {currentMonth || "0000-00"}
         </span>
         {showStatusInTrigger && (
           // Every status label in one grid cell, only the current one visible:
           // the badge keeps the widest label's width, so the picker doesn't
           // change size between months (or from the loading skeleton).
           <span
+            data-loading={loadingLabel ? true : undefined}
             className={`month-status-badge grid text-center text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${getStatusBadgeStyle(
               currentStatus,
             )}`}
@@ -124,6 +124,7 @@ export function MonthSelectorDropdown({
                 {getStatusLabel(status)}
               </span>
             ))}
+            {loadingLabel && <span className="month-loading-label col-start-1 row-start-1" role="status">{loadingLabel}</span>}
           </span>
         )}
         <svg

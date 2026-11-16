@@ -32,6 +32,7 @@ export default async function flow({ page, shot: rawShot }) {
   await page.getByRole("button", { name: "其他", exact: true }).click();
   await page.locator('input[inputmode="decimal"]').nth(2).fill("20");
   await page.getByRole("button", { name: "保存账单", exact: true }).click();
+  await page.locator(".zero-revenue-warning").waitFor();
   await shot("save-confirmation");
   await page.getByRole("dialog").getByRole("button", { name: "确认保存", exact: true }).click();
   await page.locator("#other-note-error-0").waitFor();
@@ -67,7 +68,11 @@ export default async function flow({ page, shot: rawShot }) {
   await page.getByText("Expense added successfully").waitFor();
   await page.getByText("Additional stall rent", { exact: true }).scrollIntoViewIfNeeded();
   await shot("expense-saved");
-  await page.getByText("Additional stall rent", { exact: true }).locator("..").getByRole("button", { name: "Delete", exact: true }).click();
+  const saved = page.locator(".expense-record").filter({ hasText: "Additional stall rent" });
+  assert.equal(await saved.getByRole("button", { name: "Delete", exact: true }).isVisible(), false);
+  await saved.locator("summary").click();
+  await shot("expense-details");
+  await saved.getByRole("button", { name: "Delete", exact: true }).click();
   await page.getByRole("dialog").waitFor();
   await shot("expense-delete-confirmation");
   await page.getByRole("dialog").getByRole("button", { name: "Cancel", exact: true }).click();

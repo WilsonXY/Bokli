@@ -43,7 +43,7 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
   }, [load, query]);
   useEffect(reload, [reload]);
 
-  if (state?.query !== query) return skeleton;
+  if (state?.query !== query) return <React.Fragment key={query}>{skeleton}</React.Fragment>;
   const error = (
     <div role="alert" className="mb-3 p-4 rounded-xl bg-finance-loss-light border border-finance-loss-border text-finance-loss text-sm font-semibold">
       {t.loadError}

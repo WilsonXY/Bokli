@@ -57,6 +57,8 @@ async function monthPage(page, path, api, button, name, shot) {
   await languageReady(page, button);
   await pause(1200);
   const skeleton = await layout(page);
+  const requestedMonth = new URL(page.url()).searchParams.get("month");
+  if (requestedMonth && !await page.locator(".month-picker-date:visible").filter({ hasText: requestedMonth }).count()) throw new Error("Loading must keep the requested month visible");
   await shot(`${name}-skeleton`);
   release();
   await page.locator('[aria-busy="true"]').first().waitFor({ state: "detached" });
@@ -79,6 +81,8 @@ export default async function flow({ page, shot }) {
     await page.locator('[aria-busy="true"]').first().waitFor();
     await pause(1200);
     const skeleton = await layout(page);
+    const requestedDate = new URL(page.url()).searchParams.get("date");
+    if (!requestedDate || await page.locator(".loading-period").innerText() !== requestedDate) throw new Error("Loading must keep the requested date visible");
     await shot(`${lang}-sheet-skeleton`);
     release();
     await page.locator("#cash-input").waitFor();

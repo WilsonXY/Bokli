@@ -427,17 +427,19 @@
 .record-delete { font-size: 16px; }
 .calendar-popover button, .calendar-month-label { font-size: 18px; line-height: 24px; }.calendar-weekday { font-size: 16px; line-height: 24px; height: 24px; }
 .workspace-main [role="dialog"][aria-modal="true"] .text-xs, .workspace-main [role="dialog"][aria-modal="true"] .text-sm { font-size: 16px; line-height: 24px; }
-.month-picker-trigger[data-loading] > :not(.month-loading-label) { visibility: hidden; }
-.month-loading-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 16px; color: rgb(var(--secondary)); }
+.month-status-badge[data-loading]>:not(.month-loading-label) { visibility: hidden; }
+.month-loading-label { font-size: 16px; color: rgb(var(--secondary)); }
+.month-status-badge[data-loading] { background: rgb(var(--subtle)); border-color: transparent; }
+.month-picker-date[data-unknown] { visibility: hidden; }
 .skeleton-picker button>*, .loading-layout .page-heading button>* { visibility: visible; }
-.skeleton-picker button[data-loading]>:not(.month-loading-label), .loading-layout .page-heading button[data-loading]>:not(.month-loading-label) { visibility: hidden; }
+
 .skeleton-value { color: transparent !important; background: rgb(var(--subtle)); border-radius: 5px; user-select: none; animation: pulse 2s cubic-bezier(.4,0,.6,1) infinite; }
 .skeleton-money-field { position: relative; background: rgb(var(--subtle)); border-color: transparent; }
 .skeleton-money-field>[data-money-prefix] { top: 50%; transform: translateY(-50%); }
 .skeleton-date-body { display: flex; align-items: center; justify-content: space-between; }
 .skeleton-date-body>button { width: 44px; height: 44px; border: 1px solid rgb(var(--border)); border-radius: 8px; font-size: 24px; color: rgb(var(--muted)); }
 .skeleton-action { min-height: 56px; border: 1px solid transparent; border-radius: 12px; background: rgb(var(--subtle)) !important; color: rgb(var(--secondary)); font-size: 16px; }
-.skeleton-close-note { height: 44px; background: rgb(var(--subtle)); border-radius: 8px; }
+.skeleton-close-note { height: 50px; background: rgb(var(--subtle)); border-radius: 8px; }
 @media (max-width: 767px) { .skeleton-close-note { height: 50px; } }
 .loading-layout .panel, .loading-layout .month-close-action, .loading-layout .daily-ledger { background: rgb(var(--surface)); border-color: rgb(var(--border)); }
 .loading-layout .panel>*, .loading-layout .month-close-action>*, .loading-layout .daily-ledger>* { visibility: visible; }
@@ -468,3 +470,50 @@
 .sheet-save-action.skeleton-action, .reconciliation-form>.skeleton-action { font-size: 18px; }
 .close-layout [aria-label="Closed Month Reconciliation Audit"] .text-xs { font-size: 16px; line-height: 24px; }
 .skeleton-action { display: flex; align-items: center; justify-content: center; }
+
+/* Entry fields and record disclosures share the same visual language. */
+.workspace-main input.note-input { height: 50px; min-height: 50px; border-radius: 10px; background: rgb(var(--surface)); font-size: 16px; }
+.workspace-main input.note-input:not([aria-invalid="true"]) { border-color: rgb(var(--border-strong)); }
+.workspace-main input.note-input:focus { border-color: rgb(var(--brand)); }
+.optional-label { color: rgb(var(--secondary)); font-size: 16px; margin-left: 6px; }
+.zero-revenue-warning { padding: 12px; border-radius: 10px; color: rgb(var(--cost)); background: rgb(var(--cost-light)); font-size: 16px; line-height: 1.6; }
+.cost-editor { display: grid; gap: 10px; padding: 12px; }
+.cost-editor-footer { padding-top: 2px; }
+.cost-editor .mb-2 { margin-bottom: 4px; }
+.expense-category-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.expense-month-summary.is-editing { padding: 14px 18px; }
+.expense-month-summary.is-editing .expense-month-context { display: none; }
+.expense-month-summary.is-editing .expense-month-total>strong { font-size: 24px; }
+.expense-records-heading h2 { font-size: 18px; color: rgb(var(--ink)); letter-spacing: 0; text-transform: none; }
+.metric-label, .expense-month-context span { font-size: 16px; line-height: 24px; color: rgb(var(--secondary)); }
+.metric-daily-cost .metric-value, .metric-operating .metric-value { margin-top: auto; }
+.expense-record { display: block; padding: 0; }
+.expense-record-summary { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) 20px; gap: 4px 12px; align-items: baseline; padding: 14px 0; min-height: 60px; list-style: none; cursor: pointer; }
+.expense-record-summary::-webkit-details-marker { display: none; }
+.expense-record-summary:focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: 4px; border-radius: 6px; }
+.expense-record-category { grid-column: 1; grid-row: 1; }
+.expense-record-amount { grid-column: 2; grid-row: 1; text-align: right; overflow-wrap: anywhere; }
+.expense-record-note { grid-row: 2; grid-column: 1 / span 2; margin: 0; font-size: 16px; }
+.record-chevron { grid-column: 3; grid-row: 1; color: rgb(var(--secondary)); font-size: 20px; transition: transform .16s; }
+.expense-record[open] .record-chevron { transform: rotate(180deg); }
+.expense-record-actions { justify-content: flex-start; padding: 2px 0 8px; margin: 0; border-top: 1px solid rgb(var(--border)); }
+.expense-record-actions .record-delete { padding-left: 0; }
+.expense-record[data-readonly] .expense-record-summary { grid-template-columns: minmax(0,1fr) minmax(0,1fr); cursor: default; }
+.loading-period { font-size: 16px; color: rgb(var(--ink)); }
+.date-chevron { color: rgb(var(--secondary)); }
+@media (min-width:640px) { .expense-category-options { grid-template-columns: repeat(4,minmax(0,1fr)); } }
+@media (max-width:767px) {
+  .profit-headline { padding: 20px 22px; }
+  .profit-headline .metric-headline { margin-top: 10px; }
+  .summary-metrics { display: flex; flex-direction: column; padding: 4px 22px 10px; }
+  .summary-metric { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: baseline; gap: 12px; padding: 10px 0; border: 0; }
+  .summary-metric + .summary-metric { border-top: 1px solid rgb(var(--border)); }
+  .summary-metric .metric-value { text-align: right; }
+  .metric-operating { padding-left: 0; }
+  .date-trigger-label { gap: 4px; }
+  .date-today-badge { padding-left: 5px; padding-right: 5px; }
+}
+
+.workspace-main input.note-input[aria-invalid="true"] { border-color: rgb(var(--loss)); }
+
+@media (max-width:359px) { .date-picker-trigger { padding-left: 4px; padding-right: 4px; } }

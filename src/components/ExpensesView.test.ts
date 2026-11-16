@@ -216,7 +216,7 @@ describe("ExpensesView frontend review fixes", () => {
       expect(html).toContain('id="expense-note-error"');
       expect(html).toContain('role="alert"');
       expect(html).toContain("必须填写备注说明");
-      expect(html).toContain("类别为&#x27;其他&#x27;时");
+      expect(html).toContain("类别为“其他”时");
       expect(html).toContain("bg-finance-loss-light");
       expect(html).toContain("border-finance-loss-border");
       expect(html).toContain("rounded-lg");
@@ -279,7 +279,7 @@ describe("ExpensesView frontend review fixes", () => {
       expect(html).not.toMatch(/class="[^"]*text-2xl[^"]*"[^>]*>-RM 194,313\.88/);
 
       // Merged expense item: RM 1,200,000.00 (12 chars) -> replaces text-base with text-xs (no coexistence)
-      expect(html).toMatch(/class="[^"]*text-xs font-bold text-ink-secondary tabular-nums whitespace-nowrap"[^>]*>RM 1,200,000\.00/);
+      expect(html).toMatch(/class="[^"]*text-xs font-bold text-ink-secondary tabular-nums"[^>]*>RM 1,200,000\.00/);
       expect(html).not.toMatch(/class="[^"]*text-base[^"]*"[^>]*>RM 1,200,000\.00/);
 
       // Delete modal snapshot: RM 1,200,000.00 (12 chars) -> replaces text-base with text-xs (no coexistence)
@@ -321,7 +321,7 @@ describe("ExpensesView frontend review fixes", () => {
       expect(html).not.toMatch(/class="[^"]*text-xl[^"]*"[^>]*>RM 0\.00/);
 
       // Merged expense item: RM 5,000.00 (11 chars) -> keeps text-base (no text-xs)
-      expect(html).toMatch(/class="[^"]*text-base font-bold text-ink-secondary tabular-nums whitespace-nowrap"[^>]*>RM 5,000\.00/);
+      expect(html).toMatch(/class="[^"]*text-base font-bold text-ink-secondary tabular-nums"[^>]*>RM 5,000\.00/);
       expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM 5,000\.00/);
     });
   });
