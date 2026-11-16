@@ -1,3 +1,4 @@
+import { chooseLanguage } from "./preferences.mjs";
 // Month Close on the cloud build: the Operator closes last month and cannot
 // reopen it; the Admin can. Run as mom (the flow opens katte itself).
 const kl = new Date(Date.now() + 8 * 3600e3);
@@ -6,7 +7,7 @@ const reopenButton = (page) => page.getByRole("button", { name: "Reopen Month (A
 
 export default async function flow({ page, shot, openAs }) {
   await page.goto(`/close?month=${month}`);
-  await page.getByRole("button", { name: "Switch to English" }).click();
+  await chooseLanguage(page, "en");
   // Seeded month: net profit RM305.00, all counted as cash.
   await page.getByPlaceholder("0.00").nth(0).fill("305");
   await page.getByPlaceholder("0.00").nth(1).fill("0");
@@ -25,7 +26,7 @@ export default async function flow({ page, shot, openAs }) {
 
   const admin = await openAs("katte");
   await admin.goto(`/close?month=${month}`);
-  await admin.getByRole("button", { name: "Switch to English" }).click();
+  await chooseLanguage(admin, "en");
   await reopenButton(admin).click();
   await admin.getByPlaceholder("Explain why this month must be reopened").fill("Fix a typo in a sheet");
   await shot("admin-reopen-reason", admin);

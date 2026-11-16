@@ -6,6 +6,33 @@ export type Language = "zh" | "en";
 
 export const DICTIONARY = {
   zh: {
+    navSettings: "设置",
+    homeLabel: "Bokli 首页",
+    mainNavigation: "主导航",
+    skipToContent: "跳至主要内容",
+    workspaceLabel: "账本",
+    currencyLabel: "马来西亚令吉",
+    sheetTitle: "每日账单",
+    sheetHint: "记录营业收入，核对当日开销。",
+    overviewHint: "查看营业收入、开销与利润。",
+    expensesHint: "管理租金、水电与每月固定支出。",
+    closeHint: "核对实际余额，确认后锁定本月账本。",
+    settingsHint: "选择适合你的显示方式与语言。",
+    preferencesLabel: "个人偏好",
+    appearanceTitle: "外观",
+    appearanceHint: "默认为明亮模式，也可切换为深色。",
+    lightMode: "明亮模式",
+    darkMode: "深色模式",
+    defaultLabel: "默认",
+    languageTitle: "语言",
+    languageHint: "更改账本的显示语言。",
+    accountTitle: "登录",
+    signOutHint: "退出后，需要重新登录才能访问账本。",
+    savedOnDevice: "外观与语言偏好会保存在此浏览器。",
+    savedStatus: "已保存",
+    draftStatus: "未保存的修改",
+    newSheetStatus: "尚未保存",
+
     brandSubtitle: "家庭摊位记账",
     roleOperator: "操作员",
     roleAdmin: "管理员",
@@ -153,13 +180,40 @@ export const DICTIONARY = {
     confirmSignOutBtn: "确认退出",
   },
   en: {
+    navSettings: "Settings",
+    homeLabel: "Bokli home",
+    mainNavigation: "Main navigation",
+    skipToContent: "Skip to content",
+    workspaceLabel: "Bookkeeping",
+    currencyLabel: "Malaysian Ringgit",
+    sheetTitle: "Daily Sheet",
+    sheetHint: "Record revenue and review the day's Daily Costs.",
+    overviewHint: "Review revenue, costs and profit for the month.",
+    expensesHint: "Manage rent, utilities and other Operating Expenses.",
+    closeHint: "Reconcile actual balances, then lock the month's records.",
+    settingsHint: "Choose your appearance and language preferences.",
+    preferencesLabel: "Preferences",
+    appearanceTitle: "Appearance",
+    appearanceHint: "Bright by default. Choose dark mode if you prefer.",
+    lightMode: "Bright mode",
+    darkMode: "Dark mode",
+    defaultLabel: "Default",
+    languageTitle: "Language",
+    languageHint: "Choose the language used throughout your bookkeeping.",
+    accountTitle: "Session",
+    signOutHint: "You will need to sign in again to access your records.",
+    savedOnDevice: "Appearance and language preferences are saved in this browser.",
+    savedStatus: "Saved",
+    draftStatus: "Unsaved changes",
+    newSheetStatus: "Not saved yet",
+
     brandSubtitle: "Food Stall Ops",
     roleOperator: "Operator",
     roleAdmin: "Admin",
     // Navigation
     navSheet: "Daily Sheet",
     navDashboard: "Overview",
-    navExpenses: "Expenses",
+    navExpenses: "Operating Expenses",
     navClose: "Month Close",
     // Date & Navigation
     prevDay: "Prev Day",
@@ -170,7 +224,7 @@ export const DICTIONARY = {
     // Revenue
     revenueTitle: "Revenue",
     cashRevenue: "Cash Revenue",
-    tngRevenue: "Touch 'n Go Revenue",
+    tngRevenue: "TnG Revenue",
     totalRevenue: "Total Revenue",
     // Daily Costs
     costsTitle: "Daily Costs",
@@ -328,6 +382,10 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       // localStorage unavailable (SSR/incognito)
     }
   }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = lang === "zh" ? "zh-Hans" : "en";
+  }, [lang]);
 
   const setLang = (nextLang: Language) => {
     setLangState(nextLang);

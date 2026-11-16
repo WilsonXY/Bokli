@@ -1,3 +1,4 @@
+import { chooseLanguage } from "./preferences.mjs";
 // Loading skeletons: each page's skeleton has the same boxes as the loaded page
 // (fake data), so nothing jumps when the data lands. Both languages; run with
 // and without --mobile. The Daily Sheet is checked on a date switch, the month
@@ -8,7 +9,7 @@ const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // The page's blocks and their children: x, y, width, height.
 const layout = (page) =>
-  page.locator("main div.space-y-4").first().evaluate((root) =>
+  page.locator("main .page-stack").first().evaluate((root) =>
     [...root.children].flatMap((block) => [block, ...block.children]).map((e) => {
       const r = e.getBoundingClientRect();
       return [r.x, r.y, r.width, r.height].map(Math.round);
@@ -17,10 +18,10 @@ const layout = (page) =>
 
 const kl = new Date(Date.now() + 8 * 3600e3);
 const lastMonth = new Date(Date.UTC(kl.getUTCFullYear(), kl.getUTCMonth() - 1, 1)).toISOString().slice(0, 7);
-const languages = [["en", "Switch to English"], ["zh", "切换到中文 (Switch to Chinese)"]];
+const languages = [["en", "en"], ["zh", "zh-Hans"]];
 // The static page starts in Chinese; the saved language applies once its
 // scripts run. Wait for it, or the skeleton is measured in the wrong language.
-const languageReady = (page, button) => page.locator(`header button[aria-label="${button}"].bg-white`).waitFor();
+const languageReady = (page, button) => page.locator(`html[lang="${button}"]`).waitFor();
 
 function compare(name, skeleton, loaded) {
   if (!loaded.length) throw new Error(`${name}: no boxes found, check the selector`);
@@ -69,7 +70,7 @@ export default async function flow({ page, shot }) {
   page.setDefaultTimeout(60000); // this machine can be slow; data loads took 7 s
   for (const [lang, button] of languages) {
     await page.goto("/");
-    await page.getByRole("button", { name: button }).click();
+    await chooseLanguage(page, lang);
     await page.locator("#cash-input").waitFor();
     await pause(800);
 
@@ -99,7 +100,7 @@ export default async function flow({ page, shot }) {
 
   // The header (block 0, title, picker) is the first three boxes.
   for (const [lang, button] of languages) {
-    await page.getByRole("button", { name: button }).click();
+    await chooseLanguage(page, lang);
     for (const [path, api] of monthPages) {
       const [skeleton, loaded] = await monthPage(page, `${path}?month=${lastMonth}`, api, button, `${lang}-closed-${api}`, shot);
       compare(`${lang} ${path} (closed month) header`, skeleton.slice(0, 3), loaded.slice(0, 3));

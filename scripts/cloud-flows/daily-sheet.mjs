@@ -1,3 +1,4 @@
+import { chooseLanguage } from "./preferences.mjs";
 // Daily Sheet on the cloud build: add, edit, delete; checked after a reload.
 const expectValue = async (input, value) => {
   for (let i = 0; i < 50 && (await input.inputValue()) !== value; i++) await new Promise((r) => setTimeout(r, 100));
@@ -11,7 +12,7 @@ async function save(page) {
 
 export default async function flow({ page, shot }) {
   await page.goto("/");
-  await page.getByRole("button", { name: "Switch to English" }).click();
+  await chooseLanguage(page, "en");
   await page.locator("#cash-input").fill("450.00");
   await page.locator("#tng-input").fill("120.50");
   await page.getByRole("button", { name: "Add Cost" }).click();

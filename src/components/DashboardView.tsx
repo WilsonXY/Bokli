@@ -174,7 +174,7 @@ export function DashboardView({
   const categoryPalette: Record<keyof SerializedCostByCategory, { bg: string; hex: string }> = {
     restock: { bg: "bg-blue-600", hex: "#2563eb" },
     gas: { bg: "bg-amber-500", hex: "#f59e0b" },
-    transport: { bg: "bg-purple-600", hex: "#9333ea" },
+    transport: { bg: "bg-orange-700", hex: "#c26032" },
     "wages-daily": { bg: "bg-rose-500", hex: "#f43f5e" },
     maintenance: { bg: "bg-teal-600", hex: "#0d9488" },
     other: { bg: "bg-slate-500", hex: "#64748b" },
@@ -259,12 +259,12 @@ export function DashboardView({
   const highlightedPoint = trendCoords.find((pt) => pt.date === activeDate);
 
   return (
-    <div className="space-y-4">
-      {/* Page Header & Month Selector */}
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-ink-primary tracking-tight">
+    <div className="dashboard-layout page-stack">
+      {/* Page heading and period selection */}
+      <div className="page-heading">
+        <div><h1 className="text-xl font-bold text-ink-primary tracking-tight">
           {t.overviewTitle}
-        </h1>
+        </h1><p className="page-description">{t.overviewHint}</p></div>
 
         <MonthSelectorDropdown
           currentMonth={activeMonth}
@@ -305,7 +305,7 @@ export function DashboardView({
         <>
           {/* Month Financial Health Summary (Clean Ledger Architecture, No Nested Cards) */}
           {activeTile && (
-            <section className="bg-white border border-surface-border rounded-xl shadow-xs overflow-hidden">
+            <section className="overview-summary bg-white border border-surface-border rounded-xl shadow-xs overflow-hidden">
               {/* Net Profit Spotlight */}
               <div className="px-5 py-4 sm:px-6 sm:py-5">
                 <div className="flex items-baseline justify-between gap-2">
@@ -320,7 +320,7 @@ export function DashboardView({
                       "text-2xl",
                       "text-3xl"
                     )} sm:text-4xl font-extrabold tracking-tight tabular-nums ${
-                      isProfitPositive ? "text-emerald-700" : "text-rose-600"
+                      isProfitPositive ? "text-finance-profit" : "text-finance-loss"
                     }`}
                   >
                     {headlineNet}
@@ -354,7 +354,7 @@ export function DashboardView({
                       stripDailyCost,
                       "text-xs",
                       "text-sm"
-                    )} sm:text-xl font-bold text-slate-700 tabular-nums`}
+                    )} sm:text-xl font-bold text-ink-secondary tabular-nums`}
                   >
                     {stripDailyCost}
                   </span>
@@ -369,7 +369,7 @@ export function DashboardView({
                       stripOperating,
                       "text-xs",
                       "text-sm"
-                    )} sm:text-xl font-bold text-slate-700 tabular-nums`}
+                    )} sm:text-xl font-bold text-ink-secondary tabular-nums`}
                   >
                     {stripOperating}
                   </span>
@@ -379,7 +379,7 @@ export function DashboardView({
           )}
 
           {/* Revenue Split: Cash vs Touch 'n Go */}
-          <section className="bg-white border border-surface-border rounded-xl p-4 shadow-xs space-y-3">
+          <section className="overview-split bg-white border border-surface-border rounded-xl p-4 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-ink-primary">
                 {t.revenueSplit}
@@ -447,7 +447,7 @@ export function DashboardView({
           </section>
 
           {/* Cost Distribution (Donut Chart & Ledger) */}
-          <section className="bg-white border border-surface-border rounded-xl p-4 shadow-xs space-y-4">
+          <section className="overview-costs bg-white border border-surface-border rounded-xl p-4 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold text-ink-primary">
                 {t.costDistribution}
@@ -468,15 +468,15 @@ export function DashboardView({
                         const { d, tx, ty } = getDonutSlice(100, 100, 94, 48, slice.start, slice.end);
                         return (
                           <g key={slice.cat}>
-                            <path d={d} fill={slice.hex} stroke="#ffffff" strokeWidth="2.5" />
+                            <path d={d} fill={slice.hex} stroke="rgb(var(--surface))" strokeWidth="2.5" />
                             {slice.pct >= 6 && (
                               <text
                                 x={tx}
                                 y={ty}
                                 textAnchor="middle"
                                 dominantBaseline="central"
-                                fill="#ffffff"
-                                fontWeight="700"
+                                fill="rgb(var(--surface))"
+                                fontWeight="500"
                                 fontSize="13"
                                 fontFamily="sans-serif"
                                 className="select-none tracking-tight"
@@ -530,7 +530,7 @@ export function DashboardView({
           </section>
 
           {/* Daily Trend (Line Chart + Ledger) */}
-          <section className="bg-white border border-surface-border rounded-xl p-4 shadow-xs space-y-3">
+          <section className="overview-trend bg-white border border-surface-border rounded-xl p-4 shadow-xs space-y-3">
             {/* Metric tabs: switch the chart and ledger between revenue and Daily Cost */}
             <div className="flex items-center bg-surface-subtle border border-surface-border rounded-lg p-1 text-sm font-semibold">
               {trendTabs.map((tab) => (
@@ -605,7 +605,7 @@ export function DashboardView({
                           y1={chartH - padBot}
                           x2={chartW - padX}
                           y2={chartH - padBot}
-                          stroke="#e2e8f0"
+                          stroke="rgb(var(--border))"
                           strokeWidth="1"
                         />
 
@@ -685,7 +685,7 @@ export function DashboardView({
                                 y1={showDate ? chartH - 14 : chartH - 12}
                                 x2={pt.x}
                                 y2={chartH - 10}
-                                stroke={isActive ? trendColors.line : showDate ? "#cbd5e1" : "#e2e8f0"}
+                                stroke={isActive ? trendColors.line : showDate ? "rgb(var(--border-strong))" : "rgb(var(--border))"}
                                 strokeWidth="1"
                               />
                               <circle
@@ -693,7 +693,7 @@ export function DashboardView({
                                 cy={pt.y}
                                 r={isActive ? "5.5" : "3.5"}
                                 fill={isActive ? trendColors.active : trendColors.line}
-                                stroke="#ffffff"
+                                stroke="rgb(var(--surface))"
                                 strokeWidth="1.5"
                                 className="point-circle drop-shadow-xs transition-[r,fill] duration-150"
                               />
@@ -704,8 +704,8 @@ export function DashboardView({
                                   y={chartH + 2}
                                   textAnchor="end"
                                   fontSize="8.5"
-                                  fontWeight={isActive ? "700" : "600"}
-                                  fill={isActive ? "#0f172a" : "#64748b"}
+                                  fontWeight="500"
+                                  fill={isActive ? "rgb(var(--ink))" : "rgb(var(--muted))"}
                                   className="select-none transition-colors"
                                 >
                                   {pt.shortDate}
@@ -730,8 +730,8 @@ export function DashboardView({
                                 width={tipW}
                                 height={tipH}
                                 rx="10"
-                                fill="#ffffff"
-                                stroke="#cbd5e1"
+                                fill="rgb(var(--surface))"
+                                stroke="rgb(var(--border-strong))"
                                 strokeWidth="1.2"
                                 filter="url(#shadowP1)"
                               />
@@ -740,8 +740,8 @@ export function DashboardView({
                                 y={tipY + 19}
                                 textAnchor="start"
                                 fontSize="12"
-                                fontWeight="600"
-                                fill="#64748b"
+                                fontWeight="500"
+                                fill="rgb(var(--muted))"
                                 className="select-none"
                               >
                                 {highlightedPoint.date}
@@ -751,8 +751,8 @@ export function DashboardView({
                                 y={tipY + 42}
                                 textAnchor="start"
                                 fontSize="17"
-                                fontWeight="800"
-                                fill="#0f172a"
+                                fontWeight="500"
+                                fill="rgb(var(--ink))"
                                 className="select-none tabular-nums"
                               >
                                 {formatMyr(BigInt(highlightedPoint.valueSen))}

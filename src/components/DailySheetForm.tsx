@@ -1034,7 +1034,8 @@ export function DailySheetForm({
   };
 
   return (
-    <div className="space-y-4">
+    <div className="daily-layout page-stack">
+      <div className="page-heading"><div><h1>{t.sheetTitle}</h1><p className="page-description">{t.sheetHint}</p></div><span className={`sheet-status ${isModified ? "sheet-status-draft" : ""}`}><span aria-hidden="true" />{isModified ? t.draftStatus : savedSheet ? t.savedStatus : t.newSheetStatus}</span></div>
       {/* Date Bar with Calendar Toggle Popover & Lock Notice */}
       <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
@@ -1060,7 +1061,7 @@ export function DailySheetForm({
               aria-expanded={isCalendarOpen}
               aria-haspopup="dialog"
               className="relative text-center group cursor-pointer px-2 py-1 rounded-lg hover:bg-surface-subtle transition-colors focus:outline-none max-w-full"
-              title="点击打开/关闭日历 (Click to toggle calendar)"
+              title={t.sheetDate}
             >
               <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
                 <span className="text-base font-bold text-ink-primary group-hover:text-brand-broccoli transition-colors">
@@ -1116,9 +1117,9 @@ export function DailySheetForm({
       </div>
 
       {/* Section 1: Revenue Entry */}
-      <section aria-label="Revenue Entry" className="space-y-2">
+      <section aria-label={t.revenueTitle} className="daily-revenue space-y-2">
         <div className="flex items-center justify-between px-0.5">
-          <h2 className="text-base font-bold text-ink-secondary uppercase tracking-wider">
+          <h2 className="text-base font-medium text-ink-primary">
             {t.revenueTitle}
           </h2>
           <span className="text-sm font-medium text-ink-muted">
@@ -1226,12 +1227,12 @@ export function DailySheetForm({
       </section>
 
       {/* Section 2: Itemized Daily Costs */}
-      <section aria-label="Daily Costs Entry" className="space-y-2.5">
+      <section aria-label={t.costsTitle} className="daily-costs space-y-2.5">
         <div className="pt-2 pb-0.5" aria-hidden="true">
           <hr className="border-t border-surface-border" />
         </div>
         <div className="flex items-center justify-between px-0.5">
-          <h2 className="text-base font-bold text-ink-secondary uppercase tracking-wider">
+          <h2 className="text-base font-medium text-ink-primary">
             {t.costsTitle}
           </h2>
           <span className="sr-only">{t.costCategory}</span>
@@ -1301,7 +1302,7 @@ export function DailySheetForm({
                               formatMyr(BigInt(line.amountSen)),
                               "text-xs",
                               "text-base"
-                            )} font-bold text-slate-700 tabular-nums whitespace-nowrap`}
+                            )} font-bold text-ink-secondary tabular-nums whitespace-nowrap`}
                           >
                             {formatMyr(BigInt(line.amountSen))}
                           </span>
@@ -1450,7 +1451,7 @@ export function DailySheetForm({
             type="button"
             disabled={saving}
             onClick={handleCreateNewCostLine}
-            className="relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-emerald-50/40 hover:bg-emerald-50/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden disabled:opacity-50"
+            className="relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-brand-broccoli-light/40 hover:bg-brand-broccoli-light/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden disabled:opacity-50"
           >
             <svg
               className="absolute inset-0 w-full h-full pointer-events-none rounded-xl"
@@ -1466,7 +1467,7 @@ export function DailySheetForm({
                 stroke="currentColor"
                 strokeWidth="2"
                 strokeDasharray="8 5"
-                className="text-emerald-400/90 group-hover:text-brand-broccoli transition-colors"
+                className="text-brand-broccoli/40 group-hover:text-brand-broccoli transition-colors"
               />
             </svg>
             <span className="text-lg leading-none relative z-10">+</span>
@@ -1479,7 +1480,7 @@ export function DailySheetForm({
       </section>
 
       {/* Sticky Bottom Action Bar & Notifications */}
-      <div className="sticky bottom-16 z-30 space-y-2">
+      <div className="sheet-save-bar sticky bottom-16 z-30 space-y-2">
             {errorMessage && (
               <div className="py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-md animate-slide-down">
                 <div className="flex items-center gap-2 min-w-0">

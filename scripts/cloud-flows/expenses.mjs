@@ -1,3 +1,4 @@
+import { chooseLanguage } from "./preferences.mjs";
 // Operating Expenses on the cloud build: a double click and a lost reply both
 // still add exactly one expense.
 const month = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 7); // KL month
@@ -19,7 +20,7 @@ const expectStored = async (page, want) => {
 
 export default async function flow({ page, shot }) {
   await page.goto(`/expenses?month=${month}`);
-  await page.getByRole("button", { name: "Switch to English" }).click();
+  await chooseLanguage(page, "en");
 
   // Double click on Save.
   await (await draft(page, "Utilities", "12.34")).dblclick();

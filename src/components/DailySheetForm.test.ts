@@ -130,13 +130,13 @@ describe("DailySheetForm parse error handling and tryParseSen helper", () => {
     );
 
     // P4: Date navigation button uses clean inline title
-    expect(html).toContain("点击打开/关闭日历 (Click to toggle calendar)");
+    expect(html).toContain("日期");
 
     // P5: Check that Save Sheet button uses bold compact button
     expect(html).toContain(t.saveSheet);
 
-    // P6: Sections have uppercase tracking headers
-    expect(html).toContain("tracking-wider");
+    // Section headings retain the visible domain labels.
+    expect(html).toContain(`<h2 class="text-base font-medium text-ink-primary">${t.revenueTitle}</h2>`);
   });
 
   it("renders compact action bar on mobile viewport and flush revenue inputs", () => {
@@ -906,7 +906,7 @@ describe("DailySheetForm component cost item accordion and close behavior", () =
       })
     );
 
-    const costSection = html.slice(html.indexOf('aria-label="Daily Costs Entry"'));
+    const costSection = html.slice(html.indexOf('aria-label="日常开销"'));
 
     // The card is closed: aria-expanded="false" and cost input is NOT rendered
     expect(costSection).toContain('aria-expanded="false"');
@@ -932,7 +932,7 @@ describe("DailySheetForm component cost item accordion and close behavior", () =
       })
     );
 
-    const costSection = html.slice(html.indexOf('aria-label="Daily Costs Entry"'));
+    const costSection = html.slice(html.indexOf('aria-label="日常开销"'));
 
     // Rendered expanded: aria-expanded="true" and cost amount input is rendered
     expect(costSection).toContain('aria-expanded="true"');
@@ -958,7 +958,7 @@ describe("DailySheetForm component cost item accordion and close behavior", () =
       })
     );
 
-    const costSection0 = htmlItem0.slice(htmlItem0.indexOf('aria-label="Daily Costs Entry"'));
+    const costSection0 = htmlItem0.slice(htmlItem0.indexOf('aria-label="日常开销"'));
     const trueCount0 = (costSection0.match(/aria-expanded="true"/g) || []).length;
     const falseCount0 = (costSection0.match(/aria-expanded="false"/g) || []).length;
     expect(trueCount0).toBe(1);
@@ -977,7 +977,7 @@ describe("DailySheetForm component cost item accordion and close behavior", () =
       })
     );
 
-    const costSection1 = htmlItem1.slice(htmlItem1.indexOf('aria-label="Daily Costs Entry"'));
+    const costSection1 = htmlItem1.slice(htmlItem1.indexOf('aria-label="日常开销"'));
     const trueCount1 = (costSection1.match(/aria-expanded="true"/g) || []).length;
     const falseCount1 = (costSection1.match(/aria-expanded="false"/g) || []).length;
     expect(trueCount1).toBe(1);
@@ -1003,7 +1003,7 @@ describe("DailySheetForm component cost item accordion and close behavior", () =
       })
     );
 
-    const costSection = html.slice(html.indexOf('aria-label="Daily Costs Entry"'));
+    const costSection = html.slice(html.indexOf('aria-label="日常开销"'));
     const trueCount = (costSection.match(/aria-expanded="true"/g) || []).length;
     const falseCount = (costSection.match(/aria-expanded="false"/g) || []).length;
     expect(trueCount).toBe(1);
@@ -1033,7 +1033,7 @@ describe("DailySheetForm long money amount dynamic sizing", () => {
 
     // Cost line summary amount: RM1200000.00 (12 chars) -> replaces text-base with text-xs (no coexistence)
     expect(html).toContain("RM1200000.00");
-    expect(html).toMatch(/class="[^"]*text-xs font-bold text-slate-700 tabular-nums whitespace-nowrap"[^>]*>RM1200000\.00/);
+    expect(html).toMatch(/class="[^"]*text-xs font-bold text-ink-secondary tabular-nums whitespace-nowrap"[^>]*>RM1200000\.00/);
     expect(html).not.toMatch(/class="[^"]*text-base[^"]*"[^>]*>RM1200000\.00/);
 
     // Sticky bottom bar gross profit: 100568612 - 120000000 = -19431388 -> -RM194313.88 (13 chars) -> text-base
@@ -1062,7 +1062,7 @@ describe("DailySheetForm long money amount dynamic sizing", () => {
     );
 
     // Cost line summary amount: RM500000.00 (11 chars) -> no text-xs
-    expect(html).toMatch(/class="[^"]*text-base font-bold text-slate-700 tabular-nums whitespace-nowrap"[^>]*>RM500000\.00/);
+    expect(html).toMatch(/class="[^"]*text-base font-bold text-ink-secondary tabular-nums whitespace-nowrap"[^>]*>RM500000\.00/);
     expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
 
     // Sticky bottom bar gross profit: RM0.00 (6 chars) -> text-xl
@@ -1374,7 +1374,7 @@ describe("Delete Daily Sheet button and sticky summary bar", () => {
         { id: 2, category: "gas", amountSen: 500 },
       ],
     });
-    const barIdx = html.indexOf('class="sticky bottom-16 z-30 space-y-2"');
+    const barIdx = html.indexOf('class="sheet-save-bar sticky bottom-16 z-30 space-y-2"');
     const btnIdx = html.indexOf(t.deleteSheetBtn);
     expect(barIdx).toBeGreaterThan(-1);
     expect(btnIdx).toBeGreaterThan(barIdx);
@@ -1385,7 +1385,7 @@ describe("Delete Daily Sheet button and sticky summary bar", () => {
   it("summary bar keeps its sticky positioning class (not fixed)", () => {
     for (const savedSheet of [null, SAVED]) {
       const html = render({ savedSheet });
-      expect(html).toContain('class="sticky bottom-16 z-30 space-y-2"');
+      expect(html).toContain('class="sheet-save-bar sticky bottom-16 z-30 space-y-2"');
     }
   });
 

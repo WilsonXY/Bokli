@@ -22,31 +22,33 @@ const heading = (className: string) => <div className={`invisible ${className}`}
 
 /** Empty Daily Sheet (no cost lines). */
 export function DailySheetSkeleton() {
+  const { t } = useI18n();
   return (
-    <div className="space-y-4" aria-busy="true">
+    <div className="daily-layout page-stack" aria-busy="true">
+      <div className="page-heading"><div><h1 className="invisible">{t.sheetTitle}</h1><p className="page-description invisible">{t.sheetHint}</p></div><span className="sheet-status invisible"><span />{t.newSheetStatus}</span></div>
       <div className={`${block} p-3`}>
         <div className="h-[51.5px]" />
       </div>
 
-      <div className="space-y-2">
+      <section aria-label={t.revenueTitle} className="daily-revenue space-y-2">
         {heading("h-6")}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {[0, 1].map((i) => (
             <div key={i} className={`${block} p-3`}>
-              <div className="h-[74px]" />
+              <div className="skeleton-revenue-body" />
             </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      <div className="space-y-2.5">
+      <section aria-label={t.costsTitle} className="daily-costs space-y-2.5">
         {divider}
         {heading("h-6")}
         <div className={`${block} h-[60px]`} />
         {divider}
-      </div>
+      </section>
 
-      <div className="sticky bottom-16 z-30">
+      <div className="sheet-save-bar sticky bottom-16 z-30">
         <div className={`${block} p-3`}>
           <div className="h-12" />
         </div>
@@ -56,14 +58,14 @@ export function DailySheetSkeleton() {
 }
 
 /** Page title and month picker, shared by the month pages. */
-function MonthHeader({ title }: { title: string }) {
+function MonthHeader({ title, hint }: { title: string; hint: string }) {
   const { t } = useI18n();
   return (
-    <div className="flex items-center justify-between gap-3">
-      <h1 className="text-xl font-bold text-ink-primary tracking-tight">{title}</h1>
+    <div className="page-heading">
+      <div><h1>{title}</h1><p className="page-description">{hint}</p></div>
       {/* Same content as MonthSelectorDropdown's button, so it is as wide. */}
       <div className="inline-block">
-        <div className={`${block} h-10 pl-3 pr-2.5 flex items-center gap-2`} aria-hidden="true">
+        <div className={`${block} h-11 pl-3 pr-2.5 flex items-center gap-2`} aria-hidden="true">
           <span className="font-bold text-sm tracking-tight">2026-10</span>
           <span className="grid text-xs font-semibold px-2 py-0.5 border shrink-0">
             {[t.openStatus, t.closedStatus, t.reopenedStatus].map((label) => (
@@ -105,23 +107,23 @@ function Row({ className = "", textClass = "" }: { className?: string; textClass
 export function DashboardSkeleton() {
   const { t } = useI18n();
   return (
-    <div className="space-y-4" aria-busy="true">
-      <MonthHeader title={t.overviewTitle} />
+    <div className="dashboard-layout page-stack" aria-busy="true">
+      <MonthHeader title={t.overviewTitle} hint={t.overviewHint} />
 
-      <section className={block}>
+      <section className={`${block} overview-summary`}>
         <div className="px-5 py-4 sm:px-6 sm:py-5">
           <div className="text-base font-bold">{t.netProfit}</div>
           <div className="mt-1 text-3xl sm:text-4xl font-extrabold">{amount}</div>
         </div>
-        <div className="border-t">
-          <div className="px-3.5 py-3 sm:px-5 sm:py-3.5">
-            <span className="block text-sm font-bold">{t.totalRevenue}</span>
+        <div className="grid grid-cols-3 border-t">
+          {[t.totalRevenue, t.costsTitle, t.operatingExpenses].map(label => <div key={label} className="px-3.5 py-3 sm:px-5 sm:py-3.5">
+            <span className="block text-sm font-bold">{label}</span>
             <span className="mt-1 block text-sm sm:text-xl font-bold">{amount}</span>
-          </div>
+          </div>)}
         </div>
       </section>
 
-      <section className={`${block} p-4 space-y-3`}>
+      <section className={`${block} overview-split p-4 space-y-3`}>
         <h2 className="text-base font-bold">{t.revenueSplit}</h2>
         <div className="space-y-3 pt-1">
           <div className="h-8" />
@@ -132,7 +134,7 @@ export function DashboardSkeleton() {
         </div>
       </section>
 
-      <section className={`${block} p-4 space-y-4`}>
+      <section className={`${block} overview-costs p-4 space-y-4`}>
         <h2 className="text-base font-bold">{t.costDistribution}</h2>
         <div className="flex flex-col md:flex-row items-center gap-5 pt-1">
           <div className="shrink-0 p-1">
@@ -145,14 +147,14 @@ export function DashboardSkeleton() {
         </div>
       </section>
 
-      <section className={`${block} p-4 space-y-3`}>
+      <section className={`${block} overview-trend p-4 space-y-3`}>
         <div className="h-[46px]" />
         <div className="pb-1">
           <h2 className="text-base font-bold">{t.dailyTrend}</h2>
         </div>
         <div className="space-y-4">
           <div className="w-full overflow-x-auto pb-2">
-            <div className="w-full min-w-[340px] aspect-[3/1]" />
+            <div className="w-full min-w-[340px] aspect-[3/1] max-h-[300px]" />
           </div>
           <div className="divide-y border-t">
             {[0, 1, 2].map((i) => (
@@ -169,8 +171,8 @@ export function DashboardSkeleton() {
 export function ExpensesSkeleton() {
   const { t } = useI18n();
   return (
-    <div className="space-y-4" aria-busy="true">
-      <MonthHeader title={t.expensesTitle} />
+    <div className="expenses-layout page-stack" aria-busy="true">
+      <MonthHeader title={t.expensesTitle} hint={t.expensesHint} />
 
       <section className={`${block} grid grid-cols-2`}>
         <Stat label={t.monthGrossProfit} className="p-3 border-b" amountClass="text-base sm:text-xl" />
@@ -204,8 +206,8 @@ export function MonthCloseSkeleton() {
     </div>
   );
   return (
-    <div className="space-y-4" aria-busy="true">
-      <MonthHeader title={t.closeTitle} />
+    <div className="close-layout page-stack" aria-busy="true">
+      <MonthHeader title={t.closeTitle} hint={t.closeHint} />
 
       <section className={`${block} grid grid-cols-3`}>
         <Stat label={t.totalRevenue} className="p-3 border-b" amountClass="text-base sm:text-xl" />

@@ -300,12 +300,12 @@ export function MonthCloseView({
   }
 
   return (
-    <div className="space-y-4">
-      {/* Month Selector Strip */}
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-ink-primary tracking-tight">
+    <div className="close-layout page-stack">
+      {/* Page heading and period selection */}
+      <div className="page-heading">
+        <div><h1 className="text-xl font-bold text-ink-primary tracking-tight">
           {t.closeTitle}
-        </h1>
+        </h1><p className="page-description">{t.closeHint}</p></div>
 
         {/* Month Dropdown */}
         <MonthSelectorDropdown
@@ -375,7 +375,7 @@ export function MonthCloseView({
                 <div className="text-sm font-medium text-ink-muted mb-0.5">
                   {t.costsTitle}
                 </div>
-                <div className="text-base sm:text-xl font-bold text-slate-700 tabular-nums">
+                <div className="text-base sm:text-xl font-bold text-ink-secondary tabular-nums">
                   {formatMyr(BigInt(financials.dailyCostSen))}
                 </div>
               </div>
@@ -384,7 +384,7 @@ export function MonthCloseView({
                 <div className="text-sm font-medium text-ink-muted mb-0.5">
                   {t.operatingExpenses}
                 </div>
-                <div className="text-base sm:text-xl font-bold text-slate-700 tabular-nums">
+                <div className="text-base sm:text-xl font-bold text-ink-secondary tabular-nums">
                   {formatMyr(BigInt(financials.operatingSen))}
                 </div>
               </div>
@@ -395,7 +395,7 @@ export function MonthCloseView({
                 </div>
                 <div
                   className={`text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums ${
-                    expectedNetSen >= 0n ? "text-emerald-700" : "text-rose-600"
+                    expectedNetSen >= 0n ? "text-finance-profit" : "text-finance-loss"
                   }`}
                 >
                   {formatMyr(expectedNetSen)}

@@ -618,12 +618,12 @@ export function ExpensesView({
   }, [expenses]);
 
   return (
-    <div className="space-y-4">
-      {/* Header & Month Selector */}
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-bold text-ink-primary tracking-tight">
+    <div className="expenses-layout page-stack">
+      {/* Page heading and period selection */}
+      <div className="page-heading">
+        <div><h1 className="text-xl font-bold text-ink-primary tracking-tight">
           {t.expensesTitle}
-        </h1>
+        </h1><p className="page-description">{t.expensesHint}</p></div>
 
         <MonthSelectorDropdown
           currentMonth={currentMonth}
@@ -739,7 +739,7 @@ export function ExpensesView({
                     formatMyr(totalExpenseSen),
                     "text-xs",
                     "text-base"
-                  )} sm:text-xl font-bold text-slate-700 tabular-nums`}
+                  )} sm:text-xl font-bold text-ink-secondary tabular-nums`}
                 >
                   {formatMyr(totalExpenseSen)}
                 </div>
@@ -756,8 +756,8 @@ export function ExpensesView({
                     "text-2xl"
                   )} sm:text-3xl font-extrabold tracking-tight tabular-nums ${
                     BigInt(summary.grossSen) - totalExpenseSen >= 0n
-                      ? "text-emerald-700"
-                      : "text-rose-600"
+                      ? "text-finance-profit"
+                      : "text-finance-loss"
                   }`}
                 >
                   {formatMyr(BigInt(summary.grossSen) - totalExpenseSen)}
@@ -767,7 +767,7 @@ export function ExpensesView({
           )}
 
           {/* Operating Expenses Section */}
-          <section aria-label="Operating Expenses" className="space-y-2.5">
+          <section aria-label={t.operatingExpenses} className="operating-expenses space-y-2.5">
             <div className="pt-2 pb-0.5" aria-hidden="true">
               <hr className="border-t border-surface-border" />
             </div>
@@ -775,7 +775,7 @@ export function ExpensesView({
               <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
                 {t.expensesTitle}
               </h2>
-              <span className="text-sm font-bold text-slate-700 tabular-nums">
+              <span className="text-sm font-bold text-ink-secondary tabular-nums">
                 {formatMyr(totalExpenseSen)}
               </span>
             </div>
@@ -811,7 +811,7 @@ export function ExpensesView({
                             formatMyr(BigInt(item.amountSen)),
                             "text-xs",
                             "text-base"
-                          )} font-bold text-slate-700 tabular-nums whitespace-nowrap`}
+                          )} font-bold text-ink-secondary tabular-nums whitespace-nowrap`}
                         >
                           {formatMyr(BigInt(item.amountSen))}
                         </span>
@@ -999,7 +999,7 @@ export function ExpensesView({
               <button
                 type="button"
                 onClick={() => setIsDraftOpen(true)}
-                className="relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-emerald-50/40 hover:bg-emerald-50/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden"
+                className="relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-brand-broccoli-light/40 hover:bg-brand-broccoli-light/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden"
               >
                 <svg
                   className="absolute inset-0 w-full h-full pointer-events-none rounded-xl"
@@ -1015,7 +1015,7 @@ export function ExpensesView({
                     stroke="currentColor"
                     strokeWidth="2"
                     strokeDasharray="8 5"
-                    className="text-emerald-400/90 group-hover:text-brand-broccoli transition-colors"
+                    className="text-brand-broccoli/40 group-hover:text-brand-broccoli transition-colors"
                   />
                 </svg>
                 <span className="text-lg leading-none relative z-10">+</span>
