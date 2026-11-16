@@ -517,3 +517,6 @@
 .workspace-main input.note-input[aria-invalid="true"] { border-color: rgb(var(--loss)); }
 
 @media (max-width:359px) { .date-picker-trigger { padding-left: 4px; padding-right: 4px; } }
+
+.expense-month-context>div { display: flex; flex-direction: column; gap: 6px; }
+.expense-month-context strong { margin-top: auto; }
