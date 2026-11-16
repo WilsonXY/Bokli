@@ -876,7 +876,7 @@ export function ExpensesView({
                     <Heading className="expense-record-summary">
                       <span className="expense-record-category">{getCategoryLabel(item.type)}{item.ids.length > 1 && <small> ×{item.ids.length}</small>}</span>
                       <span className={`expense-record-amount ${amountSizeClass(formatMyr(BigInt(item.amountSen)), "text-xs", "text-base")} font-bold text-ink-secondary tabular-nums`}>{formatMyr(BigInt(item.amountSen))}</span>
-                      {!isClosed && <span className="record-chevron" aria-hidden="true">⌄</span>}
+                      {!isClosed && <span className="record-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span>}
                       {item.note && <p className="expense-record-note">{item.note}</p>}
                     </Heading>
                     {!isClosed && <div className="expense-record-actions"><button type="button" onClick={() => setPendingDeleteExpense(item)} aria-label={t.delete} className="record-delete">

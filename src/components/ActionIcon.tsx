@@ -4,6 +4,8 @@ export const monthCloseIconPath = "M8 3h8v4H8zM7 5H5v16h14V5h-2M8 12l2 2 5-5M8 1
 
 const paths = {
   add: "M12 5v14M5 12h14",
+  chevronRight: "m9 5 7 7-7 7",
+  chevronDown: "m6 9 6 6 6-6",
   loading: "M21 12a9 9 0 1 1-6.2-8.55",
   collapse: "m6 15 6-6 6 6",
   check: "m5 12 4 4L19 6",
@@ -23,6 +25,6 @@ const paths = {
   lock: "M5 10h14v11H5zM8 10V6a4 4 0 0 1 8 0v4M12 14v3",
 } as const;
 
-export function ActionIcon({ name, size = 20 }: { name: keyof typeof paths; size?: number }) {
+export function ActionIcon({ name, size = 24 }: { name: keyof typeof paths; size?: number }) {
   return <svg aria-hidden="true" focusable="false" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d={paths[name]} /></svg>;
 }

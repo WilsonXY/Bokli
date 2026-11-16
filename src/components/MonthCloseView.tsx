@@ -374,7 +374,7 @@ export function MonthCloseView({
 
           {financials && <section className="close-expectation" aria-label="Month Financial Snapshot">
             <div className="close-expected-total"><span>{t.expectedNet}</span><strong className={expectedNetSen >= 0n ? "text-finance-profit" : "text-finance-loss"}>{formatMyr(expectedNetSen)}</strong></div>
-            <details className="close-calculation"><summary>{t.viewCalculation}<span className="calculation-chevron" aria-hidden="true">⌄</span></summary><dl>
+            <details className="close-calculation"><summary>{t.viewCalculation}<span className="calculation-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span></summary><dl>
               <div><dt>{t.totalRevenue}</dt><dd>{formatMyr(BigInt(financials.revenueSen))}</dd></div>
               <div><dt>{t.costsTitle}</dt><dd>− {formatMyr(BigInt(financials.dailyCostSen))}</dd></div>
               <div><dt>{t.operatingExpenses}</dt><dd>− {formatMyr(BigInt(financials.operatingSen))}</dd></div>
@@ -630,7 +630,7 @@ export function MonthCloseView({
                 disabled={submitting || !countsComplete}
                 className="w-full h-12 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center justify-center transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
               >
-                <span className={submitting ? "animate-spin" : undefined}><ActionIcon name={submitting ? "loading" : "lock"} /></span><span>{submitting ? t.closingMonth : countsComplete ? t.closeShort : t.fillBothBalancesShort}</span>
+                {(submitting || countsComplete) && <span className={submitting ? "animate-spin" : undefined}><ActionIcon name={submitting ? "loading" : "lock"} /></span>}<span>{submitting ? t.closingMonth : countsComplete ? t.closeShort : t.fillBothBalancesShort}</span>
               </button>
 
               {/* Contextual Error Message */}

@@ -597,7 +597,7 @@
 .expense-month-summary.is-editing .expense-month-total { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 20px; }
 .expense-month-summary.is-editing .expense-month-total>span { min-width: 0; }
 .expense-month-summary.is-editing .expense-month-total>strong { max-width: none; white-space: nowrap; }
-.expense-record-actions { padding-top: 12px; padding-bottom: 20px; justify-content: flex-end; }
+.expense-record-actions { padding-top: 8px; padding-bottom: 8px; justify-content: flex-end; }
 .expense-record-actions .record-delete { width: 48px; height: 48px; min-height: 48px; padding: 0; color: rgb(var(--loss)); border: 1px solid rgb(var(--loss-border)); border-radius: 10px; background: rgb(var(--surface)); scroll-margin-bottom: 104px; }
 .zero-revenue-warning { display: flex; align-items: center; gap: 12px; }
 .zero-warning-rule { margin-left: 12px; white-space: nowrap; }
@@ -651,10 +651,11 @@
 .loading-layout .profit-headline .metric-headline { color: transparent; }
 
 .language-options label:has(input:checked) { background: rgb(var(--surface)); border-color: rgb(var(--brand)); }
-.account-section { display: flex; justify-content: flex-end; }
+.account-section { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .signout-icon { width: 48px; min-width: 48px; padding: 0; }
 .empty-month p { display: none; }
-.empty-month .primary-button { width: 48px; min-width: 48px; padding: 0; }
+.empty-month .primary-button { width: 100%; min-height: 52px; padding: 0; color: rgb(var(--brand)); background: rgb(var(--surface)); border: 1px solid rgb(var(--border-strong)); box-shadow: none; }
+.empty-month .primary-button:hover { background: rgb(var(--brand-light)); }
 
 .date-trigger-label>span { min-width: 10ch; font-variant-numeric: tabular-nums; }
 @media (min-width:640px) { .skeleton-date-body>button { width: auto; } }
@@ -679,6 +680,11 @@
 
 .locked-money-value { display: block; width: 100%; text-align: right; color: rgb(var(--ink)); line-height: 1.4; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .cost-record-summary[aria-expanded="true"] .record-chevron { transform: rotate(180deg); }
-.daily-record-column-heading { padding: 10px 0 0; text-align: right; color: rgb(var(--secondary)); font-size: 14px; }
+.daily-record-column-heading { padding: 10px 20px 0 0; text-align: right; color: rgb(var(--secondary)); font-size: 14px; }
 
 .workspace-main[data-page="/close"] .page-description { display: none; }
+
+.trend-dates-sparse { position: relative; display: block; height: 22px; }
+.trend-dates-sparse>span { position: absolute; top: 0; white-space: nowrap; }
+.daily-record-arrow { display: inline-flex; vertical-align: middle; margin-left: 4px; }
+.date-today-badge { display: grid; place-items: center; width: 48px; height: 44px; padding: 0 5px; border: 1px solid rgb(var(--border)); border-radius: 8px; opacity: .3; }

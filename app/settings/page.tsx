@@ -31,7 +31,7 @@ export default function SettingsPage() {
           <label><input type="radio" name="language" checked={lang === "en"} onChange={() => setLang("en")} /><span lang="en">English</span></label>
         </fieldset>
       </section>
-      <section className="settings-section account-section"><button type="button" className="secondary-button text-finance-loss signout-icon" aria-label={t.signOut} title={t.signOut} onClick={() => dialog.current?.showModal()}><ActionIcon name="logout" /></button></section>
+      <section className="settings-section account-section"><h2>{t.accountTitle}</h2><button type="button" className="secondary-button text-finance-loss signout-icon" aria-label={t.signOut} title={t.signOut} onClick={() => dialog.current?.showModal()}><ActionIcon name="logout" /></button></section>
       <p className="preferences-footnote">{t.savedOnDevice}</p>
       <dialog ref={dialog} className="account-dialog" aria-labelledby="signout-title" onClick={e => { if (e.target === e.currentTarget) dialog.current?.close(); }}>
         <h2 id="signout-title">{t.confirmSignOutTitle}</h2><p>{hasDrafts ? t.signOutDraftHint : t.signOutHint}</p>

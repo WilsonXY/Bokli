@@ -1302,7 +1302,7 @@ export function DailySheetForm({
                           >
                             {formatMyr(BigInt(line.amountSen))}
                           </span>
-                          {!isClosed && <span className="record-chevron" aria-hidden="true">⌄</span>}
+                          {!isClosed && <span className="record-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span>}
                         </div>
                       </div>
 
@@ -1425,7 +1425,7 @@ export function DailySheetForm({
                               }
                               handleToggleCostLine(idx);
                               requestAnimationFrame(() => document.querySelector<HTMLButtonElement>(".add-cost-action")?.focus({ preventScroll: true }));
-                            }} aria-label={t.finishCost} title={t.finishCost}><ActionIcon name="collapse" size={24} /></button>
+                            }} aria-label={t.finishCost} title={t.finishCost}><ActionIcon name="check" size={24} /></button>
                           </div>
                         </div>
                       )}
