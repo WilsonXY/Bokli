@@ -560,7 +560,7 @@
 .daily-record-counter .ledger-chevron { margin-left: 4px; }
 .month-close-action { min-height: 64px; padding: 14px 18px; }
 .month-close-icon { width: 32px; height: 32px; background: transparent; border-radius: 0; }
-.sheet-actions>.sheet-revert-action { width: 48px; min-width: 48px; height: 48px; padding: 0; border: 1px solid rgb(var(--border-strong)); border-radius: 8px; background: rgb(var(--surface)); box-shadow: none; }
+.sheet-actions>.sheet-revert-action { width: 48px; min-width: 48px; height: 48px; align-self: center; padding: 0; border: 1px solid rgb(var(--border-strong)); border-radius: 8px; background: rgb(var(--surface)); box-shadow: none; }
 .sheet-save-action { justify-content: center; }
 .draft-dot { display: block; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .cost-delete-action { width: 44px; height: 44px; padding: 0; justify-content: center; border: 1px solid rgb(var(--border-strong)); border-radius: 8px; background: rgb(var(--surface)); }

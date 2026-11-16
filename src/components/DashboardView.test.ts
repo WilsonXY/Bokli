@@ -140,14 +140,14 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
       expect(html).not.toMatch(/class="[^"]*text-sm[^"]*"[^>]*>RM 1,005,686\.12/);
 
       // Daily cost (11 chars): keeps base text-sm sm:text-xl (never includes text-xs)
-      expect(html).toContain("RM 5,000.00");
-      expect(html).toMatch(/class="[^"]*text-sm sm:text-xl font-bold text-ink-secondary tabular-nums"[^>]*>RM 5,000\.00/);
-      expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM 5,000\.00/);
+      expect(html).toContain("− RM 5,000.00");
+      expect(html).toMatch(/class="[^"]*text-sm sm:text-xl font-bold text-ink-secondary tabular-nums"[^>]*>− RM 5,000\.00/);
+      expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>− RM 5,000\.00/);
 
       // Operating expenses (12 chars): conditional replacement text-xs sm:text-xl (never coexists with text-sm)
-      expect(html).toContain("RM 1,200,000.00");
-      expect(html).toMatch(/class="[^"]*text-xs sm:text-xl font-bold text-ink-secondary tabular-nums"[^>]*>RM 1,200,000\.00/);
-      expect(html).not.toMatch(/class="[^"]*text-sm[^"]*"[^>]*>RM 1,200,000\.00/);
+      expect(html).toContain("− RM 1,200,000.00");
+      expect(html).toMatch(/class="[^"]*text-xs sm:text-xl font-bold text-ink-secondary tabular-nums"[^>]*>− RM 1,200,000\.00/);
+      expect(html).not.toMatch(/class="[^"]*text-sm[^"]*"[^>]*>− RM 1,200,000\.00/);
     });
 
     it("shrinks headline net profit to text-2xl on mobile when longer than 11 characters and keeps text-3xl otherwise", () => {
