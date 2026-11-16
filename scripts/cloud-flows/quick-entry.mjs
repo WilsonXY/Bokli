@@ -38,7 +38,9 @@ export default async function quickEntry({ page, shot: rawShot }) {
   const selectedDate=await pastCalendar.locator('[aria-pressed="true"]').getAttribute("aria-label");
   assert.notEqual(currentDate,selectedDate);
   await shot("today-ring-while-reviewing");
-  await page.keyboard.press("Escape");
+  await pastCalendar.getByRole("button", { name: "关闭日期选择", exact: true }).click({ timeout: 3000 });
+  assert.equal(await pastCalendar.count(), 0, "The close control must dismiss without choosing a date");
+  assert.equal(new URL(page.url()).searchParams.get("date"), selectedDate);
   await page.getByRole("button",{name:"回到今天",exact:true}).click();
   await page.locator(".date-trigger-label").filter({hasText:today}).waitFor();
   await page.locator("#cash-input").waitFor();

@@ -124,7 +124,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
             <p className="sr-only">{t.netProfitFormula}</p>
           </div>
           {!noActivity && <div className="summary-metrics">{metrics.map(metric => {
-            const amount = formatMyr(BigInt(metric.value));
+            const amount = `${metric.kind === "revenue" ? "" : "− "}${formatMyr(BigInt(metric.value))}`;
             return <div className={`summary-metric metric-${metric.kind}`} key={metric.label}><span className="metric-label">{metric.label}</span><span data-long={amount.length > 12 || undefined} data-very-long={amount.length > 14 || undefined} className={`metric-value ${amountSizeClass(amount, "text-xs", "text-sm")} sm:text-xl font-bold ${metric.ink} tabular-nums`}>{amount}</span></div>;
           })}</div>}
         </section>
@@ -151,7 +151,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
                 return <g key={trend[index].date}><circle className="point-circle transition-[r,fill]" cx={point.x} cy={point.y} r="3.5" fill={chartColor} stroke="rgb(var(--surface))" vectorEffect="non-scaling-stroke" />{showLabel && <text x={point.x} y={point.y - 14} textAnchor={single ? "middle" : index === 0 ? "start" : index === points.length - 1 ? "end" : "middle"} className="trend-value-label" fill="rgb(var(--ink))" fontSize="14" fontWeight="500">{label}</text>}</g>;
               })}
             </svg></div>
-            {trend.length <= 3 ? <div className="trend-dates trend-dates-sparse">{trend.map((row, index) => <span key={row.date} style={{ left: `${trend.length === 1 ? 50 : index === 0 ? 0 : index === trend.length - 1 ? 100 : points[index].x / chartW * 100}%`, transform: trend.length === 1 || index > 0 && index < trend.length - 1 ? "translateX(-50%)" : index === trend.length - 1 ? "translateX(-100%)" : undefined }}>{index === 0 || trend.length === 2 ? row.date : row.date.slice(5)}</span>)}</div> : <div className="trend-dates"><span>{trend[0].date}</span><span>{trend[trend.length - 1].date}</span></div>}
+            {trend.length <= 3 ? <div className="trend-dates trend-dates-sparse">{trend.map((row, index) => <span key={row.date} style={{ left: `${trend.length === 1 ? 50 : index === 0 ? 0 : index === trend.length - 1 ? 100 : points[index].x / chartW * 100}%`, transform: trend.length === 1 || index > 0 && index < trend.length - 1 ? "translateX(-50%)" : index === trend.length - 1 ? "translateX(-100%)" : undefined }}>{row.date.slice(5)}</span>)}</div> : <div className="trend-dates"><span>{trend[0].date.slice(5)}</span><span>{trend[trend.length - 1].date.slice(5)}</span></div>}
 
           </>
         </section>}

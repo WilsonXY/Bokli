@@ -149,7 +149,7 @@ export function CalendarPopover({
       aria-label={t.calendarTitle}
     >
       {/* Month & Year Navigation Header */}
-      <div className="flex items-center justify-between mb-2.5 px-0.5">
+      <div className="calendar-header mb-2.5 px-0.5">
         <button
           type="button"
           onClick={prevMonth}
@@ -176,6 +176,7 @@ export function CalendarPopover({
             <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
           </svg>
         </button>
+        <button type="button" className="calendar-close" aria-label={t.closeCalendar} title={t.closeCalendar} onClick={onClose}><ActionIcon name="close" /></button>
       </div>
 
       {/* Weekday Headers */}

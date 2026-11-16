@@ -1132,7 +1132,7 @@ export function DailySheetForm({
             {t.revenueTitle}
           </h2>
           <span className="text-sm font-medium text-ink-muted">
-            {t.totalRevenue}{t.fieldColon} <span className="font-semibold text-ink-primary">{totalRevenueSen !== null ? formatMyr(totalRevenueSen) : "—"}</span>
+            <span className="sr-only">{t.totalRevenue}{t.fieldColon} </span><span className="font-semibold text-ink-primary">{totalRevenueSen !== null ? formatMyr(totalRevenueSen) : "—"}</span>
           </span>
         </div>
 
@@ -1168,7 +1168,7 @@ export function DailySheetForm({
                     if (successMessage) dismissSuccessMessage();
                   }
                 }}
-                placeholder={t.enterAmount}
+                placeholder="0.00"
                 className={`money-input revenue-input w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
                   cashError ? "border-finance-loss" : "border-surface-border"
                 } text-lg font-bold text-ink-primary focus:outline-none focus:bg-white ${
@@ -1216,7 +1216,7 @@ export function DailySheetForm({
                     if (successMessage) dismissSuccessMessage();
                   }
                 }}
-                placeholder={t.enterAmount}
+                placeholder="0.00"
                 className={`money-input revenue-input w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
                   tngError ? "border-finance-loss" : "border-surface-border"
                 } text-lg font-bold text-ink-primary focus:outline-none focus:bg-white ${
@@ -1243,7 +1243,7 @@ export function DailySheetForm({
           </h2>
           <span className="sr-only">{t.costCategory}</span>
           <span className="text-sm font-medium text-ink-muted">
-            {t.totalCosts}{t.fieldColon} <span className="font-semibold text-ink-primary">{formatMyr(totalCostSen)}</span>
+            <span className="sr-only">{t.totalCosts}{t.fieldColon} </span><span className="font-semibold text-ink-primary">{formatMyr(totalCostSen)}</span>
           </span>
         </div>
 
@@ -1344,7 +1344,7 @@ export function DailySheetForm({
                                     }
                                   }}
                                   onFocus={() => setExpandedIndex(idx)}
-                                  placeholder={t.enterAmount}
+                                  placeholder="0.00"
                                   className={`money-input w-full h-11 pl-10 pr-2.5 rounded-lg bg-surface-canvas border text-base font-semibold text-ink-primary tabular-nums focus:outline-none focus:bg-white focus-visible:ring-2 transition-colors ${
                                     idx === costAmountErrorIndex
                                       ? "border-finance-loss focus:border-finance-loss focus-visible:ring-finance-loss/50"
@@ -1378,7 +1378,6 @@ export function DailySheetForm({
                                   handleUpdateCostLine(idx, { note: e.target.value });
                                 }}
                                 onFocus={() => setExpandedIndex(idx)}
-                                placeholder={line.category === "other" ? t.noteRequired : undefined}
                                 className={`note-input w-full h-11 px-3 rounded-lg bg-surface-canvas border text-sm text-ink-primary focus:outline-none focus:bg-white focus-visible:ring-2 focus-visible:ring-brand-broccoli/50 transition-colors ${
                                   idx === noteErrorIndex
                                     ? "border-finance-loss focus:border-finance-loss"
@@ -1396,7 +1395,8 @@ export function DailySheetForm({
                               )}
                             </div>
                           </div>
-                          <div className="cost-editor-footer">                          {!isClosed && (
+                          <div className="cost-editor-footer">
+                          {!isClosed && (
                             <button
                               type="button"
                               onClick={(e) => {
@@ -1411,6 +1411,7 @@ export function DailySheetForm({
                               <ActionIcon name="trash" /><span className="sr-only">{t.deleteCostLine}</span>
                             </button>
                           )}
+                            {isModified && <span className="cost-draft-status">{t.draftStatus}</span>}
                             <button type="button" className="finish-cost-action" disabled={saving} onClick={() => {
                               const amount = tryParseSen(line.amountInput ?? senToDecimalStr(line.amountSen));
                               if (amount === null || amount <= 0n) {
@@ -1519,19 +1520,7 @@ export function DailySheetForm({
                       aria-label={t.undoChanges}
                       className="sheet-revert-action h-12 w-12 shrink-0 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary hover:text-ink-primary shadow-xs flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 active:scale-95 cursor-pointer disabled:opacity-50 animate-in fade-in zoom-in-95 duration-150"
                     >
-                      <svg
-                        className="w-5 h-5 text-ink-secondary"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"
-                        />
-                      </svg>
+                      <ActionIcon name="undo" />
                       <span className="sr-only">{t.undoChanges}</span>
                     </button>
                   )}
@@ -1827,7 +1816,7 @@ export function DailySheetForm({
                 }}
                 className="flex-1 h-11 rounded-xl bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer disabled:opacity-50"
               >
-                <ActionIcon name="check" />
+                <ActionIcon name="save" />
                 <span className="sr-only">{saving ? t.saving : t.confirmSaveBtn}</span>
               </button>
             </div>

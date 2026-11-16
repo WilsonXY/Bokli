@@ -772,7 +772,7 @@ export function ExpensesView({
                               if (inlineError) setInlineError(null);
                             }
                           }}
-                          placeholder={t.enterAmount}
+                          placeholder="0.00"
                           className={`money-input w-full h-11 pl-10 pr-2.5 rounded-lg bg-surface-canvas border ${
                             amountError ? "border-finance-loss" : "border-surface-border"
                           } text-base font-semibold text-ink-primary tabular-nums focus:outline-none focus:bg-white ${
@@ -811,7 +811,6 @@ export function ExpensesView({
                           if (noteError) setNoteError(false);
                           if (inlineError) setInlineError(null);
                         }}
-                        placeholder={newType === "other" ? t.noteRequired : undefined}
                         className={`note-input w-full h-11 px-3 rounded-lg bg-surface-canvas border ${
                           noteError ? "border-finance-loss" : "border-surface-border"
                         } text-sm text-ink-primary focus:outline-none focus:bg-white ${
@@ -854,7 +853,7 @@ export function ExpensesView({
                       disabled={adding}
                       className="flex-1 h-11 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                     >
-                      <span className={adding ? "animate-spin" : undefined}><ActionIcon name={adding ? "loading" : "check"} /></span><span className="sr-only">{adding ? t.saving : t.addExpense}</span>
+                      <span className={adding ? "animate-spin" : undefined}><ActionIcon name={adding ? "loading" : "save"} /></span><span className="sr-only">{adding ? t.saving : t.addExpense}</span>
                     </button>
                   </div>
                 </form>
@@ -880,7 +879,7 @@ export function ExpensesView({
                       {item.note && <p className="expense-record-note">{item.note}</p>}
                     </Heading>
                     {!isClosed && <div className="expense-record-actions"><button type="button" onClick={() => setPendingDeleteExpense(item)} aria-label={t.delete} className="record-delete">
-                      <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5" /></svg><span className="sr-only">{t.delete}</span>
+                      <ActionIcon name="trash" /><span className="sr-only">{t.delete}</span>
                     </button></div>}
                   </Record>;
                 })}
