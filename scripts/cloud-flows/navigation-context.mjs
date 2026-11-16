@@ -45,15 +45,25 @@ export default async function navigationContext({ page, shot }) {
   await page.locator(".month-picker-date").filter({ hasText: previousMonth }).waitFor();
   await shot("close-returns-to-same-overview-month", page, { fullPage: false });
 
+  // Seed the current month through the UI so returning to the default month
+  // really would show a different period from the explicitly chosen old month.
+  await tab("每日账单").click();
+  await page.locator("#cash-input").fill("1.00");
+  await page.getByRole("button", { name: "保存账单", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "确认保存", exact: true }).click();
+  await page.locator(".sheet-save-action").getByText("已保存", { exact: true }).waitFor();
+
   // A route reached through a page link must be remembered just like a tab visit.
   await page.goto("/dashboard");
+  await page.locator(".month-picker-date").filter({ hasText: today.slice(0, 7) }).waitFor();
   await page.getByRole("button", { name: "月份", exact: true }).click();
   await page.getByRole("option", { name: new RegExp(previousMonth) }).click();
   await page.locator(`.daily-record[href="/?date=${previousMonth}-03"]`).click();
   await page.locator("#cash-input").waitFor();
-  assert.equal(await tab("经营概览").getAttribute("href"), `/dashboard?month=${previousMonth}`, "A Daily Sheet body link must preserve the Overview month for the return tab");
   await tab("经营概览").click();
   await page.waitForTimeout(700);
+  await page.locator(".month-picker-date:visible").waitFor();
+  assert.equal(await page.locator(".month-picker-date:visible").innerText(), previousMonth, "Returning from a Daily Sheet body link must show the explicitly selected Overview month");
   assert.equal(new URL(page.url()).searchParams.get("month"), previousMonth);
   await shot("body-link-retains-overview-month", page, { fullPage: false });
 
