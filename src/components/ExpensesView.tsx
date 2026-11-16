@@ -783,7 +783,7 @@ export function ExpensesView({
           <section aria-label={t.operatingExpenses} className="operating-expenses space-y-2.5">
             <div className="section-heading flex items-center justify-between px-0.5">
               <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
-                {t.expensesTitle}
+                {t.savedExpensesTitle}
               </h2>
               <span className="text-sm font-bold text-ink-secondary tabular-nums">
                 {formatMyr(totalExpenseSen)}
@@ -794,53 +794,15 @@ export function ExpensesView({
             {mergedExpenses.length > 0 && (
               <div className="space-y-2">
                 {mergedExpenses.map((item) => (
-                  <div
-                    key={item.key}
-                    className="bg-white border border-surface-border rounded-xl shadow-xs transition-all overflow-hidden hover:border-slate-300"
-                  >
-                    <div className="w-full px-4 py-3 flex items-center justify-between gap-2 select-none bg-white">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded bg-surface-subtle border border-surface-border text-ink-secondary whitespace-nowrap">
-                          {getCategoryLabel(item.type)}
-                        </span>
-                        {item.ids.length > 1 && (
-                          <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-surface-subtle text-ink-muted border border-surface-border tabular-nums">
-                            ×{item.ids.length}
-                          </span>
-                        )}
-                        {item.note && (
-                          <span className="text-sm text-ink-primary font-medium truncate">
-                            {item.note}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2.5 shrink-0">
-                        <span
-                          className={`${amountSizeClass(
-                            formatMyr(BigInt(item.amountSen)),
-                            "text-xs",
-                            "text-base"
-                          )} font-bold text-ink-secondary tabular-nums whitespace-nowrap`}
-                        >
-                          {formatMyr(BigInt(item.amountSen))}
-                        </span>
-
-                        {!isClosed && (
-                          <button
-                            type="button"
-                            onClick={() => setPendingDeleteExpense(item)}
-                            aria-label={t.delete}
-                            title={t.delete}
-                            className="w-9 h-9 rounded-lg hover:bg-finance-loss-light text-ink-muted hover:text-finance-loss flex items-center justify-center text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        )}
-                      </div>
+                  <div key={item.key} className="expense-record">
+                    <div className="expense-record-heading">
+                      <span className="expense-record-category">{getCategoryLabel(item.type)}{item.ids.length > 1 && <small> ×{item.ids.length}</small>}</span>
+                      <span className={`${amountSizeClass(formatMyr(BigInt(item.amountSen)), "text-xs", "text-base")} font-bold text-ink-secondary tabular-nums whitespace-nowrap`}>{formatMyr(BigInt(item.amountSen))}</span>
                     </div>
+                    {item.note && <p className="expense-record-note">{item.note}</p>}
+                    {!isClosed && <div className="expense-record-actions"><button type="button" onClick={() => setPendingDeleteExpense(item)} aria-label={t.delete} title={t.delete} className="record-delete">
+                      <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5" /></svg><span>{t.delete}</span>
+                    </button></div>}
                   </div>
                 ))}
               </div>
@@ -1074,7 +1036,7 @@ export function ExpensesView({
                       {getCategoryLabel(pendingDeleteExpense.type)}
                     </span>
                     {pendingDeleteExpense.note && (
-                      <span className="text-xs text-ink-muted truncate">
+                      <span className="text-base text-ink-secondary whitespace-normal break-words">
                         {pendingDeleteExpense.note}
                       </span>
                     )}

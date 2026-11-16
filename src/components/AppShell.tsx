@@ -33,9 +33,9 @@ export function AppShell({ children }: AppShellProps) {
         </Link>
         <p className="sidebar-caption">{t.workspaceLabel}</p>
         <nav aria-label={t.mainNavigation} className="workspace-nav" onClickCapture={() => setDestinations(previous => ({ ...previous, [pathname]: window.location.pathname + window.location.search }))}>
-          {items.map(item => <Link key={item.href} href={destinations[item.href] ?? item.href} aria-current={pathname === item.href ? "page" : undefined} className="workspace-nav-link">
+          {items.map(item => <Link key={item.href} href={destinations[item.href] ?? item.href} aria-label={item.label} aria-current={pathname === item.href ? "page" : undefined} className="workspace-nav-link">
             <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round"><path d={item.path} /></svg>
-            <span>{item.label}</span>
+            <span><span className={item.href === "/expenses" ? "desktop-nav-label" : undefined}>{item.label}</span>{item.href === "/expenses" && <span className="mobile-nav-label">{t.navExpensesShort}</span>}</span>
             {pathname === item.href && <span className="nav-active-dot" aria-hidden="true" />}
           </Link>)}
         </nav>

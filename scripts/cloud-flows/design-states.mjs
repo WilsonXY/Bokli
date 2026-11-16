@@ -9,12 +9,12 @@ export default async function flow({ page, shot: rawShot }) {
   await page.getByText("本月暂无每日账单记录").waitFor();
   assert.equal(await page.locator(".overview-composition").count(), 0);
   await shot("empty-month");
-  await page.getByRole("link", { name: "记录今日账单", exact: true }).click();
+  await page.getByRole("link", { name: "记录每日账单", exact: true }).click();
   await page.locator("#cash-input").waitFor();
   // Both core actions must be visible and reachable without scrolling.
   for (const name of [/添加开销/, /保存账单/]) {
     const button = page.getByRole("button", { name });
-    assert.equal(await button.evaluate(el => { const r = el.getBoundingClientRect(); const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return r.bottom < innerHeight - 76 && (el === hit || el.contains(hit)); }), true, `${name} must be exposed in the initial phone view`);
+    assert.equal(await button.evaluate(el => { const r = el.getBoundingClientRect(); const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return r.bottom <= document.querySelector(".workspace-sidebar").getBoundingClientRect().top && (el === hit || el.contains(hit)); }), true, `${name} must be exposed in the initial phone view`);
   }
   await page.getByTitle("日期", { exact: true }).click();
   await page.waitForTimeout(250);

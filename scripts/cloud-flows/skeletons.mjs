@@ -93,8 +93,8 @@ export default async function flow({ page, shot }) {
 
   // Close last month (seeded net profit RM305.00, all counted as cash).
   await page.goto(`/close?month=${lastMonth}`);
-  await page.getByPlaceholder("0.00").nth(0).fill("305");
-  await page.getByPlaceholder("0.00").nth(1).fill("0");
+  await page.locator("#close-cash").fill("305");
+  await page.locator("#close-tng").fill("0");
   await page.locator("form button[type=submit]").click();
   await page.locator("form button[type=submit]").waitFor({ state: "detached" });
 

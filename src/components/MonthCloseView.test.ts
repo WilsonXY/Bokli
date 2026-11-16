@@ -370,3 +370,17 @@ describe("submitMonthClose (Month Close submit handler)", () => {
     expect(deps.setSubmitting.mock.calls).toEqual([[true], [false]]);
   });
 });
+
+describe("unfinished reconciliation presentation", () => {
+  it("waits for both explicit counts before showing a discrepancy", () => {
+    for (const cash of ["", "600"]) {
+      const html = ReactDOMServer.renderToStaticMarkup(React.createElement(MonthCloseView, {
+        currentMonth: "2026-05", availableMonths: ["2026-05"], financials: mockFinancials,
+        hasSheetsInMonth: true, initialCashOnHandInput: cash, initialTngOnHandInput: "",
+      }));
+      expect(html).toContain("待盘点");
+      expect(html).not.toContain(t.reconciliationMismatch);
+      expect(html).toMatch(/<button[^>]*type="submit"[^>]*disabled=""/);
+    }
+  });
+});

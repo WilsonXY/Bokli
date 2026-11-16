@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
@@ -34,8 +34,8 @@ const TREND_METRIC_COLORS: Record<
   TrendMetric,
   { line: string; active: string; halo: string }
 > = {
-  revenue: { line: "#2563eb", active: "#1d4ed8", halo: "#bfdbfe" },
-  cost: { line: "#d97706", active: "#b45309", halo: "#fde68a" },
+  revenue: { line: "var(--trend-revenue, #2563eb)", active: "#1d4ed8", halo: "#bfdbfe" },
+  cost: { line: "var(--trend-cost, #d97706)", active: "#b45309", halo: "#fde68a" },
 };
 
 export function trendValueSen(row: SerializedDailyTrendRow, metric: TrendMetric): number {
@@ -139,19 +139,19 @@ export function buildCostSlices<T extends { amountSen: number }>(
   });
 }
 
-/** Pick readable label ink against the chart colour, independently of theme. */
-export function chartLabelInk(hex: string): string {
-  const rgb = hex.slice(1).match(/../g)!.map(part => parseInt(part, 16) / 255);
-  const linear = rgb.map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4);
-  const luminance = linear[0] * 0.2126 + linear[1] * 0.7152 + linear[2] * 0.0722;
-  // White needs 4.5:1. The dark ink covers the brighter category colours.
-  return 1.05 / (luminance + 0.05) >= 4.5 ? "#ffffff" : "#000000";
-}
-
 export function DashboardView({ tiles, activeMonth, activeTile, trend, split, costByCategory, loadError }: DashboardViewProps) {
   const router = useRouter();
   const { t } = useI18n();
   const [trendMetric, setTrendMetric] = useState<TrendMetric>("revenue");
+  const [chartW, setChartW] = useState(600);
+  const chartRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = chartRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(([entry]) => setChartW(Math.max(1, Math.round(entry.contentRect.width))));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [trend.length]);
   const labels: Record<keyof SerializedCostByCategory, string> = {
     restock: t.catRestock, gas: t.catGas, transport: t.catTransport,
     "wages-daily": t.catWagesDaily, maintenance: t.catMaintenance, other: t.catOther,
@@ -175,7 +175,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
   const cashPct = split?.totalSen ? Math.round(split.cashSen / split.totalSen * 100) : 0;
   const tngPct = split?.totalSen ? 100 - cashPct : 0;
   const metricLabel = trendMetric === "revenue" ? t.sheetRevCol : t.sheetCostCol;
-  const chartW = 600, chartH = 180, padX = 14, padY = 18;
+  const chartH = 180, padX = 14, padY = 40;
   const maximum = Math.max(1000, ...trend.map(row => trendValueSen(row, trendMetric)));
   const points = trend.map((row, index) => ({
     x: trend.length === 1 ? chartW / 2 : padX + index / (trend.length - 1) * (chartW - padX * 2),
@@ -191,7 +191,8 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
         <MonthSelectorDropdown currentMonth={activeMonth} options={tiles.map(tile => ({ month: tile.month, status: tile.status }))} onSelect={month => router.push(`/dashboard?month=${month}`)} />
       </div>
       {loadError ? <div role="alert" className="page-error">{t.loadError}<p>{loadError}</p></div> : <>
-        <section className="overview-summary panel" aria-label={t.monthSummary}>
+        {!trend.length && <section className="empty-month panel"><h2>{t.noDailyEntries}</h2><p>{t.emptyMonthHint}</p><Link className="primary-button" href="/">{t.recordDailySheet}</Link></section>}
+        <section className={`overview-summary panel${trend.length ? "" : " is-empty"}`} aria-label={t.monthSummary}>
           <div className={`profit-headline${isProfitPositive ? "" : " is-loss"}`}>
             <h2>{t.netProfit}</h2>
             <span data-long={headline.length > 11 || undefined} className={`metric-headline ${amountSizeClass(headline, "text-2xl", "text-3xl")} sm:text-4xl font-extrabold tracking-tight tabular-nums ${isProfitPositive ? "text-finance-profit" : "text-finance-loss"}`}>{headline}</span>
@@ -202,22 +203,22 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
             return <div className="summary-metric" key={metric.label}><span className="metric-label">{metric.label}</span><span data-long={amount.length > 11 || undefined} className={`metric-value ${amountSizeClass(amount, "text-xs", "text-sm")} sm:text-xl font-bold ${metric.ink} tabular-nums`}>{amount}</span></div>;
           })}</div>
         </section>
-        <section className="overview-trend panel" aria-labelledby="trend-heading">
+        {trend.length > 0 && <section className="overview-trend panel" aria-labelledby="trend-heading">
           <div className="panel-heading"><h2 id="trend-heading">{trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}</h2><span className="record-count">{t.recordedDays}: {trend.length}</span></div>
           <div className="metric-tabs" aria-label={t.trendMetric}>{(["revenue", "cost"] as const).map(metric => <button key={metric} type="button" aria-pressed={trendMetric === metric} onClick={() => setTrendMetric(metric)}>{metric === "revenue" ? t.sheetRevCol : t.sheetCostCol}</button>)}</div>
-          {!trend.length ? <div className="empty-state"><p>{t.noDailyEntries}</p><Link className="secondary-button" href="/">{t.recordToday}</Link></div> : <>
+          <>
             <div className="trend-range"><span>MYR</span><span>0 – {formatMyr(BigInt(maximum))}</span></div>
-            <svg key={trendMetric} className="trend-plot animate-chart-swap" viewBox={`0 0 ${chartW} ${chartH}`} aria-hidden="true" focusable="false">
+            <div className="trend-frame" ref={chartRef}><svg key={trendMetric} className="trend-plot animate-chart-swap" viewBox={`0 0 ${chartW} ${chartH}`} aria-hidden="true" focusable="false">
               <defs><linearGradient id={`trendGradient-${trendMetric}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={chartColor} stopOpacity="0.18" /><stop offset="100%" stopColor={chartColor} stopOpacity="0.01" /></linearGradient></defs>
               {[padY, chartH / 2, chartH - padY].map(y => <line key={y} x1={padX} x2={chartW - padX} y1={y} y2={y} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />)}
               <path d={area} fill={`url(#trendGradient-${trendMetric})`} />
               <path d={line} fill="none" stroke={chartColor} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-              {points.map((point, index) => <circle key={trend[index].date} className="point-circle transition-[r,fill]" cx={point.x} cy={point.y} r="3.5" fill={chartColor} stroke="rgb(var(--surface))" vectorEffect="non-scaling-stroke" />)}
-            </svg>
+              {points.map((point, index) => <g key={trend[index].date}><circle className="point-circle transition-[r,fill]" cx={point.x} cy={point.y} r="3.5" fill={chartColor} stroke="rgb(var(--surface))" vectorEffect="non-scaling-stroke" />{(index === 0 || index === points.length - 1 || (points.length <= 3 && chartW >= 280)) && <text x={point.x} y={point.y - 14} textAnchor={index === 0 ? "start" : index === points.length - 1 ? "end" : "middle"} className="trend-value-label" fill="rgb(var(--ink))" fontSize="14" fontWeight="500">{formatMyr(BigInt(trendValueSen(trend[index], trendMetric)))}</text>}</g>)}
+            </svg></div>
             <div className="trend-dates"><span>{trend[0].date}</span><span>{trend[trend.length - 1].date}</span></div>
             <details className="daily-records"><summary>{t.viewDailySheets} <span>{trend.length}<span aria-hidden="true"> ↗</span></span></summary><p className="sr-only">{t.chartDataBelow}</p><div>{trend.map(row => <Link key={row.date} href={`/?date=${row.date}`} className="daily-record"><span>{row.date}</span><span><small>{metricLabel}</small>{formatMyr(BigInt(trendValueSen(row, trendMetric)))}<span aria-hidden="true"> ›</span></span></Link>)}</div></details>
-          </>}
-        </section>
+          </>
+        </section>}
         {(Boolean(split?.totalSen) || costs.length > 0) && <div className="overview-composition">
           <section className="overview-split panel" aria-labelledby="split-heading"><h2 id="split-heading">{t.revenueSplit}</h2>
             {!split?.totalSen ? <p className="empty-note">{t.noRevenueData}</p> : <>
@@ -229,7 +230,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
             {!costs.length ? <p className="empty-note">{t.noCostData}</p> : <div className="cost-composition">
               <svg viewBox="0 0 200 200" aria-hidden="true" focusable="false" className="cost-donut">{slices.map(slice => {
                 const shape = getDonutSlice(100, 100, 94, 48, slice.start, slice.end);
-                return <g key={slice.cat}><path d={shape.d} fill={slice.hex} stroke="rgb(var(--surface))" strokeWidth="2.5" />{slice.pct >= 8 && <text x={shape.tx} y={shape.ty} textAnchor="middle" dominantBaseline="central" fill={chartLabelInk(slice.hex)} fontWeight="500" fontSize="15">{slice.pct}%</text>}</g>;
+                return <path key={slice.cat} d={shape.d} fill={slice.hex} stroke="rgb(var(--surface))" strokeWidth="2.5" />;
               })}</svg>
               <dl className="category-totals">{costs.map(item => <div key={item.cat}><dt><i style={{ backgroundColor: item.hex }} />{item.label}<small>{item.pct}%</small></dt><dd>{formatMyr(BigInt(item.amountSen))}</dd></div>)}</dl>
             </div>}

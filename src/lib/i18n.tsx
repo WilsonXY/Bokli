@@ -6,6 +6,12 @@ export type Language = "zh" | "en";
 
 export const DICTIONARY = {
   zh: {
+    navExpensesShort: "支出",
+    awaitingCounts: "待盘点",
+    enterCountedAmount: "填写盘点金额",
+    countsHint: "填好两个实际余额后显示对账结果。零余额请填 0。",
+    emptyMonthHint: "先记一张账单，就能在这里查看收入和利润。",
+    savedExpensesTitle: "已保存记录",
     navSettings: "设置",
     calendarTitle: "选择日期",
     prevMonth: "上个月",
@@ -14,7 +20,7 @@ export const DICTIONARY = {
     trendMetric: "趋势数据",
     viewDailySheets: "查看每日账单",
     chartDataBelow: "每日金额与账单链接如下。",
-    recordToday: "记录今日账单",
+    recordDailySheet: "记录每日账单",
     homeLabel: "Bokli 首页",
     mainNavigation: "主导航",
     skipToContent: "跳至主要内容",
@@ -189,6 +195,12 @@ export const DICTIONARY = {
     confirmSignOutBtn: "确认退出",
   },
   en: {
+    navExpensesShort: "Expenses",
+    awaitingCounts: "Awaiting counts",
+    enterCountedAmount: "Enter counted amount",
+    countsHint: "Enter both actual balances to compare them. Enter 0 for a zero balance.",
+    emptyMonthHint: "Record a Daily Sheet to start seeing revenue and profit here.",
+    savedExpensesTitle: "Saved records",
     navSettings: "Settings",
     calendarTitle: "Choose date",
     prevMonth: "Previous month",
@@ -197,7 +209,7 @@ export const DICTIONARY = {
     trendMetric: "Trend metric",
     viewDailySheets: "View Daily Sheets",
     chartDataBelow: "Daily amounts and links to Daily Sheets follow.",
-    recordToday: "Record today's Daily Sheet",
+    recordDailySheet: "Record a Daily Sheet",
     homeLabel: "Bokli home",
     mainNavigation: "Main navigation",
     skipToContent: "Skip to content",
@@ -225,7 +237,7 @@ export const DICTIONARY = {
     draftStatus: "Unsaved changes",
     newSheetStatus: "Not saved yet",
 
-    brandSubtitle: "Food Stall Ops",
+    brandSubtitle: "Food stall bookkeeping",
     roleOperator: "Operator",
     roleAdmin: "Admin",
     // Navigation

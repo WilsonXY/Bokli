@@ -1,21 +1,62 @@
 import assert from "node:assert/strict";
-export default async function flow({ page, shot }) {
+
+export default async function flow({ page, shot: rawShot }) {
+  const shot = async name => { await page.waitForTimeout(1100); await rawShot(name, page, { fullPage: false }); };
+  const protectedFromUnload = () => page.evaluate(() => { const event = new Event("beforeunload", { cancelable: true }); window.dispatchEvent(event); return event.defaultPrevented; });
   await page.goto("/");
-  await page.locator("#cash-input").waitFor();
   await page.locator("#cash-input").fill("123.45");
   await page.locator("#tng-input").fill("22.50");
-  await page.getByRole("button", { name: /添加开销/ }).focus();
-  await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: /添加开销/ }).click();
   await page.locator('input[inputmode="decimal"]').nth(2).fill("8.25");
   await page.getByRole("navigation").getByRole("link", { name: "设置", exact: true }).click();
   await page.getByRole("radio", { name: /English/ }).check();
   await page.getByRole("navigation").getByRole("link", { name: "Daily Sheet", exact: true }).click();
-  await page.locator("#cash-input").waitFor();
-  assert.equal(await page.locator("#cash-input").inputValue(), "123.45", "Settings must not discard unsaved Cash Revenue");
+  assert.equal(await page.locator("#cash-input").inputValue(), "123.45");
   assert.equal(await page.locator("#tng-input").inputValue(), "22.50");
   assert.equal(await page.locator('input[inputmode="decimal"]').nth(2).inputValue(), "8.25");
   const persisted = await page.evaluate(async () => (await (await fetch("/api/cloud-v1/sheets")).json()).data);
   assert.equal(persisted, null, "Visiting Settings must not silently save a draft");
-  await page.waitForTimeout(1400); await shot("draft-survives-settings", page, { fullPage: false });
+  await shot("draft-survives-settings");
+  await page.locator(".daily-costs").scrollIntoViewIfNeeded();
+  await shot("cost-editing");
+  await page.locator(".sheet-save-bar").scrollIntoViewIfNeeded();
+  await shot("save-action-clear-of-inputs");
+  assert.equal(await protectedFromUnload(), true);
+  await page.getByRole("button", { name: "Undo changes", exact: true }).click();
+  await page.waitForTimeout(100);
+  assert.equal(await protectedFromUnload(), false);
 
+  await page.getByRole("navigation").getByRole("link", { name: "Operating Expenses", exact: true }).click();
+  await page.getByRole("button", { name: /Add Expense/ }).click();
+  await page.locator("#expense-amount").fill("11.23");
+  await page.locator("#expense-note").fill("Round trip check");
+  await page.getByRole("navigation").getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("radio", { name: "Dark mode", exact: true }).check();
+  await page.getByRole("navigation").getByRole("link", { name: "Operating Expenses", exact: true }).click();
+  assert.equal(await page.locator("#expense-amount").inputValue(), "11.23");
+  assert.equal(await page.locator("#expense-note").inputValue(), "Round trip check");
+  await page.locator("form").scrollIntoViewIfNeeded();
+  await shot("expense-draft-retained");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+
+  await page.getByRole("navigation").getByRole("link", { name: "Month Close", exact: true }).click();
+  await page.locator("#close-cash").fill("123.45");
+  await page.locator("#close-note").fill("Count in progress");
+  await page.getByRole("navigation").getByRole("link", { name: "Settings", exact: true }).click();
+  await page.getByRole("radio", { name: /简体中文/ }).check();
+  await page.getByRole("button", { name: "退出", exact: true }).click();
+  await page.getByText("还有未保存的修改。退出会丢弃这些修改。").waitFor();
+  await page.getByRole("dialog").getByRole("button", { name: "取消", exact: true }).click();
+  await page.getByRole("navigation").getByRole("link", { name: "结账", exact: true }).click();
+  assert.equal(await page.locator("#close-cash").inputValue(), "123.45");
+  assert.equal(await page.locator("#close-note").inputValue(), "Count in progress");
+  await page.locator("form").scrollIntoViewIfNeeded();
+  await shot("reconciliation-draft-retained");
+  await page.locator("#close-tng").fill("0");
+  await shot("reconciliation-comparison");
+  await page.locator("#close-cash").fill("");
+  await page.locator("#close-tng").fill("");
+  await page.locator("#close-note").fill("");
+  await page.waitForTimeout(100);
+  assert.equal(await protectedFromUnload(), false);
 }

@@ -9,8 +9,8 @@ export default async function flow({ page, shot, openAs }) {
   await page.goto(`/close?month=${month}`);
   await chooseLanguage(page, "en");
   // Seeded month: net profit RM305.00, all counted as cash.
-  await page.getByPlaceholder("0.00").nth(0).fill("305");
-  await page.getByPlaceholder("0.00").nth(1).fill("0");
+  await page.locator("#close-cash").fill("305");
+  await page.locator("#close-tng").fill("0");
   await shot("operator-before-close");
   await page.getByRole("button", { name: "Close Month" }).click();
   await page.getByText("Month closed and locked successfully").waitFor();

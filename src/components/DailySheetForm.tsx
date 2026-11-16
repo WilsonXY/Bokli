@@ -1075,12 +1075,13 @@ export function DailySheetForm({
               className="relative text-center group cursor-pointer px-2 py-1 rounded-lg hover:bg-surface-subtle transition-colors focus:outline-none max-w-full"
               title={t.sheetDate}
             >
-              <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
+              <div className="date-trigger-label flex items-center justify-center gap-1.5 whitespace-nowrap">
+                <svg aria-hidden="true" className="w-5 h-5 text-brand-broccoli shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M7 3v4m10-4v4M4 10h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z" /></svg>
                 <span className="text-base font-bold text-ink-primary group-hover:text-brand-broccoli transition-colors">
                   {date}
                 </span>
                 {isToday && (
-                  <span className="text-[13px] px-2 py-0.5 rounded bg-brand-broccoli-light font-semibold text-brand-broccoli">
+                  <span className="date-today-badge text-[13px] px-2 py-0.5 rounded bg-brand-broccoli-light font-semibold text-brand-broccoli">
                     {t.today}
                   </span>
                 )}
@@ -1262,7 +1263,7 @@ export function DailySheetForm({
               return (
                 <div
                   key={getCostLineKey(line, idx)}
-                  className={`bg-white border rounded-xl shadow-xs transition-all overflow-hidden ${
+                  className={`cost-entry-card bg-white border rounded-xl shadow-xs transition-all overflow-hidden ${
                         isExpanded
                           ? "border-brand-broccoli ring-2 ring-brand-broccoli/20"
                           : "border-surface-border hover:border-slate-300"
@@ -1283,11 +1284,11 @@ export function DailySheetForm({
                             if (!isClosed) handleToggleCostLine(idx);
                           }
                         }}
-                        className={`w-full px-4 py-3 flex items-center justify-between gap-2 select-none bg-white transition-colors ${
+                        className={`cost-record-summary w-full px-4 py-3 flex items-center justify-between gap-2 select-none bg-white transition-colors ${
                           isClosed ? "cursor-default" : "cursor-pointer hover:bg-surface-subtle/50"
                         }`}
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="cost-record-text flex flex-wrap items-center gap-2.5 min-w-0">
                           <div className="w-5 h-5 flex items-center justify-center text-slate-400 shrink-0">
                             <svg
                               className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
@@ -1303,7 +1304,7 @@ export function DailySheetForm({
                             {getCategoryLabel(line.category)}
                           </span>
                           {line.note && (
-                            <span className="text-sm text-ink-primary font-medium truncate">
+                            <span className="cost-record-note text-base text-ink-primary font-medium">
                               {line.note}
                             </span>
                           )}
@@ -1329,10 +1330,10 @@ export function DailySheetForm({
                               }}
                               aria-label={t.delete}
                               title={t.delete}
-                              className="w-9 h-9 rounded-lg hover:bg-finance-loss-light text-ink-muted hover:text-finance-loss flex items-center justify-center text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+                              className="record-delete"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5" />
                               </svg>
                             </button>
                           )}
