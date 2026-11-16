@@ -47,7 +47,7 @@ export default async function flow({ page, shot: rawShot }) {
       assert.equal(await page.locator("header input").count(), 0);
       await pause(1300); await shot(`en-${theme}-${name}`);
       if (name === "overview") {
-        await page.locator(".daily-records > summary").click();
+        if (!await page.locator(".daily-records").evaluate(el => el.open)) await page.locator(".daily-records > summary").click();
         await page.locator(".daily-record").first().waitFor();
         await pause(1000); await shot(`en-${theme}-daily-sheets`);
         await page.locator(".daily-records > summary").click();
@@ -91,7 +91,7 @@ export default async function flow({ page, shot: rawShot }) {
       if (path === "/") {
         const cash = await page.locator("#cash-input").boundingBox();
         const tng = await page.locator("#tng-input").boundingBox();
-        assert(cash && tng && Math.abs(cash.y - tng.y) <= 1, "Revenue inputs must align at narrow widths");
+        assert(cash && tng && Math.abs(cash.x - tng.x) <= 1, "Revenue rows must align at narrow widths");
         await shot(`sheet-${width}`);
       }
     }

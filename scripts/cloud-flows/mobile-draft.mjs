@@ -39,7 +39,8 @@ export default async function flow({ page, shot: rawShot }) {
   await shot("expense-draft-retained");
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
 
-  await page.getByRole("navigation").getByRole("link", { name: "Month Close", exact: true }).click();
+  await page.getByRole("navigation").getByRole("link", { name: "Overview", exact: true }).click();
+  await page.locator(".month-close-action").click();
   await page.locator("#close-cash").fill("123.45");
   await page.locator("#close-note").fill("Count in progress");
   await page.getByRole("navigation").getByRole("link", { name: "Settings", exact: true }).click();
@@ -47,7 +48,8 @@ export default async function flow({ page, shot: rawShot }) {
   await page.getByRole("button", { name: "退出", exact: true }).click();
   await page.getByText("还有未保存的修改。退出会丢弃这些修改。").waitFor();
   await page.getByRole("dialog").getByRole("button", { name: "取消", exact: true }).click();
-  await page.getByRole("navigation").getByRole("link", { name: "结账", exact: true }).click();
+  await page.getByRole("navigation").getByRole("link", { name: "概览", exact: true }).click();
+  await page.locator(".month-close-action").click();
   assert.equal(await page.locator("#close-cash").inputValue(), "123.45");
   assert.equal(await page.locator("#close-note").inputValue(), "Count in progress");
   await page.locator("form").scrollIntoViewIfNeeded();

@@ -725,98 +725,24 @@ export function ExpensesView({
             </div>
           )}
 
-          {/* Month Financial Snapshot Summary Strip (Unified Container matching MonthCloseView) */}
-          {summary && (
-            <section aria-label="Month Financial Snapshot" className="financial-snapshot bg-white border border-surface-border rounded-xl shadow-xs grid grid-cols-2 overflow-hidden">
-              <div className="financial-stat p-3 text-center sm:text-left border-b border-surface-border">
-                <div className="financial-stat-label text-sm font-medium text-ink-muted mb-0.5">
-                  {t.monthGrossProfit}
-                </div>
-                <div
-                  className={`financial-value ${amountSizeClass(
-                    formatMyr(BigInt(summary.grossSen)),
-                    "text-xs",
-                    "text-base"
-                  )} sm:text-xl font-bold text-ink-primary tabular-nums`}
-                >
-                  {formatMyr(BigInt(summary.grossSen))}
-                </div>
-              </div>
-
-              <div className="financial-stat p-3 text-center sm:text-left border-l border-b border-surface-border">
-                <div className="financial-stat-label text-sm font-medium text-ink-muted mb-0.5">
-                  {t.operatingExpenses}
-                </div>
-                <div
-                  className={`financial-value ${amountSizeClass(
-                    formatMyr(totalExpenseSen),
-                    "text-xs",
-                    "text-base"
-                  )} sm:text-xl font-bold text-ink-secondary tabular-nums`}
-                >
-                  {formatMyr(totalExpenseSen)}
-                </div>
-              </div>
-
-              <div className="financial-total col-span-2 p-3.5 sm:px-5 bg-surface-subtle/40 flex items-center justify-between">
-                <div className="text-base font-bold text-ink-secondary">
-                  {t.netProfit}
-                </div>
-                <div
-                  className={`financial-value ${amountSizeClass(
-                    formatMyr(BigInt(summary.grossSen) - totalExpenseSen),
-                    "text-xl",
-                    "text-2xl"
-                  )} sm:text-3xl font-extrabold tracking-tight tabular-nums ${
-                    BigInt(summary.grossSen) - totalExpenseSen >= 0n
-                      ? "text-finance-profit"
-                      : "text-finance-loss"
-                  }`}
-                >
-                  {formatMyr(BigInt(summary.grossSen) - totalExpenseSen)}
-                </div>
-              </div>
-            </section>
-          )}
+          {summary && <section className="expense-month-summary" aria-label={t.monthSummary}>
+            <div className="expense-month-total"><span>{t.operatingExpenses}</span><strong>{formatMyr(totalExpenseSen)}</strong></div>
+            <div className="expense-month-context"><div><span>{t.monthGrossProfit}</span><strong>{formatMyr(BigInt(summary.grossSen))}</strong></div><div><span>{t.netProfit}</span><strong className={BigInt(summary.grossSen) - totalExpenseSen >= 0n ? "text-finance-profit" : "text-finance-loss"}>{formatMyr(BigInt(summary.grossSen) - totalExpenseSen)}</strong></div></div>
+          </section>}
 
           {/* Operating Expenses Section */}
           <section aria-label={t.operatingExpenses} className="operating-expenses space-y-2.5">
-            <div className="section-heading flex items-center justify-between px-0.5">
-              <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
-                {t.savedExpensesTitle}
-              </h2>
-              <span className="text-sm font-bold text-ink-secondary tabular-nums">
-                {formatMyr(totalExpenseSen)}
-              </span>
-            </div>
-
-            {/* Dynamic Cost Cards */}
-            {mergedExpenses.length > 0 && (
-              <div className="space-y-2">
-                {mergedExpenses.map((item) => (
-                  <div key={item.key} className="expense-record">
-                    <div className="expense-record-heading">
-                      <span className="expense-record-category">{getCategoryLabel(item.type)}{item.ids.length > 1 && <small> ×{item.ids.length}</small>}</span>
-                      <span className={`${amountSizeClass(formatMyr(BigInt(item.amountSen)), "text-xs", "text-base")} font-bold text-ink-secondary tabular-nums whitespace-nowrap`}>{formatMyr(BigInt(item.amountSen))}</span>
-                    </div>
-                    {item.note && <p className="expense-record-note">{item.note}</p>}
-                    {!isClosed && <div className="expense-record-actions"><button type="button" onClick={() => setPendingDeleteExpense(item)} aria-label={t.delete} title={t.delete} className="record-delete">
-                      <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5" /></svg><span>{t.delete}</span>
-                    </button></div>}
-                  </div>
-                ))}
-              </div>
+            {/* Standalone Clickable "+ Add Cost" Button at bottom */}
+            {!isClosed && !isDraftOpen && (
+              <button
+                type="button"
+                onClick={() => setIsDraftOpen(true)}
+                className="add-expense-action relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-brand-broccoli-light/40 hover:bg-brand-broccoli-light/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden"
+              >
+                <span className="text-lg leading-none relative z-10">+</span>
+                <span className="relative z-10">{t.addExpense}</span>
+              </button>
             )}
-
-            {/* Empty state when no expenses recorded */}
-            {mergedExpenses.length === 0 && !isDraftOpen && (
-              <div className="bg-white border border-surface-border rounded-xl p-6 text-center shadow-xs">
-                <div className="text-sm text-ink-muted">
-                  {t.noExpensesRecorded}
-                </div>
-              </div>
-            )}
-
             {/* Active Draft Form Card (Daily-sheet style) */}
             {isDraftOpen && !isClosed && (
               <div className="bg-white border-2 border-brand-broccoli ring-2 ring-brand-broccoli/20 rounded-xl shadow-xs overflow-hidden transition-all">
@@ -968,34 +894,42 @@ export function ExpensesView({
               </div>
             )}
 
-            {/* Standalone Clickable "+ Add Cost" Button at bottom */}
-            {!isClosed && !isDraftOpen && (
-              <button
-                type="button"
-                onClick={() => setIsDraftOpen(true)}
-                className="relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-brand-broccoli-light/40 hover:bg-brand-broccoli-light/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden"
-              >
-                <svg
-                  className="absolute inset-0 w-full h-full pointer-events-none rounded-xl"
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <rect
-                    x="1"
-                    y="1"
-                    width="calc(100% - 2px)"
-                    height="calc(100% - 2px)"
-                    rx="11"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeDasharray="8 5"
-                    className="text-brand-broccoli/40 group-hover:text-brand-broccoli transition-colors"
-                  />
-                </svg>
-                <span className="text-lg leading-none relative z-10">+</span>
-                <span className="relative z-10">{t.addExpense}</span>
-              </button>
+            <div className="section-heading flex items-center justify-between px-0.5">
+              <h2 className="text-sm font-bold text-ink-secondary uppercase tracking-wider">
+                {t.savedExpensesTitle}
+              </h2>
+              <span className="text-sm font-bold text-ink-secondary tabular-nums">
+                {formatMyr(totalExpenseSen)}
+              </span>
+            </div>
+
+            {/* Dynamic Cost Cards */}
+            {mergedExpenses.length > 0 && (
+              <div className="space-y-2">
+                {mergedExpenses.map((item) => (
+                  <div key={item.key} className="expense-record">
+                    <div className="expense-record-heading">
+                      <span className="expense-record-category">{getCategoryLabel(item.type)}{item.ids.length > 1 && <small> ×{item.ids.length}</small>}</span>
+                      <span className={`${amountSizeClass(formatMyr(BigInt(item.amountSen)), "text-xs", "text-base")} font-bold text-ink-secondary tabular-nums whitespace-nowrap`}>{formatMyr(BigInt(item.amountSen))}</span>
+                    </div>
+                    {item.note && <p className="expense-record-note">{item.note}</p>}
+                    {!isClosed && <div className="expense-record-actions"><button type="button" onClick={() => setPendingDeleteExpense(item)} aria-label={t.delete} title={t.delete} className="record-delete">
+                      <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v5m4-5v5" /></svg><span>{t.delete}</span>
+                    </button></div>}
+                  </div>
+                ))}
+              </div>
             )}
+
+            {/* Empty state when no expenses recorded */}
+            {mergedExpenses.length === 0 && !isDraftOpen && (
+              <div className="bg-white border border-surface-border rounded-xl p-6 text-center shadow-xs">
+                <div className="text-sm text-ink-muted">
+                  {t.noExpensesRecorded}
+                </div>
+              </div>
+            )}
+
           </section>
 
           {/* Delete Item Confirmation Dialog */}

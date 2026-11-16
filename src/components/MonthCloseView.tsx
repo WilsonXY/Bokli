@@ -369,51 +369,14 @@ export function MonthCloseView({
             </div>
           )}
 
-          {/* Financial Snapshot Summary Strip (Single Unified Ledger Container) */}
-          {financials && (
-
-            <section aria-label="Month Financial Snapshot" className="financial-snapshot bg-white border border-surface-border rounded-xl shadow-xs grid grid-cols-3 overflow-hidden">
-              <div className="financial-stat p-3 text-center sm:text-left border-b border-surface-border">
-                <div className="financial-stat-label text-sm font-medium text-ink-muted mb-0.5">
-                  {t.totalRevenue}
-                </div>
-                <div className="financial-value text-base sm:text-xl font-bold text-ink-primary tabular-nums">
-                  {formatMyr(BigInt(financials.revenueSen))}
-                </div>
-              </div>
-
-              <div className="financial-stat p-3 text-center sm:text-left border-x border-b border-surface-border">
-                <div className="financial-stat-label text-sm font-medium text-ink-muted mb-0.5">
-                  {t.costsTitle}
-                </div>
-                <div className="financial-value text-base sm:text-xl font-bold text-ink-secondary tabular-nums">
-                  {formatMyr(BigInt(financials.dailyCostSen))}
-                </div>
-              </div>
-
-              <div className="financial-stat p-3 text-center sm:text-left border-b border-surface-border">
-                <div className="financial-stat-label text-sm font-medium text-ink-muted mb-0.5">
-                  {t.operatingExpenses}
-                </div>
-                <div className="financial-value text-base sm:text-xl font-bold text-ink-secondary tabular-nums">
-                  {formatMyr(BigInt(financials.operatingSen))}
-                </div>
-              </div>
-
-              <div className="financial-total col-span-3 p-3.5 sm:px-5 bg-surface-subtle/40 flex items-center justify-between">
-                <div className="text-base font-bold text-ink-secondary">
-                  {t.expectedNet}
-                </div>
-                <div
-                  className={`financial-value text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums ${
-                    expectedNetSen >= 0n ? "text-finance-profit" : "text-finance-loss"
-                  }`}
-                >
-                  {formatMyr(expectedNetSen)}
-                </div>
-              </div>
-            </section>
-          )}
+          {financials && <section className="close-expectation" aria-label="Month Financial Snapshot">
+            <div className="close-expected-total"><span>{t.expectedNet}</span><strong className={expectedNetSen >= 0n ? "text-finance-profit" : "text-finance-loss"}>{formatMyr(expectedNetSen)}</strong></div>
+            <details className="close-calculation"><summary>{t.viewCalculation}<span aria-hidden="true">＋</span></summary><dl>
+              <div><dt>{t.totalRevenue}</dt><dd>{formatMyr(BigInt(financials.revenueSen))}</dd></div>
+              <div><dt>{t.costsTitle}</dt><dd>− {formatMyr(BigInt(financials.dailyCostSen))}</dd></div>
+              <div><dt>{t.operatingExpenses}</dt><dd>− {formatMyr(BigInt(financials.operatingSen))}</dd></div>
+            </dl></details>
+          </section>}
 
           {/* Case 1: Month is CLOSED */}
           {isClosed && (
@@ -516,7 +479,7 @@ export function MonthCloseView({
 
           {/* Case 2: Month is OPEN (or REOPENED) — Entry Form */}
           {!isClosed && (
-            <form onSubmit={handlePerformClose} className="bg-white border border-surface-border rounded-xl p-4 shadow-xs space-y-3.5">
+            <form onSubmit={handlePerformClose} className="reconciliation-form bg-white border border-surface-border rounded-xl p-4 shadow-xs space-y-3.5">
               {isReopened && closeRecord?.reopenReason && (
                 <div className="p-2.5 rounded-lg bg-status-reopened-bg/40 border border-status-reopened/20 text-sm">
                   <span className="font-semibold text-status-reopened block mb-0.5">

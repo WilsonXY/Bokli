@@ -1142,8 +1142,8 @@ export function DailySheetForm({
 
         <div className="revenue-fields grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {/* Cash Revenue Card */}
-          <div className="revenue-field bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-cash transition-all">
-            <div className="flex items-center gap-1.5 mb-1.5">
+          <div className="revenue-field cash-revenue bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-cash transition-all">
+            <div className="revenue-field-label flex items-center gap-1.5 mb-1.5">
               <span className="w-2 h-2 rounded-full bg-channel-cash inline-block shrink-0" />
               <label
                 htmlFor="cash-input"
@@ -1153,7 +1153,7 @@ export function DailySheetForm({
               </label>
             </div>
 
-            <div className="relative flex items-center">
+            <div className="revenue-field-control relative flex items-center">
               <span className="absolute left-2.5 text-sm font-bold text-channel-cash select-none">
                 RM
               </span>
@@ -1192,8 +1192,8 @@ export function DailySheetForm({
           </div>
 
           {/* TnG Revenue Card */}
-          <div className="revenue-field bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-tng transition-all">
-            <div className="flex items-center gap-1.5 mb-1.5">
+          <div className="revenue-field tng-revenue bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-tng transition-all">
+            <div className="revenue-field-label flex items-center gap-1.5 mb-1.5">
               <span className="w-2 h-2 rounded-full bg-channel-tng inline-block shrink-0" />
               <label
                 htmlFor="tng-input"
@@ -1203,7 +1203,7 @@ export function DailySheetForm({
               </label>
             </div>
 
-            <div className="relative flex items-center">
+            <div className="revenue-field-control relative flex items-center">
               <span className="absolute left-2.5 text-sm font-bold text-channel-tng select-none">
                 RM
               </span>
@@ -1376,7 +1376,7 @@ export function DailySheetForm({
                               <label className="block text-xs font-semibold text-ink-secondary mb-1">
                                 {t.amount}
                               </label>
-                              <div className="relative flex items-center">
+                              <div className="revenue-field-control relative flex items-center">
                                 <span className="absolute left-3 text-sm font-bold text-ink-muted select-none">
                                   RM
                                 </span>
@@ -1465,32 +1465,15 @@ export function DailySheetForm({
             type="button"
             disabled={saving}
             onClick={handleCreateNewCostLine}
-            className="relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-brand-broccoli-light/40 hover:bg-brand-broccoli-light/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden disabled:opacity-50"
+            className="add-cost-action relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-brand-broccoli-light/40 hover:bg-brand-broccoli-light/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden disabled:opacity-50"
           >
-            <svg
-              className="absolute inset-0 w-full h-full pointer-events-none rounded-xl"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <rect
-                x="1"
-                y="1"
-                width="calc(100% - 2px)"
-                height="calc(100% - 2px)"
-                rx="11"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeDasharray="8 5"
-                className="text-brand-broccoli/40 group-hover:text-brand-broccoli transition-colors"
-              />
-            </svg>
             <span className="text-lg leading-none relative z-10">+</span>
             <span className="relative z-10">{t.addCostLine}</span>
           </button>
         )}
       </section>
 
-      {/* Sticky Bottom Action Bar & Notifications */}
+      {/* Daily result and save action follow the form without covering it. */}
       <div className="sheet-save-bar space-y-2">
             {errorMessage && (
               <div className="py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-md animate-slide-down">

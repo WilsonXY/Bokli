@@ -65,80 +65,6 @@ interface DashboardViewProps {
   loadError?: string | null;
 }
 
-export function getDonutSlice(
-  cx: number,
-  cy: number,
-  rOuter: number,
-  rInner: number,
-  rawStartPct: number,
-  rawEndPct: number
-) {
-  const startPct = Math.round(rawStartPct * 10000) / 10000;
-  const endPct = Math.round(rawEndPct * 10000) / 10000;
-  const sliceDelta = Math.round((endPct - startPct) * 10000) / 10000;
-  const largeArc = sliceDelta > 0.5 ? 1 : 0;
-
-  const startAngle = (startPct * 360 - 90) * (Math.PI / 180);
-  const endAngle = (endPct * 360 - 90) * (Math.PI / 180);
-
-  const x1Outer = (cx + rOuter * Math.cos(startAngle)).toFixed(4);
-  const y1Outer = (cy + rOuter * Math.sin(startAngle)).toFixed(4);
-  const x2Outer = (cx + rOuter * Math.cos(endAngle)).toFixed(4);
-  const y2Outer = (cy + rOuter * Math.sin(endAngle)).toFixed(4);
-
-  const x1Inner = (cx + rInner * Math.cos(endAngle)).toFixed(4);
-  const y1Inner = (cy + rInner * Math.sin(endAngle)).toFixed(4);
-  const x2Inner = (cx + rInner * Math.cos(startAngle)).toFixed(4);
-  const y2Inner = (cy + rInner * Math.sin(startAngle)).toFixed(4);
-
-  // A single-category month yields one slice spanning the whole circle. Its two
-  // arc endpoints coincide, and SVG drops an elliptical arc whose endpoints are
-  // identical — the donut would render empty. Emit a closed ring instead: two
-  // half arcs for the outer edge, two counter-wound half arcs to punch the hole.
-  const xMid = cx.toFixed(4);
-  const yTopOuter = (cy - rOuter).toFixed(4);
-  const yBotOuter = (cy + rOuter).toFixed(4);
-  const yTopInner = (cy - rInner).toFixed(4);
-  const yBotInner = (cy + rInner).toFixed(4);
-
-  const d =
-    sliceDelta >= 1
-      ? `M ${xMid} ${yTopOuter} A ${rOuter} ${rOuter} 0 1 1 ${xMid} ${yBotOuter} A ${rOuter} ${rOuter} 0 1 1 ${xMid} ${yTopOuter} Z M ${xMid} ${yTopInner} A ${rInner} ${rInner} 0 1 0 ${xMid} ${yBotInner} A ${rInner} ${rInner} 0 1 0 ${xMid} ${yTopInner} Z`
-      : `M ${x1Outer} ${y1Outer} A ${rOuter} ${rOuter} 0 ${largeArc} 1 ${x2Outer} ${y2Outer} L ${x1Inner} ${y1Inner} A ${rInner} ${rInner} 0 ${largeArc} 0 ${x2Inner} ${y2Inner} Z`;
-
-  // Mid-angle for embedding percentage label directly into donut slice
-  const midAngle = (((startPct + endPct) / 2) * 360 - 90) * (Math.PI / 180);
-  const rMid = (rOuter + rInner) / 2;
-  const tx = Number((cx + rMid * Math.cos(midAngle)).toFixed(4));
-  const ty = Number((cy + rMid * Math.sin(midAngle)).toFixed(4));
-
-  return { d, tx, ty };
-}
-
-/**
- * Turns cost entries into donut slice boundaries. Boundaries come from the exact
- * sen shares (integer amounts), never from the rounded display percentages — the
- * rounded ones leave visible gaps (three equal slices stop at 0.99). The last
- * slice is pinned to 1 so the ring always closes.
- */
-export function buildCostSlices<T extends { amountSen: number }>(
-  entries: T[]
-): Array<T & { start: number; end: number }> {
-  // Zero-amount entries would render as degenerate zero-width slices, so the
-  // helper filters them itself — callers shouldn't have to remember to.
-  const positive = entries.filter((e) => e.amountSen > 0);
-  const totalSen = positive.reduce((acc, entry) => acc + entry.amountSen, 0);
-  if (totalSen <= 0) return [];
-
-  let runningSen = 0;
-  return positive.map((entry, idx) => {
-    const start = runningSen / totalSen;
-    runningSen += entry.amountSen;
-    const end = idx === positive.length - 1 ? 1 : runningSen / totalSen;
-    return { ...entry, start, end };
-  });
-}
-
 export function DashboardView({ tiles, activeMonth, activeTile, trend, split, costByCategory, loadError }: DashboardViewProps) {
   const router = useRouter();
   const { t } = useI18n();
@@ -156,21 +82,16 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
     restock: t.catRestock, gas: t.catGas, transport: t.catTransport,
     "wages-daily": t.catWagesDaily, maintenance: t.catMaintenance, other: t.catOther,
   };
-  const palette: Record<keyof SerializedCostByCategory, string> = {
-    restock: "#2563eb", gas: "#f59e0b", transport: "#c26032",
-    "wages-daily": "#f43f5e", maintenance: "#0d9488", other: "#64748b",
-  };
   const totalCosts = costByCategory ? Object.values(costByCategory).reduce((sum, value) => sum + value, 0) : 0;
   const costs = (Object.keys(labels) as Array<keyof SerializedCostByCategory>)
-    .map(cat => ({ cat, label: labels[cat], amountSen: costByCategory?.[cat] ?? 0, hex: palette[cat], pct: totalCosts > 0 ? Math.round((costByCategory![cat] / totalCosts) * 100) : 0 }))
+    .map(cat => ({ cat, label: labels[cat], amountSen: costByCategory?.[cat] ?? 0, pct: totalCosts > 0 ? Math.round((costByCategory![cat] / totalCosts) * 100) : 0 }))
     .filter(item => item.amountSen > 0);
-  const slices = buildCostSlices(costs);
   const headline = activeTile ? formatMyr(BigInt(activeTile.netSen)) : formatMyr(0n);
   const isProfitPositive = !activeTile || BigInt(activeTile.netSen) >= 0n;
   const metrics = [
-    { label: t.totalRevenue, value: activeTile?.revenueSen ?? 0, ink: "text-ink-primary" },
-    { label: t.costsTitle, value: activeTile?.dailyCostSen ?? 0, ink: "text-ink-secondary" },
-    { label: t.operatingExpenses, value: activeTile?.operatingSen ?? 0, ink: "text-ink-secondary" },
+    { kind: "revenue", label: t.totalRevenue, value: activeTile?.revenueSen ?? 0, ink: "text-ink-primary" },
+    { kind: "daily-cost", label: t.costsTitle, value: activeTile?.dailyCostSen ?? 0, ink: "text-ink-secondary" },
+    { kind: "operating", label: t.operatingExpenses, value: activeTile?.operatingSen ?? 0, ink: "text-ink-secondary" },
   ];
   const cashPct = split?.totalSen ? Math.round(split.cashSen / split.totalSen * 100) : 0;
   const tngPct = split?.totalSen ? 100 - cashPct : 0;
@@ -185,7 +106,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
   const area = points.length ? `${line} L ${points[points.length - 1].x} ${chartH - padY} L ${points[0].x} ${chartH - padY} Z` : "";
   const chartColor = TREND_METRIC_COLORS[trendMetric].line;
   return (
-    <div className="dashboard-layout page-stack">
+    <div className={`dashboard-layout page-stack ${trend.length ? "has-records" : "no-records"}`}>
       <div className="page-heading">
         <div><h1>{t.overviewTitle}</h1><p className="page-description">{t.overviewHint}</p></div>
         <MonthSelectorDropdown currentMonth={activeMonth} options={tiles.map(tile => ({ month: tile.month, status: tile.status }))} onSelect={month => router.push(`/dashboard?month=${month}`)} />
@@ -200,9 +121,14 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
           </div>
           <div className="summary-metrics">{metrics.map(metric => {
             const amount = formatMyr(BigInt(metric.value));
-            return <div className="summary-metric" key={metric.label}><span className="metric-label">{metric.label}</span><span data-long={amount.length > 11 || undefined} className={`metric-value ${amountSizeClass(amount, "text-xs", "text-sm")} sm:text-xl font-bold ${metric.ink} tabular-nums`}>{amount}</span></div>;
+            return <div className={`summary-metric metric-${metric.kind}`} key={metric.label}><span className="metric-label">{metric.label}</span><span data-long={amount.length > 11 || undefined} className={`metric-value ${amountSizeClass(amount, "text-xs", "text-sm")} sm:text-xl font-bold ${metric.ink} tabular-nums`}>{amount}</span></div>;
           })}</div>
         </section>
+        <Link className="month-close-action" href={`/close?month=${activeMonth}`}>
+          <span className="month-close-icon" aria-hidden="true"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path strokeLinecap="round" strokeLinejoin="round" d="M8 3h8v4H8zM7 5H5v16h14V5h-2M8 12l2 2 5-5M8 18h8" /></svg></span>
+          <span><strong>{t.closeMonthAction}</strong><small>{t.closeMonthHint}</small></span><span className="action-arrow" aria-hidden="true">↗</span>
+        </Link>
+        {trend.length > 0 && <details className="daily-records daily-ledger" open={trend.length <= 7}><summary>{t.viewDailySheets} <span>{trend.length}<span aria-hidden="true"> ↗</span></span></summary><p className="sr-only">{t.chartDataBelow}</p><div>{trend.map(row => <Link key={row.date} href={`/?date=${row.date}`} className="daily-record"><span>{row.date}</span><span><small>{metricLabel}</small>{formatMyr(BigInt(trendValueSen(row, trendMetric)))}<span aria-hidden="true"> ›</span></span></Link>)}</div></details>}
         {trend.length > 0 && <section className="overview-trend panel" aria-labelledby="trend-heading">
           <div className="panel-heading"><h2 id="trend-heading">{trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}</h2><span className="record-count">{t.recordedDays}: {trend.length}</span></div>
           <div className="metric-tabs" aria-label={t.trendMetric}>{(["revenue", "cost"] as const).map(metric => <button key={metric} type="button" aria-pressed={trendMetric === metric} onClick={() => setTrendMetric(metric)}>{metric === "revenue" ? t.sheetRevCol : t.sheetCostCol}</button>)}</div>
@@ -216,24 +142,20 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
               {points.map((point, index) => <g key={trend[index].date}><circle className="point-circle transition-[r,fill]" cx={point.x} cy={point.y} r="3.5" fill={chartColor} stroke="rgb(var(--surface))" vectorEffect="non-scaling-stroke" />{(index === 0 || index === points.length - 1 || (points.length <= 3 && chartW >= 280)) && <text x={point.x} y={point.y - 14} textAnchor={index === 0 ? "start" : index === points.length - 1 ? "end" : "middle"} className="trend-value-label" fill="rgb(var(--ink))" fontSize="14" fontWeight="500">{formatMyr(BigInt(trendValueSen(trend[index], trendMetric)))}</text>}</g>)}
             </svg></div>
             <div className="trend-dates"><span>{trend[0].date}</span><span>{trend[trend.length - 1].date}</span></div>
-            <details className="daily-records"><summary>{t.viewDailySheets} <span>{trend.length}<span aria-hidden="true"> ↗</span></span></summary><p className="sr-only">{t.chartDataBelow}</p><div>{trend.map(row => <Link key={row.date} href={`/?date=${row.date}`} className="daily-record"><span>{row.date}</span><span><small>{metricLabel}</small>{formatMyr(BigInt(trendValueSen(row, trendMetric)))}<span aria-hidden="true"> ›</span></span></Link>)}</div></details>
+
           </>
         </section>}
         {(Boolean(split?.totalSen) || costs.length > 0) && <div className="overview-composition">
           <section className="overview-split panel" aria-labelledby="split-heading"><h2 id="split-heading">{t.revenueSplit}</h2>
             {!split?.totalSen ? <p className="empty-note">{t.noRevenueData}</p> : <>
-              <div className="split-bar" aria-hidden="true"><span className="split-cash" style={{ width: `${cashPct}%` }} /><span className="split-tng" style={{ width: `${tngPct}%` }} /></div>
-              <dl className="channel-totals"><div><dt><i className="split-cash" />{t.cashRevenue}<small>{cashPct}%</small></dt><dd>{formatMyr(BigInt(split.cashSen))}</dd></div><div><dt><i className="split-tng" />{t.tngRevenue}<small>{tngPct}%</small></dt><dd>{formatMyr(BigInt(split.tngSen))}</dd></div></dl>
+              <dl className="account-balances"><div className="cash-account"><dt><span aria-hidden="true">↙</span>{t.cashRevenue}</dt><dd>{formatMyr(BigInt(split.cashSen))}</dd><small>{cashPct}%</small></div><div className="tng-account"><dt><span aria-hidden="true">↙</span>{t.tngRevenue}</dt><dd>{formatMyr(BigInt(split.tngSen))}</dd><small>{tngPct}%</small></div></dl>
             </>}
           </section>
           <section className="overview-costs panel" aria-labelledby="cost-heading"><h2 id="cost-heading">{t.costDistribution}</h2>
-            {!costs.length ? <p className="empty-note">{t.noCostData}</p> : <div className="cost-composition">
-              <svg viewBox="0 0 200 200" aria-hidden="true" focusable="false" className="cost-donut">{slices.map(slice => {
-                const shape = getDonutSlice(100, 100, 94, 48, slice.start, slice.end);
-                return <path key={slice.cat} d={shape.d} fill={slice.hex} stroke="rgb(var(--surface))" strokeWidth="2.5" />;
-              })}</svg>
-              <dl className="category-totals">{costs.map(item => <div key={item.cat}><dt><i style={{ backgroundColor: item.hex }} />{item.label}<small>{item.pct}%</small></dt><dd>{formatMyr(BigInt(item.amountSen))}</dd></div>)}</dl>
-            </div>}
+            {!costs.length ? <p className="empty-note">{t.noCostData}</p> : <dl className="cost-bars">{costs.map(item => <div className="cost-bar-row" key={item.cat}>
+              <div><dt>{item.label}</dt><dd>{formatMyr(BigInt(item.amountSen))}</dd></div>
+              <div className="cost-bar-track" aria-hidden="true"><span style={{ width: `${item.pct}%` }} /></div><small>{item.pct}%</small>
+            </div>)}</dl>}
           </section>
         </div>}
       </>}

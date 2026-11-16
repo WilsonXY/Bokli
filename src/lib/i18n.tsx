@@ -62,6 +62,10 @@ export const DICTIONARY = {
     today: "今日",
     klTime: "吉隆坡时间",
     monthLocked: "该月份已结账锁定（仅供查看）",
+    viewCalculation: "查看账本计算",
+    monthActions: "本月账务",
+    closeMonthAction: "核对与结账",
+    closeMonthHint: "盘点余额，确认本月账本",
     // Revenue
     revenueTitle: "营业收入",
     cashRevenue: "现金收入",
@@ -254,6 +258,10 @@ export const DICTIONARY = {
     // Revenue
     revenueTitle: "Revenue",
     cashRevenue: "Cash Revenue",
+    viewCalculation: "View calculation",
+    monthActions: "This month",
+    closeMonthAction: "Reconcile & close",
+    closeMonthHint: "Count balances and confirm the month",
     tngRevenue: "TnG Revenue",
     totalRevenue: "Total Revenue",
     // Daily Costs

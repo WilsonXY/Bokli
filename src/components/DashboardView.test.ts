@@ -12,121 +12,12 @@ vi.mock("next/navigation", () => ({
 
 import {
   DashboardView,
-  buildCostSlices,
-  getDonutSlice,
   trendValueSen,
   type SerializedCostByCategory,
   type SerializedMonthTile,
 } from "./DashboardView";
 
 describe("DashboardView deterministic geometry & hydration stability", () => {
-  describe("getDonutSlice boundary and determinism", () => {
-    it("deterministically sets largeArc=0 for exact 50% slice and largeArc=1 for >50%", () => {
-      // 50% slice (0.0 to 0.5): largeArc should be 0 -> "A 94 94 0 0 1"
-      const slice50 = getDonutSlice(100, 100, 94, 48, 0, 0.5);
-      expect(slice50.d).toContain("A 94 94 0 0 1");
-      expect(slice50.d).not.toContain("A 94 94 0 1 1");
-
-      // 50.01% slice (0.0 to 0.5001): largeArc should be 1 -> "A 94 94 0 1 1"
-      const slice50Plus = getDonutSlice(100, 100, 94, 48, 0, 0.5001);
-      expect(slice50Plus.d).toContain("A 94 94 0 1 1");
-
-      // Near 50% floating point jitter around 0.5000000000000001 vs 0.5 is rounded cleanly
-      const sliceJitter = getDonutSlice(100, 100, 94, 48, 0.1, 0.1 + 0.5000000000000001);
-      expect(sliceJitter.d).toContain("A 94 94 0 0 1");
-    });
-
-    it("emits fixed 4-decimal coordinates in path string", () => {
-      const slice = getDonutSlice(100, 100, 94, 48, 0.123456, 0.456789);
-      // All coordinates in path have 4 decimal places
-      const coords = slice.d.match(/-?\d+\.\d+/g) || [];
-      expect(coords.length).toBeGreaterThan(0);
-      for (const c of coords) {
-        const decimals = c.split(".")[1];
-        expect(decimals.length).toBe(4);
-      }
-    });
-
-    it("repeated calls with identical parameters yield identical path strings", () => {
-      const run1 = getDonutSlice(100, 100, 94, 48, 0.25, 0.75);
-      const run2 = getDonutSlice(100, 100, 94, 48, 0.25, 0.75);
-      expect(run1.d).toBe(run2.d);
-      expect(run1.tx).toBe(run2.tx);
-      expect(run1.ty).toBe(run2.ty);
-    });
-
-    it("emits a closed ring instead of a degenerate arc for a full-circle slice", () => {
-      const full = getDonutSlice(100, 100, 94, 48, 0, 1);
-
-      // Two outer half arcs (sweep 1) and two counter-wound inner half arcs (sweep 0)
-      expect(full.d.match(/A 94 94 0 1 1/g)?.length).toBe(2);
-      expect(full.d.match(/A 48 48 0 1 0/g)?.length).toBe(2);
-      // Both subpaths are closed, and no arc has coincident endpoints
-      expect(full.d.match(/Z/g)?.length).toBe(2);
-      expect(full.d).toContain("M 100.0000 6.0000");
-      expect(full.d).toContain("100.0000 194.0000");
-    });
-  });
-
-  describe("buildCostSlices exact-share boundaries", () => {
-    const entry = (cat: string, amountSen: number, pct: number) => ({
-      cat,
-      amountSen,
-      pct,
-      hex: "#2563eb",
-    });
-
-    it("tiles three equal slices across 0 -> 1 with no gaps or overlaps", () => {
-      const slices = buildCostSlices([
-        entry("restock", 1000, 33),
-        entry("gas", 1000, 33),
-        entry("transport", 1000, 33),
-      ]);
-
-      expect(slices.length).toBe(3);
-      expect(slices[0].start).toBe(0);
-      expect(slices[2].end).toBe(1);
-      // Each slice starts exactly where the previous one ended
-      expect(slices[1].start).toBe(slices[0].end);
-      expect(slices[2].start).toBe(slices[1].end);
-      // Rounded display percentages are untouched by the geometry
-      expect(slices.map((s) => s.pct)).toEqual([33, 33, 33]);
-    });
-
-    it("gives a single slice the full circle", () => {
-      const slices = buildCostSlices([entry("restock", 4500, 100)]);
-
-      expect(slices.length).toBe(1);
-      expect(slices[0].start).toBe(0);
-      expect(slices[0].end).toBe(1);
-    });
-
-    it("splits a 1/3 - 2/3 pair at the exact sen share", () => {
-      const slices = buildCostSlices([
-        entry("restock", 1000, 33),
-        entry("gas", 2000, 67),
-      ]);
-
-      expect(slices[0].start).toBe(0);
-      expect(slices[0].end).toBeCloseTo(1 / 3, 12);
-      expect(slices[1].start).toBeCloseTo(1 / 3, 12);
-      expect(slices[1].end).toBe(1);
-    });
-
-    it("returns an empty array when the total is zero", () => {
-      expect(buildCostSlices([])).toEqual([]);
-      expect(buildCostSlices([entry("restock", 0, 0)])).toEqual([]);
-    });
-
-    it("preserves the entry fields alongside the boundaries", () => {
-      const [slice] = buildCostSlices([entry("gas", 500, 100)]);
-
-      expect(slice.cat).toBe("gas");
-      expect(slice.hex).toBe("#2563eb");
-      expect(slice.amountSen).toBe(500);
-    });
-  });
-
   describe("DashboardView component render reproducibility", () => {
     it("consecutive renders with 50/50 cost split produce identical SVG path 'd' attributes without hydration drift", () => {
       const mockTile: SerializedMonthTile = {
@@ -180,15 +71,11 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
       expect(paths1.length).toBeGreaterThan(0);
       expect(paths1).toEqual(paths2);
 
-      // Both 50% slices in donut have largeArc=0 ("A 94 94 0 0 1")
-      const donutSlicePaths = paths1.filter((d) => d.includes("A 94"));
-      expect(donutSlicePaths.length).toBe(2);
-      for (const d of donutSlicePaths) {
-        expect(d).toContain("A 94 94 0 0 1");
-      }
+      expect(render1).toContain('class="cost-bars"');
+      expect(render1.match(/width:50%/g)?.length).toBe(2);
     });
 
-    it("renders a full ring for a month whose costs are all one category", () => {
+    it("renders the complete amount and 100% bar for a single cost category", () => {
       const mockTile: SerializedMonthTile = {
         month: "2026-05",
         status: "open",
@@ -217,12 +104,9 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
         })
       );
 
-      const paths = Array.from(html.matchAll(/d="([^"]+)"/g), (m) => m[1]);
-      const donutSlicePaths = paths.filter((d) => d.includes("A 94"));
-
-      expect(donutSlicePaths.length).toBe(1);
-      expect(donutSlicePaths[0].match(/A 94 94 0 1 1/g)?.length).toBe(2);
-      expect(donutSlicePaths[0].match(/A 48 48 0 1 0/g)?.length).toBe(2);
+      expect(html).toContain('class="cost-bar-row"');
+      expect(html).toContain('width:100%');
+      expect(html).toContain('RM400.00');
       expect(html).toContain("100%");
     });
   });

@@ -268,17 +268,14 @@ describe("ExpensesView frontend review fixes", () => {
 
       // Summary gross: RM1005686.12 (12 chars) -> replaces text-base with text-xs (no coexistence)
       expect(html).toContain("RM1005686.12");
-      expect(html).toMatch(/class="[^"]*text-xs sm:text-xl font-bold text-ink-primary tabular-nums"[^>]*>RM1005686\.12/);
       expect(html).not.toMatch(/class="[^"]*text-base[^"]*"[^>]*>RM1005686\.12/);
 
       // Summary operating expenses: RM1200000.00 (12 chars) -> replaces text-base with text-xs (no coexistence)
       expect(html).toContain("RM1200000.00");
-      expect(html).toMatch(/class="[^"]*text-xs sm:text-xl font-bold text-ink-secondary tabular-nums"[^>]*>RM1200000\.00/);
       expect(html).not.toMatch(/class="[^"]*text-base[^"]*"[^>]*>RM1200000\.00/);
 
       // Summary net: -RM194313.88 (13 chars) -> text-xl instead of text-2xl
       expect(html).toContain("-RM194313.88");
-      expect(html).toMatch(/class="[^"]*text-xl sm:text-3xl font-extrabold tracking-tight tabular-nums text-finance-loss"[^>]*>-RM194313\.88/);
       expect(html).not.toMatch(/class="[^"]*text-2xl[^"]*"[^>]*>-RM194313\.88/);
 
       // Merged expense item: RM1200000.00 (12 chars) -> replaces text-base with text-xs (no coexistence)
@@ -315,15 +312,12 @@ describe("ExpensesView frontend review fixes", () => {
       );
 
       // Summary gross: RM500000.00 (11 chars) -> keeps text-base sm:text-xl (no text-xs)
-      expect(html).toMatch(/class="[^"]*text-base sm:text-xl font-bold text-ink-primary tabular-nums"[^>]*>RM500000\.00/);
       expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
 
       // Summary operating: RM500000.00 (11 chars) -> keeps text-base sm:text-xl (no text-xs)
-      expect(html).toMatch(/class="[^"]*text-base sm:text-xl font-bold text-ink-secondary tabular-nums"[^>]*>RM500000\.00/);
       expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
 
       // Summary net: RM0.00 (6 chars) -> text-2xl sm:text-3xl
-      expect(html).toMatch(/class="[^"]*text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums text-finance-profit"[^>]*>RM0\.00/);
       expect(html).not.toMatch(/class="[^"]*text-xl[^"]*"[^>]*>RM0\.00/);
 
       // Merged expense item: RM500000.00 (11 chars) -> keeps text-base (no text-xs)
