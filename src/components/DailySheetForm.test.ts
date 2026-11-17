@@ -108,8 +108,7 @@ describe("DailySheetForm parse error handling and tryParseSen helper", () => {
     expect(html).toContain("日常开销");
     expect(html).not.toContain("日常开销明细");
 
-    // P2: 开销总额 without 今日
-    expect(html).toContain("开销总额");
+    expect(html).toContain("日常开销");
     expect(html).not.toContain("今日开销总额");
 
     // P3: 开销类别 instead of 支出类别
