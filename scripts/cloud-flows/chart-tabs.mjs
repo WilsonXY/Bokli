@@ -26,7 +26,7 @@ export default async function chartTabs({page,shot}) {
   assert.equal(await costs.getAttribute('aria-selected'),'true');
   await page.getByRole('tabpanel').getByRole('heading',{name:'每日开销趋势',exact:true}).waitFor();
   const swatch=await page.locator('.trend-reference-key').evaluate(el=>['::before','::after'].map(pseudo=>{const style=getComputedStyle(el,pseudo);return {width:parseFloat(style.width),height:parseFloat(style.height),border:style.borderStyle};}));
-  assert(swatch.every(column=>column.height>column.width&&column.border==='dashed')&&swatch[0].height!==swatch[1].height,'The Revenue legend must depict outlined columns rather than an unchecked checkbox or a line series');
+  assert(swatch.every(column=>column.height>column.width&&column.border==='solid')&&swatch[0].height!==swatch[1].height,'The Revenue legend must depict outlined columns rather than an unchecked checkbox or a line series');
   assert.equal(await page.locator('.trend-legends .trend-legend').count(),2,'Both solid Costs and outlined Revenue need an explicit legend');
   await page.locator('.overview-trend').scrollIntoViewIfNeeded();
   await shot('cost-tab',page,{fullPage:false});

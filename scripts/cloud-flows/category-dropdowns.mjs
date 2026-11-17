@@ -29,6 +29,10 @@ async function openPicker(page, selector, shot, name) {
     assert(option.left>=0&&option.right<=layout.width,'The open menu must stay inside the viewport');
   }
   const first=layout.options[0],last=layout.options.at(-1);
+  if(layout.width<=767) {
+    assert(first.top>=layout.trigger.bottom,'Phone menus must open below the field after making room');
+    if(selector.startsWith('#cost-category')) assert(await select.evaluate(el=>el.closest('.cost-entry-card').querySelector('.cost-record-header').getBoundingClientRect().top>=0),'The active Cost Line header must remain visible while choosing its category');
+  }
   const menuHeight=layout.options.reduce((sum,option)=>sum+option.height,0)+24;
   if(layout.height-layout.trigger.bottom>=menuHeight) assert(first.top>=layout.trigger.bottom,'Open below the field when the full menu fits there');
   assert(first.top>=0&&last.bottom<=layout.height,'The options must remain visible above or below the field');
@@ -110,4 +114,22 @@ export default async function categoryDropdowns({page,shot}) {
   await openExpenseForm(page);
   await openPicker(page,'#expense-category',shot,'expense-menu-english-phone');
   await page.keyboard.press('Escape');
+  const category=page.locator('#expense-category');
+  await category.focus();
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(()=>document.querySelector('#expense-category')?.matches(':open'));
+  await page.keyboard.press('Escape');
+  if(await page.evaluate(()=>navigator.maxTouchPoints>0)) {
+    await category.tap();
+    await page.waitForFunction(()=>document.querySelector('#expense-category')?.matches(':open'));
+    await shot('touch-menu-open',page,{fullPage:false});
+    await category.locator('option[value="other"]').tap();
+    assert.equal(await category.inputValue(),'other');
+    assert(!await category.evaluate(el=>el.matches(':open')),'Touch selection must close the menu without reopening it');
+  }
+  await category.evaluate(el=>Object.defineProperty(el,'showPicker',{value:undefined,configurable:true}));
+  await category.click();
+  await page.waitForFunction(()=>document.querySelector('#expense-category')?.matches(':open'));
+  await page.keyboard.press('Escape');
+  await category.evaluate(el=>delete el.showPicker);
 }

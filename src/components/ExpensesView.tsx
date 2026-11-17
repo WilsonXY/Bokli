@@ -1,6 +1,7 @@
 "use client";
 
 import { ActionIcon } from "./ActionIcon";
+import { phoneCategoryPickerEvents } from "./category-picker";
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { amountSizeClass, formatMyr, parseSen, sanitizeMoneyInput } from "@/lib/money";
@@ -742,7 +743,7 @@ export function ExpensesView({
                   <div className="cost-category-row">
                     <label htmlFor="expense-category" className="field-label block font-medium text-ink-secondary mb-2">{t.categoryShort}</label>
                     <div className="category-control">
-                    <select id="expense-category" className="category-select" disabled={adding} value={newType} onChange={e => {
+                    <select {...phoneCategoryPickerEvents} id="expense-category" className="category-select" disabled={adding} value={newType} onChange={e => {
                       setNewType(e.target.value as OperatingExpenseItem["type"]);
                       if (e.target.value !== "other") setNoteError(false);
                       setInlineError(null);

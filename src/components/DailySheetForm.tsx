@@ -1,6 +1,7 @@
 "use client";
 
 import { ActionIcon } from "./ActionIcon";
+import { phoneCategoryPickerEvents } from "./category-picker";
 import { ChannelIcon } from "./ChannelIcon";
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -1369,7 +1370,7 @@ export function DailySheetForm({
                           <div className="cost-category-row">
                             <label htmlFor={`cost-category-${idx}`}>{t.categoryShort}</label>
                             <div className="category-control">
-                            <select id={`cost-category-${idx}`} className="category-select" value={line.category} disabled={saving} onChange={e => handleUpdateCostLine(idx, { category: e.target.value as CostCategory })}>
+                            <select {...phoneCategoryPickerEvents} id={`cost-category-${idx}`} className="category-select" value={line.category} disabled={saving} onChange={e => handleUpdateCostLine(idx, { category: e.target.value as CostCategory })}>
                               {categories.map(cat => <option key={cat.key} value={cat.key}>{cat.label}</option>)}
                             </select><ActionIcon name="chevronDown" size={20} /></div>
                           </div>

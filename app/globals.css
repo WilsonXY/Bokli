@@ -27,7 +27,7 @@
     color-scheme: dark;
     --trend-revenue: #8bcfa3;
     --brand: 139 207 163; --brand-dark: 166 223 185; --brand-light: 35 62 45;
-    --surface: 29 41 33; --menu-surface: 43 58 47; --menu-selected: 49 84 61; --canvas: 16 24 19; --subtle: 35 48 39;
+    --surface: 29 41 33; --menu-surface: 43 58 47; --menu-selected: 53 94 66; --canvas: 16 24 19; --subtle: 35 48 39;
     --field: 20 31 24;
     --shadow-card: 0 1px 0 rgb(255 255 255 / .04), 0 12px 26px -9px rgb(0 0 0 / .45);
     --shadow-control: 0 2px 4px rgb(0 0 0 / .3), inset 0 1px 0 rgb(255 255 255 / .05);
@@ -1076,7 +1076,7 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 .entry-section .cost-editor { padding: var(--space-1) 0 var(--space-2); }
 .cost-editor .cost-fields { gap: var(--space-2); }
 .entry-section .cost-record-summary { padding-inline: 0; }
-.entry-section .cost-line-list>.cost-entry-card:has(.cost-editor) { padding: var(--space-2); border-radius: 16px; background: rgb(var(--subtle)); }
+.entry-section .cost-line-list>.cost-entry-card:has(.cost-editor) { padding: var(--space-3); border-radius: 20px; background: rgb(var(--subtle)); }
 .entry-section .cost-entry-card:has(.cost-editor) .cost-record-summary { padding-inline: 0; }
 .entry-section .cost-entry-card:has(.cost-editor) .cost-editor { padding-bottom: 0; }
 .cost-entry-card:has(.cost-editor) .cost-record-summary { background: transparent; }
@@ -1120,7 +1120,7 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 .trend-legend { display: inline-flex; align-items: center; gap: var(--space-2); color: rgb(var(--secondary)); font-size: 14px; line-height: 24px; }
 .trend-legends { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-1) var(--space-3); }
 .trend-reference-key { display: inline-flex; align-items: flex-end; gap: 4px; width: 24px; height: 20px; }
-.trend-reference-key::before, .trend-reference-key::after { content: ""; width: 10px; height: 20px; border: 2px dashed var(--trend-revenue); border-radius: 2px; }
+.trend-reference-key::before, .trend-reference-key::after { content: ""; width: 10px; height: 20px; border: 2px solid var(--trend-revenue); border-radius: 2px; }
 .trend-reference-key::after { height: 14px; }
 .trend-cost-key { width: 10px; height: 16px; border-radius: 2px; background: rgb(var(--cost)); }
 .trend-value-label { stroke: none; }
@@ -1135,7 +1135,7 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 .metric-tabs button:not([aria-selected="true"]) { background: transparent; border-color: transparent; box-shadow: none; }
 .metric-tabs button:not([aria-selected="true"]):hover { background: rgb(var(--surface) / .35); }
 .entry-section .cost-line-list>.cost-entry-card:has(.cost-editor) { position: relative; margin-bottom: var(--space-2); }
-.entry-section .cost-entry-card:has(.cost-editor) .cost-record-header { position: absolute; right: var(--space-2); top: var(--space-2); width: 96px; height: 44px; }
+.entry-section .cost-entry-card:has(.cost-editor) .cost-record-header { position: absolute; right: var(--space-3); top: var(--space-3); width: 96px; height: 44px; }
 .entry-section .cost-entry-card:has(.cost-editor) .cost-record-summary { flex: 0 0 44px; width: 44px; min-width: 44px; height: 44px; min-height: 44px; margin-left: auto; padding: 0; justify-content: center; }
 .cost-entry-card:has(.cost-editor) .cost-record-text { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .cost-entry-card:has(.cost-editor) .money-list-value { display: none; }
@@ -1170,8 +1170,8 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
   .category-select option:focus-visible { background: transparent; outline: 2px solid rgb(var(--brand)); outline-offset: -2px; }
   .category-select option:checked { background: rgb(var(--menu-selected)); color: rgb(var(--brand-dark)); outline: none; }
   .category-select option::checkmark {
-    content: ""; order: 1; flex: 0 0 18px; width: 18px; height: 18px; margin-inline-start: auto; background: rgb(var(--brand));
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 4 4L19 6'/%3E%3C/svg%3E") center/contain no-repeat;
+    content: ""; order: 1; flex: 0 0 24px; width: 24px; height: 24px; margin-inline-start: auto; background: rgb(var(--brand));
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 12 5 5L20 5'/%3E%3C/svg%3E") center/contain no-repeat;
   }
   .category-select:open { border-color: rgb(var(--brand)); box-shadow: 0 0 0 2px rgb(var(--brand) / .14), var(--shadow-inset); }
   .category-control:has(.category-select:open)>svg { transform: translateY(-50%) rotate(180deg); }
@@ -1211,3 +1211,6 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
   :root:has(.sheet-save-panel[data-historical][data-very-long] .sheet-actions) { --save-panel-height: 148px; }
   .sheet-save-panel[data-historical][data-very-long]:has(.sheet-actions) { grid-template-rows: 76px 44px; }
 }
+
+.workspace-main .feedback-message { font-size: 16px; line-height: 24px; }
+.feedback-message:not(.sheet-save-error) svg { width: 20px; height: 20px; flex-shrink: 0; }
