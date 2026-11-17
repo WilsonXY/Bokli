@@ -1,6 +1,6 @@
 # AGENTS.md — Bokli
 
-Working rules for any agent (Hermes, T3 Code/Antigravity, OpenCode) touching this repo.
+Working rules for any agent (T3 Code/Antigravity, OpenCode) touching this repo.
 Human = Katte; only he merges, deploys, and approves PRs.
 
 ## Domain language
@@ -70,7 +70,7 @@ Skill details live in the skills, not in this file.
 
 ### Dev preview
 - When Katte asks to try a change (or it is user-visible and you'd write "please
-  test it"): push the branch, run `bash ~/.hermes/scripts/bokli_preview.sh <branch>`.
+  test it"): push the branch, run `bash scripts/dev-preview.sh <branch>`.
   Only READY confirms https://boklidev.ktte.me serves it: send Katte that link plus
   1-2 concrete things to try. Otherwise report the output; don't claim it's ready.
 - The script is the only allowed way. NEVER start your own long-running server for
@@ -84,7 +84,7 @@ Skill details live in the skills, not in this file.
   preview: say in your report which branch the dev site now shows.
 
 ## Status & reporting
-- Escalate decisions, don't assume them. Mid-task plan changes → ask the driver
-  agent / Katte first (unless already agreed). Scope drift in a fix round → stop
+- Escalate decisions, don't assume them. Mid-task plan changes → ask Katte
+  first (unless already agreed). Scope drift in a fix round → stop
   and escalate.
 - Report: what changed, verification results, what Katte must decide. No filler.
