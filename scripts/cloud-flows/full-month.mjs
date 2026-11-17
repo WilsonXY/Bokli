@@ -28,6 +28,9 @@ export default async function fullMonth({ page, shot }) {
     assert.equal(labels.length, width >= 390 ? 3 : labels.length, 'At 390px a busy month labels the first day, the peak day and the last day');
     assert(labels.length >= 2, 'The first and last days always keep their values');
     for (let i = 1; i < labels.length; i++) assert(labels[i].left >= labels[i - 1].right + 4, 'Value labels must never collide in a busy month');
+    const dates = await page.locator('.trend-dates>span').evaluateAll(nodes => nodes.map(el => el.getBoundingClientRect().toJSON()));
+    assert.equal(dates.length, labels.length, 'Each labelled value has its date');
+    labels.forEach((label, i) => assert(Math.abs(label.x + label.width / 2 - dates[i].x - dates[i].width / 2) < 1.5, 'A value and its date share one centre'));
     assert.equal(await page.locator('.cost-bar-row').count(), 6, 'All six categories appear in the distribution');
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'A busy month must not overflow the phone');
     await page.locator('.overview-trend').scrollIntoViewIfNeeded();

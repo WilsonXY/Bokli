@@ -116,6 +116,13 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
   const chartColor = TREND_METRIC_COLORS[trendMetric];
   const valueLabel = (index: number) => formatMyr(BigInt(trendValueSen(trend[index], trendMetric))).replace(/^RM /, "");
   const labelWidthAt = (index: number) => valueLabel(index).length * 9 + 4;
+  const labelled = (index: number) => trend.length <= 3 || index === 0 || index === trend.length - 1 || index === peakIndex;
+  // A labelled day's value and date share one centre, kept inside the plot.
+  const labelX = (index: number) => {
+    if (trend.length <= 3) return points[index].x;
+    const half = Math.max(labelWidthAt(index), 50) / 2;
+    return Math.min(Math.max(points[index].x, padLeft + half), chartW - padRight - half);
+  };
   const trendTotal = trend.reduce((sum, row) => sum + trendValueSen(row, trendMetric), 0);
   // In a busy month the peak day also gets its value, when it clears the first and last labels.
   const peakIndex = (() => {
@@ -187,12 +194,12 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
                 const labelSpace = points.length <= 3 ? columnStep * .9 : (chartW - padLeft - padRight) / 2;
                 // Exact values are also available in the accessible dated list below.
                 const showLabel = labelWidth <= labelSpace && (index === 0 || index === points.length - 1 || index === peakIndex || points.length <= 3);
-                const textAnchor = points.length > 3 && index === 0 ? "start" : points.length > 3 && index === points.length - 1 ? "end" : "middle";
-                return <g key={trend[index].date}><rect className="trend-column" x={point.x - columnWidth / 2} y={point.y} width={columnWidth} height={chartH - padY - point.y} rx="4" fill={chartColor} />{showLabel && <text x={point.x} y={chartH - padY + 24} textAnchor={textAnchor} className="trend-value-label" fill="rgb(var(--ink))" fontSize="16" fontWeight="500">{label}</text>}</g>;
+                // In a busy month the labelled days stay full colour so each value points at its bar.
+                return <g key={trend[index].date}><rect className="trend-column" x={point.x - columnWidth / 2} y={point.y} width={columnWidth} height={chartH - padY - point.y} rx="4" fill={chartColor} fillOpacity={labelled(index) ? 1 : .45} />{showLabel && <text x={labelX(index)} y={chartH - padY + 24} textAnchor="middle" className="trend-value-label" fill="rgb(var(--ink))" fontSize="16" fontWeight="500">{label}</text>}</g>;
               })}
             </svg></div>
             <dl className="sr-only">{trend.map(row => <div key={row.date}><dt>{row.date}</dt><dd>{formatMyr(BigInt(trendValueSen(row, trendMetric)))}</dd></div>)}</dl>
-            <div className="trend-dates trend-dates-sparse">{(trend.length <= 3 ? trend.map((row, index) => ({ row, point: points[index] })) : [0, ...(peakIndex > 0 ? [peakIndex] : []), trend.length - 1].map(index => ({ row: trend[index], point: points[index] }))).map(({ row, point }) => <span key={row.date} style={{ left: `${point.x / chartW * 100}%`, transform: "translateX(-50%)" }}>{row.date.slice(5)}</span>)}</div>
+            <div className="trend-dates trend-dates-sparse">{(trend.length <= 3 ? trend.map((row, index) => ({ row, point: points[index] })) : [0, ...(peakIndex > 0 ? [peakIndex] : []), trend.length - 1].map(index => ({ row: trend[index], point: { x: labelX(index) } }))).map(({ row, point }) => <span key={row.date} style={{ left: `${point.x / chartW * 100}%`, transform: "translateX(-50%)" }}>{row.date.slice(5)}</span>)}</div>
 
             <p className="trend-scope">{t.recordedDatesOnly}</p>
           </div>

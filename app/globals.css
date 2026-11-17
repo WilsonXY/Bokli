@@ -1255,12 +1255,12 @@ p, .feedback-message { text-wrap: pretty; }
 :root {
   --trend-cost: #eb6834;
   --cat-restock: #eb6834; --cat-gas: #c2408f; --cat-transport: #2a78d6;
-  --cat-wages-daily: #0f9a8a; --cat-maintenance: #8a6f1f; --cat-other: #8a8a85;
+  --cat-wages-daily: #0f9a8a; --cat-maintenance: #8a6f1f; --cat-other: #5f6b76;
 }
 :root[data-theme="dark"] {
   --trend-cost: #d95926;
   --cat-restock: #d95926; --cat-gas: #cf5aa8; --cat-transport: #3987e5;
-  --cat-wages-daily: #1fa89a; --cat-maintenance: #b5a034; --cat-other: #8f8e88;
+  --cat-wages-daily: #1fa89a; --cat-maintenance: #b5a034; --cat-other: #a3adb6;
 }
 .cost-bar-values dt { display: flex; align-items: center; gap: 8px; }
 .cost-bar-dot { flex-shrink: 0; width: 12px; height: 12px; border-radius: 50%; }
@@ -1305,3 +1305,8 @@ p, .feedback-message { text-wrap: pretty; }
 .date-today-badge { background: rgb(var(--surface)); color: rgb(var(--brand-dark)); border-color: rgb(var(--brand) / .45); }
 :root[data-theme="dark"] .date-today-badge { color: rgb(var(--brand)); }
 :root[data-theme="dark"] .reconciliation-form>button[disabled]:not(.skeleton-action) { background: rgb(var(--subtle)); color: rgb(var(--muted)); border-color: transparent; box-shadow: none; }
+/* On a past date the way back to today is the solid primary button. */
+.return-today { background: #126756; color: white; border-color: #126756; box-shadow: var(--shadow-control); }
+.return-today:hover { background: #0d4d41; }
+:root[data-theme="dark"] .return-today { background: rgb(var(--brand)); color: rgb(var(--canvas)); border-color: rgb(var(--brand)); }
+.calendar-header button:disabled svg { opacity: .25; }
