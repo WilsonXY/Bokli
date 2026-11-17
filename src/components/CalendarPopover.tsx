@@ -226,7 +226,7 @@ export function CalendarPopover({
               aria-pressed={isSelected}
               className={`calendar-day relative h-11 w-full mx-auto rounded-lg btn-wave text-sm font-medium flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
                 isSelected
-                  ? "bg-brand-broccoli text-white font-bold shadow-xs scale-105"
+                  ? "bg-brand-broccoli text-white font-bold shadow-xs"
                   : isFuture
                     ? "text-ink-muted/30 cursor-not-allowed"
                     : isToday

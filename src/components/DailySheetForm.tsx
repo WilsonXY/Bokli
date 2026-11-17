@@ -1271,7 +1271,6 @@ export function DailySheetForm({
                   className="cost-entry-card"
                     >
                   <div className="cost-record-header">
-                  {isExpanded && !isClosed && <button type="button" onClick={() => setPendingDeleteIndex(idx)} aria-label={t.deleteCostLine} title={t.deleteCostLine} disabled={saving} className="cost-delete-action"><ActionIcon name="trash" /></button>}
                   {/* Summary Row */}
                       <div
                         onClick={() => {
@@ -1411,6 +1410,7 @@ export function DailySheetForm({
                               )}
                             </div>
                           </div>
+                          <div className="record-actions"><button type="button" onClick={() => setPendingDeleteIndex(idx)} aria-label={t.deleteCostLine} title={t.deleteCostLine} disabled={saving} className="cost-delete-action"><ActionIcon name="trash" /></button></div>
                         </div>
                       )}
                     </div>
@@ -1758,6 +1758,7 @@ export function DailySheetForm({
               <h3 id="confirm-modal-title" className="text-lg font-bold text-ink-primary">
                 {t.confirmSaveTitle}
               </h3>
+              <time dateTime={date} className="confirmation-date"><ActionIcon name="calendar" size={20} />{date}</time>
               <p id="confirm-modal-desc" className="sr-only">
                 {t.confirmSaveDesc}
               </p>

@@ -215,8 +215,7 @@ describe("ExpensesView frontend review fixes", () => {
       // Verify inline error under note input is present with boxed styling
       expect(html).toContain('id="expense-note-error"');
       expect(html).toContain('role="alert"');
-      expect(html).toContain("必须填写备注说明");
-      expect(html).toContain("类别为“其他”时");
+      expect(html).toContain("“其他”需填写备注。");
       expect(html).toContain("bg-finance-loss-light");
       expect(html).toContain("border-finance-loss-border");
       expect(html).toContain("rounded-lg");

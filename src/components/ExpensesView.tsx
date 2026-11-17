@@ -881,7 +881,7 @@ export function ExpensesView({
                       {!isClosed && <span className="record-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span>}
                       {item.note && <p className="expense-record-note">{item.note}</p>}
                     </Heading>
-                    {!isClosed && <div className="expense-record-actions"><button type="button" onClick={() => setPendingDeleteExpense(item)} aria-label={t.delete} className="record-delete">
+                    {!isClosed && <div className="expense-record-actions record-actions"><button type="button" onClick={() => setPendingDeleteExpense(item)} aria-label={t.delete} className="record-delete">
                       <ActionIcon name="trash" /><span className="sr-only">{t.delete}</span>
                     </button></div>}
                   </Record>;

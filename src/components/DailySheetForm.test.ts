@@ -606,8 +606,7 @@ describe("Cost line inline errors and boxed styling parity", () => {
     expect(html).toContain("rounded-lg");
     expect(html).toContain("text-finance-loss");
     expect(html).toContain("font-medium");
-    expect(html).toContain("必须填写备注说明");
-    expect(html).toContain("类别为“其他”时");
+    expect(html).toContain("“其他”需填写备注。");
   });
 
   it("zero-line save shows inline error state under amount input not top banner", () => {
