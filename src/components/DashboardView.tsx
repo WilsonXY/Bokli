@@ -158,13 +158,17 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
             >{metric === "revenue" ? t.sheetRevCol : t.sheetCostCol}</button>)}
           </div>
           <div className="trend-panel" role="tabpanel" id={trendPanelId} aria-labelledby={`${trendPanelId}-${trendMetric}`}>
-            <div className="panel-heading"><h2 id="trend-heading" className="sr-only">{trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}</h2><span className="trend-unit" style={{width:padLeft-8}}>RM</span></div>
+            <div className="panel-heading"><h2 id="trend-heading" className="sr-only">{trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}</h2><span className="trend-unit" style={{width:padLeft-8}}>RM</span>{trendMetric === "cost" && <span className="trend-legend"><span aria-hidden="true" />{t.sheetRevCol}</span>}</div>
             <div className="trend-frame" ref={chartRef}><svg key={trendMetric} className="trend-plot animate-chart-swap" data-shared-maximum={maximum} viewBox={`0 0 ${chartW} ${chartH}`} aria-hidden="true" focusable="false">
               <line x1={padLeft} x2={padLeft} y1={padY} y2={chartH-padY} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />
               <line x1={padLeft-4} x2={padLeft} y1={padY} y2={padY} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />
               <line x1={padLeft} x2={chartW-padRight} y1={chartH-padY} y2={chartH-padY} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />
               <text className="trend-axis-label" x={padLeft - 8} y={padY + 4} textAnchor="end" fill="rgb(var(--secondary))" fontSize="14">{maximumLabel}</text>
               <text className="trend-axis-label" x={padLeft - 8} y={chartH - padY + 4} textAnchor="end" fill="rgb(var(--secondary))" fontSize="14">0</text>
+              {trendMetric === "cost" && points.map((point, index) => {
+                const height = trend[index].totalSen / maximum * (chartH - padY * 2);
+                return <rect key={trend[index].date} className="trend-reference-column" x={point.x - columnWidth / 2} y={chartH - padY - height} width={columnWidth} height={height} rx="4" fill="none" stroke={TREND_METRIC_COLORS.revenue} strokeOpacity=".4" vectorEffect="non-scaling-stroke" />;
+              })}
               {points.map((point, index) => {
                 const label = formatMyr(BigInt(trendValueSen(trend[index], trendMetric))).replace(/^RM /, "");
                 const labelSpace = points.length <= 3 ? columnStep * .9 : (chartW - padLeft - padRight) / 2;

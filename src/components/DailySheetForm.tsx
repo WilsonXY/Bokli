@@ -1136,6 +1136,47 @@ export function DailySheetForm({
 
       </header>
 
+      {(errorMessage || successMessage) && <div className="sheet-feedback">
+        {errorMessage && (
+          <div className="feedback-message py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-md animate-slide-down">
+            <div className="flex items-center gap-2 min-w-0">
+              <svg className="w-4 h-4 shrink-0 text-finance-loss" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span className="truncate">{errorMessage}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setErrorMessage(null)}
+              className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss w-11 h-11 flex items-center justify-center rounded-md shrink-0"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="feedback-message py-2.5 px-3.5 rounded-xl bg-brand-broccoli-light border border-brand-broccoli/30 text-sm text-brand-broccoli font-bold flex items-center justify-between shadow-md animate-slide-down">
+            <div className="flex items-center gap-2 min-w-0">
+              <svg className="w-4 h-4 shrink-0 text-brand-broccoli" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              <span className="truncate">{successMessage}</span>
+            </div>
+            <button
+              type="button"
+              onClick={dismissSuccessMessage}
+              className="text-xs font-bold ml-2 text-ink-muted hover:text-brand-broccoli w-11 h-11 flex items-center justify-center rounded-md shrink-0"
+              aria-label="Close"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+      </div>}
+
       {/* Section 1: Revenue Entry */}
       <section aria-label={t.revenueTitle} className="daily-revenue entry-section">
         <div className="section-heading flex items-center justify-between px-0.5">
@@ -1433,47 +1474,10 @@ export function DailySheetForm({
 
       {/* Daily result and save action follow the form without covering it. */}
       <div className="sheet-save-bar space-y-2">
-            {errorMessage && (
-              <div className="feedback-message py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-md animate-slide-down">
-                <div className="flex items-center gap-2 min-w-0">
-                  <svg className="w-4 h-4 shrink-0 text-finance-loss" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <span className="truncate">{errorMessage}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setErrorMessage(null)}
-                  className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss w-11 h-11 flex items-center justify-center rounded-md shrink-0"
-                  aria-label="Close"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-
-            {successMessage && (
-              <div className="feedback-message py-2.5 px-3.5 rounded-xl bg-brand-broccoli-light border border-brand-broccoli/30 text-sm text-brand-broccoli font-bold flex items-center justify-between shadow-md animate-slide-down">
-                <div className="flex items-center gap-2 min-w-0">
-                  <svg className="w-4 h-4 shrink-0 text-brand-broccoli" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="truncate">{successMessage}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={dismissSuccessMessage}
-                  className="text-xs font-bold ml-2 text-ink-muted hover:text-brand-broccoli w-11 h-11 flex items-center justify-center rounded-md shrink-0"
-                  aria-label="Close"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-
-            <div data-wide={wideTotal || undefined} data-very-long={grossProfitText.length > 18 || undefined} className="sheet-save-panel bg-white border border-surface-border rounded-xl p-3 flex items-center justify-between gap-3">
+            <div data-historical={!isToday || undefined} data-wide={wideTotal || undefined} data-very-long={grossProfitText.length > 18 || undefined} className="sheet-save-panel bg-white border border-surface-border rounded-xl p-3 flex items-center justify-between gap-3">
               <div className="sheet-profit-summary">
                 <div className="text-[13px] text-ink-muted font-medium">
+                  {!isToday && <time className="sheet-historical-date" dateTime={date}>{date}</time>}
                   {t.grossProfit}
                   {(isModified || savedSheet) && <span className={`sheet-save-status${isModified ? " is-unsaved" : ""}`} role="status">{isModified ? t.draftStatus : t.savedStatus}</span>}
                 </div>
@@ -1555,6 +1559,7 @@ export function DailySheetForm({
 
       {isModified && <dialog ref={revertDialog} className="account-dialog" aria-labelledby="revert-title" onClick={e => { if (e.target === e.currentTarget) revertDialog.current?.close(); }}>
         <h2 id="revert-title">{t.confirmRevertTitle}</h2>
+        <time dateTime={date} className="confirmation-date"><ActionIcon name="calendar" size={20} />{date}</time>
         <p>{t.confirmRevertDesc}</p>
         <div className="dialog-actions">
           <button type="button" className="secondary-button" aria-label={t.cancel} autoFocus onClick={() => revertDialog.current?.close()}><ActionIcon name="close" /></button>
@@ -1603,9 +1608,9 @@ export function DailySheetForm({
           }}
         >
           <div className="confirmation-sheet w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
-            <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-16 h-16 rounded-full bg-finance-loss-light border border-finance-loss-border/60 text-finance-loss flex items-center justify-center shrink-0 select-none">
-                <svg aria-hidden="true" className="w-10 h-10" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-lg bg-finance-loss-light text-finance-loss flex items-center justify-center shrink-0 select-none">
+                <svg aria-hidden="true" className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v9m0 5h.01" />
                 </svg>
               </div>
@@ -1613,19 +1618,15 @@ export function DailySheetForm({
                 <h3 id="confirm-delete-sheet-title" className="text-lg font-bold text-ink-primary">
                   {t.confirmDeleteSheetTitle}
                 </h3>
-                <time dateTime={date} className="confirmation-date"><ActionIcon name="calendar" size={20} />{date}</time>
-                <p id="confirm-delete-sheet-desc" className="text-xs text-ink-muted mt-1 leading-relaxed">
-                  {t.confirmDeleteSheetDesc}
-                </p>
               </div>
             </div>
+            <time dateTime={date} className="confirmation-date"><ActionIcon name="calendar" size={20} />{date}</time>
+            <p id="confirm-delete-sheet-desc" className="text-xs text-ink-muted mt-1 leading-relaxed">
+              {t.confirmDeleteSheetDesc}
+            </p>
 
             {/* Daily Sheet snapshot: what is being destroyed */}
             <div className="p-3.5 rounded-xl bg-surface-subtle border border-surface-border space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-ink-secondary font-medium">{t.sheetDate}</span>
-                <span className="font-bold text-ink-primary tabular-nums">{date}</span>
-              </div>
               <div className="flex justify-between text-sm">
                 <span className="text-ink-secondary font-medium">{t.savedTotalRevenue}</span>
                 <span className="font-bold text-ink-primary tabular-nums">
@@ -1634,7 +1635,7 @@ export function DailySheetForm({
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-ink-secondary font-medium">{t.savedTotalCosts}</span>
-                <span className="font-bold text-finance-loss tabular-nums">
+                <span className={`font-bold tabular-nums ${savedCostSen > 0n ? "text-finance-loss" : "text-ink-primary"}`}>
                   {formatMyr(savedCostSen)}
                 </span>
               </div>

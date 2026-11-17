@@ -8,6 +8,7 @@ export default async function financialContext({page,shot}) {
   await page.goto(`/?date=${date}`);
   await page.locator('#cash-input').fill('5');
   await page.locator('#tng-input').fill('7');
+  assert.equal(await page.locator('.sheet-profit-summary time').getAttribute('datetime'),date,'Historical entry must retain its date in the persistent summary');
   await page.getByRole('button',{name:'保存账单',exact:true}).click();
   const dialog=page.getByRole('dialog');
   assert.equal(await dialog.locator('time[datetime]').count(),1,'Save confirmation must identify the selected calendar date');
@@ -25,6 +26,14 @@ export default async function financialContext({page,shot}) {
   await page.getByRole('dialog').getByText('保存账单后生效。',{exact:true}).waitFor();
   await shot('draft-delete-timing',page,{fullPage:false});
   await page.getByRole('dialog').getByRole('button',{name:'取消',exact:true}).click();
+  await page.setViewportSize({width:320,height:560});
+  await page.locator('.cost-editor input.money-input').scrollIntoViewIfNeeded();
+  const footer=page.locator('.sheet-save-panel');
+  assert.equal(await footer.locator('time').getAttribute('datetime'),date);
+  const footerDate=await footer.locator('time').boundingBox(),footerBounds=await footer.boundingBox();
+  assert(footerDate&&footerBounds&&footerDate.y>=footerBounds.y&&footerDate.y+footerDate.height<=footerBounds.y+footerBounds.height,'The historical date must stay in the visible footer during scrolled entry');
+  await shot('historical-entry-date',page,{fullPage:false});
+  await page.setViewportSize({width:390,height:844});
   await page.goto('/expenses');
   await page.locator('.expense-month-summary').waitFor();
   await page.getByRole('button',{name:'添加支出',exact:true}).click();

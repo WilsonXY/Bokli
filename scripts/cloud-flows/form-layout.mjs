@@ -26,4 +26,10 @@ export default async function formLayout({page,shot}) {
   const bounds=await error.boundingBox();
   assert(bounds&&bounds.width>=note.width-1,'Note validation needs the same full width as its field');
   await shot('full-width-note',page,{fullPage:false});
+  await page.locator('.cost-record-summary').nth(1).click();
+  const middle=page.locator('.cost-entry-card').nth(1);
+  assert.equal(await middle.locator('.cost-editor').count(),1);
+  assert.equal(await middle.locator('.cost-delete-action').count(),1,'The middle Cost Line must own its delete action');
+  await middle.scrollIntoViewIfNeeded();
+  await shot('middle-cost-entry',page,{fullPage:false});
 }

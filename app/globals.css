@@ -939,6 +939,7 @@
 .workspace-main input.note-input[aria-invalid="true"]:focus, .workspace-main input.money-input[aria-invalid="true"]:focus { border-color: rgb(var(--loss)); box-shadow: 0 0 0 2px rgb(var(--loss) / .14),var(--shadow-inset); }
 .operating-expenses { gap: var(--page-gap); }
 .expense-ledger { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.expense-ledger>.add-expense-action { margin-top: var(--space-2); }
 .expense-toolbar { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0; gap: var(--space-3); }
 .expense-toolbar:not(:has(button)) { min-height: 28px; }
 .expense-toolbar h2, .entry-section h2, .reconciliation-form>h2, .settings-section h2 { font-size: 18px; line-height: 28px; margin: 0; }
@@ -1074,6 +1075,12 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 .cost-header-delete:focus-visible { outline-offset: -3px; }
 .entry-section .cost-editor { padding: var(--space-1) 0 var(--space-2); }
 .cost-editor .cost-fields { gap: var(--space-2); }
+.entry-section .cost-record-summary { padding-inline: var(--space-2); }
+.entry-section .cost-line-list>.cost-entry-card:has(.cost-editor) { padding: 0 var(--space-2) var(--space-2); border-radius: 16px; background: rgb(var(--subtle)); }
+.entry-section .cost-entry-card:has(.cost-editor) .cost-record-summary { padding-inline: 0; }
+.entry-section .cost-entry-card:has(.cost-editor) .cost-editor { padding-bottom: 0; }
+.cost-entry-card:has(.cost-editor) .cost-record-summary { background: transparent; }
+.entry-section .cost-line-list:has(.cost-editor) { margin-bottom: var(--space-1); }
 .daily-record-heading { align-items: center; }
 .trend-dates { height: 24px; font-size: 16px; line-height: 24px; }
 .trend-scope, .cost-bar-meter small, .revenue-composition .account-balances dt, .revenue-composition .account-balances small, .revenue-donut-center span { font-size: 16px; line-height: 24px; }
@@ -1105,4 +1112,21 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 }
 @media (min-width:1024px) {
   .expenses-layout, .close-layout { max-width: 760px; }
+}
+
+.sheet-feedback { grid-column: 1 / -1; }
+.sheet-historical-date { flex: 0 0 100%; color: rgb(var(--secondary)); font-size: 14px; line-height: 20px; font-variant-numeric: tabular-nums; }
+.sheet-save-panel[data-historical] .sheet-profit-summary>div:first-child { flex-wrap: wrap; row-gap: 0; }
+.trend-legend { display: inline-flex; align-items: center; gap: var(--space-2); color: rgb(var(--secondary)); font-size: 14px; line-height: 24px; }
+.trend-legend>span { width: 14px; height: 18px; border: 1px solid rgb(var(--brand) / .4); border-radius: 3px; }
+@media (max-width:767px) {
+  :root:has(.sheet-save-panel[data-historical] .sheet-actions) { --save-panel-height: 92px; }
+}
+@media (max-width:389px) {
+  :root:has(.sheet-save-panel[data-historical][data-wide] .sheet-actions) { --save-panel-height: 144px; }
+  .sheet-save-panel[data-historical][data-wide]:has(.sheet-actions) { grid-template-rows: 72px 44px; }
+}
+@media (min-width:390px) and (max-width:767px) {
+  :root:has(.sheet-save-panel[data-historical][data-very-long] .sheet-actions) { --save-panel-height: 144px; }
+  .sheet-save-panel[data-historical][data-very-long]:has(.sheet-actions) { grid-template-rows: 72px 44px; }
 }

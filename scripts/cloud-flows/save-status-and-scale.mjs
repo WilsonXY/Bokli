@@ -14,6 +14,9 @@ export default async function saveStatusAndScale({ page, shot }) {
   await page.getByRole('tab', { name: '日常开销', exact: true }).click();
   assert.equal(await page.locator('.trend-plot').getAttribute('data-shared-maximum'),revenueScale,'Switching measures must preserve their shared scale');
   const costHeight=await page.locator('.trend-column').first().getAttribute('height').then(Number);
+  assert.equal(await page.locator('.trend-reference-column').count(),3,'Cost columns need the corresponding daily Revenue for comparison on the shared scale');
+  assert(Math.abs(Number(await page.locator('.trend-reference-column').first().getAttribute('height'))-revenueHeight)<.01,'The comparison outline must show the actual Revenue on the same zero-based scale');
+  assert.match(await page.locator('.trend-legend').innerText(),/营业收入/,'The reference outlines must be explicitly identified');
   assert(Math.abs(costHeight/revenueHeight-175/570)<.01,'Column heights must preserve the actual Revenue/Cost proportion');
   assert.equal(await page.locator('.trend-plot path').count(),0,'Recorded dates must not be connected as continuous coverage');
   await page.setViewportSize({width:320,height:844});
