@@ -1468,7 +1468,8 @@ export function DailySheetForm({
                   {t.grossProfit}
                 </div>
                 <div
-                  data-long={(grossProfitSen !== null ? formatMyr(grossProfitSen) : "—").length > 15 || undefined}
+                  data-long={(grossProfitSen !== null ? formatMyr(grossProfitSen) : "—").length > 12 || undefined}
+                  data-very-long={(grossProfitSen !== null ? formatMyr(grossProfitSen) : "—").length > 18 || undefined}
                   className={`${amountSizeClass(
                     grossProfitSen !== null ? formatMyr(grossProfitSen) : "—",
                     "text-base",

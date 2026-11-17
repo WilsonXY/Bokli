@@ -885,7 +885,8 @@
   .sheet-profit-summary { flex-direction: column; align-items: flex-start; gap: 0; }
   .sheet-profit-summary>div:first-child { font-size: 14px; line-height: 20px; }
   .sheet-profit-summary>div:last-child { font-size: 24px; line-height: 32px; white-space: nowrap; }
-  .sheet-profit-summary>div[data-long] { font-size: 18px; }
+  .sheet-profit-summary>div[data-long] { font-size: clamp(14px,4.8vw,18px); }
+  .sheet-profit-summary>div[data-very-long] { font-size: clamp(12px,4vw,16px); }
   .sheet-actions>.sheet-save-action { flex: 0 0 52px; width: 52px; height: 52px; min-height: 52px; padding: 0; border-radius: var(--radius-control); }
   .sheet-actions>.sheet-revert-action { flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px; border-radius: var(--radius-control); }
   .sheet-save-label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }

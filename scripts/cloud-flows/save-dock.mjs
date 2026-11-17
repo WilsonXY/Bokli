@@ -39,4 +39,12 @@ export default async function saveDock({page,shot}) {
   await shot('stored-sheet',page,{fullPage:false});
   await page.locator('#cash-input').fill('51');
   assert.equal(await saved.isEnabled(),true,'Editing a stored sheet must make Save available again');
+  await page.setViewportSize({width:320,height:844});
+  for(const amount of ['1000000','1000000000','1000000000000']) {
+    await page.locator('#cash-input').fill(amount);
+    const value=await page.locator('.sheet-profit-summary>div:last-child').boundingBox();
+    const actions=await page.locator('.sheet-actions').boundingBox();
+    assert(value&&actions&&value.x+value.width<=actions.x-8,'Large profit values must remain fully clear of footer actions');
+  }
 }
+
