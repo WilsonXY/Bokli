@@ -68,7 +68,7 @@ export function ExpensesSkeleton() {
   return <div className="expenses-layout page-stack" aria-busy="true">
     <MonthHeader title={t.expensesTitleShort} hint={t.expensesHint} />
     <section className="expense-month-summary"><div className="expense-month-total"><span>{t.operatingExpenses}</span><strong className={value} aria-hidden="true">{amount}</strong></div><div className="expense-month-context"><div><span>{t.monthGrossProfit}</span><strong className={value} aria-hidden="true">{amount}</strong></div><div><span>{t.netProfit}</span><strong className={value} aria-hidden="true">{amount}</strong></div></div></section>
-    <section className="operating-expenses"><div className="expense-ledger"><div className="expense-records-heading expense-toolbar"><h2>{t.savedExpensesTitle}</h2><button disabled className="expense-add-icon" aria-label={t.addExpense}><ActionIcon name="add" size={24} /></button></div><div className="expense-record-list">{[0, 1].map(index => <div key={index} className="expense-record" aria-hidden="true"><div className="expense-record-summary"><span className={`expense-record-category ${value}`}>{index ? t.catUtilities : t.catRental}</span><span className={`expense-record-amount text-base ${value}`}>{amount}</span><span className="record-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span></div></div>)}</div></div></section>
+    <section className="operating-expenses"><div className="expense-ledger"><div className="expense-records-heading expense-toolbar"><h2>{t.savedExpensesTitle}</h2></div><div className="expense-record-list">{[0, 1].map(index => <div key={index} className="expense-record" aria-hidden="true"><div className="expense-record-summary"><span className={`expense-record-category ${value}`}>{index ? t.catUtilities : t.catRental}</span><span className={`expense-record-amount text-base ${value}`}>{amount}</span><span className="record-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span></div></div>)}</div><button disabled className="add-cost-action expense-add-action" aria-label={t.addExpense}><ActionIcon name="add" size={24} /></button></div></section>
   </div>;
 }
 export function MonthCloseSkeleton() {
@@ -83,8 +83,8 @@ export function MonthCloseSkeleton() {
       <div className="counted-balances grid grid-cols-1 sm:grid-cols-2">{field(t.cashOnHand)}{field(t.tngOnHand)}</div>
       <div className="reconciliation-preview p-3 border space-y-2"><div className="flex items-center justify-between text-sm"><span>{t.actualTotal}</span><span className={`text-base ${value}`} aria-hidden="true">{amount}</span></div><div className="flex items-center justify-between text-sm"><span>{t.expectedNet}</span><span className={`text-base ${value}`} aria-hidden="true">{amount}</span></div><div className="reconciliation-result is-pending"><div className="reconciliation-result-line"><span>{t.reconciliationDiff}</span><strong className={value} aria-hidden="true">—</strong></div></div></div>
       <div><label className="block text-sm mb-1">{t.closeNote} <span className="optional-label">{t.optionalBadge}</span></label><div className="skeleton-close-note" /></div>
-      <p className="sr-only">{t.enterBothToClose}</p>
-      <button disabled className="skeleton-action w-full h-14" aria-label={t.btnPerformClose}><span>{t.fillBothBalancesShort}</span></button>
+      <button disabled className="skeleton-action w-full h-14" aria-label={t.btnPerformClose}><ActionIcon name="lock" /><span>{t.closeShort}</span></button>
+      <p className="close-requirement">{t.enterBothToClose}</p>
     </div>
   </div>;
 }

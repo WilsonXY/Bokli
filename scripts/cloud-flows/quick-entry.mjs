@@ -9,7 +9,7 @@ export default async function quickEntry({ page, shot: rawShot }) {
   await page.locator(".cost-entry-card").last().locator(".cost-record-summary").click();
   assert.equal(await page.locator(".cost-editor").count(),0);
   assert.equal(await page.locator(".cost-entry-card").count(),1);
-  await page.locator(".pending-save-status").waitFor();
+  await page.locator(".sheet-save-status.is-unsaved").waitFor();
   assert.equal(await page.evaluate(async () => (await (await fetch("/api/cloud-v1/sheets")).json()).data),null,"Collapsing a Cost Line must not save the Daily Sheet");
   await shot("cost-completed-in-draft");
   await page.getByRole("button",{name:/添加开销/}).click();

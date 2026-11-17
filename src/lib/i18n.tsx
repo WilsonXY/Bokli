@@ -7,7 +7,6 @@ export type Language = "zh" | "en";
 export const DICTIONARY = {
   zh: {
     closeShort: "结账",
-    fillBothBalancesShort: "填写两项余额",
     daysUnit: "天",
     zeroBalanceShort: "无余额填 0",
     blankRevenueZeroShort: "空白按 0",
@@ -225,7 +224,6 @@ export const DICTIONARY = {
   },
   en: {
     closeShort: "Close",
-    fillBothBalancesShort: "Fill both balances",
     daysUnit: " days",
     zeroBalanceShort: "None? Enter 0",
     blankRevenueZeroShort: "Blank → 0",
@@ -335,7 +333,7 @@ export const DICTIONARY = {
     catMaintenance: "Maintenance",
     catOther: "Other",
     // Gross Profit & Save
-    grossProfit: "Day's Gross Profit",
+    grossProfit: "Gross Profit",
     monthGrossProfit: "Gross Profit",
     undoChanges: "Revert changes",
     saveSheet: "Save Sheet",

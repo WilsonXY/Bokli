@@ -531,6 +531,7 @@
 .profit-headline.is-loss .metric-headline { color: rgb(var(--loss)); }
 .profit-headline .metric-headline[data-zero] { color: rgb(var(--ink)); }
 .profit-headline:after { content: none; }
+.daily-record-heading { display: inline-flex; align-items: baseline; gap: var(--space-3); }.daily-record-heading small { font-size: 14px; color: rgb(var(--secondary)); }
 .daily-record-counter { display: inline-flex; align-items: center; gap: 7px; }
 .daily-record-counter .ledger-chevron { margin-left: 4px; }
 .month-close-action { min-height: 64px; padding: 14px 18px; }
@@ -541,7 +542,6 @@
 .cost-delete-action { width: 44px; height: 44px; padding: 0; justify-content: center; border: 1px solid rgb(var(--border-strong)); border-radius: 8px; background: rgb(var(--surface)); }
 .cost-entry-card:not(:has(.cost-editor)), .cost-entry-card:not(:has(.cost-editor)) .cost-record-summary { background: rgb(var(--surface)); border-color: rgb(var(--border)); }
 .expense-toolbar { display: flex; align-items: center; gap: 16px; min-height: 48px; }
-.expense-add-icon { display: grid; place-items: center; width: 100%; color: rgb(var(--brand)); background: rgb(var(--surface)); }
 .expense-record-actions { justify-content: flex-end; }
 .expense-record-actions .record-delete { width: 44px; height: 44px; min-height: 44px; padding: 0; color: rgb(var(--secondary)); border: 1px solid rgb(var(--border-strong)); border-radius: 8px; background: rgb(var(--surface)); scroll-margin-bottom: 104px; }
 .zero-revenue-warning { display: flex; align-items: center; gap: 12px; }
@@ -606,7 +606,6 @@
 
 /* Status stays beside the action it describes. */
 .save-state-icon { position: relative; display: inline-flex; }
-.pending-save-status { margin-left: 8px; padding: 3px 8px; border-radius: 6px; background: #f6d497; color: #573a10; font-size: 14px; line-height: 22px; white-space: nowrap; }
 .recorded-count-symbol { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 5px; background: rgb(var(--brand-light)); color: rgb(var(--brand)); }
 .danger-action { color: white; background: rgb(var(--loss)); border-color: rgb(var(--loss)); }
 .danger-action:hover { background: rgb(var(--loss)); filter: brightness(.93); }
@@ -621,7 +620,6 @@
 
 .locked-money-value { display: block; width: 100%; text-align: right; color: rgb(var(--ink)); line-height: 1.4; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .cost-record-summary[aria-expanded="true"] .record-chevron { transform: rotate(180deg); }
-.daily-record-column-heading { padding: 10px 20px 0 0; text-align: right; color: rgb(var(--secondary)); font-size: 14px; }
 
 .workspace-main[data-page="/close"] .page-description { display: none; }
 
@@ -631,7 +629,7 @@
 .date-today-badge { display: grid; place-items: center; width: 48px; color: rgb(var(--secondary)); background: rgb(var(--subtle)); }
 
 /* Draft completion is separate from persisting the full sheet. */
-.calendar-header { display: grid; grid-template-columns: 44px minmax(0,1fr) 44px 44px; gap: 6px; align-items: center; text-align: center; }
+.calendar-header { display: grid; grid-template-columns: 44px minmax(0,1fr) 44px 44px; gap: 8px; align-items: center; text-align: center; }
 .calendar-header button:disabled { opacity: 1; color: rgb(var(--muted)); background: rgb(var(--subtle)); }
 .calendar-close { display: grid; place-items: center; width: 44px; height: 44px; border: 1px solid rgb(var(--border)); border-radius: 8px; color: rgb(var(--secondary)); background: rgb(var(--surface)); }
 .month-picker-trigger { width: 148px; flex-shrink: 0; }
@@ -718,7 +716,7 @@
 :root {
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
   --space-5: 20px; --space-6: 24px; --space-8: 32px;
-  --edge: 1px; --save-panel-height: 76px; --radius-control: 12px; --radius-panel: 24px; --surface-inset: var(--space-4); --nested-inset: var(--surface-inset);
+  --edge: 1px; --save-panel-height: 68px; --radius-control: 12px; --radius-panel: 24px; --surface-inset: var(--space-4); --nested-inset: var(--surface-inset);
   --page-gutter: var(--space-8); --page-gap: var(--space-6); --navigation-space: calc(64px + env(safe-area-inset-bottom));
 }
 .workspace-header { display: none; height: 0; padding: 0; }
@@ -778,10 +776,11 @@
 }
 .workspace-main [aria-invalid="true"] { border-color: rgb(var(--loss)); }
 .workspace-main [role="alert"] { border-width: var(--edge); border-radius: 8px; line-height: 24px; }
-.add-cost-action, .expense-add-icon, .empty-month .primary-button {
+.add-cost-action, .empty-month .primary-button {
   min-height: 52px; padding: var(--space-3) var(--space-4); border: var(--edge) solid rgb(var(--border-strong));
   border-radius: 12px; color: rgb(var(--brand)); background: rgb(var(--brand-light)); box-shadow: none;
 }
+.add-cost-action { display: flex; align-items: center; justify-content: center; width: 100%; }
 .sheet-save-panel { gap: var(--space-3); }
 .sheet-profit-summary { gap: var(--space-4); }
 .sheet-actions { display: flex; gap: var(--space-2); align-items: center; }
@@ -789,7 +788,6 @@
 .sheet-save-action { flex: 1; min-width: 0; padding: 0 var(--space-4); }
 .sheet-actions>.sheet-revert-action { order: 0; flex: 0 0 52px; width: 52px; padding: 0; border-color: rgb(var(--border-strong)); background: rgb(var(--surface)); box-shadow: var(--shadow-control); }
 .sheet-save-action:disabled:not(.skeleton-action) { opacity: 1; color: rgb(var(--secondary)); background: rgb(var(--brand-light)); border-color: rgb(var(--border)); box-shadow: none; }
-.pending-save-status { position: absolute; top: -4px; right: -5px; width: 13px; height: 13px; margin: 0; padding: 0; border: 2px solid rgb(var(--surface)); border-radius: 50%; background: #e8b354; }
 .date-picker-trigger, .sheet-date-bar>div:first-child>button, .date-today-badge, .return-today { height: 48px; min-height: 48px; border: var(--edge) solid rgb(var(--border)); border-radius: 12px; }
 .date-picker-trigger { display: flex; align-items: center; padding: 0 var(--space-2); }
 .date-trigger-label { min-height: 0; gap: var(--space-1); }
@@ -810,7 +808,6 @@
 .daily-ledger { padding: 0 var(--surface-inset); box-shadow: var(--shadow-card); }
 .daily-records summary { min-height: 56px; padding: var(--space-3) 0; }
 .daily-record { min-height: 64px; padding: var(--space-3) 0; border: 0; border-top: var(--edge) solid rgb(var(--border)); }
-.daily-record-column-heading { padding: 0 var(--space-5) var(--space-2) 0; }
 .overview-composition { gap: var(--page-gap); }
 .account-balances { gap: 0; margin-top: var(--space-3); }
 .account-balances>div { padding: var(--space-4) 0; border-radius: 0; }
@@ -865,7 +862,7 @@
   .sheet-date-bar>div:first-child { display: flex; justify-content: center; gap: var(--space-3); }
 }
 @media (max-width:767px) {
-  :root { --radius-panel: 20px; --surface-inset: var(--space-3); --nested-inset: var(--surface-inset); --page-gutter: var(--space-5); --page-gap: var(--space-5); }
+  :root { --radius-panel: 20px; --surface-inset: var(--space-4); --nested-inset: var(--surface-inset); --page-gutter: var(--space-5); --page-gap: var(--space-5); }
   html { scroll-padding-bottom: 96px; }
   html:has(.daily-layout .sheet-actions) { scroll-padding-bottom: calc(var(--navigation-space) + var(--save-panel-height) + 16px); }
   .workspace-header { display: flex; height: 48px; padding: 0 var(--page-gutter); }
@@ -888,7 +885,7 @@
   .sheet-profit-summary>div:last-child { font-size: 24px; line-height: 32px; white-space: nowrap; }
   .sheet-profit-summary>div[data-long] { font-size: clamp(14px,4.8vw,18px); }
   .sheet-profit-summary>div[data-very-long] { font-size: clamp(12px,4vw,16px); }
-  .sheet-actions>.sheet-save-action { flex: 0 0 52px; width: 52px; height: 52px; min-height: 52px; padding: 0; border-radius: var(--radius-control); }
+  .sheet-actions>.sheet-save-action { flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: var(--radius-control); }
   .sheet-actions>.sheet-revert-action { flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px; border-radius: var(--radius-control); }
   .sheet-save-label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
   .workspace-main .confirmation-overlay { align-items: flex-end; padding: 0; border: 0; }
@@ -935,13 +932,14 @@
 .entry-section .revenue-field:first-child { padding-top: 0; }
 .entry-section .revenue-field:last-child { padding-bottom: 0; }
 .entry-section .cost-record-summary, .expense-ledger .expense-record-summary { min-height: 56px; padding: var(--space-2) 0; }
-.entry-section .cost-editor { padding: var(--space-3) 0; }
-.cost-category-label { font-size: 16px; color: rgb(var(--ink)); }
+.entry-section .cost-editor { padding: var(--space-3); border: var(--edge) solid rgb(var(--border)); border-radius: max(4px,calc(var(--radius-panel) - var(--surface-inset) - var(--edge))); background: rgb(var(--subtle)); }
+.cost-editor input, .cost-editor select { background: rgb(var(--surface)); }
+.cost-record-header>.cost-delete-action { flex-shrink: 0; }
+.cost-category-label { font-size: 16px; color: rgb(var(--ink)); overflow-wrap: anywhere; }
 .money-list-value { font-size: 20px; color: rgb(var(--ink)); }
 .money-list-value[data-long] { font-size: 16px; }
 .cost-note-row { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
 .cost-note-row>label { display: flex; align-items: baseline; gap: var(--space-2); margin: 0; font-size: 16px; line-height: 24px; }
-.cost-editor-actions { display: flex; padding-top: var(--space-2); border-top: var(--edge) solid rgb(var(--border)); }
 .cost-note-row>[role="alert"] { width: 100%; }
 .workspace-main input.note-input[aria-invalid="true"]:focus, .workspace-main input.money-input[aria-invalid="true"]:focus { border-color: rgb(var(--loss)); box-shadow: 0 0 0 2px rgb(var(--loss) / .14),var(--shadow-inset); }
 .operating-expenses { gap: var(--page-gap); }
@@ -949,7 +947,6 @@
 .expense-toolbar { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0; gap: var(--space-3); }
 .expense-toolbar:not(:has(button)) { min-height: 28px; }
 .expense-toolbar h2, .entry-section h2, .reconciliation-form>h2, .settings-section h2 { font-size: 18px; line-height: 28px; margin: 0; }
-.expense-toolbar .expense-add-icon { width: 44px; min-height: 44px; height: 44px; padding: 0; flex: 0 0 44px; }
 .expense-record-actions { display: inline-flex; padding: 0 0 var(--space-2); }
 .expense-month-total { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); }
 .expense-month-total>span { white-space: nowrap; }
@@ -970,17 +967,29 @@
 .settings-section .language-options, .settings-section .appearance-choice { border-radius: max(4px,calc(var(--radius-panel) - var(--surface-inset) - var(--edge))); box-shadow: none; }
 .account-section { flex-direction: row; align-items: center; justify-content: space-between; }
 .dialog-actions .danger-action { gap: var(--space-2); }
+.trend-scale { text-align: right; color: rgb(var(--secondary)); font-size: 14px; line-height: 20px; }
+.loading-layout .trend-scale { visibility: hidden; }
+.sheet-profit-summary>div:first-child { display: flex; align-items: baseline; gap: var(--space-2); }
+.sheet-save-status { font-size: 14px; white-space: nowrap; color: rgb(var(--secondary)); }
+.sheet-save-status.is-unsaved { color: #875400; }
+:root[data-theme="dark"] .sheet-save-status.is-unsaved { color: #efc58c; }
+.close-requirement { font-size: 14px; line-height: 20px; color: rgb(var(--secondary)); }
+.delete-record-snapshot>div { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+.date-today-badge, .return-today, .sheet-date-bar>div:first-child>button { background: rgb(var(--surface)); color: rgb(var(--secondary)); box-shadow: var(--shadow-control); }
+.settings-section .preference-options, .settings-section .language-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0; padding: 0; border: var(--edge) solid rgb(var(--border)); border-radius: max(4px,calc(var(--radius-panel) - var(--surface-inset) - var(--edge))); overflow: hidden; }
+.settings-section .preference-options label, .settings-section .language-options label { display: flex; align-items: center; justify-content: center; gap: var(--space-3); min-height: 64px; padding: var(--space-3); border: 0; border-radius: 0; box-shadow: none; }
+.settings-section .preference-options label+label, .settings-section .language-options label+label { border-left: var(--edge) solid rgb(var(--border)); border-top: 0; }
+.settings-section .preference-options label:has(:checked), .settings-section .language-options label:has(:checked) { background: rgb(var(--brand-light)); box-shadow: none; }
+.settings-section .appearance-choice input { position: static; width: 20px; height: 20px; }
 :root[data-theme="dark"] .metric-tabs { background: rgb(var(--canvas)); }
-.settings-section .appearance-choice input { top: var(--space-3); right: var(--space-3); }
 
 @media (max-width:767px) {
-  :root:has(.sheet-save-panel[data-wide] .sheet-actions) { --save-panel-height: 140px; }
-  .sheet-save-panel[data-wide]:has(.sheet-actions) { grid-template-columns: minmax(0,1fr); grid-template-rows: 52px 52px; gap: var(--space-2); align-content: center; }
+  :root:has(.sheet-save-panel[data-wide] .sheet-actions) { --save-panel-height: 120px; }
+  .sheet-save-panel[data-wide]:has(.sheet-actions) { grid-template-columns: minmax(0,1fr); grid-template-rows: 52px 44px; gap: var(--space-2); padding: var(--space-2) var(--page-gutter); align-content: center; }
   .sheet-save-panel[data-wide] .sheet-profit-summary { grid-column: 1; grid-row: 1; }
   .sheet-save-panel[data-wide] .sheet-profit-summary>div:last-child { font-size: 24px; }
   .sheet-save-panel[data-wide] .sheet-profit-summary>div[data-very-long] { font-size: 22px; }
-  .sheet-save-panel[data-wide] .sheet-actions { grid-column: 1; grid-row: 2; width: 100%; }
-  .sheet-save-panel[data-wide] .sheet-save-action { flex: 1; width: auto; }
+  .sheet-save-panel[data-wide] .sheet-actions { grid-column: 1; grid-row: 2; width: 100%; justify-content: flex-end; }
   .sheet-date-bar>div:first-child>button:disabled, .calendar-header button:disabled { opacity: 1; border-color: rgb(var(--border)); background: transparent; }
   .sheet-date-bar>div:first-child>button:disabled svg, .calendar-header button:disabled svg { opacity: .35; }
   html[lang="en"] .date-today-badge, html[lang="en"] .return-today { font-size: 14px; }

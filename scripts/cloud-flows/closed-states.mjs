@@ -16,7 +16,7 @@ export default async function closedStates({ page, shot: rawShot }) {
   await shot("closed-month-close");
   await page.goto(`/expenses?month=${month}`);
   await page.getByRole("status").filter({ hasText: "已结账" }).waitFor();
-  assert.equal(await page.locator(".expense-add-icon:visible").count(), 0);
+  assert.equal(await page.locator(".expense-add-action:visible").count(), 0);
   assert.equal(await page.locator(".record-delete").count(), 0);
   await shot("closed-expenses");
   await page.goto(`/?date=${month}-03`);

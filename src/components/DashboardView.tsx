@@ -102,7 +102,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
   const tngPct = split?.totalSen ? 100 - cashPct : 0;
   const metricLabel = t.sheetRevCol;
   const chartH = 160, padX = 16, padY = 28;
-  const maximum = Math.max(1000, ...trend.map(row => trendValueSen(row, trendMetric)));
+  const maximum = Math.max(1000, ...trend.flatMap(row => [row.totalSen, row.costSen]));
   const firstDate = trend.length ? Date.parse(`${trend[0].date}T00:00:00Z`) : 0;
   const dateSpan = trend.length > 1 ? Math.max(1, Date.parse(`${trend[trend.length - 1].date}T00:00:00Z`) - firstDate) : 1;
   const points = trend.map(row => ({
@@ -119,7 +119,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
         <MonthSelectorDropdown loadingLabel={loading ? t.loadingShort : undefined} currentMonth={activeMonth} options={tiles.map(tile => ({ month: tile.month, status: tile.status }))} onSelect={month => router.push(`/dashboard?month=${month}`)} />
       </div>
       {loadError ? <div role="alert" className="page-error">{t.loadError}<p>{loadError}</p></div> : <>
-        {!trend.length && <section className="empty-month panel"><h2>{t.noDailyEntries}</h2><p>{t.emptyMonthHint}</p><Link className="primary-button" href="/" aria-label={t.recordDailySheet} title={t.recordDailySheet}><ActionIcon name="add" size={24} /></Link></section>}
+        {!trend.length && <section className="empty-month panel"><h2>{t.noDailyEntries}</h2><p>{t.emptyMonthHint}</p><Link className="primary-button" href="/" aria-label={t.recordDailySheet} title={t.recordDailySheet}><ActionIcon name="record" size={24} /></Link></section>}
         <section className={`overview-summary panel${noActivity ? " is-empty" : ""}`} hidden={noActivity} aria-label={t.monthSummary}>
           <div className={`profit-headline${isProfitPositive ? "" : " is-loss"}`}>
             <h2>{t.netProfit}<span className="profit-status sr-only">{!activeTile?.netSen ? t.evenStatus : isProfitPositive ? t.profitStatus : t.lossStatus}</span></h2>
@@ -135,7 +135,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
           <span className="month-close-icon" aria-hidden="true"><ActionIcon name="monthClose" size={23} /></span>
           <span><strong>{t.closeMonthAction}</strong><small className="sr-only">{t.closeMonthHint}</small></span><span className="action-arrow" aria-hidden="true"><ActionIcon name="chevronRight" size={20} /></span>
         </Link>
-        {trend.length > 0 && <details className="daily-records daily-ledger" open={trend.length <= 7}><summary>{t.dailySheetsLabel}<span className="daily-record-counter" aria-label={`${trend.length} ${t.recordedDays}`}>{trend.length}{t.daysUnit}<span className="ledger-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span></span></summary><p className="sr-only">{t.chartDataBelow}</p><div><div className="daily-record-column-heading">{metricLabel}</div>{trend.map(row => <Link key={row.date} href={`/?date=${row.date}`} className="daily-record"><span>{row.date}</span><span><small className="sr-only">{metricLabel}</small>{formatMyr(BigInt(row.totalSen))}<span className="daily-record-arrow" aria-hidden="true"><ActionIcon name="chevronRight" size={16} /></span></span></Link>)}</div></details>}
+        {trend.length > 0 && <details className="daily-records daily-ledger" open={trend.length <= 7}><summary><span className="daily-record-heading">{t.dailySheetsLabel}<small>{metricLabel}</small></span><span className="daily-record-counter" aria-label={`${trend.length} ${t.recordedDays}`}>{trend.length}{t.daysUnit}<span className="ledger-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span></span></summary><p className="sr-only">{t.chartDataBelow}</p><div>{trend.map(row => <Link key={row.date} href={`/?date=${row.date}`} className="daily-record"><span>{row.date}</span><span><small className="sr-only">{metricLabel}</small>{formatMyr(BigInt(row.totalSen))}<span className="daily-record-arrow" aria-hidden="true"><ActionIcon name="chevronRight" size={16} /></span></span></Link>)}</div></details>}
         {trend.length > 0 && <section className="overview-trend panel" aria-labelledby="trend-heading">
           <div className="metric-tabs" role="tablist" aria-label={t.trendMetric}>
             {(["revenue", "cost"] as const).map(metric => <button
@@ -157,6 +157,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
           </div>
           <div className="trend-panel" role="tabpanel" id={trendPanelId} aria-labelledby={`${trendPanelId}-${trendMetric}`}>
             <div className="panel-heading"><h2 id="trend-heading">{trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}</h2></div>
+            <div className="trend-scale">{formatMyr(BigInt(maximum))}</div>
             <div className="trend-frame" ref={chartRef}><svg key={trendMetric} className="trend-plot animate-chart-swap" viewBox={`0 0 ${chartW} ${chartH}`} aria-hidden="true" focusable="false">
               <defs><linearGradient id={`trendGradient-${trendMetric}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={chartColor} stopOpacity="0.18" /><stop offset="100%" stopColor={chartColor} stopOpacity="0.01" /></linearGradient></defs>
               {[padY, chartH / 2, chartH - padY].map(y => <line key={y} x1={padX} x2={chartW - padX} y1={y} y2={y} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />)}

@@ -1271,6 +1271,7 @@ export function DailySheetForm({
                   className="cost-entry-card"
                     >
                   <div className="cost-record-header">
+                  {isExpanded && !isClosed && <button type="button" onClick={() => setPendingDeleteIndex(idx)} aria-label={t.deleteCostLine} title={t.deleteCostLine} disabled={saving} className="cost-delete-action"><ActionIcon name="trash" /></button>}
                   {/* Summary Row */}
                       <div
                         onClick={() => {
@@ -1410,9 +1411,6 @@ export function DailySheetForm({
                               )}
                             </div>
                           </div>
-                          <div className="cost-editor-actions">
-                            <button type="button" onClick={() => setPendingDeleteIndex(idx)} aria-label={t.deleteCostLine} title={t.deleteCostLine} disabled={saving} className="cost-delete-action"><ActionIcon name="trash" /></button>
-                          </div>
                         </div>
                       )}
                     </div>
@@ -1479,6 +1477,7 @@ export function DailySheetForm({
               <div className="sheet-profit-summary">
                 <div className="text-[13px] text-ink-muted font-medium">
                   {t.grossProfit}
+                  {(isModified || savedSheet) && <span className={`sheet-save-status${isModified ? " is-unsaved" : ""}`} role="status">{isModified ? t.draftStatus : t.savedStatus}</span>}
                 </div>
                 <div
                   data-long={wideTotal || undefined}
@@ -1547,7 +1546,7 @@ export function DailySheetForm({
                     }}
                     aria-label={saving ? t.saving : t.saveSheet} className="sheet-save-action h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
                   >
-                    <span className={`save-state-icon${saving ? " animate-spin" : ""}`}><ActionIcon name={saving ? "loading" : savedSheet && !isModified ? "check" : "save"} />{isModified && !saving && <span className="pending-save-status" role="status" aria-label={t.draftStatus} />}</span>
+                    <span className={`save-state-icon${saving ? " animate-spin" : ""}`}><ActionIcon name={saving ? "loading" : "save"} /></span>
                     <span className="sheet-save-label">{savedSheet && !isModified ? t.savedStatus : t.saveShort}</span>
                   </button>
 

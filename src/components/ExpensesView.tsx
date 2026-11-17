@@ -865,7 +865,6 @@ export function ExpensesView({
             {(mergedExpenses.length > 0 || !isDraftOpen) && <div className="expense-ledger">
             <div data-readonly={isClosed || undefined} className="expense-records-heading expense-toolbar">
               <h2>{t.savedExpensesTitle}</h2>
-              {!isClosed && !isDraftOpen && <button type="button" className="expense-add-icon" aria-label={t.addExpense} title={t.addExpense} onClick={() => setIsDraftOpen(true)}><ActionIcon name="add" size={24} /></button>}
             </div>
 
             {/* Dynamic Cost Cards */}
@@ -894,6 +893,7 @@ export function ExpensesView({
             {mergedExpenses.length === 0 && !isDraftOpen && (
               <p className="empty-note">{t.noExpensesRecorded}</p>
             )}
+            {!isClosed && !isDraftOpen && <button type="button" className="add-cost-action expense-add-action" aria-label={t.addExpense} title={t.addExpense} onClick={() => setIsDraftOpen(true)}><ActionIcon name="add" size={24} /></button>}
 
             </div>}
           </section>
@@ -925,7 +925,7 @@ export function ExpensesView({
                 </div>
 
                 {/* Item detail snapshot */}
-                <div className="p-3 rounded-xl bg-surface-subtle border border-surface-border flex items-center justify-between gap-2">
+                <div className="delete-record-snapshot p-3 rounded-xl bg-surface-subtle border border-surface-border flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white border border-surface-border text-ink-secondary whitespace-nowrap">
                       {getCategoryLabel(pendingDeleteExpense.type)}
