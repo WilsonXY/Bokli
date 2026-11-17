@@ -48,5 +48,19 @@ export default async function saveDock({page,shot}) {
     assert(value&&actions&&value.y+value.height<=actions.y-8,'Large profit values need their own clear row above the actions');
     assert(await page.locator('.sheet-profit-summary>div:last-child').evaluate(el=>parseFloat(getComputedStyle(el).fontSize))>=22,'Large totals must retain readable financial typography');
   }
+  await page.setViewportSize({width:390,height:560});
+  await page.locator('#cash-input').fill('50');
+  await page.locator('.sheet-profit-summary').getByText('RM 35.00',{exact:true}).waitFor();
+  await page.locator('.cost-record-summary').last().click();
+  await page.locator('.cost-editor input.money-input').fill('1000000');
+  await page.locator('.sheet-profit-summary').getByText('-RM 999,960.00',{exact:true}).waitFor();
+  await page.waitForFunction(()=>{
+    const input=document.querySelector('.cost-editor input.money-input');
+    const dock=document.querySelector('.sheet-save-panel');
+    if(!input||!dock)return false;
+    const field=input.getBoundingClientRect(),footer=dock.getBoundingClientRect();
+    return field.y>=0&&field.bottom<=footer.top-8;
+  });
+  await shot('wide-focused-amount',page,{fullPage:false});
 }
 

@@ -90,7 +90,7 @@ describe("DailySheetForm parse error handling and tryParseSen helper", () => {
     expect(html).toContain("—");
   });
 
-  it("renders updated Chinese labels for daily costs section: 日常开销, 开销总额, and 开销类别", () => {
+  it("uses the canonical Daily Cost and Cost Category labels", () => {
     const html = ReactDOMServer.renderToStaticMarkup(
       React.createElement(DailySheetForm, {
         date: "2026-05-15",
@@ -116,7 +116,7 @@ describe("DailySheetForm parse error handling and tryParseSen helper", () => {
     expect(html).not.toContain("支出类别");
   });
 
-  it("renders compact action bar and unboxed headers without card containers", () => {
+  it("renders the sheet-level actions and labelled bookkeeping sections", () => {
     const html = ReactDOMServer.renderToStaticMarkup(
       React.createElement(DailySheetForm, {
         date: "2026-05-15",

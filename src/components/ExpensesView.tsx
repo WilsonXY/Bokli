@@ -892,11 +892,7 @@ export function ExpensesView({
 
             {/* Empty state when no expenses recorded */}
             {mergedExpenses.length === 0 && !isDraftOpen && (
-              <div className="bg-white border border-surface-border rounded-xl p-6 text-center shadow-xs">
-                <div className="text-sm text-ink-muted">
-                  {t.noExpensesRecorded}
-                </div>
-              </div>
+              <p className="empty-note">{t.noExpensesRecorded}</p>
             )}
 
             </div>}
