@@ -1139,6 +1139,34 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 .cost-entry-card:has(.cost-editor) .money-list-value { display: none; }
 .cost-entry-card:has(.cost-editor) .cost-header-delete { left: 0; right: auto; top: 0; transform: none; }
 .cost-entry-card:has(.cost-editor) .cost-category-row>label { display: flex; align-items: center; min-height: 44px; padding-right: 104px; }
+
+/* Keep category pickers in the page's theme on desktop and phone. */
+@supports (appearance: base-select) {
+  .category-select, .category-select::picker(select) { appearance: base-select; }
+  .category-select { display: flex; align-items: center; }
+  .category-select::picker-icon { display: none; }
+  .category-select::picker(select) {
+    box-sizing: border-box; width: anchor-size(width); margin-block: 6px; padding: 8px;
+    border: var(--edge) solid rgb(var(--border-strong)); border-radius: 16px;
+    background: rgb(var(--surface)); color: rgb(var(--ink));
+    box-shadow: 0 8px 28px rgb(18 42 31 / .18);
+    font: inherit; font-size: 16px; font-weight: 500;
+    overflow-y: auto; overscroll-behavior: contain;
+  }
+  .category-select option {
+    display: flex; align-items: center; gap: 12px;
+    min-height: 48px; padding: 10px 12px; border: 0; border-radius: 8px;
+    background: transparent; color: rgb(var(--ink)); font: inherit; line-height: 24px;
+    cursor: pointer;
+  }
+  .category-select option+option { margin-top: 2px; }
+  .category-select option:is(:hover,:focus-visible) { background: rgb(var(--subtle)); }
+  .category-select option:focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: -2px; }
+  .category-select option:checked { background: rgb(var(--brand-light)); color: rgb(var(--brand)); }
+  .category-select option::checkmark { content: "✓"; order: 1; margin-inline-start: auto; color: rgb(var(--brand)); }
+  .category-select:open { border-color: rgb(var(--brand)); box-shadow: 0 0 0 2px rgb(var(--brand) / .14), var(--shadow-inset); }
+  .category-control:has(.category-select:open)>svg { transform: translateY(-50%) rotate(180deg); }
+}
 @media (max-width:767px) {
   :root:has(.sheet-save-panel[data-historical] .sheet-actions) { --save-panel-height: 92px; }
 }
