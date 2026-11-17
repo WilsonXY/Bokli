@@ -17,7 +17,7 @@ async function openPicker(page, selector, shot, name) {
   const layout=await select.evaluate(el=>{
     const picker=getComputedStyle(el,'::picker(select)');
     const trigger=el.getBoundingClientRect();
-    const options=[...el.options].map(option=>{const r=option.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,height:r.height};});
+    const options=[...el.options].map(option=>{const r=option.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,height:r.height,fontSize:parseFloat(getComputedStyle(option).fontSize)};});
     return {appearance:picker.appearance,background:picker.backgroundColor,borderRadius:picker.borderRadius,trigger:{left:trigger.left,right:trigger.right,bottom:trigger.bottom},options,width:innerWidth,height:innerHeight};
   });
   assert.equal(layout.appearance,'base-select','The options list must be styled too, rather than using the OS dialog');
@@ -25,6 +25,7 @@ async function openPicker(page, selector, shot, name) {
   assert(parseFloat(layout.borderRadius)>=8);
   for(const option of layout.options) {
     assert(option.height>=44,'Options need comfortable touch targets');
+    if(layout.width<=767) assert(option.fontSize>=18,'Phone category choices need larger text while retaining comfortable rows');
     assert(option.left>=0&&option.right<=layout.width,'The open menu must stay inside the viewport');
   }
   const first=layout.options[0],last=layout.options.at(-1);
