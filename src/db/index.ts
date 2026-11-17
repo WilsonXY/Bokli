@@ -9,7 +9,6 @@ import * as schema from "./schema";
  * Stable database path contract: BOKLI_DB_PATH env var, required.
  * There is deliberately no default — an unset path fails closed instead of
  * silently falling back to ./data/bokli.db (the PROD DB in the prod checkout).
- * This path is the coupling point for the future Hermes backup job.
  */
 export function resolveDbPath(env: NodeJS.ProcessEnv = process.env): string {
   const dbPath = env.BOKLI_DB_PATH?.trim();
