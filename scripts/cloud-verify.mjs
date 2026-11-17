@@ -39,7 +39,8 @@ const port = await new Promise((resolve) => {
   });
 });
 const server = await startCloudLocal({ port, testIdentity: true, build: !args.includes("--no-build") });
-const browser = await chromium.launch({ headless: true });
+// Preserve native scroll cues in recordings, including short dropdown menus.
+const browser = await chromium.launch({ headless: true, ignoreDefaultArgs: ["--hide-scrollbars"] });
 const contexts = [];
 let shots = 0;
 let ok = false;

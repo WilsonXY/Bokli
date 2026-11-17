@@ -60,9 +60,12 @@ async function checkMonthMenu(page,shot,name) {
   const menu=page.locator('.month-options');
   await menu.waitFor();
   const anchor=await trigger.boundingBox(),popup=await menu.boundingBox();
-  assert(anchor&&popup&&Math.abs(anchor.width-popup.width)<1&&Math.abs(anchor.x-popup.x)<1,'Month menus must share their trigger width and alignment');
+  assert(anchor&&popup&&popup.width>=anchor.width&&Math.abs(anchor.x+anchor.width-popup.x-popup.width)<1,'Month menus must align to the trigger edge while leaving room for their options');
+  assert(popup.x>=0&&popup.x+popup.width<=page.viewportSize().width,'Month menus must remain inside the viewport');
+  assert(await menu.getByRole('option').evaluateAll(nodes=>nodes.every(el=>el.getBoundingClientRect().height>=44&&parseFloat(getComputedStyle(el).fontSize)>=(innerWidth<=767?18:16))),'Month options need the same readable type and comfortable rows as category options');
   const selected=menu.getByRole('option',{selected:true});
   assert.equal(await selected.locator('svg path[d="m5 12 4 4L19 6"]').count(),1,'The selected month must have a visible selection check');
+  assert(await selected.locator('svg path[d="m5 12 4 4L19 6"]').locator('..').evaluate(el=>el.getBoundingClientRect().width>=20&&parseFloat(getComputedStyle(el).strokeWidth)>=2),'Month selection checks need a clear matching stroke');
   await shot(name,page,{fullPage:false});
   await selected.click();
   assert.equal(await menu.count(),0);
@@ -125,6 +128,7 @@ export default async function categoryDropdowns({page,shot}) {
   const lastAfter=await shortSelect.locator('option').last().boundingBox();
   assert(firstBefore&&firstAfter&&firstAfter.y<firstBefore.y,'The fixed six-option menu must scroll internally in a very short viewport');
   assert(lastAfter&&lastAfter.y>=0&&lastAfter.y+lastAfter.height<=360,'The final option must be fully visible after scrolling');
+  assert(await shortSelect.evaluate(el=>getComputedStyle(el,'::picker(select)').scrollbarWidth!=='none'),'Scrolling menus must retain their browser scrollbar cue');
   await shot('cost-menu-scrolled-phone',page,{fullPage:false});
   await page.keyboard.press('Enter');
   assert.equal(await shortSelect.inputValue(),'other');

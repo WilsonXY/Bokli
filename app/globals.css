@@ -1158,6 +1158,7 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
     box-shadow: var(--shadow-float);
     font: inherit; font-size: 16px; font-weight: 500;
     overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-width: thin; scrollbar-color: rgb(var(--secondary)) rgb(var(--subtle)); scrollbar-gutter: stable;
   }
   .category-select:has(option:nth-child(6))::picker(select) { min-block-size: min(316px,calc(50dvh - 36px)); }
   .category-select option {
@@ -1182,7 +1183,7 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 .sheet-delete-action:focus-visible { outline: 2px solid rgb(var(--loss)); outline-offset: 2px; }
 .sheet-delete-action:disabled { opacity: .4; pointer-events: none; }
 .month-options { margin-top: 0; padding: 8px; border-color: rgb(var(--border-strong)); border-radius: 16px; background: rgb(var(--menu-surface)); box-shadow: var(--shadow-float); }
-.month-options [role="option"] { padding: 10px 8px; font-weight: 500; line-height: 24px; gap: 8px; }
+.month-options [role="option"] { min-height: 48px; padding: 10px 8px; font-size: 16px; font-weight: 500; line-height: 24px; gap: 8px; }
 .month-options [role="option"]+ [role="option"] { margin-top: 2px; }
 .month-options [role="option"][aria-selected="true"] { background: rgb(var(--menu-selected)); color: rgb(var(--brand-dark)); }
 .month-options .month-status-symbol { display: flex; gap: 4px; }
@@ -1222,4 +1223,18 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 @media (max-width:767px) {
   .trend-panel .panel-heading { flex-wrap: wrap; row-gap: 4px; }
   .trend-legends { flex-basis: 100%; justify-content: flex-start; }
+}
+
+.month-options { scrollbar-width: thin; scrollbar-color: rgb(var(--secondary)) rgb(var(--subtle)); scrollbar-gutter: stable; }
+.month-options [aria-selected="true"] .month-status-symbol>svg:last-of-type { stroke-width: 2; }
+.trend-revenue-key { width: 10px; height: 16px; border-radius: 2px; background: var(--trend-revenue); }
+.cost-delete-action { box-shadow: none; }
+.workspace-main .reconciliation-form input.money-input:placeholder-shown { font-size: 16px; line-height: 24px; }
+@media (max-width:767px) {
+  .month-options [role="option"], .month-picker-date { font-size: 18px; font-weight: 500; }
+}
+@media (min-width:768px) {
+  html { scrollbar-gutter: stable; }
+  .expenses-layout, .close-layout, .settings-page { max-width: none; }
+  :is(.expenses-layout,.close-layout,.settings-page)>:not(.page-heading,dialog,[role="dialog"],.confirmation-overlay) { width: 100%; max-width: 760px; margin-inline: 0; }
 }

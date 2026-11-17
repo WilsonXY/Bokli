@@ -40,7 +40,7 @@ export function MonthSelectorDropdown({
   const positionMenu = useCallback(() => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const width = Math.min(rect.width, window.innerWidth - 32);
+    const width = Math.min(Math.max(rect.width, 200), window.innerWidth - 32);
     const maxHeight = Math.max(48, Math.min(256, window.innerHeight - 32));
     const top = rect.bottom + maxHeight + 6 > window.innerHeight - 16 ? Math.max(16, rect.top - maxHeight - 6) : rect.bottom + 6;
     setMenuPosition({ position: "fixed", left: Math.max(16, Math.min(rect.right - width, window.innerWidth - width - 16)), top, width, maxHeight });
@@ -169,7 +169,7 @@ export function MonthSelectorDropdown({
                 }`}
               >
                 <span className="truncate">{opt.month}</span>
-                <span className="month-status-symbol" title={getStatusLabel(status)}>{status === "closed" && <ActionIcon name="lock" size={18} />}{isSelected && <ActionIcon name="check" size={18} />}<span className="sr-only">{getStatusLabel(status)}</span></span>
+                <span className="month-status-symbol" title={getStatusLabel(status)}>{status === "closed" && <ActionIcon name="lock" size={18} />}{isSelected && <ActionIcon name="check" size={24} />}<span className="sr-only">{getStatusLabel(status)}</span></span>
               </button>
             );
           })}

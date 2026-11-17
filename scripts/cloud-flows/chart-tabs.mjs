@@ -16,6 +16,12 @@ export default async function chartTabs({page,shot}) {
     assert(Math.abs(margins.left-margins.right)<=1,'The chart tabs must be centered with equal space at both ends');
     assert(Math.abs(margins.firstWidth-margins.lastWidth)<=1,'Both tab shapes need the same width');
     if(width<=390) assert(margins.pairWidth<=260&&margins.left>=16&&margins.right>=16,'Phone tabs need a compact pair with clear outer space');
+    await tabs.getByRole('tab',{name:'营业收入',exact:true}).click();
+    const revenueCard=await page.locator('.overview-trend').boundingBox(),revenuePlot=await page.locator('.trend-frame').boundingBox();
+    await tabs.getByRole('tab',{name:'日常开销',exact:true}).click();
+    const costsCard=await page.locator('.overview-trend').boundingBox(),costsPlot=await page.locator('.trend-frame').boundingBox();
+    assert(revenueCard&&costsCard&&revenuePlot&&costsPlot&&Math.abs(revenueCard.height-costsCard.height)<=1&&Math.abs(revenuePlot.y-costsPlot.y)<=1,'Switching chart tabs must preserve the card height and plot position');
+    await tabs.getByRole('tab',{name:'营业收入',exact:true}).click();
   }
   await page.setViewportSize(originalViewport);
   const revenue=tabs.getByRole('tab',{name:'营业收入',exact:true});

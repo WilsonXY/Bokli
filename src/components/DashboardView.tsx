@@ -160,7 +160,16 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
             >{metric === "revenue" ? t.sheetRevCol : t.sheetCostCol}</button>)}
           </div>
           <div className="trend-panel" role="tabpanel" id={trendPanelId} aria-labelledby={`${trendPanelId}-${trendMetric}`}>
-            <div className="panel-heading"><h2 id="trend-heading" className="sr-only">{trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}</h2><span className="trend-unit" style={{width:padLeft-8}}>RM</span>{trendMetric === "cost" && <div className="trend-legends"><span className="trend-legend"><span className="trend-cost-key" aria-hidden="true" />{t.sheetCostCol}</span><span className="trend-legend"><span className="trend-reference-key" aria-hidden="true" />{t.sheetRevCol}</span></div>}</div>
+            <div className="panel-heading">
+              <h2 id="trend-heading" className="sr-only">{trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}</h2>
+              <span className="trend-unit" style={{width:padLeft-8}}>RM</span>
+              <div className="trend-legends">
+                {trendMetric === "cost" ? <>
+                  <span className="trend-legend"><span className="trend-cost-key" aria-hidden="true" />{t.sheetCostCol}</span>
+                  <span className="trend-legend"><span className="trend-reference-key" aria-hidden="true" />{t.sheetRevCol}</span>
+                </> : <span className="trend-legend"><span className="trend-revenue-key" aria-hidden="true" />{t.sheetRevCol}</span>}
+              </div>
+            </div>
             <div className="trend-frame" ref={chartRef}><svg key={trendMetric} className="trend-plot animate-chart-swap" data-shared-maximum={maximum} viewBox={`0 0 ${chartW} ${chartH}`} aria-hidden="true" focusable="false">
               <line x1={padLeft} x2={padLeft} y1={padY} y2={chartH-padY} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />
               <line x1={padLeft-4} x2={padLeft} y1={padY} y2={padY} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />
