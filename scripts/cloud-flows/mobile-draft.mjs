@@ -22,7 +22,7 @@ export default async function flow({ page, shot: rawShot }) {
   await shot("draft-survives-settings");
   await page.locator(".daily-costs").scrollIntoViewIfNeeded();
   await shot("cost-editing");
-  await page.locator(".sheet-save-bar").scrollIntoViewIfNeeded();
+  await page.locator(".sheet-save-panel").scrollIntoViewIfNeeded();
   await shot("save-action-clear-of-inputs");
   assert.equal(await protectedFromUnload(), true);
   await page.getByRole("button", { name: "Revert changes", exact: true }).click();
