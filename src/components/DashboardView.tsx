@@ -32,12 +32,9 @@ export interface SerializedDailyTrendRow {
 export type TrendMetric = "revenue" | "cost";
 
 /** Theme-aware trend colours. */
-const TREND_METRIC_COLORS: Record<
-  TrendMetric,
-  { line: string; active: string; halo: string }
-> = {
-  revenue: { line: "var(--trend-revenue, #126756)", active: "#126756", halo: "#e5f1ec" },
-  cost: { line: "var(--trend-cost, #485b52)", active: "#485b52", halo: "#dfe5df" },
+const TREND_METRIC_COLORS: Record<TrendMetric, string> = {
+  revenue: "var(--trend-revenue, #126756)",
+  cost: "rgb(var(--cost))",
 };
 
 export function trendValueSen(row: SerializedDailyTrendRow, metric: TrendMetric): number {
@@ -104,8 +101,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
   const metricLabel = t.sheetRevCol;
   const chartH = 160, padRight = 24, padY = 28;
   const maximum = Math.max(1000, ...trend.map(row => trendValueSen(row, trendMetric)));
-  const maximumLabel = formatMyr(BigInt(maximum)).replace(/^RM /, "");
-  const padLeft = Math.max(48, maximumLabel.length * 8 + 12);
+  const padLeft = 24;
   const firstDate = trend.length ? Date.parse(`${trend[0].date}T00:00:00Z`) : 0;
   const dateSpan = trend.length > 1 ? Math.max(1, Date.parse(`${trend[trend.length - 1].date}T00:00:00Z`) - firstDate) : 1;
   const points = trend.map(row => ({
@@ -114,7 +110,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
   }));
   const line = points.map((point, index) => `${index ? "L" : "M"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ");
   const area = points.length ? `${line} L ${points[points.length - 1].x} ${chartH - padY} L ${points[0].x} ${chartH - padY} Z` : "";
-  const chartColor = TREND_METRIC_COLORS[trendMetric].line;
+  const chartColor = TREND_METRIC_COLORS[trendMetric];
   return (
     <div className={`dashboard-layout page-stack ${trend.length ? "has-records" : "no-records"}`}>
       <div className="page-heading">
@@ -159,12 +155,10 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
             >{metric === "revenue" ? t.sheetRevCol : t.sheetCostCol}</button>)}
           </div>
           <div className="trend-panel" role="tabpanel" id={trendPanelId} aria-labelledby={`${trendPanelId}-${trendMetric}`}>
-            <div className="panel-heading"><h2 id="trend-heading">{trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}</h2></div>
+            <div className="panel-heading"><h2 id="trend-heading" className="sr-only">{trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}</h2><span className="trend-unit">RM</span></div>
             <div className="trend-frame" ref={chartRef}><svg key={trendMetric} className="trend-plot animate-chart-swap" viewBox={`0 0 ${chartW} ${chartH}`} aria-hidden="true" focusable="false">
               <defs><linearGradient id={`trendGradient-${trendMetric}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={chartColor} stopOpacity="0.18" /><stop offset="100%" stopColor={chartColor} stopOpacity="0.01" /></linearGradient></defs>
               {[padY, chartH / 2, chartH - padY].map(y => <line key={y} x1={padLeft} x2={chartW - padRight} y1={y} y2={y} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />)}
-              <text className="trend-unit" x={padLeft - 8} y="14" textAnchor="end" fill="rgb(var(--secondary))" fontSize="14">RM</text>
-              <text className="trend-scale" x={padLeft - 8} y={padY + 4} textAnchor="end" fill="rgb(var(--secondary))" fontSize="14">{maximumLabel}</text>
               <text x={padLeft - 8} y={chartH - padY + 4} textAnchor="end" fill="rgb(var(--secondary))" fontSize="14">0</text>
               <path d={area} fill={`url(#trendGradient-${trendMetric})`} />
               <path d={line} fill="none" stroke={chartColor} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />

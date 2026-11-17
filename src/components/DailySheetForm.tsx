@@ -1677,6 +1677,7 @@ export function DailySheetForm({
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-delete-cost-title"
+          aria-describedby="confirm-delete-cost-desc"
           className="confirmation-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 animate-slide-down"
           onClick={(e) => {
             if (e.target === e.currentTarget) setPendingDeleteIndex(null);
@@ -1688,8 +1689,8 @@ export function DailySheetForm({
                 <h3 id="confirm-delete-cost-title" className="text-base font-bold text-ink-primary">
                   {t.confirmDeleteItemTitle}
                 </h3>
-                <p className="text-xs text-ink-muted mt-0.5">
-                  {t.confirmDeleteItemDesc}
+                <p id="confirm-delete-cost-desc" className="text-xs text-ink-muted mt-0.5">
+                  {t.costDeleteDraftDesc}
                 </p>
               </div>
             </div>
@@ -1773,6 +1774,8 @@ export function DailySheetForm({
                   {totalRevenueSen !== null ? formatMyr(totalRevenueSen) : "—"}
                 </span>
               </div>
+              <div className="confirmation-channel-row" data-channel="cash"><span><ChannelIcon channel="cash" />{t.cashRevenueShort}</span><span>{formatMyr(cashSen ?? 0n)}</span></div>
+              <div className="confirmation-channel-row" data-channel="tng"><span><ChannelIcon channel="tng" />{t.tngRevenueShort}</span><span>{formatMyr(tngSen ?? 0n)}</span></div>
               <div className="flex justify-between text-sm">
                 <span className="text-ink-secondary font-medium">{t.totalCosts}</span>
                 <span className="font-bold text-ink-primary tabular-nums">
