@@ -364,7 +364,7 @@ export function MonthCloseView({
         <>
           {/* Success Notification */}
           {successMessage && (
-            <div className="py-2.5 px-3.5 rounded-xl bg-finance-profit-light border border-finance-profit-border text-sm text-brand-broccoli font-semibold flex items-center gap-2">
+            <div className="feedback-message py-2.5 px-3.5 rounded-xl bg-finance-profit-light border border-finance-profit-border text-sm text-brand-broccoli font-semibold flex items-center gap-2">
               <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
@@ -383,7 +383,7 @@ export function MonthCloseView({
 
           {/* Case 1: Month is CLOSED */}
           {isClosed && (
-            <section aria-label="Closed Month Reconciliation Audit" className="bg-white border border-surface-border rounded-xl p-4 shadow-xs space-y-3.5">
+            <section aria-label="Closed Month Reconciliation Audit" className="closed-audit-panel bg-white border border-surface-border rounded-xl p-4 shadow-xs space-y-3.5">
               <div className="closed-audit-heading" role="status" aria-label={t.monthLocked}>
                 <ActionIcon name="lock" size={18} /><span>{t.closedStatus}</span>
               </div>
@@ -489,7 +489,7 @@ export function MonthCloseView({
                 </div>
               )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="counted-balances grid grid-cols-1 sm:grid-cols-2">
                 {/* Physical Cash Counted */}
                 <div>
                   <label htmlFor="close-cash" className="block text-sm font-semibold text-ink-secondary mb-1.5">
@@ -635,7 +635,7 @@ export function MonthCloseView({
 
               {/* Contextual Error Message */}
               {errorMessage && (
-                <div className="py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between">
+                <div className="feedback-message py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between">
                   <span>{errorMessage}</span>
                   <button
                     type="button"

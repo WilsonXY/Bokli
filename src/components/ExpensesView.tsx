@@ -690,7 +690,7 @@ export function ExpensesView({
 
           {/* Inline Feedback Alerts */}
           {inlineError && (
-            <div className="py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-xs animate-slide-down">
+            <div className="feedback-message py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-xs animate-slide-down">
               <div className="flex items-center gap-2 min-w-0">
                 <svg className="w-4 h-4 shrink-0 text-finance-loss" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -709,7 +709,7 @@ export function ExpensesView({
           )}
 
           {successBanner && (
-            <div className="py-2.5 px-3.5 rounded-xl bg-brand-broccoli-light border border-brand-broccoli/30 text-sm text-brand-broccoli font-bold flex items-center justify-between shadow-xs animate-slide-down">
+            <div className="feedback-message py-2.5 px-3.5 rounded-xl bg-brand-broccoli-light border border-brand-broccoli/30 text-sm text-brand-broccoli font-bold flex items-center justify-between shadow-xs animate-slide-down">
               <div className="flex items-center gap-2 min-w-0">
                 <svg className="w-4 h-4 shrink-0 text-brand-broccoli" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -795,7 +795,7 @@ export function ExpensesView({
                       )}
                     </div>
 
-                    <div>
+                    <div className="cost-note-row">
                       <label htmlFor="expense-note" className="block text-sm font-medium text-ink-secondary mb-1">
                         {t.note} {newType === "other" ? <span className="text-finance-loss">*</span> : <span className="optional-label">{t.optionalBadge}</span>}
                       </label>
@@ -834,7 +834,7 @@ export function ExpensesView({
                   </div>
 
                   {/* Action Buttons: Cancel and Add */}
-                  <div className="flex items-center gap-2.5 pt-1">
+                  <div className="entry-actions flex items-center gap-2.5 pt-1">
                     <button
                       type="button"
                       disabled={adding}
@@ -906,14 +906,14 @@ export function ExpensesView({
               aria-modal="true"
               aria-labelledby="confirm-delete-expense-title"
               aria-describedby="confirm-delete-expense-desc"
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 animate-slide-down"
+              className="confirmation-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 animate-slide-down"
               onClick={(e) => {
                 if (e.target === e.currentTarget && deletingKey === null) {
                   setPendingDeleteExpense(null);
                 }
               }}
             >
-              <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
+              <div className="confirmation-sheet w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-finance-loss-light border border-finance-loss-border/60 text-finance-loss flex items-center justify-center shrink-0 select-none">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -954,7 +954,7 @@ export function ExpensesView({
                 </div>
 
                 {/* Modal Actions */}
-                <div className="flex items-center gap-2.5 pt-1">
+                <div className="confirmation-actions flex items-center gap-2.5 pt-1">
                   <button
                     type="button"
                     disabled={deletingKey !== null}

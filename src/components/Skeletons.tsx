@@ -43,7 +43,7 @@ export function DailySheetSkeleton() {
       <div className="revenue-fields">{(["cash", "tng"] as const).map(channel => <div key={channel} className={`revenue-field ${channel}-revenue`}><div className="revenue-field-label flex items-center"><span className="revenue-channel-icon"><ChannelIcon channel={channel} /></span><label>{channel === "cash" ? t.cashRevenueShort : t.tngRevenueShort}</label></div><MoneyField /></div>)}</div>
     </section>
     <section className="daily-costs"><div className="section-heading flex items-center justify-between"><h2>{t.costsTitle}</h2><span><span className="sr-only">{t.totalCosts}{t.fieldColon} </span><span className={value} aria-hidden="true">{"RM 0.00"}</span></span></div><button disabled className="add-cost-action skeleton-action w-full" aria-label={t.addCostLine}><ActionIcon name="add" size={24} /></button></section>
-    <div className="sheet-save-bar"><div className="sheet-save-panel"><div className="sheet-profit-summary"><div>{t.grossProfit}</div><div className={value} aria-hidden="true">{"RM 0.00"}</div></div><div className="sheet-actions"><button disabled className="sheet-save-action skeleton-action" aria-label={t.saveSheet}><ActionIcon name="save" /><span>{t.saveShort}</span></button></div></div></div>
+    <div className="sheet-save-bar"><div className="sheet-save-panel"><div className="sheet-profit-summary"><div>{t.grossProfit}</div><div className={value} aria-hidden="true">{"RM 0.00"}</div></div><div className="sheet-actions"><button disabled className="sheet-save-action skeleton-action" aria-label={t.saveSheet}><ActionIcon name="save" /><span className="sheet-save-label">{t.saveShort}</span></button></div></div></div>
   </div>;
 }
 
@@ -79,7 +79,7 @@ export function MonthCloseSkeleton() {
     <MonthHeader title={t.closeTitle} hint={t.closeHint} />
     <section className="close-expectation"><div className="close-expected-total"><span>{t.expectedNet}</span><strong className={value} aria-hidden="true">{amount}</strong></div><div className="close-calculation"><div className="skeleton-calculation-label">{t.viewCalculation}<span className="calculation-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span></div></div></section>
     <div className="reconciliation-form">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">{field(t.cashOnHand)}{field(t.tngOnHand)}</div>
+      <div className="counted-balances grid grid-cols-1 sm:grid-cols-2">{field(t.cashOnHand)}{field(t.tngOnHand)}</div>
       <div className="reconciliation-preview p-3 border space-y-2"><div className="flex items-center justify-between text-sm"><span>{t.actualTotal}</span><span className={`text-base ${value}`} aria-hidden="true">{amount}</span></div><div className="flex items-center justify-between text-sm"><span>{t.expectedNet}</span><span className={`text-base ${value}`} aria-hidden="true">{amount}</span></div><div className="reconciliation-result is-pending"><div className="reconciliation-result-line"><span>{t.reconciliationDiff}</span><strong className={value} aria-hidden="true">—</strong></div></div></div>
       <div><label className="block text-sm mb-1">{t.closeNote} <span className="optional-label">{t.optionalBadge}</span></label><div className="skeleton-close-note" /></div>
       <p className="sr-only">{t.enterBothToClose}</p>

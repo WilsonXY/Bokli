@@ -1259,12 +1259,9 @@ export function DailySheetForm({
               return (
                 <div
                   key={getCostLineKey(line, idx)}
-                  className={`cost-entry-card bg-white border rounded-xl shadow-xs transition-all overflow-hidden ${
-                        isExpanded
-                          ? "border-brand-broccoli ring-2 ring-brand-broccoli/20"
-                          : "border-surface-border hover:border-slate-300"
-                      }`}
+                  className="cost-entry-card"
                     >
+                  <div className="cost-record-header">
                   {/* Summary Row */}
                       <div
                         onClick={() => {
@@ -1289,7 +1286,7 @@ export function DailySheetForm({
                           <span className="text-xs font-semibold px-2 py-0.5 rounded bg-surface-subtle border border-surface-border text-ink-secondary whitespace-nowrap">
                             {getCategoryLabel(line.category)}
                           </span>
-                          {line.note && (
+                          {line.note && !isExpanded && (
                             <span className="cost-record-note text-base text-ink-primary font-medium">
                               {line.note}
                             </span>
@@ -1309,6 +1306,8 @@ export function DailySheetForm({
                           {!isClosed && <span className="record-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span>}
                         </div>
                       </div>
+                      {isExpanded && !isClosed && <button type="button" onClick={() => setPendingDeleteIndex(idx)} aria-label={t.deleteCostLine} title={t.deleteCostLine} disabled={saving} className="cost-delete-action"><ActionIcon name="trash" /></button>}
+                  </div>
 
                   {/* Expanded Form Body */}
                       {isExpanded && !isClosed && (
@@ -1368,11 +1367,12 @@ export function DailySheetForm({
                               )}
                             </div>
 
-                            <div>
-                              <label className="block text-xs font-semibold text-ink-secondary mb-1">
+                            <div className="cost-note-row">
+                              <label htmlFor={`cost-note-${idx}`} className="block text-xs font-semibold text-ink-secondary mb-1">
                                 {t.note} {line.category === "other" ? <span className="text-finance-loss">*</span> : <span className="optional-label">{t.optionalBadge}</span>}
                               </label>
                               <input
+                                id={`cost-note-${idx}`}
                                 type="text"
                                 disabled={isClosed || saving}
                                 value={line.note ?? ""}
@@ -1400,24 +1400,6 @@ export function DailySheetForm({
                               )}
                             </div>
                           </div>
-                          <div className="cost-editor-footer">
-                          {!isClosed && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPendingDeleteIndex(idx);
-                              }}
-                              aria-label={t.deleteCostLine}
-                              title={t.deleteCostLine}
-                              disabled={saving}
-                              className="cost-delete-action"
-                            >
-                              <ActionIcon name="trash" /><span className="sr-only">{t.deleteCostLine}</span>
-                            </button>
-                          )}
-
-                          </div>
                         </div>
                       )}
                     </div>
@@ -1443,7 +1425,7 @@ export function DailySheetForm({
       {/* Daily result and save action follow the form without covering it. */}
       <div className="sheet-save-bar space-y-2">
             {errorMessage && (
-              <div className="py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-md animate-slide-down">
+              <div className="feedback-message py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-md animate-slide-down">
                 <div className="flex items-center gap-2 min-w-0">
                   <svg className="w-4 h-4 shrink-0 text-finance-loss" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -1462,7 +1444,7 @@ export function DailySheetForm({
             )}
 
             {successMessage && (
-              <div className="py-2.5 px-3.5 rounded-xl bg-brand-broccoli-light border border-brand-broccoli/30 text-sm text-brand-broccoli font-bold flex items-center justify-between shadow-md animate-slide-down">
+              <div className="feedback-message py-2.5 px-3.5 rounded-xl bg-brand-broccoli-light border border-brand-broccoli/30 text-sm text-brand-broccoli font-bold flex items-center justify-between shadow-md animate-slide-down">
                 <div className="flex items-center gap-2 min-w-0">
                   <svg className="w-4 h-4 shrink-0 text-brand-broccoli" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -1537,8 +1519,8 @@ export function DailySheetForm({
                     }}
                     aria-label={saving ? t.saving : t.saveSheet} className="sheet-save-action h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
                   >
-                    <span className={`save-state-icon${saving ? " animate-spin" : ""}`}><ActionIcon name={saving ? "loading" : savedSheet && !isModified ? "check" : "save"} /></span>
-                    <span>{savedSheet && !isModified ? t.savedStatus : t.saveShort}</span>{isModified && !saving && <span className="pending-save-status">{t.draftStatus}</span>}
+                    <span className={`save-state-icon${saving ? " animate-spin" : ""}`}><ActionIcon name={saving ? "loading" : savedSheet && !isModified ? "check" : "save"} />{isModified && !saving && <span className="pending-save-status" role="status" aria-label={t.draftStatus} />}</span>
+                    <span className="sheet-save-label">{savedSheet && !isModified ? t.savedStatus : t.saveShort}</span>
                   </button>
                   {isModified && (
                     <button
@@ -1602,12 +1584,12 @@ export function DailySheetForm({
           aria-modal="true"
           aria-labelledby="confirm-delete-sheet-title"
           aria-describedby="confirm-delete-sheet-desc"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 animate-slide-down"
+          className="confirmation-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 animate-slide-down"
           onClick={(e) => {
             if (e.target === e.currentTarget && !deletingSheet) setShowDeleteSheetModal(false);
           }}
         >
-          <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
+          <div className="confirmation-sheet w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
             <div className="flex flex-col items-center text-center gap-3">
               <div className="w-16 h-16 rounded-full bg-finance-loss-light border border-finance-loss-border/60 text-finance-loss flex items-center justify-center shrink-0 select-none">
                 <svg aria-hidden="true" className="w-10 h-10" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -1651,7 +1633,7 @@ export function DailySheetForm({
             )}
 
             {/* Modal Actions */}
-            <div className="flex items-center gap-2.5 pt-1">
+            <div className="confirmation-actions flex items-center gap-2.5 pt-1">
               <button
                 type="button"
                 autoFocus
@@ -1680,12 +1662,12 @@ export function DailySheetForm({
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-delete-cost-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 animate-slide-down"
+          className="confirmation-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 animate-slide-down"
           onClick={(e) => {
             if (e.target === e.currentTarget) setPendingDeleteIndex(null);
           }}
         >
-          <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
+          <div className="confirmation-sheet w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-finance-loss-light border border-finance-loss-border/60 text-finance-loss flex items-center justify-center shrink-0 select-none">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -1726,7 +1708,7 @@ export function DailySheetForm({
             </div>
 
             {/* Modal Actions */}
-            <div className="flex items-center gap-2.5 pt-1">
+            <div className="confirmation-actions flex items-center gap-2.5 pt-1">
               <button
                 type="button"
                 onClick={() => setPendingDeleteIndex(null)}
@@ -1756,12 +1738,12 @@ export function DailySheetForm({
           aria-modal="true"
           aria-labelledby="confirm-modal-title"
           aria-describedby="confirm-modal-desc"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 animate-slide-down"
+          className="confirmation-overlay fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 animate-slide-down"
           onClick={(e) => {
             if (e.target === e.currentTarget && !saving) setShowConfirmModal(false);
           }}
         >
-          <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
+          <div className="confirmation-sheet w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
             <div className="space-y-1">
               <h3 id="confirm-modal-title" className="text-lg font-bold text-ink-primary">
                 {t.confirmSaveTitle}
@@ -1798,7 +1780,7 @@ export function DailySheetForm({
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 pt-1">
+            <div className="confirmation-actions flex items-center gap-2.5 pt-1">
               <button
                 type="button"
                 disabled={saving}

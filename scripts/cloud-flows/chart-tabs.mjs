@@ -17,7 +17,7 @@ export default async function chartTabs({page,shot}) {
   assert.equal(await revenue.getAttribute('aria-selected'),'true');
   assert.equal(await revenue.evaluate(el=>el===document.activeElement),true);
   await page.getByRole('tabpanel').getByRole('heading',{name:'每日收入趋势',exact:true}).waitFor();
-  await page.getByRole('tabpanel').getByRole('heading',{name:'每日收入趋势',exact:true}).click();
+  await page.locator('.trend-frame').click({position:{x:10,y:10}});
   await page.locator('.overview-trend').scrollIntoViewIfNeeded();
   await shot('revenue-tab',page,{fullPage:false});
 }

@@ -14,12 +14,15 @@ export default async function saveDock({page,shot}) {
     await note.scrollIntoViewIfNeeded();
     await note.click();
     const save=await page.getByRole('button',{name:'保存账单',exact:true}).boundingBox();
-    const dock=await page.locator('.sheet-actions').boundingBox();
+    const dock=await page.locator('.sheet-save-panel').boundingBox();
+    const total=await page.locator('.sheet-profit-summary').boundingBox();
     const nav=await page.locator('.mobile-navigation').boundingBox();
     const field=await note.boundingBox();
-    assert(save&&dock&&nav&&field);
+    assert(save&&dock&&nav&&field&&total);
     assert(dock.x>=0 && dock.x+dock.width<=width,'The whole Save dock must fit inside the phone viewport');
     assert(save.y>=0 && save.y+save.height<=nav.y-8,'Save must stay reachable above navigation while entering costs');
+    assert.equal(Math.round(dock.y+dock.height),Math.round(nav.y),'Save and navigation must form one opaque footer without a gap');
+    assert(total.y>=dock.y && total.y+total.height<=dock.y+dock.height,'The running profit must remain inside the visible Save area');
     assert(field.y>=0 && field.y+field.height<=dock.y-8,'The Save dock must leave the focused field clear');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     await shot(`entry-${width}-${height}`,page,{fullPage:false});
