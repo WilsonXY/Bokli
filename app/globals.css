@@ -7,7 +7,12 @@
     color-scheme: light;
     --trend-revenue: #126756; --trend-cost: #485b52;
     --brand: 18 103 86; --brand-dark: 13 77 65; --brand-light: 229 241 236;
-    --surface: 255 255 255; --canvas: 247 248 247; --subtle: 240 244 242;
+    --surface: 255 255 255; --canvas: 238 243 239; --subtle: 232 239 234;
+    --field: 246 249 246;
+    --shadow-card: 0 1px 2px rgb(18 42 31 / .05), 0 12px 26px -9px rgb(18 42 31 / .15);
+    --shadow-control: 0 2px 3px rgb(18 42 31 / .07), inset 0 1px 0 rgb(255 255 255 / .85);
+    --shadow-inset: inset 0 1px 3px rgb(18 42 31 / .07);
+    --shadow-float: 0 -2px 18px rgb(18 42 31 / .05), 0 10px 32px rgb(18 42 31 / .18);
     --border: 223 229 223; --border-strong: 186 199 187;
     --ink: 25 43 38; --secondary: 72 91 82; --muted: 96 115 105;
     --cash: 25 117 84; --cash-light: 234 246 239;
@@ -22,7 +27,12 @@
     color-scheme: dark;
     --trend-revenue: #8bcfa3; --trend-cost: #c3d1c5;
     --brand: 139 207 163; --brand-dark: 166 223 185; --brand-light: 35 62 45;
-    --surface: 28 36 30; --canvas: 19 26 21; --subtle: 35 45 38;
+    --surface: 29 41 33; --canvas: 16 24 19; --subtle: 35 48 39;
+    --field: 20 31 24;
+    --shadow-card: 0 1px 0 rgb(255 255 255 / .04), 0 12px 26px -9px rgb(0 0 0 / .45);
+    --shadow-control: 0 2px 4px rgb(0 0 0 / .3), inset 0 1px 0 rgb(255 255 255 / .05);
+    --shadow-inset: inset 0 1px 3px rgb(0 0 0 / .24);
+    --shadow-float: 0 -2px 18px rgb(0 0 0 / .2), 0 10px 32px rgb(0 0 0 / .45);
     --border: 57 72 61; --border-strong: 91 111 95;
     --ink: 235 241 234; --secondary: 195 209 197; --muted: 156 177 160;
     --cash: 129 208 169; --cash-light: 28 56 42;
@@ -626,7 +636,7 @@
 .empty-month .primary-button { width: 100%; min-height: 52px; padding: 0; color: rgb(var(--brand)); background: rgb(var(--surface)); border: 1px solid rgb(var(--border-strong)); box-shadow: none; }
 .empty-month .primary-button:hover { background: rgb(var(--brand-light)); }
 
-.date-trigger-label>span { min-width: 10ch; font-variant-numeric: tabular-nums; }
+.date-trigger-label>.date-value, .date-trigger-label>.loading-period { min-width: 10ch; font-variant-numeric: tabular-nums; }
 @media (min-width:640px) { .skeleton-date-body>button { width: auto; } }
 
 .month-status-symbol { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -672,3 +682,54 @@
 .sheet-date-bar>div:first-child>button:disabled svg { opacity: .55; }
 .cost-editor-footer { justify-content: flex-end; }
 .expense-record-summary .record-chevron { display: grid; place-items: center; align-self: center; }
+
+/* Three material levels: canvas, lifted surfaces, recessed fields. */
+.revenue-fields, .cost-entry-card, .expense-entry-card, .expense-record,
+.overview-summary, .daily-ledger, .overview-trend, .overview-split, .overview-costs,
+.expense-month-summary, .close-expectation, .reconciliation-form,
+.sheet-save-panel, .appearance-choice, .language-options {
+  box-shadow: var(--shadow-card);
+}
+.sheet-save-panel { padding: 16px; border: 1px solid rgb(var(--border)); border-radius: 16px; background: rgb(var(--surface)); }
+.cost-entry-card:has(.cost-editor), .expense-entry-card { border: 1px solid rgb(var(--border-strong)); background: rgb(var(--surface)); }
+.cost-editor { background: rgb(var(--surface)); }
+.expense-entry-card form { background: transparent; }
+.workspace-main input.money-input, .workspace-main input.note-input,
+.category-select, .skeleton-money-field, .skeleton-close-note {
+  background: rgb(var(--field)); box-shadow: var(--shadow-inset);
+}
+.workspace-main input.money-input:focus, .workspace-main input.note-input:focus,
+.category-select:focus { background: rgb(var(--surface)); box-shadow: 0 0 0 3px rgb(var(--brand) / .1), var(--shadow-inset); }
+.date-picker-trigger, .month-picker-trigger, .return-today,
+.add-cost-action, .expense-add-icon, .sheet-revert-action, .record-delete {
+  box-shadow: var(--shadow-control);
+}
+.sheet-date-bar>div:first-child>button:not(:disabled) { box-shadow: var(--shadow-control); }
+.sheet-date-bar button:disabled { box-shadow: none; }
+.sheet-save-action:not(:disabled), .primary-button:not(:disabled) {
+  box-shadow: 0 4px 10px rgb(13 77 65 / .18), inset 0 1px 0 rgb(255 255 255 / .15);
+}
+.sheet-save-action:not(:disabled):active, .primary-button:not(:disabled):active { box-shadow: inset 0 2px 4px rgb(0 0 0 / .15); }
+.profit-headline { background: linear-gradient(135deg,#176f5a,#0d4d41); box-shadow: inset 0 1px 0 rgb(255 255 255 / .15); }
+.profit-headline h2 { color: #d9eee4; }
+.profit-headline .metric-headline, .profit-headline .metric-headline[data-zero],
+.profit-headline.is-loss .metric-headline { color: #fff; }
+.profit-headline.is-loss { background: linear-gradient(135deg,#9a493e,#74372f); }
+.profit-headline:has(.metric-headline[data-zero]) { background: linear-gradient(135deg,#445c50,#2c3d34); }
+.loading-layout .profit-headline { background: rgb(var(--subtle)); }
+.loading-layout .profit-headline h2 { color: rgb(var(--ink)); }
+.loading-layout .profit-headline .metric-headline { color: transparent; }
+.close-expectation { background: rgb(var(--surface)); }
+.reconciliation-form { padding: 16px; border: 1px solid rgb(var(--border)); border-radius: 16px; background: rgb(var(--surface)); }
+.reconciliation-preview { background: rgb(var(--field)); box-shadow: var(--shadow-inset); }
+.language-options { background: rgb(var(--surface)); border-radius: 12px; }
+.appearance-choice { background: rgb(var(--surface)); }
+.appearance-choice:has(input:checked) { background: rgb(var(--brand-light)); box-shadow: var(--shadow-card), inset 0 1px 0 rgb(255 255 255 / .45); }
+.workspace-sidebar { box-shadow: 4px 0 20px rgb(18 42 31 / .025); }
+.brand-mark, .mobile-brand-mark { box-shadow: 0 2px 5px rgb(13 77 65 / .18), inset 0 1px 0 rgb(255 255 255 / .2); }
+@media (max-width:767px) {
+  .mobile-navigation { box-shadow: var(--shadow-float); }
+  .workspace-sidebar { box-shadow: none; }
+}
+
+.danger-action:not(:disabled) { box-shadow: 0 4px 10px rgb(100 34 28 / .18), inset 0 1px 0 rgb(255 255 255 / .15); }

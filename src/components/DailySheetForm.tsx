@@ -1080,7 +1080,7 @@ export function DailySheetForm({
             >
               <div className="date-trigger-label flex items-center justify-center gap-1.5 whitespace-nowrap">
                 <svg aria-hidden="true" className="w-5 h-5 text-brand-broccoli shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path strokeLinecap="round" strokeLinejoin="round" d="M7 3v4m10-4v4M4 10h16M5 5h14a1 1 0 0 1 1 1v14H4V6a1 1 0 0 1 1-1Z" /></svg>
-                <span className="text-base font-bold text-ink-primary group-hover:text-brand-broccoli transition-colors">
+                <span className="date-value text-base font-bold text-ink-primary group-hover:text-brand-broccoli transition-colors">
                   {date}
                 </span>
               </div>

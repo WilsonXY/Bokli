@@ -736,7 +736,7 @@ export function ExpensesView({
           <section aria-label={t.operatingExpenses} className="operating-expenses space-y-2.5">
             {/* Active Draft Form Card (Daily-sheet style) */}
             {isDraftOpen && !isClosed && (
-              <div className="bg-white border-2 border-brand-broccoli ring-2 ring-brand-broccoli/20 rounded-xl shadow-xs overflow-hidden transition-all">
+              <div className="expense-entry-card bg-white rounded-xl overflow-hidden transition-all">
                 <form onSubmit={handleAddExpense} className="p-4 bg-surface-canvas/30 space-y-3">
                   <div className="cost-category-row">
                     <label htmlFor="expense-category" className="field-label block font-medium text-ink-secondary mb-2">{t.categoryShort}</label>
