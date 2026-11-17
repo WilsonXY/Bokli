@@ -1,0 +1,33 @@
+#!/bin/bash
+# Auto-fix: run `eslint --fix` on the staged JS/TS files and re-stage them; block only on
+# what ESLint can't fix. Warnings block too, like CI (`eslint . --max-warnings=0`).
+# A file with unstaged changes is only checked, not fixed: re-staging it would commit those hunks.
+export GIT_LITERAL_PATHSPECS=1  # a staged `a*.ts` must not also stage `another.ts`
+full=() partial=()
+while IFS= read -r -d '' f; do
+  case "$f" in *.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx|*.mts|*.cts) ;; *) continue ;; esac
+  # A staged symlink: ESLint would fix the link's target, which may not be staged.
+  [ "$(git ls-files -s -- "$f" | cut -c1-6)" = 120000 ] && continue
+  if git diff --quiet -- "$f"; then full+=("$f"); else partial+=("$f"); fi
+done < <(git diff --cached --name-only -z --diff-filter=ACMRT)
+[ ${#full[@]} -eq 0 ] && [ ${#partial[@]} -eq 0 ] && exit 0
+
+eslint=node_modules/.bin/eslint
+if [ ! -x "$eslint" ]; then
+  echo "❌ pre-commit: $eslint not found; run npm ci (or commit with --no-verify)."
+  exit 1
+fi
+
+status=0
+if [ ${#full[@]} -gt 0 ]; then
+  "$eslint" --fix --no-warn-ignored --max-warnings=0 -- "${full[@]}" || status=1
+  git add -- "${full[@]}" || exit 1
+fi
+for f in "${partial[@]}"; do
+  git show ":$f" | "$eslint" --no-warn-ignored --max-warnings=0 --stdin --stdin-filename "$f" || {
+    status=1
+    echo "   ↑ $f has unstaged changes, so it was checked, not auto-fixed. Stage it fully to auto-fix."
+  }
+done
+[ $status -eq 0 ] || echo "❌ pre-commit: ESLint problems remain (see above). Fix them and commit again."
+exit $status

@@ -33,6 +33,8 @@ npm run test:deploy    # Worker bundle + migration folder: when touching workers
 npm run build          # static pages into out/
 ```
 
+Commits run `.githooks/pre-commit`: `eslint --fix` on staged JS/TS files, blocking on any error or warning left (`npm ci` turns it on).
+
 UI or user-visible changes also need proof of the changed interaction:
 `node scripts/cloud-verify.mjs <flow.mjs> [mom|katte] [--mobile]`. It builds, starts
 the local Worker with fake data and test logins on a free 127.0.0.1 port, and stops
