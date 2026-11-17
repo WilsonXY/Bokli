@@ -492,7 +492,6 @@
 .cost-category-row label, .cost-money-row label { margin: 0; font-size: 16px; line-height: 24px; }
 .cost-fields { display: grid; gap: 10px; }
 .cost-money-row>[role="alert"] { grid-column: 2; margin-top: 0; }
-.cost-editor-footer { display: flex; justify-content: space-between; align-items: center; }
 .date-picker-group { display: flex; align-items: center; gap: 3px; }
 .return-today { flex-shrink: 0; color: rgb(var(--brand)); font-size: 16px; background: rgb(var(--surface)); }
 .return-today:hover { background: rgb(var(--brand-light)); }
@@ -648,7 +647,6 @@
 .calendar-day:disabled { color: rgb(var(--muted)); opacity: .45; background: transparent; border-color: transparent; box-shadow: none; }
 .sheet-date-bar>div:first-child>button:disabled { color: rgb(var(--muted)); }
 .sheet-date-bar>div:first-child>button:disabled svg { opacity: .55; }
-.cost-editor-footer { justify-content: flex-end; }
 .expense-record-summary .record-chevron { display: grid; place-items: center; align-self: center; }
 
 /* Three material levels: canvas, lifted surfaces, recessed fields. */
@@ -766,7 +764,6 @@
 .daily-layout[data-readonly] .cost-line-list, .expense-record-list:has([data-readonly]) { box-shadow: none; }
 .cost-record-summary { min-height: 56px; padding: var(--space-3) var(--surface-inset); border: 0; }
 .cost-editor { padding: var(--surface-inset); gap: var(--space-3); border-top: var(--edge) solid rgb(var(--border)); }
-.cost-editor-footer { padding: var(--space-3) 0 0; border-top: var(--edge) solid rgb(var(--border)); gap: var(--space-3); }
 .expense-entry-form { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--surface-inset); }
 .entry-form-title { font-size: 18px; line-height: 28px; }
 .workspace-main input.money-input, .workspace-main input.note-input, .category-select,
@@ -880,6 +877,7 @@
   .workspace-main { padding: var(--space-3) var(--page-gutter) var(--space-6); min-height: calc(100dvh - 48px - var(--navigation-space)); }
   .workspace-body { margin-left: 0; padding-bottom: var(--navigation-space); }
   .app-workspace:has(.daily-layout .sheet-actions) .workspace-body { padding-bottom: calc(140px + env(safe-area-inset-bottom)); }
+  .app-workspace:has(.daily-layout .sheet-actions) .workspace-main { min-height: calc(100dvh - 188px - env(safe-area-inset-bottom)); }
   .page-heading h1, .sheet-page-heading h1 { font-size: 28px; line-height: 40px; }
   .workspace-sidebar { inset: auto 0 0; width: auto; padding: 0; border: 0; border-top: var(--edge) solid rgb(var(--border)); border-radius: 20px 20px 0 0; background: rgb(var(--surface)); box-shadow: 0 -4px 16px rgb(18 42 31 / .07); }
   .app-workspace:has(.daily-layout .sheet-actions) .workspace-sidebar { border-top: 0; border-radius: 0; box-shadow: none; }

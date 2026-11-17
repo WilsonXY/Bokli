@@ -275,8 +275,8 @@ describe("mergeCostLines, getCostLineKey, and deletion logic", () => {
       })
     );
 
-    // Rice note appears exactly once in the rendered markup
-    const riceMatches = html.match(/>Rice<\/span>/g) || [];
+    // The note appears once: in the collapsed summary or the expanded field.
+    const riceMatches = html.match(/>Rice<\/span>|value="Rice"/g) || [];
     expect(riceMatches).toHaveLength(1);
 
     // Unmerged individual amounts (RM 20.00, RM 30.00) must NOT appear anywhere in the rendered markup
