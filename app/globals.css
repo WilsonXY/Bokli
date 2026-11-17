@@ -1119,12 +1119,9 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 .sheet-save-panel[data-historical] .sheet-profit-summary>div:first-child { flex-wrap: wrap; row-gap: 0; }
 .trend-legend { display: inline-flex; align-items: center; gap: var(--space-2); color: rgb(var(--secondary)); font-size: 14px; line-height: 24px; }
 .trend-legends { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-1) var(--space-3); }
-.trend-reference-key { display: inline-flex; align-items: flex-end; gap: 4px; width: 24px; height: 20px; opacity: .75; }
-.trend-reference-key::before, .trend-reference-key::after { content: ""; width: 10px; height: 20px; border: 1.5px dashed var(--trend-revenue); border-radius: 2px; }
+.trend-reference-key { display: inline-flex; align-items: flex-end; gap: 4px; width: 24px; height: 20px; }
+.trend-reference-key::before, .trend-reference-key::after { content: ""; width: 10px; height: 20px; border: 2px dashed var(--trend-revenue); border-radius: 2px; }
 .trend-reference-key::after { height: 14px; }
-:root[data-theme="dark"] .trend-reference-column { stroke-width: 2px; stroke-opacity: 1; }
-:root[data-theme="dark"] .trend-reference-key { opacity: 1; }
-:root[data-theme="dark"] .trend-reference-key::before, :root[data-theme="dark"] .trend-reference-key::after { border-width: 2px; }
 .trend-cost-key { width: 10px; height: 16px; border-radius: 2px; background: rgb(var(--cost)); }
 .trend-value-label { stroke: none; }
 .sheet-save-error { align-items: flex-start; }

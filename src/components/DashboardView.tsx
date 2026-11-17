@@ -169,7 +169,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
               <text className="trend-axis-label" x={padLeft - 8} y={chartH - padY + 4} textAnchor="end" fill="rgb(var(--secondary))" fontSize="14">0</text>
               {trendMetric === "cost" && points.map((point, index) => {
                 const height = trend[index].totalSen / maximum * (chartH - padY * 2);
-                return <rect key={trend[index].date} className="trend-reference-column" x={point.x + barOffset - barWidth / 2} y={chartH - padY - height} width={barWidth} height={height} rx="4" fill="none" stroke={TREND_METRIC_COLORS.revenue} strokeWidth="1.5" strokeOpacity=".75" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />;
+                return <rect key={trend[index].date} className="trend-reference-column" x={point.x + barOffset - barWidth / 2} y={chartH - padY - height} width={barWidth} height={height} rx="4" fill="none" stroke={TREND_METRIC_COLORS.revenue} strokeWidth="2" strokeOpacity="1" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />;
               })}
               {points.map((point, index) => {
                 const label = formatMyr(BigInt(trendValueSen(trend[index], trendMetric))).replace(/^RM /, "");
@@ -178,7 +178,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
                 // Exact values are also available in the accessible dated list below.
                 const showLabel = labelWidth <= labelSpace && (index === 0 || index === points.length - 1 || points.length <= 3);
                 const textAnchor = points.length > 3 && index === 0 ? "start" : points.length > 3 && index === points.length - 1 ? "end" : "middle";
-                return <g key={trend[index].date}><rect className="trend-column" x={point.x - barOffset - barWidth / 2} y={point.y} width={barWidth} height={chartH - padY - point.y} rx="4" fill={chartColor} />{showLabel && <text x={point.x - barOffset} y={chartH - padY + 24} textAnchor={textAnchor} className="trend-value-label" fill={chartColor} fontSize="16" fontWeight="500">{label}</text>}</g>;
+                return <g key={trend[index].date}><rect className="trend-column" x={point.x - barOffset - barWidth / 2} y={point.y} width={barWidth} height={chartH - padY - point.y} rx="4" fill={chartColor} />{showLabel && <text x={point.x} y={chartH - padY + 24} textAnchor={textAnchor} className="trend-value-label" fill={chartColor} fontSize="16" fontWeight="500">{label}</text>}</g>;
               })}
             </svg></div>
             <dl className="sr-only">{trend.map(row => <div key={row.date}><dt>{row.date}</dt><dd>{formatMyr(BigInt(trendValueSen(row, trendMetric)))}</dd></div>)}</dl>

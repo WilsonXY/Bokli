@@ -22,11 +22,13 @@ export default async function saveStatusAndScale({ page, shot }) {
   await page.setViewportSize({width:320,height:844});
   await page.waitForFunction(()=>{const svg=document.querySelector('.trend-plot');return svg&&Math.abs(svg.viewBox.baseVal.width-svg.getBoundingClientRect().width)<1;});
   assert.deepEqual(await page.locator('.trend-value-label').allTextContents(),['175.00','150.00','150.00'],'All three exact point values must remain readable at 320px');
-  const geometry=await page.evaluate(()=>({costs:[...document.querySelectorAll('.trend-column')].map(el=>el.getBoundingClientRect().toJSON()),revenue:[...document.querySelectorAll('.trend-reference-column')].map(el=>el.getBoundingClientRect().toJSON()),labels:[...document.querySelectorAll('.trend-value-label')].map(el=>el.getBoundingClientRect().toJSON())}));
+  const geometry=await page.evaluate(()=>({costs:[...document.querySelectorAll('.trend-column')].map(el=>el.getBoundingClientRect().toJSON()),revenue:[...document.querySelectorAll('.trend-reference-column')].map(el=>el.getBoundingClientRect().toJSON()),labels:[...document.querySelectorAll('.trend-value-label')].map(el=>el.getBoundingClientRect().toJSON()),dates:[...document.querySelectorAll('.trend-dates>span')].map(el=>el.getBoundingClientRect().toJSON())}));
   for(let index=0;index<geometry.costs.length;index++) {
     assert(geometry.costs[index].right+2<=geometry.revenue[index].left,'Daily Costs and Revenue need separate neighboring columns');
     assert(geometry.labels[index].top>=geometry.revenue[index].bottom+4,'Cost amounts must sit outside the Revenue outlines');
+    assert(Math.abs(geometry.labels[index].x+geometry.labels[index].width/2-geometry.dates[index].x-geometry.dates[index].width/2)<1,'Each amount and its recorded date must share a clear column center');
   }
+  assert(await page.locator('.trend-reference-column').first().evaluate(el=>parseFloat(getComputedStyle(el).strokeWidth)>=2&&parseFloat(getComputedStyle(el).strokeOpacity)===1),'The Revenue comparison needs a clear full-contrast outline in bright and dark modes');
   const currency=await unit.boundingBox();
   const plot=await page.locator('.trend-plot').boundingBox();
   assert(currency&&plot&&currency.y+currency.height<=plot.y-8,'The currency must stay clear of point labels');
