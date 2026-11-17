@@ -480,6 +480,7 @@ export function DailySheetForm({
   // branch, which clears errorMessage, and the Operator would lose the only sign
   // that nothing was deleted. Cleared only when she reopens or retries.
   const [deleteSheetError, setDeleteSheetError] = useState<string | null>(null);
+  const errorMessageRef = useRef<HTMLDivElement>(null);
   const [savedSheet, setSavedSheet] = useState(initialSavedSheet);
   const savedSheetId = initialSavedSheet?.id ?? null;
   const savedSheetUpdatedAt = initialSavedSheet?.updatedAt ?? null;
@@ -583,6 +584,9 @@ export function DailySheetForm({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [showConfirmModal, pendingDeleteIndex, showDeleteSheetModal, deletingSheet]);
   const [errorMessage, setErrorMessage] = useState<string | null>(initialErrorMessage);
+  useEffect(() => {
+    if (errorMessage) errorMessageRef.current?.focus();
+  }, [errorMessage]);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // The success banner is owned by a single timer. Every show/dismiss cancels the
@@ -1138,7 +1142,7 @@ export function DailySheetForm({
 
       {(errorMessage || successMessage) && <div className="sheet-feedback">
         {errorMessage && (
-          <div className="feedback-message py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-md animate-slide-down">
+          <div ref={errorMessageRef} tabIndex={-1} role="alert" className="feedback-message py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-md animate-slide-down">
             <div className="flex items-center gap-2 min-w-0">
               <svg className="w-4 h-4 shrink-0 text-finance-loss" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />

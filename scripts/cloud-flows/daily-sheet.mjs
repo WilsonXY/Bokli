@@ -6,8 +6,10 @@ const expectValue = async (input, value) => {
 };
 async function save(page) {
   await page.getByRole("button", { name: "Save Sheet" }).click();
+  const committed = page.waitForResponse(response => new URL(response.url()).pathname === '/api/cloud-v1/sheets' && response.request().method() === 'POST' && response.ok());
   await page.getByRole("button", { name: "Confirm & Save" }).click();
-  await page.locator('.sheet-profit-summary [role="status"]').filter({hasText:'Saved'}).waitFor();
+  await committed;
+  await page.locator('.sheet-profit-summary [role="status"]').filter({hasText:/^Saved$/}).waitFor();
 }
 
 export default async function flow({ page, shot }) {
