@@ -1251,19 +1251,19 @@ p, .feedback-message { text-wrap: pretty; }
 .sheet-save-status.is-saved { color: rgb(var(--brand-dark)); background: rgb(var(--brand-light)); }
 :root[data-theme="dark"] .sheet-save-status.is-saved { color: rgb(var(--brand)); }
 :root[data-theme="dark"] .metric-tabs button[aria-selected="true"] { color: rgb(var(--brand)); border-color: rgb(var(--brand) / .5); }
-/* Chart colours: one fixed hue per cost category (never re-ordered by amount); Restock, the main cost, shares the Daily Costs trend orange. */
+/* Chart colours: one fixed hue per cost category (never re-ordered by amount); Restock, the main cost, shares the Daily Costs trend orange. Restock, Gas and Transport (the usual trio) pass the all-pairs colour-blind check in both themes; every use also carries the category name. */
 :root {
   --trend-cost: #eb6834;
-  --cat-restock: #eb6834; --cat-gas: #1baf7a; --cat-transport: #eda100;
-  --cat-wages-daily: #e87ba4; --cat-maintenance: #2a78d6; --cat-other: #8a8a85;
+  --cat-restock: #eb6834; --cat-gas: #c2408f; --cat-transport: #2a78d6;
+  --cat-wages-daily: #6250d6; --cat-maintenance: #eda100; --cat-other: #8a8a85;
 }
 :root[data-theme="dark"] {
   --trend-cost: #d95926;
-  --cat-restock: #d95926; --cat-gas: #199e70; --cat-transport: #c98500;
-  --cat-wages-daily: #d55181; --cat-maintenance: #3987e5; --cat-other: #8f8e88;
+  --cat-restock: #d95926; --cat-gas: #cf5aa8; --cat-transport: #3987e5;
+  --cat-wages-daily: #9085e9; --cat-maintenance: #c98500; --cat-other: #8f8e88;
 }
 .cost-bar-values dt { display: flex; align-items: center; gap: 8px; }
-.cost-bar-dot { flex-shrink: 0; width: 10px; height: 10px; border-radius: 50%; }
+.cost-bar-dot { flex-shrink: 0; width: 12px; height: 12px; border-radius: 50%; }
 /* An open Cost Line menu hides the Add Cost button it would otherwise half-cover. */
 .entry-section:has(.category-select:open) .add-cost-action { visibility: hidden; }
 /* Notes and counts tell similar rows apart, so they stay comfortably readable on phones. */
@@ -1281,5 +1281,12 @@ p, .feedback-message { text-wrap: pretty; }
 /* The same category dot appears wherever a cost category is named, so the chart colours become a key. */
 .cost-category-label { display: inline-flex; align-items: center; gap: 8px; }
 @supports (appearance: base-select) {
-  .category-select option[style]::before { content: ""; flex: 0 0 10px; height: 10px; border-radius: 50%; background: var(--dot); }
+  .category-select option[style]::before { content: ""; flex: 0 0 12px; height: 12px; border-radius: 50%; background: var(--dot); }
 }
+/* The category dot also sits inside the closed field and the delete confirmation. */
+.category-field-dot { position: absolute; left: 12px; top: 50%; z-index: 1; transform: translateY(-50%); pointer-events: none; }
+.category-control:has(.category-field-dot)>.category-select { padding-left: 36px; }
+.confirmation-category { display: inline-flex; align-items: center; gap: 6px; }
+/* The Daily Sheets list names its amount column on the right, above the amounts. */
+.daily-records summary>.daily-record-heading { flex: 1; }
+.daily-record-heading>.daily-record-column-heading { margin-left: auto; margin-right: var(--space-2); }

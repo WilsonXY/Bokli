@@ -1371,6 +1371,7 @@ export function DailySheetForm({
                           <div className="cost-category-row">
                             <label htmlFor={`cost-category-${idx}`}>{t.categoryShort}</label>
                             <div className="category-control">
+                            <i className="cost-bar-dot category-field-dot" style={{ background: `var(--cat-${line.category})` }} aria-hidden="true" />
                             <select {...phoneCategoryPickerEvents} id={`cost-category-${idx}`} className="category-select" value={line.category} disabled={saving} onChange={e => handleUpdateCostLine(idx, { category: e.target.value as CostCategory })}>
                               {categories.map(cat => <option key={cat.key} value={cat.key} style={{ "--dot": `var(--cat-${cat.key})` } as React.CSSProperties}>{cat.label}</option>)}
                             </select><ActionIcon name="chevronDown" size={20} /></div>
@@ -1705,7 +1706,8 @@ export function DailySheetForm({
             {/* Item detail snapshot */}
             <div className="p-3 rounded-xl bg-surface-subtle border border-surface-border flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white border border-surface-border text-ink-secondary whitespace-nowrap">
+                <span className="confirmation-category text-xs font-semibold px-2 py-0.5 rounded bg-white border border-surface-border text-ink-secondary whitespace-nowrap">
+                  <i className="cost-bar-dot" style={{ background: `var(--cat-${costLines[pendingDeleteIndex].category})` }} aria-hidden="true" />
                   {getCategoryLabel(costLines[pendingDeleteIndex].category)}
                 </span>
                 {costLines[pendingDeleteIndex].note && (
