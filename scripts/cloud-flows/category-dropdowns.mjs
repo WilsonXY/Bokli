@@ -78,11 +78,20 @@ export default async function categoryDropdowns({page,shot}) {
   assert.notEqual(highlights.selected,highlights.focused,'Keyboard focus and the stored selection must remain visually distinct');
   const last=await page.locator('#cost-category-0 option').last().boundingBox();
   assert(last&&last.y>=0&&last.y+last.height<=560,'A short phone viewport must let the final option scroll into view');
+  for(const control of await page.locator('.sheet-save-panel,.mobile-navigation').all()) {
+    assert.equal(await control.evaluate(el=>getComputedStyle(el).visibility),'hidden','Short-height category selection must hide competing bottom controls');
+  }
   await shot('cost-menu-short-phone',page,{fullPage:false});
   await page.keyboard.press('Enter');
   assert.equal(await page.locator('#cost-category-0').inputValue(),'other','Keyboard selection must still update the Cost Line');
+  for(const control of await page.locator('.sheet-save-panel,.mobile-navigation').all()) {
+    assert.equal(await control.evaluate(el=>getComputedStyle(el).visibility),'visible','Bottom controls must return as soon as category selection finishes');
+  }
   await page.getByRole('button',{name:'保存账单',exact:true}).click();
   await page.locator('[id^="other-note-error-"]').waitFor();
+  await page.locator('#cost-category-0').click();
+  await page.keyboard.press('Escape');
+  assert(await page.locator('.sheet-save-panel').isVisible()&&await page.locator('.mobile-navigation').isVisible(),'Dismissing a short-height menu must also restore the bottom controls');
   await page.goto('/settings');
   await page.getByRole('radio',{name:/深色模式/}).check();
   await openExpenseForm(page);
