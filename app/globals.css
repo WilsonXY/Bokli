@@ -929,8 +929,8 @@
 .entry-section .revenue-field:first-child { padding-top: 0; }
 .entry-section .revenue-field:last-child { padding-bottom: 0; }
 .entry-section .cost-record-summary, .expense-ledger .expense-record-summary { min-height: 56px; padding: var(--space-2) 0; }
-.entry-section .cost-editor { padding: var(--space-3); border: 0; border-radius: var(--radius-control); background: rgb(var(--subtle)); }
-.cost-editor input, .cost-editor select { background: rgb(var(--surface)); }
+.entry-section .cost-editor { padding: var(--space-2) 0; gap: var(--space-2); border: 0; border-radius: 0; background: transparent; }
+.cost-editor input, .cost-editor select { background: rgb(var(--field)); }
 .cost-category-label { font-size: 16px; color: rgb(var(--ink)); overflow-wrap: anywhere; }
 .money-list-value { font-size: 20px; color: rgb(var(--ink)); }
 .money-list-value[data-long] { font-size: 16px; }
@@ -1055,10 +1055,16 @@
 .confirmation-channel-row>span:first-child { display: flex; align-items: center; gap: var(--space-2); }
 .confirmation-channel-row svg { width: 20px; height: 20px; }
 .add-cost-action:disabled { opacity: .45; color: rgb(var(--muted)); background: rgb(var(--subtle)); box-shadow: none; }
-.daily-record-heading { color: rgb(var(--ink)); }
+.daily-records summary>span { color: rgb(var(--ink)); }
+.daily-record-column-heading { display: inline-flex; align-items: center; gap: var(--space-2); }
+.daily-record-column-heading small { color: rgb(var(--secondary)); font-size: 14px; }
+.daily-records .ledger-chevron { color: rgb(var(--brand)); }
 html[lang="en"] .date-today-slot, html[lang="en"] .date-today-badge, html[lang="en"] .return-today, html[lang="en"] .skeleton-period-slot { width: 64px; min-width: 64px; }
 html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12px; }
 @media (max-width:359px) {
   html[lang="en"] .date-picker-trigger { padding: 0 6px; }
   html[lang="en"] .date-value { font-size: 14px; }
 }
+
+.feedback-message>button { flex: 0 0 44px; width: 44px; min-width: 44px; height: 44px; font-size: 20px; }
+.empty-month .primary-button { color: white; background: #126756; border-color: #126756; box-shadow: var(--shadow-control); }

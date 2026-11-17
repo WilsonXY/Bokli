@@ -941,7 +941,8 @@ describe("DailySheetForm component cost item accordion and close behavior", () =
 
     // Rendered expanded: aria-expanded="true" and cost amount input is rendered
     expect(costSection).toContain('aria-expanded="true"');
-    expect(costSection).toContain('placeholder="0.00"');
+    expect(costSection).toMatch(/inputmode="decimal"/i);
+    expect(costSection).not.toContain('placeholder="0.00"');
   });
 
   it("accordion behavior: expanding a second item collapses the first (only ONE item expanded at a time)", () => {

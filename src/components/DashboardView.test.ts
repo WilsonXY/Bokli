@@ -251,7 +251,7 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
 });
 
 describe("DashboardView trend chart metric switch", () => {
-  it("swaps the whole chart at once instead of sliding the dots", () => {
+  it("uses separate columns and a shared zero-based scale for both metrics", () => {
     const html = ReactDOMServer.renderToStaticMarkup(
       React.createElement(DashboardView, {
         tiles: [],
@@ -259,20 +259,22 @@ describe("DashboardView trend chart metric switch", () => {
         activeTile: null,
         trend: [
           { date: "2026-05-01", cashSen: 2000, tngSen: 3000, totalSen: 5000, costSen: 1500 },
-          { date: "2026-05-02", cashSen: 2500, tngSen: 3500, totalSen: 6000, costSen: 2500 },
+          { date: "2026-05-02", cashSen: 2500, tngSen: 3500, totalSen: 6000, costSen: 10000 },
         ],
         split: null,
         costByCategory: null,
       })
     );
 
-    // A dot must not animate its position: the line beside it jumps, so the dots would trail behind it.
-    const dotClasses = Array.from(html.matchAll(/class="(point-circle[^"]*)"/g), (m) => m[1]);
-    expect(dotClasses.length).toBe(2);
-    for (const cls of dotClasses) expect(cls.split(" ")).toContain("transition-[r,fill]");
-    for (const cls of dotClasses) expect(cls).not.toContain("transition-all");
-
-    // The chart fades in as one piece when it is redrawn for the other metric.
+    const plot = html.match(/<svg[^>]*class="trend-plot[\s\S]*?<\/svg>/)?.[0] ?? "";
+    expect(plot).toContain('data-shared-maximum="10000"');
+    const columns = Array.from(plot.matchAll(/<rect class="trend-column" x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)"/g), match => match.slice(1).map(Number));
+    expect(columns).toHaveLength(2);
+    expect(columns[0][0] + columns[0][2]).toBeLessThan(columns[1][0]);
+    expect(columns[0][3]).toBeCloseTo(52); // RM50 is half of the shared RM100 maximum.
+    expect(columns[1][3]).toBeCloseTo(62.4); // RM60 uses that same scale.
+    expect(plot).not.toContain("<path");
+    // The chart fades as one piece when switching measures.
     expect(html).toMatch(/<svg[^>]*class="[^"]*animate-chart-swap/);
   });
 });

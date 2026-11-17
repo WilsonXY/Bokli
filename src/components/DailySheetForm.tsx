@@ -1180,7 +1180,7 @@ export function DailySheetForm({
                     if (successMessage) dismissSuccessMessage();
                   }
                 }}
-                placeholder="0.00"
+
                 className={`money-input revenue-input w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
                   cashError ? "border-finance-loss" : "border-surface-border"
                 } text-lg font-bold text-ink-primary focus:outline-none focus:bg-white ${
@@ -1228,7 +1228,7 @@ export function DailySheetForm({
                     if (successMessage) dismissSuccessMessage();
                   }
                 }}
-                placeholder="0.00"
+
                 className={`money-input revenue-input w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
                   tngError ? "border-finance-loss" : "border-surface-border"
                 } text-lg font-bold text-ink-primary focus:outline-none focus:bg-white ${
@@ -1358,7 +1358,7 @@ export function DailySheetForm({
                                     }
                                   }}
                                   onFocus={() => setExpandedIndex(idx)}
-                                  placeholder="0.00"
+
                                   className={`money-input w-full h-11 pl-10 pr-2.5 rounded-lg bg-surface-canvas border text-base font-semibold text-ink-primary tabular-nums focus:outline-none focus:bg-white focus-visible:ring-2 transition-colors ${
                                     idx === costAmountErrorIndex
                                       ? "border-finance-loss focus:border-finance-loss focus-visible:ring-finance-loss/50"
@@ -1615,6 +1615,7 @@ export function DailySheetForm({
                 <h3 id="confirm-delete-sheet-title" className="text-lg font-bold text-ink-primary">
                   {t.confirmDeleteSheetTitle}
                 </h3>
+                <time dateTime={date} className="confirmation-date"><ActionIcon name="calendar" size={20} />{date}</time>
                 <p id="confirm-delete-sheet-desc" className="text-xs text-ink-muted mt-1 leading-relaxed">
                   {t.confirmDeleteSheetDesc}
                 </p>
@@ -1689,6 +1690,7 @@ export function DailySheetForm({
                 <h3 id="confirm-delete-cost-title" className="text-base font-bold text-ink-primary">
                   {t.confirmDeleteItemTitle}
                 </h3>
+                <time dateTime={date} className="confirmation-date"><ActionIcon name="calendar" size={20} />{date}</time>
                 <p id="confirm-delete-cost-desc" className="text-xs text-ink-muted mt-0.5">
                   {t.costDeleteDraftDesc}
                 </p>

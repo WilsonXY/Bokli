@@ -31,4 +31,13 @@ export default async function chartTabs({page,shot}) {
   await page.locator('.trend-frame').click({position:{x:10,y:10}});
   await page.locator('.overview-trend').scrollIntoViewIfNeeded();
   await shot('revenue-tab',page,{fullPage:false});
+  await page.goto('/settings');
+  await page.getByRole('radio',{name:/深色模式/}).check();
+  await page.goto('/dashboard');
+  await page.locator('[aria-busy="true"]').first().waitFor({state:'detached'});
+  await page.getByRole('tab',{name:'日常开销',exact:true}).click();
+  await page.locator('.overview-trend').scrollIntoViewIfNeeded();
+  await shot('cost-tab-dark',page,{fullPage:false});
+  await page.getByRole('tab',{name:'营业收入',exact:true}).click();
+  await shot('revenue-tab-dark',page,{fullPage:false});
 }

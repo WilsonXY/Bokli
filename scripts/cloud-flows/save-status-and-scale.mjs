@@ -7,8 +7,15 @@ export default async function saveStatusAndScale({ page, shot }) {
   const unit = page.locator('.trend-unit');
   assert.equal(await unit.evaluate(el=>el.tagName.toLowerCase()),'span','Currency belongs in the chart header, away from point labels');
   assert.equal(await unit.textContent(),'RM');
-  assert.equal(await page.locator('.trend-scale').count(),0,'Avoid duplicating a point amount as an upper-axis label');
+  assert.equal(await page.locator('.trend-column').count(),3,'Each recorded date needs its own column');
+  const revenueHeight=await page.locator('.trend-column').first().getAttribute('height').then(Number);
+  const revenueScale=await page.locator('.trend-plot').getAttribute('data-shared-maximum');
+  assert.deepEqual(await page.locator('.trend-axis-label').allTextContents(),['600','0'],'The common scale must be explicit');
   await page.getByRole('tab', { name: '日常开销', exact: true }).click();
+  assert.equal(await page.locator('.trend-plot').getAttribute('data-shared-maximum'),revenueScale,'Switching measures must preserve their shared scale');
+  const costHeight=await page.locator('.trend-column').first().getAttribute('height').then(Number);
+  assert(Math.abs(costHeight/revenueHeight-175/570)<.01,'Column heights must preserve the actual Revenue/Cost proportion');
+  assert.equal(await page.locator('.trend-plot path').count(),0,'Recorded dates must not be connected as continuous coverage');
   await page.setViewportSize({width:320,height:844});
   await page.waitForFunction(()=>{const svg=document.querySelector('.trend-plot');return svg&&Math.abs(svg.viewBox.baseVal.width-svg.getBoundingClientRect().width)<1;});
   assert.deepEqual(await page.locator('.trend-value-label').allTextContents(),['175.00','150.00','150.00'],'All three exact point values must remain readable at 320px');

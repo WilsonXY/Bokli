@@ -774,7 +774,7 @@ export function ExpensesView({
                               if (inlineError) setInlineError(null);
                             }
                           }}
-                          placeholder="0.00"
+
                           className={`money-input w-full h-11 pl-10 pr-2.5 rounded-lg bg-surface-canvas border ${
                             amountError ? "border-finance-loss" : "border-surface-border"
                           } text-base font-semibold text-ink-primary tabular-nums focus:outline-none focus:bg-white ${
@@ -918,6 +918,7 @@ export function ExpensesView({
                     <h3 id="confirm-delete-expense-title" className="text-base font-bold text-ink-primary">
                       {t.confirmDeleteItemTitle}
                     </h3>
+                    <time dateTime={currentMonth} className="confirmation-date"><ActionIcon name="calendar" size={20} />{currentMonth}</time>
                     <p id="confirm-delete-expense-desc" className="text-xs text-ink-muted mt-0.5">
                       {formatDeleteModalRecordCount(pendingDeleteExpense.ids.length, t)}{t.sentenceSeparator}{t.confirmDeleteItemDesc}
                     </p>
