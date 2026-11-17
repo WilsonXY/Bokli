@@ -8,27 +8,21 @@ export default async function saveStatusAndScale({ page, shot }) {
   assert.equal(await unit.evaluate(el=>el.tagName.toLowerCase()),'span','Currency belongs in the chart header, away from point labels');
   assert.equal(await unit.textContent(),'RM');
   assert.equal(await page.locator('.trend-column').count(),3,'Each recorded date needs its own column');
-  const revenueHeight=await page.locator('.trend-column').first().getAttribute('height').then(Number);
-  const revenueScale=await page.locator('.trend-plot').getAttribute('data-shared-maximum');
-  assert.deepEqual(await page.locator('.trend-axis-label').allTextContents(),['700','0'],'The common scale must leave headroom above the largest value');
+  assert.deepEqual(await page.locator('.trend-axis-label').allTextContents(),['700','0'],'The Revenue scale must leave headroom above the largest value');
+  assert.equal(await page.locator('.trend-reference-column, .trend-legends').count(),0,'Each tab shows one solid series; the tab names it, so no outlines or legend');
   await page.getByRole('tab', { name: '日常开销', exact: true }).click();
-  assert.equal(await page.locator('.trend-plot').getAttribute('data-shared-maximum'),revenueScale,'Switching measures must preserve their shared scale');
-  const costHeight=await page.locator('.trend-column').first().getAttribute('height').then(Number);
-  assert.equal(await page.locator('.trend-reference-column').count(),3,'Cost columns need the corresponding daily Revenue for comparison on the shared scale');
-  assert(Math.abs(Number(await page.locator('.trend-reference-column').first().getAttribute('height'))-revenueHeight)<.01,'The comparison outline must show the actual Revenue on the same zero-based scale');
-  assert.match(await page.locator('.trend-legends').innerText(),/营业收入/,'The reference outlines must be explicitly identified');
-  assert(Math.abs(costHeight/revenueHeight-175/570)<.01,'Column heights must preserve the actual Revenue/Cost proportion');
+  assert.deepEqual(await page.locator('.trend-axis-label').allTextContents(),['250','0'],'Daily Costs use their own scale so differences between days stay visible');
+  assert.equal(await page.locator('.trend-reference-column, .trend-legends').count(),0,'The Daily Costs tab shows costs alone');
+  const fills=await page.locator('.trend-column').evaluateAll(nodes=>[...new Set(nodes.map(el=>getComputedStyle(el).fill))]);
+  assert.equal(fills.length,1,'All cost columns share one solid colour');
+  const heights=await page.locator('.trend-column').evaluateAll(nodes=>nodes.map(el=>Number(el.getAttribute('height'))));
+  assert(Math.abs(heights[1]/heights[0]-150/175)<.01,'Column heights must preserve the actual proportion between days');
   assert.equal(await page.locator('.trend-plot path').count(),0,'Recorded dates must not be connected as continuous coverage');
   await page.setViewportSize({width:320,height:844});
   await page.waitForFunction(()=>{const svg=document.querySelector('.trend-plot');return svg&&Math.abs(svg.viewBox.baseVal.width-svg.getBoundingClientRect().width)<1;});
   assert.deepEqual(await page.locator('.trend-value-label').allTextContents(),['175.00','150.00','150.00'],'All three exact point values must remain readable at 320px');
-  const geometry=await page.evaluate(()=>({costs:[...document.querySelectorAll('.trend-column')].map(el=>el.getBoundingClientRect().toJSON()),revenue:[...document.querySelectorAll('.trend-reference-column')].map(el=>el.getBoundingClientRect().toJSON()),labels:[...document.querySelectorAll('.trend-value-label')].map(el=>el.getBoundingClientRect().toJSON()),dates:[...document.querySelectorAll('.trend-dates>span')].map(el=>el.getBoundingClientRect().toJSON())}));
-  for(let index=0;index<geometry.costs.length;index++) {
-    assert(geometry.costs[index].right+2<=geometry.revenue[index].left,'Daily Costs and Revenue need separate neighboring columns');
-    assert(geometry.labels[index].top>=geometry.revenue[index].bottom+4,'Cost amounts must sit outside the Revenue outlines');
-    assert(Math.abs(geometry.labels[index].x+geometry.labels[index].width/2-geometry.dates[index].x-geometry.dates[index].width/2)<1,'Each amount and its recorded date must share a clear column center');
-  }
-  assert(await page.locator('.trend-reference-column').first().evaluate(el=>parseFloat(getComputedStyle(el).strokeWidth)>=2&&parseFloat(getComputedStyle(el).strokeOpacity)===1),'The Revenue comparison needs a clear full-contrast outline in bright and dark modes');
+  const geometry=await page.evaluate(()=>({labels:[...document.querySelectorAll('.trend-value-label')].map(el=>el.getBoundingClientRect().toJSON()),dates:[...document.querySelectorAll('.trend-dates>span')].map(el=>el.getBoundingClientRect().toJSON())}));
+  for(let index=0;index<geometry.labels.length;index++) assert(Math.abs(geometry.labels[index].x+geometry.labels[index].width/2-geometry.dates[index].x-geometry.dates[index].width/2)<1,'Each amount and its recorded date must share a clear column center');
   const currency=await unit.boundingBox();
   const plot=await page.locator('.trend-plot').boundingBox();
   assert(currency&&plot&&currency.y+currency.height<=plot.y-8,'The currency must stay clear of point labels');

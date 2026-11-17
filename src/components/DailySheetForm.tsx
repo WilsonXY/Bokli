@@ -1479,7 +1479,7 @@ export function DailySheetForm({
 
       {/* Daily result and save action follow the form without covering it. */}
       <div className="sheet-save-bar space-y-2">
-            <div data-historical={!isToday || undefined} data-wide={wideTotal || undefined} data-very-long={grossProfitText.length > 18 || undefined} className="sheet-save-panel bg-white border border-surface-border rounded-xl p-3 flex items-center justify-between gap-3">
+            <div data-historical={!isToday || undefined} data-wide={grossProfitText.length > 15 || undefined} data-very-long={grossProfitText.length > 18 || undefined} className="sheet-save-panel bg-white border border-surface-border rounded-xl p-3 flex items-center justify-between gap-3">
               <div className="sheet-profit-summary">
                 <div className="text-[13px] text-ink-muted font-medium">
                   {!isToday && <time className="sheet-historical-date" dateTime={date}>{date}</time>}

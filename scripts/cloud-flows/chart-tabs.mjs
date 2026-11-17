@@ -31,10 +31,8 @@ export default async function chartTabs({page,shot}) {
   assert.deepEqual(await page.locator('.daily-record').allTextContents(),records,'Chart tabs must leave the separate Daily Sheets list unchanged');
   assert.equal(await costs.getAttribute('aria-selected'),'true');
   await page.getByRole('tabpanel').getByRole('heading',{name:'每日开销趋势',exact:true}).waitFor();
-  assert(await page.locator('.trend-axis-label,.trend-legend,.trend-dates').evaluateAll(nodes=>nodes.every(el=>parseFloat(getComputedStyle(el).fontSize)>=16)),'Chart annotations need readable body-sized text');
-  const swatch=await page.locator('.trend-reference-key').evaluate(el=>{const box=el.getBoundingClientRect(),rect=el.querySelector('rect'),bar=document.querySelector('.trend-reference-column');return {width:box.width,height:box.height,dash:rect?.getAttribute('stroke-dasharray'),barDash:bar?.getAttribute('stroke-dasharray'),count:el.querySelectorAll('rect').length};});
-  assert(swatch.count===1&&swatch.height>swatch.width&&swatch.dash===swatch.barDash,'The Revenue legend must be one dashed column drawn like the dashed Revenue bars, not a checkbox or a pair of glyph-like boxes');
-  assert.equal(await page.locator('.trend-legends .trend-legend').count(),2,'Both solid Costs and outlined Revenue need an explicit legend');
+  assert(await page.locator('.trend-axis-label,.trend-dates').evaluateAll(nodes=>nodes.every(el=>parseFloat(getComputedStyle(el).fontSize)>=16)),'Chart annotations need readable body-sized text');
+  assert.equal(await page.locator('.trend-legends').count(),0,'A single series needs no legend; the selected tab names it');
   await page.locator('.overview-trend').scrollIntoViewIfNeeded();
   await shot('cost-tab',page,{fullPage:false});
   await page.keyboard.press('ArrowLeft');

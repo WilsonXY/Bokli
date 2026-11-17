@@ -34,7 +34,7 @@ export type TrendMetric = "revenue" | "cost";
 /** Theme-aware trend colours. */
 const TREND_METRIC_COLORS: Record<TrendMetric, string> = {
   revenue: "var(--trend-revenue, #126756)",
-  cost: "rgb(var(--cost))",
+  cost: "var(--trend-cost)",
 };
 
 export function trendValueSen(row: SerializedDailyTrendRow, metric: TrendMetric): number {
@@ -102,15 +102,13 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
   const costTotal = formatMyr(BigInt(totalCosts));
   const metricLabel = t.sheetRevCol;
   const chartH = 160, padRight = 12, padY = 28;
-  const observedMaximum = Math.max(1000, ...trend.flatMap(row => [row.totalSen, row.costSen]));
+  const observedMaximum = Math.max(1000, ...trend.map(row => trendValueSen(row, trendMetric)));
   const scaleStep = 10 ** Math.floor(Math.log10(observedMaximum)) / 2;
   const maximum = Math.min(Number.MAX_SAFE_INTEGER, Math.ceil(observedMaximum * 1.15 / scaleStep) * scaleStep);
   const maximumLabel = formatMyr(BigInt(maximum)).replace(/^RM /, "").replace(/\.00$/, "");
   const padLeft = Math.max(40, maximumLabel.length * 9 + 12);
   const columnStep = (chartW - padLeft - padRight) / Math.max(1, trend.length);
   const columnWidth = Math.min(40, columnStep * .48);
-  const barWidth = trendMetric === "cost" ? columnWidth * .6 : columnWidth;
-  const barOffset = trendMetric === "cost" ? columnWidth * .4 : 0;
   const points = trend.map((row, index) => ({
     x: padLeft + (index + .5) * columnStep,
     y: chartH - padY - trendValueSen(row, trendMetric) / maximum * (chartH - padY * 2),
@@ -163,23 +161,13 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
             <div className="panel-heading">
               <h2 id="trend-heading" className="sr-only">{trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}</h2>
               <span className="trend-unit" style={{width:padLeft-8}}>RM</span>
-              <div className="trend-legends">
-                {trendMetric === "cost" ? <>
-                  <span className="trend-legend"><span className="trend-cost-key" aria-hidden="true" />{t.sheetCostCol}</span>
-                  <span className="trend-legend"><svg className="trend-reference-key" viewBox="0 0 12 18" aria-hidden="true"><rect x="1" y="1" width="10" height="16" rx="2" fill="none" stroke={TREND_METRIC_COLORS.revenue} strokeWidth="2" strokeDasharray="4 3" /></svg>{t.sheetRevCol}</span>
-                </> : <span className="trend-legend"><span className="trend-revenue-key" aria-hidden="true" />{t.sheetRevCol}</span>}
-              </div>
             </div>
-            <div className="trend-frame" ref={chartRef}><svg key={trendMetric} className="trend-plot animate-chart-swap" data-shared-maximum={maximum} viewBox={`0 0 ${chartW} ${chartH}`} aria-hidden="true" focusable="false">
+            <div className="trend-frame" ref={chartRef}><svg key={trendMetric} className="trend-plot animate-chart-swap" data-maximum={maximum} viewBox={`0 0 ${chartW} ${chartH}`} aria-hidden="true" focusable="false">
               <line x1={padLeft} x2={padLeft} y1={padY} y2={chartH-padY} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />
               <line x1={padLeft-4} x2={padLeft} y1={padY} y2={padY} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />
               <line x1={padLeft} x2={chartW-padRight} y1={chartH-padY} y2={chartH-padY} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />
               <text className="trend-axis-label" x={padLeft - 8} y={padY + 4} textAnchor="end" fill="rgb(var(--secondary))" fontSize="14">{maximumLabel}</text>
               <text className="trend-axis-label" x={padLeft - 8} y={chartH - padY + 4} textAnchor="end" fill="rgb(var(--secondary))" fontSize="14">0</text>
-              {trendMetric === "cost" && points.map((point, index) => {
-                const height = trend[index].totalSen / maximum * (chartH - padY * 2);
-                return <rect key={trend[index].date} className="trend-reference-column" x={point.x + barOffset - barWidth / 2} y={chartH - padY - height} width={barWidth} height={height} rx="4" fill="none" stroke={TREND_METRIC_COLORS.revenue} strokeWidth="2" strokeOpacity="1" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />;
-              })}
               {points.map((point, index) => {
                 const label = formatMyr(BigInt(trendValueSen(trend[index], trendMetric))).replace(/^RM /, "");
                 const labelWidth = label.length * 9 + 4;
@@ -187,7 +175,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
                 // Exact values are also available in the accessible dated list below.
                 const showLabel = labelWidth <= labelSpace && (index === 0 || index === points.length - 1 || points.length <= 3);
                 const textAnchor = points.length > 3 && index === 0 ? "start" : points.length > 3 && index === points.length - 1 ? "end" : "middle";
-                return <g key={trend[index].date}><rect className="trend-column" x={point.x - barOffset - barWidth / 2} y={point.y} width={barWidth} height={chartH - padY - point.y} rx="4" fill={chartColor} />{showLabel && <text x={point.x} y={chartH - padY + 24} textAnchor={textAnchor} className="trend-value-label" fill={chartColor} fontSize="16" fontWeight="500">{label}</text>}</g>;
+                return <g key={trend[index].date}><rect className="trend-column" x={point.x - columnWidth / 2} y={point.y} width={columnWidth} height={chartH - padY - point.y} rx="4" fill={chartColor} />{showLabel && <text x={point.x} y={chartH - padY + 24} textAnchor={textAnchor} className="trend-value-label" fill="rgb(var(--ink))" fontSize="16" fontWeight="500">{label}</text>}</g>;
               })}
             </svg></div>
             <dl className="sr-only">{trend.map(row => <div key={row.date}><dt>{row.date}</dt><dd>{formatMyr(BigInt(trendValueSen(row, trendMetric)))}</dd></div>)}</dl>
@@ -208,8 +196,8 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
           </section>
           <section className="overview-costs panel" aria-labelledby="cost-heading"><div className="composition-heading"><h2 id="cost-heading">{t.costDistribution}</h2><strong className={`composition-total${loading ? " skeleton-value" : ""}`} data-long={isLongAmount(costTotal)||undefined}>{costTotal}</strong></div>
             {!costs.length ? <p className="empty-note">{t.noCostData}</p> : <dl className="cost-bars">{costs.map(item => <div className="cost-bar-row" key={item.cat}>
-              <div className="cost-bar-values"><dt>{item.label}</dt><dd>{formatMyr(BigInt(item.amountSen))}</dd></div>
-              <div className="cost-bar-meter"><div className="cost-bar-track" aria-hidden="true"><span style={{ width: `${item.pct}%` }} /></div><small>{item.pct}%</small></div>
+              <div className="cost-bar-values"><dt><i className="cost-bar-dot" style={{ background: `var(--cat-${item.cat})` }} aria-hidden="true" />{item.label}</dt><dd>{formatMyr(BigInt(item.amountSen))}</dd></div>
+              <div className="cost-bar-meter"><div className="cost-bar-track" aria-hidden="true"><span style={{ width: `${item.pct}%`, background: `var(--cat-${item.cat})` }} /></div><small>{item.pct}%</small></div>
             </div>)}</dl>}
           </section>
         </div>}

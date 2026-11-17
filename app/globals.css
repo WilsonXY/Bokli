@@ -1049,7 +1049,6 @@
 }
 
 /* Keep currency separate from observations and use the Daily Cost accent consistently. */
-.cost-bar-track>span { background: rgb(var(--cost)); }
 .confirmation-channel-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding-left: var(--space-2); color: rgb(var(--secondary)); font-size: 14px; line-height: 24px; font-variant-numeric: tabular-nums; }
 .confirmation-channel-row>span:first-child { display: flex; align-items: center; gap: var(--space-2); }
 .confirmation-channel-row svg { width: 20px; height: 20px; }
@@ -1117,10 +1116,6 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 .sheet-feedback { grid-column: 1 / -1; }
 .sheet-historical-date { flex: 0 0 100%; color: rgb(var(--cost)); font-size: 16px; line-height: 20px; font-variant-numeric: tabular-nums; }
 .sheet-save-panel[data-historical] .sheet-profit-summary>div:first-child { flex-wrap: wrap; row-gap: 0; }
-.trend-legend { display: inline-flex; align-items: center; gap: var(--space-2); color: rgb(var(--secondary)); font-size: 14px; line-height: 24px; }
-.trend-legends { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-1) var(--space-3); }
-.trend-reference-key { flex-shrink: 0; width: 12px; height: 18px; }
-.trend-cost-key { width: 10px; height: 16px; border-radius: 2px; background: rgb(var(--cost)); }
 .trend-value-label { stroke: none; }
 .sheet-save-error { align-items: flex-start; }
 .sheet-save-error>div { align-items: flex-start; }
@@ -1216,15 +1211,13 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 .feedback-message:not(.sheet-save-error) svg { width: 20px; height: 20px; flex-shrink: 0; }
 
 .confirmation-date[data-period="past"] { width: fit-content; padding: 4px 8px; border: var(--edge) solid rgb(var(--cost) / .35); border-radius: 8px; background: rgb(var(--cost-light)); color: rgb(var(--cost)); }
-.trend-axis-label, .trend-legend { font-size: 16px; }
+.trend-axis-label { font-size: 16px; }
 @media (max-width:767px) {
   .trend-panel .panel-heading { flex-wrap: wrap; row-gap: 4px; }
-  .trend-legends { flex-basis: 100%; justify-content: flex-start; }
 }
 
 .month-options { scrollbar-width: thin; scrollbar-color: rgb(var(--secondary)) transparent; scrollbar-gutter: stable; }
 .month-options [aria-selected="true"] .month-status-symbol>svg:last-of-type { stroke-width: 2; }
-.trend-revenue-key { width: 10px; height: 16px; border-radius: 2px; background: var(--trend-revenue); }
 .cost-delete-action { box-shadow: none; }
 .workspace-main .reconciliation-form input.money-input:placeholder-shown { font-size: 16px; line-height: 24px; }
 @media (max-width:767px) {
@@ -1258,3 +1251,27 @@ p, .feedback-message { text-wrap: pretty; }
 .sheet-save-status.is-saved { color: rgb(var(--brand-dark)); background: rgb(var(--brand-light)); }
 :root[data-theme="dark"] .sheet-save-status.is-saved { color: rgb(var(--brand)); }
 :root[data-theme="dark"] .metric-tabs button[aria-selected="true"] { color: rgb(var(--brand)); border-color: rgb(var(--brand) / .5); }
+/* Chart colours: one fixed hue per cost category (never re-ordered by amount), orange for the Daily Costs trend. */
+:root {
+  --trend-cost: #eb6834;
+  --cat-restock: #6250d6; --cat-gas: #eda100; --cat-transport: #1baf7a;
+  --cat-wages-daily: #e87ba4; --cat-maintenance: #2a78d6; --cat-other: #8a8a85;
+}
+:root[data-theme="dark"] {
+  --trend-cost: #d95926;
+  --cat-restock: #9085e9; --cat-gas: #c98500; --cat-transport: #199e70;
+  --cat-wages-daily: #d55181; --cat-maintenance: #3987e5; --cat-other: #8f8e88;
+}
+.cost-bar-values dt { display: flex; align-items: center; gap: 8px; }
+.cost-bar-dot { flex-shrink: 0; width: 10px; height: 10px; border-radius: 50%; }
+/* An open Cost Line menu hides the Add Cost button it would otherwise half-cover. */
+.entry-section:has(.category-select:open) .add-cost-action { visibility: hidden; }
+/* Notes and counts tell similar rows apart, so they stay comfortably readable on phones. */
+@media (max-width:767px) {
+  .cost-record-note { font-size: 15px; line-height: 22px; }
+  .daily-record-counter, .daily-record-column-heading small { font-size: 15px; color: rgb(var(--secondary)); }
+}
+/* Up to RM 1,000,000.00 the narrow dock keeps the amount beside its buttons, one size smaller. */
+@media (max-width:389px) {
+  .sheet-save-panel:not([data-wide]) .sheet-profit-summary>div[data-long] { font-size: 20px; white-space: nowrap; }
+}

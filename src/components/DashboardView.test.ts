@@ -251,7 +251,7 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
 });
 
 describe("DashboardView trend chart metric switch", () => {
-  it("uses separate columns and a shared zero-based scale for both metrics", () => {
+  it("uses separate columns on the shown metric's own zero-based scale", () => {
     const html = ReactDOMServer.renderToStaticMarkup(
       React.createElement(DashboardView, {
         tiles: [],
@@ -267,7 +267,8 @@ describe("DashboardView trend chart metric switch", () => {
     );
 
     const plot = html.match(/<svg[^>]*class="trend-plot[\s\S]*?<\/svg>/)?.[0] ?? "";
-    expect(plot).toContain('data-shared-maximum="15000"');
+    // Revenue (the default tab) peaks at 6000 sen; costs no longer stretch its axis.
+    expect(plot).toContain('data-maximum="7000"');
     const columns = Array.from(plot.matchAll(/<rect class="trend-column" x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)"/g), match => match.slice(1).map(Number));
     expect(columns).toHaveLength(2);
     expect(columns[0][0] + columns[0][2]).toBeLessThan(columns[1][0]);
@@ -284,7 +285,7 @@ describe("DashboardView trend chart metric switch", () => {
       trend: [{date:"2026-05-01",cashSen:Number.MAX_SAFE_INTEGER,tngSen:0,totalSen:Number.MAX_SAFE_INTEGER,costSen:0}],
       split: null, costByCategory: null,
     }));
-    expect(html).toContain(`data-shared-maximum="${Number.MAX_SAFE_INTEGER}"`);
+    expect(html).toContain(`data-maximum="${Number.MAX_SAFE_INTEGER}"`);
     expect(html).toContain("RM 90,071,992,547,409.91");
   });
 });

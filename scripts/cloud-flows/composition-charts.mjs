@@ -17,6 +17,8 @@ export default async function compositionCharts({page,shot}) {
       assert.deepEqual(await page.locator('.composition-total').allTextContents(),['RM 1,700.00','RM 475.00'],'Each composition needs its nearby monetary total');
       const amounts=await page.locator('.cost-bar-row dd').allTextContents();
       assert.deepEqual(amounts,['RM 450.00','RM 25.00']);
+      const bars=await page.locator('.cost-bar-row').evaluateAll(rows=>rows.map(row=>({bar:getComputedStyle(row.querySelector('.cost-bar-track>span')).backgroundColor,dot:getComputedStyle(row.querySelector('.cost-bar-dot')).backgroundColor})));
+      assert(bars.every(row=>row.bar===row.dot)&&new Set(bars.map(row=>row.bar)).size===bars.length,'Each cost category needs its own colour, matched by the dot beside its name');
       assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
       await page.locator('.overview-composition').scrollIntoViewIfNeeded();
       await shot(`composition-${theme}-${width}`,page,{fullPage:false});
