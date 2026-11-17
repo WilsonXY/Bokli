@@ -1349,16 +1349,11 @@ describe("Delete Daily Sheet button and sticky summary bar", () => {
     expect(deleteSheetButton(render({}))).toBeNull();
   });
 
-  it("is shown, enabled, and solid red with white text when a saved Daily Sheet exists", () => {
+  it("is shown and enabled when a saved Daily Sheet exists", () => {
     const btn = deleteSheetButton(render({ savedSheet: SAVED }));
     expect(btn).not.toBeNull();
     expect(btn).not.toContain('disabled=""');
-    expect(btn).toMatch(/(\s|")bg-finance-loss(\s|")/);
-    expect(btn).toContain("hover:bg-finance-loss/90");
-    expect(btn).toMatch(/(\s|")text-white(\s|")/);
-    expect(btn).not.toMatch(/(\s|")bg-white(\s|")/);
-    expect(btn).not.toMatch(/(\s|")border-finance-loss(\s|")/);
-    expect(btn).not.toContain("text-finance-loss");
+    expect(btn).toContain('type="button"');
   });
 
   it("is shown for a saved sheet with zero Cost Lines (short day)", () => {
