@@ -313,7 +313,7 @@ export function MonthCloseView({
   }
 
   return (
-    <div className="close-layout page-stack">
+    <div className="close-layout page-stack" data-readonly={isClosed || undefined}>
       <Link className="mobile-back-link" href={`/dashboard?month=${currentMonth}`}><span aria-hidden="true">‹</span>{t.navDashboard}</Link>
       {/* Page heading and period selection */}
       <div className="page-heading">

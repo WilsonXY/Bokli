@@ -636,12 +636,12 @@ export function ExpensesView({
       {/* Page heading and period selection */}
       <div className="page-heading">
         <div><h1 className="text-xl font-bold text-ink-primary tracking-tight">
-          {isDraftOpen ? t.addExpense : t.expensesTitleShort}
+          {t.expensesTitleShort}
         </h1><p className="page-description">{t.expensesHint}</p></div>
 
         <MonthSelectorDropdown
           currentMonth={currentMonth}
-          showStatusInTrigger={!isDraftOpen}
+          showStatusInTrigger={true}
           options={
             monthOptions ??
             availableMonths.map((m) => ({
@@ -733,22 +733,24 @@ export function ExpensesView({
           </section>}
 
           {/* Operating Expenses Section */}
-          <section aria-label={t.operatingExpenses} className="operating-expenses space-y-2.5">
+          <section aria-label={t.operatingExpenses} className="operating-expenses">
             {/* Active Draft Form Card (Daily-sheet style) */}
             {isDraftOpen && !isClosed && (
               <div className="expense-entry-card bg-white rounded-xl overflow-hidden transition-all">
-                <form onSubmit={handleAddExpense} className="p-4 bg-surface-canvas/30 space-y-3">
+                <form onSubmit={handleAddExpense} aria-label={t.addExpense} className="expense-entry-form">
+                  <h2 className="entry-form-title">{t.addExpense}</h2>
                   <div className="cost-category-row">
                     <label htmlFor="expense-category" className="field-label block font-medium text-ink-secondary mb-2">{t.categoryShort}</label>
+                    <div className="category-control">
                     <select id="expense-category" className="category-select" disabled={adding} value={newType} onChange={e => {
                       setNewType(e.target.value as OperatingExpenseItem["type"]);
                       if (e.target.value !== "other") setNoteError(false);
                       setInlineError(null);
-                    }}>{categories.map(cat => <option key={cat.key} value={cat.key}>{cat.label}</option>)}</select>
+                    }}>{categories.map(cat => <option key={cat.key} value={cat.key}>{cat.label}</option>)}</select><ActionIcon name="chevronDown" size={20} /></div>
                   </div>
 
                   {/* Amount & Note Inputs */}
-                  <div className="expense-entry-fields space-y-2.5">
+                  <div className="expense-entry-fields">
                     <div className="cost-money-row">
                       <label htmlFor="expense-amount" className="block text-sm font-medium text-ink-secondary mb-1">
                         {t.amount} <span className="text-finance-loss">*</span>
@@ -867,7 +869,7 @@ export function ExpensesView({
 
             {/* Dynamic Cost Cards */}
             {mergedExpenses.length > 0 && (
-              <div className="space-y-2">
+              <div className="expense-record-list">
                 {mergedExpenses.map((item) => {
                   const Record = isClosed ? "div" : "details";
                   const Heading = isClosed ? "div" : "summary";

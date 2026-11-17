@@ -54,13 +54,13 @@ export default async function flow({ page, shot: rawShot }) {
         await page.locator(".daily-records").scrollIntoViewIfNeeded();
         await pause(1000); await shot(`en-${theme}-daily-sheets`);
         await page.locator(".daily-records > summary").click();
-        await page.getByRole("button", { name: "Costs", exact: true }).click();
+        await page.getByRole("tab", { name: "Costs", exact: true }).click();
         await page.getByRole("heading", { name: "Daily Cost Trend", exact: true }).waitFor();
         assert.equal(await page.locator(".trend-dates-sparse>span").count(), 3);
         assert.match(await page.locator(".trend-dates-sparse>span").nth(1).innerText(), /-10$/);
         await page.locator(".overview-trend").scrollIntoViewIfNeeded();
         await pause(1000); await shot(`en-${theme}-cost-trend`);
-        await page.getByRole("button", { name: "Revenue", exact: true }).click();
+        await page.getByRole("tab", { name: "Revenue", exact: true }).click();
         await page.locator(".overview-composition").scrollIntoViewIfNeeded();
         await pause(1000); await shot(`en-${theme}-composition`);
       }

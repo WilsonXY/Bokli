@@ -14,7 +14,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#f5f7f5",
+  interactiveWidget: "resizes-content",
+  themeColor: "#eef3ef",
 };
 
 // Static build: no build-time "today" (the Worker answers it per request).

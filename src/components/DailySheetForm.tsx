@@ -1049,7 +1049,8 @@ export function DailySheetForm({
   };
 
   return (
-    <div className="daily-layout page-stack">
+    <div className="daily-layout page-stack" data-readonly={isClosed || undefined}>
+      <header className="sheet-context">
       <div className="page-heading sheet-page-heading"><div><h1>{t.sheetTitle}</h1><p className="page-description">{t.sheetHint}</p><span role="status" className="sr-only">{isModified ? t.draftStatus : savedSheet ? t.savedStatus : t.newSheetStatus}</span></div></div>
       {/* Date Bar with Calendar Toggle Popover & Lock Notice */}
       <div className="sheet-date-bar bg-white border border-surface-border rounded-xl p-3 shadow-xs flex flex-col gap-2.5">
@@ -1075,6 +1076,7 @@ export function DailySheetForm({
               onClick={() => setIsCalendarOpen((prev) => !prev)}
               aria-expanded={isCalendarOpen}
               aria-haspopup="dialog"
+              data-period={isToday ? "today" : "past"}
               className="date-picker-trigger relative text-center group cursor-pointer px-2 py-1 rounded-lg hover:bg-surface-subtle transition-colors focus:outline-none max-w-full"
               title={t.sheetDate}
             >
@@ -1125,8 +1127,10 @@ export function DailySheetForm({
         )}
       </div>
 
+      </header>
+
       {/* Section 1: Revenue Entry */}
-      <section aria-label={t.revenueTitle} className="daily-revenue space-y-2">
+      <section aria-label={t.revenueTitle} className="daily-revenue">
         <div className="section-heading flex items-center justify-between px-0.5">
           <h2 className="text-base font-medium text-ink-primary">
             {t.revenueTitle}
@@ -1236,7 +1240,7 @@ export function DailySheetForm({
       </section>
 
       {/* Section 2: Itemized Daily Costs */}
-      <section aria-label={t.costsTitle} className="daily-costs space-y-2.5">
+      <section aria-label={t.costsTitle} className="daily-costs">
         <div className="section-heading flex items-center justify-between px-0.5">
           <h2 className="text-base font-medium text-ink-primary">
             {t.costsTitle}
@@ -1249,7 +1253,7 @@ export function DailySheetForm({
 
         {/* Dynamic Cost Lines (Each line has its own summary + form) */}
         {costLines.length > 0 && (
-          <div className="space-y-2">
+          <div className="cost-line-list">
             {costLines.map((line, idx) => {
               const isExpanded = expandedIndex === idx;
               return (
@@ -1311,9 +1315,10 @@ export function DailySheetForm({
                         <div className="cost-editor border-t border-surface-border bg-surface-canvas/30">
                           <div className="cost-category-row">
                             <label htmlFor={`cost-category-${idx}`}>{t.categoryShort}</label>
+                            <div className="category-control">
                             <select id={`cost-category-${idx}`} className="category-select" value={line.category} disabled={saving} onChange={e => handleUpdateCostLine(idx, { category: e.target.value as CostCategory })}>
                               {categories.map(cat => <option key={cat.key} value={cat.key}>{cat.label}</option>)}
-                            </select>
+                            </select><ActionIcon name="chevronDown" size={20} /></div>
                           </div>
 
                           {/* Amount & Note Inputs */}
@@ -1496,23 +1501,11 @@ export function DailySheetForm({
 
               {!isClosed && (
                 <div className="sheet-actions flex items-center gap-2">
-                  {isModified && (
-                    <button
-                      type="button"
-                      onClick={() => revertDialog.current?.showModal()}
-                      disabled={saving}
-                      title={t.undoChanges}
-                      aria-label={t.undoChanges}
-                      className="sheet-revert-action h-12 w-12 shrink-0 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary hover:text-ink-primary shadow-xs flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 active:scale-95 cursor-pointer disabled:opacity-50 animate-in fade-in zoom-in-95 duration-150"
-                    >
-                      <ActionIcon name="undo" />
-                      <span className="sr-only">{t.undoChanges}</span>
-                    </button>
-                  )}
+
 
                   <button
                     type="button"
-                    disabled={saving || hasParseError}
+                    disabled={saving || hasParseError || (Boolean(savedSheet) && !isModified)}
                     onClick={() => {
                       if (hasParseError || cashSen === null || tngSen === null) {
                         setErrorMessage(t.invalidAmount);
@@ -1547,6 +1540,19 @@ export function DailySheetForm({
                     <span className={`save-state-icon${saving ? " animate-spin" : ""}`}><ActionIcon name={saving ? "loading" : savedSheet && !isModified ? "check" : "save"} /></span>
                     <span>{savedSheet && !isModified ? t.savedStatus : t.saveShort}</span>{isModified && !saving && <span className="pending-save-status">{t.draftStatus}</span>}
                   </button>
+                  {isModified && (
+                    <button
+                      type="button"
+                      onClick={() => revertDialog.current?.showModal()}
+                      disabled={saving}
+                      title={t.undoChanges}
+                      aria-label={t.undoChanges}
+                      className="sheet-revert-action h-12 w-12 shrink-0 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary hover:text-ink-primary shadow-xs flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 active:scale-95 cursor-pointer disabled:opacity-50 animate-in fade-in zoom-in-95 duration-150"
+                    >
+                      <ActionIcon name="undo" />
+                      <span className="sr-only">{t.undoChanges}</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>

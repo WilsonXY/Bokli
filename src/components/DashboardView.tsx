@@ -72,6 +72,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
   const router = useRouter();
   const { t } = useI18n();
   const [trendMetric, setTrendMetric] = useState<TrendMetric>("revenue");
+  const trendPanelId = React.useId();
   const [chartW, setChartW] = useState(600);
   const chartRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -100,10 +101,12 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
   const cashPct = split?.totalSen ? Math.round(split.cashSen / split.totalSen * 100) : 0;
   const tngPct = split?.totalSen ? 100 - cashPct : 0;
   const metricLabel = trendMetric === "revenue" ? t.sheetRevCol : t.sheetCostCol;
-  const chartH = 180, padX = 14, padY = 40;
+  const chartH = 160, padX = 16, padY = 28;
   const maximum = Math.max(1000, ...trend.map(row => trendValueSen(row, trendMetric)));
-  const points = trend.map((row, index) => ({
-    x: trend.length === 1 ? chartW / 2 : padX + index / (trend.length - 1) * (chartW - padX * 2),
+  const firstDate = Date.parse(`${trend[0]?.date}T00:00:00Z`);
+  const dateSpan = Math.max(1, Date.parse(`${trend[trend.length - 1]?.date}T00:00:00Z`) - firstDate);
+  const points = trend.map(row => ({
+    x: trend.length === 1 ? chartW / 2 : padX + (Date.parse(`${row.date}T00:00:00Z`) - firstDate) / dateSpan * (chartW - padX * 2),
     y: chartH - padY - trendValueSen(row, trendMetric) / maximum * (chartH - padY * 2),
   }));
   const line = points.map((point, index) => `${index ? "L" : "M"} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(" ");
@@ -134,18 +137,37 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
         </Link>
         {trend.length > 0 && <details className="daily-records daily-ledger" open={trend.length <= 7}><summary>{t.dailySheetsLabel}<span className="daily-record-counter" aria-label={`${trend.length} ${t.recordedDays}`}>{trend.length}{t.daysUnit}<span className="ledger-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span></span></summary><p className="sr-only">{t.chartDataBelow}</p><div><div className="daily-record-column-heading">{metricLabel}</div>{trend.map(row => <Link key={row.date} href={`/?date=${row.date}`} className="daily-record"><span>{row.date}</span><span><small className="sr-only">{metricLabel}</small>{formatMyr(BigInt(trendValueSen(row, trendMetric)))}<span className="daily-record-arrow" aria-hidden="true"><ActionIcon name="chevronRight" size={16} /></span></span></Link>)}</div></details>}
         {trend.length > 0 && <section className="overview-trend panel" aria-labelledby="trend-heading">
-          <div className="panel-heading"><h2 id="trend-heading">{trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}</h2></div>
-          <div className="metric-tabs" aria-label={t.trendMetric}>{(["revenue", "cost"] as const).map(metric => <button key={metric} type="button" aria-pressed={trendMetric === metric} onClick={() => setTrendMetric(metric)}>{metric === "revenue" ? t.sheetRevCol : t.sheetCostCol}</button>)}</div>
-          <>
+          <div className="metric-tabs" role="tablist" aria-label={t.trendMetric}>
+            {(["revenue", "cost"] as const).map(metric => <button
+              key={metric} type="button" role="tab" disabled={loading} id={`${trendPanelId}-${metric}`}
+              data-metric={metric} aria-controls={trendPanelId} aria-selected={trendMetric === metric}
+              tabIndex={trendMetric === metric ? 0 : -1}
+              onClick={() => setTrendMetric(metric)}
+              onKeyDown={event => {
+                let next: TrendMetric;
+                if (event.key === "ArrowLeft" || event.key === "ArrowRight") next = metric === "revenue" ? "cost" : "revenue";
+                else if (event.key === "Home") next = "revenue";
+                else if (event.key === "End") next = "cost";
+                else return;
+                event.preventDefault();
+                setTrendMetric(next);
+                event.currentTarget.parentElement?.querySelector<HTMLButtonElement>(`[data-metric="${next}"]`)?.focus();
+              }}
+            >{metric === "revenue" ? t.sheetRevCol : t.sheetCostCol}</button>)}
+          </div>
+          <div className="trend-panel" role="tabpanel" id={trendPanelId} aria-labelledby={`${trendPanelId}-${trendMetric}`}>
+            <div className="panel-heading"><h2 id="trend-heading">{trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}</h2></div>
             <div className="trend-frame" ref={chartRef}><svg key={trendMetric} className="trend-plot animate-chart-swap" viewBox={`0 0 ${chartW} ${chartH}`} aria-hidden="true" focusable="false">
               <defs><linearGradient id={`trendGradient-${trendMetric}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={chartColor} stopOpacity="0.18" /><stop offset="100%" stopColor={chartColor} stopOpacity="0.01" /></linearGradient></defs>
               {[padY, chartH / 2, chartH - padY].map(y => <line key={y} x1={padX} x2={chartW - padX} y1={y} y2={y} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />)}
+              <text x="0" y={chartH - padY + 4} fill="rgb(var(--secondary))" fontSize="12">0</text>
               <path d={area} fill={`url(#trendGradient-${trendMetric})`} />
               <path d={line} fill="none" stroke={chartColor} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
               {points.map((point, index) => {
                 const label = formatMyr(BigInt(trendValueSen(trend[index], trendMetric)));
                 const single = points.length === 1;
-                const labelSpace = single ? chartW - padX * 2 : (chartW - padX * 2) / (points.length <= 3 ? points.length : 2);
+                const nearestPoint = Math.min(index ? point.x - points[index - 1].x : Infinity, index < points.length - 1 ? points[index + 1].x - point.x : Infinity);
+                const labelSpace = single ? chartW - padX * 2 : nearestPoint * .66;
                 // Exact values remain in the dated records; omit labels that would collide.
                 const showLabel = label.length * 8.5 <= labelSpace && (index === 0 || index === points.length - 1 || (points.length <= 3 && chartW >= 280));
                 return <g key={trend[index].date}><circle className="point-circle transition-[r,fill]" cx={point.x} cy={point.y} r="3.5" fill={chartColor} stroke="rgb(var(--surface))" vectorEffect="non-scaling-stroke" />{showLabel && <text x={point.x} y={point.y - 14} textAnchor={single ? "middle" : index === 0 ? "start" : index === points.length - 1 ? "end" : "middle"} className="trend-value-label" fill="rgb(var(--ink))" fontSize="14" fontWeight="500">{label}</text>}</g>;
@@ -153,7 +175,8 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
             </svg></div>
             {trend.length <= 3 ? <div className="trend-dates trend-dates-sparse">{trend.map((row, index) => <span key={row.date} style={{ left: `${trend.length === 1 ? 50 : index === 0 ? 0 : index === trend.length - 1 ? 100 : points[index].x / chartW * 100}%`, transform: trend.length === 1 || index > 0 && index < trend.length - 1 ? "translateX(-50%)" : index === trend.length - 1 ? "translateX(-100%)" : undefined }}>{row.date.slice(5)}</span>)}</div> : <div className="trend-dates"><span>{trend[0].date.slice(5)}</span><span>{trend[trend.length - 1].date.slice(5)}</span></div>}
 
-          </>
+            <p className="trend-scope">{t.recordedDatesOnly}</p>
+          </div>
         </section>}
         {(Boolean(split?.totalSen) || costs.length > 0) && <div className="overview-composition">
           <section className="overview-split panel" aria-labelledby="split-heading"><h2 id="split-heading">{t.revenueSplit}</h2>
