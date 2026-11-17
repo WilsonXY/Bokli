@@ -100,7 +100,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
   const noActivity = trend.length === 0 && metrics.every(metric => metric.value === 0);
   const cashPct = split?.totalSen ? Math.round(split.cashSen / split.totalSen * 100) : 0;
   const tngPct = split?.totalSen ? 100 - cashPct : 0;
-  const metricLabel = trendMetric === "revenue" ? t.sheetRevCol : t.sheetCostCol;
+  const metricLabel = t.sheetRevCol;
   const chartH = 160, padX = 16, padY = 28;
   const maximum = Math.max(1000, ...trend.map(row => trendValueSen(row, trendMetric)));
   const firstDate = trend.length ? Date.parse(`${trend[0].date}T00:00:00Z`) : 0;
@@ -135,7 +135,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
           <span className="month-close-icon" aria-hidden="true"><ActionIcon name="monthClose" size={23} /></span>
           <span><strong>{t.closeMonthAction}</strong><small className="sr-only">{t.closeMonthHint}</small></span><span className="action-arrow" aria-hidden="true"><ActionIcon name="chevronRight" size={20} /></span>
         </Link>
-        {trend.length > 0 && <details className="daily-records daily-ledger" open={trend.length <= 7}><summary>{t.dailySheetsLabel}<span className="daily-record-counter" aria-label={`${trend.length} ${t.recordedDays}`}>{trend.length}{t.daysUnit}<span className="ledger-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span></span></summary><p className="sr-only">{t.chartDataBelow}</p><div><div className="daily-record-column-heading">{metricLabel}</div>{trend.map(row => <Link key={row.date} href={`/?date=${row.date}`} className="daily-record"><span>{row.date}</span><span><small className="sr-only">{metricLabel}</small>{formatMyr(BigInt(trendValueSen(row, trendMetric)))}<span className="daily-record-arrow" aria-hidden="true"><ActionIcon name="chevronRight" size={16} /></span></span></Link>)}</div></details>}
+        {trend.length > 0 && <details className="daily-records daily-ledger" open={trend.length <= 7}><summary>{t.dailySheetsLabel}<span className="daily-record-counter" aria-label={`${trend.length} ${t.recordedDays}`}>{trend.length}{t.daysUnit}<span className="ledger-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span></span></summary><p className="sr-only">{t.chartDataBelow}</p><div><div className="daily-record-column-heading">{metricLabel}</div>{trend.map(row => <Link key={row.date} href={`/?date=${row.date}`} className="daily-record"><span>{row.date}</span><span><small className="sr-only">{metricLabel}</small>{formatMyr(BigInt(row.totalSen))}<span className="daily-record-arrow" aria-hidden="true"><ActionIcon name="chevronRight" size={16} /></span></span></Link>)}</div></details>}
         {trend.length > 0 && <section className="overview-trend panel" aria-labelledby="trend-heading">
           <div className="metric-tabs" role="tablist" aria-label={t.trendMetric}>
             {(["revenue", "cost"] as const).map(metric => <button
@@ -160,7 +160,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
             <div className="trend-frame" ref={chartRef}><svg key={trendMetric} className="trend-plot animate-chart-swap" viewBox={`0 0 ${chartW} ${chartH}`} aria-hidden="true" focusable="false">
               <defs><linearGradient id={`trendGradient-${trendMetric}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={chartColor} stopOpacity="0.18" /><stop offset="100%" stopColor={chartColor} stopOpacity="0.01" /></linearGradient></defs>
               {[padY, chartH / 2, chartH - padY].map(y => <line key={y} x1={padX} x2={chartW - padX} y1={y} y2={y} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />)}
-              <text x="0" y={chartH - padY + 4} fill="rgb(var(--secondary))" fontSize="12">0</text>
+              <text x="0" y={chartH - padY + 4} fill="rgb(var(--secondary))" fontSize="14">0</text>
               <path d={area} fill={`url(#trendGradient-${trendMetric})`} />
               <path d={line} fill="none" stroke={chartColor} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
               {points.map((point, index) => {

@@ -18,6 +18,7 @@ export default async function saveDock({page,shot}) {
     const nav=await page.locator('.mobile-navigation').boundingBox();
     const field=await note.boundingBox();
     assert(save&&dock&&nav&&field);
+    assert(dock.x>=0 && dock.x+dock.width<=width,'The whole Save dock must fit inside the phone viewport');
     assert(save.y>=0 && save.y+save.height<=nav.y-8,'Save must stay reachable above navigation while entering costs');
     assert(field.y>=0 && field.y+field.height<=dock.y-8,'The Save dock must leave the focused field clear');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
