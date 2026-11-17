@@ -1271,7 +1271,7 @@ p, .feedback-message { text-wrap: pretty; }
   .cost-record-note { font-size: 15px; line-height: 22px; }
   .daily-record-counter, .daily-record-column-heading small { font-size: 15px; color: rgb(var(--secondary)); }
 }
-/* Up to RM 1,000,000.00 the narrow dock keeps the amount beside its buttons, one size smaller. */
+/* Up to RM 1,000,000.00 the narrow dock keeps the amount beside its buttons. */
 @media (max-width:389px) {
-  .sheet-save-panel:not([data-wide]) .sheet-profit-summary>div[data-long] { font-size: 20px; white-space: nowrap; }
+  .sheet-save-panel:not([data-wide]) .sheet-profit-summary>div[data-long] { font-size: 22px; white-space: nowrap; }
 }

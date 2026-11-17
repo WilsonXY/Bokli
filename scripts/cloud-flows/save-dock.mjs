@@ -46,7 +46,8 @@ export default async function saveDock({page,shot}) {
     await page.locator('.sheet-profit-summary').getByText(expected,{exact:true}).waitFor();
     const value=await page.locator('.sheet-profit-summary>div:last-child').boundingBox();
     const actions=await page.locator('.sheet-actions').boundingBox();
-    assert(value&&actions&&value.y+value.height<=actions.y-8,'Large profit values need their own clear row above the actions');
+    if(expected.length<=15) assert(value&&actions&&value.x+value.width<=actions.x-8&&value.y<actions.y+actions.height,'A seven-figure profit stays beside the actions');
+    else assert(value&&actions&&value.y+value.height<=actions.y-8,'Longer profit values need their own clear row above the actions');
     assert(await page.locator('.sheet-profit-summary>div:last-child').evaluate(el=>parseFloat(getComputedStyle(el).fontSize))>=22,'Large totals must retain readable financial typography');
   }
   await page.setViewportSize({width:390,height:560});
