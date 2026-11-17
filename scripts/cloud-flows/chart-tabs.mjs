@@ -4,6 +4,17 @@ export default async function chartTabs({page,shot}) {
   await page.locator('.overview-trend').waitFor();
   await page.locator('[aria-busy="true"]').first().waitFor({state:'detached'});
   const tabs=page.getByRole('tablist',{name:'趋势数据'});
+  const originalViewport=page.viewportSize();
+  for(const width of [320,390,1280]) {
+    await page.setViewportSize({width,height:844});
+    const margins=await tabs.evaluate(rail=>{
+      const bounds=rail.getBoundingClientRect();
+      const buttons=rail.querySelectorAll('button');
+      return {left:buttons[0].getBoundingClientRect().left-bounds.left,right:bounds.right-buttons[buttons.length-1].getBoundingClientRect().right};
+    });
+    assert(Math.abs(margins.left-margins.right)<=1,'The chart tabs must be centered with equal space at both ends');
+  }
+  await page.setViewportSize(originalViewport);
   const revenue=tabs.getByRole('tab',{name:'营业收入',exact:true});
   const costs=tabs.getByRole('tab',{name:'日常开销',exact:true});
   const records=await page.locator('.daily-record').allTextContents();

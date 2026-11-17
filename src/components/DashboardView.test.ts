@@ -19,6 +19,13 @@ import {
 
 describe("DashboardView deterministic geometry & hydration stability", () => {
   describe("DashboardView component render reproducibility", () => {
+    it("orders Daily Cost categories by amount so the largest cost is first", () => {
+      const html = ReactDOMServer.renderToStaticMarkup(React.createElement(DashboardView, {
+        tiles: [], activeMonth: "2026-05", activeTile: null, trend: [], split: null,
+        costByCategory: { restock: 10000, gas: 90000, transport: 0, "wages-daily": 0, maintenance: 0, other: 0 },
+      }));
+      expect(html.indexOf("煤气")).toBeLessThan(html.indexOf("进货"));
+    });
     it("consecutive renders with 50/50 cost split produce identical SVG path 'd' attributes without hydration drift", () => {
       const mockTile: SerializedMonthTile = {
         month: "2026-05",

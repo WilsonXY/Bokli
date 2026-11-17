@@ -89,7 +89,8 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
   const totalCosts = costByCategory ? Object.values(costByCategory).reduce((sum, value) => sum + value, 0) : 0;
   const costs = (Object.keys(labels) as Array<keyof SerializedCostByCategory>)
     .map(cat => ({ cat, label: labels[cat], amountSen: costByCategory?.[cat] ?? 0, pct: totalCosts > 0 ? Math.round((costByCategory![cat] / totalCosts) * 100) : 0 }))
-    .filter(item => item.amountSen > 0);
+    .filter(item => item.amountSen > 0)
+    .sort((a, b) => b.amountSen - a.amountSen);
   const headline = activeTile ? formatMyr(BigInt(activeTile.netSen)) : formatMyr(0n);
   const isProfitPositive = !activeTile || BigInt(activeTile.netSen) >= 0n;
   const metrics = [
@@ -181,9 +182,13 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
         </section>}
         {(Boolean(split?.totalSen) || costs.length > 0) && <div className="overview-composition">
           <section className="overview-split panel" aria-labelledby="split-heading"><h2 id="split-heading">{t.revenueSplit}</h2>
-            {!split?.totalSen ? <p className="empty-note">{t.noRevenueData}</p> : <>
-              <dl className="account-balances"><div className="cash-account"><dt><span aria-hidden="true"><ChannelIcon channel="cash" /></span>{t.cashRevenueShort}</dt><dd>{formatMyr(BigInt(split.cashSen))}</dd><small>{cashPct}%</small></div><div className="tng-account"><dt><span aria-hidden="true"><ChannelIcon channel="tng" /></span>{t.tngRevenueShort}</dt><dd>{formatMyr(BigInt(split.tngSen))}</dd><small>{tngPct}%</small></div></dl>
-            </>}
+            {!split?.totalSen ? <p className="empty-note">{t.noRevenueData}</p> : <div className="revenue-composition">
+              <div className="revenue-donut" aria-hidden="true">
+                <svg viewBox="0 0 128 128"><circle cx="64" cy="64" r="55" fill="none" stroke="rgb(var(--tng))" strokeWidth="16" /><circle cx="64" cy="64" r="55" fill="none" stroke="rgb(var(--cash))" strokeWidth="16" pathLength="100" strokeDasharray={`${cashPct} 100`} transform="rotate(-90 64 64)" /></svg>
+                <div className="revenue-donut-center"><strong>{cashPct}%</strong><span>{t.cashRevenueShort}</span></div>
+              </div>
+              <dl className="account-balances"><div className="cash-account"><dt><span aria-hidden="true"><ChannelIcon channel="cash" /></span>{t.cashRevenueShort}</dt><dd data-long={isLongAmount(formatMyr(BigInt(split.cashSen))) || undefined}>{formatMyr(BigInt(split.cashSen))}</dd><small>{cashPct}%</small></div><div className="tng-account"><dt><span aria-hidden="true"><ChannelIcon channel="tng" /></span>{t.tngRevenueShort}</dt><dd data-long={isLongAmount(formatMyr(BigInt(split.tngSen))) || undefined}>{formatMyr(BigInt(split.tngSen))}</dd><small>{tngPct}%</small></div></dl>
+            </div>}
           </section>
           <section className="overview-costs panel" aria-labelledby="cost-heading"><h2 id="cost-heading">{t.costDistribution}</h2>
             {!costs.length ? <p className="empty-note">{t.noCostData}</p> : <dl className="cost-bars">{costs.map(item => <div className="cost-bar-row" key={item.cat}>
