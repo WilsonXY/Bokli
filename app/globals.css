@@ -1251,15 +1251,15 @@ p, .feedback-message { text-wrap: pretty; }
 .sheet-save-status.is-saved { color: rgb(var(--brand-dark)); background: rgb(var(--brand-light)); }
 :root[data-theme="dark"] .sheet-save-status.is-saved { color: rgb(var(--brand)); }
 :root[data-theme="dark"] .metric-tabs button[aria-selected="true"] { color: rgb(var(--brand)); border-color: rgb(var(--brand) / .5); }
-/* Chart colours: one fixed hue per cost category (never re-ordered by amount), orange for the Daily Costs trend. */
+/* Chart colours: one fixed hue per cost category (never re-ordered by amount); Restock, the main cost, shares the Daily Costs trend orange. */
 :root {
   --trend-cost: #eb6834;
-  --cat-restock: #6250d6; --cat-gas: #eda100; --cat-transport: #1baf7a;
+  --cat-restock: #eb6834; --cat-gas: #1baf7a; --cat-transport: #eda100;
   --cat-wages-daily: #e87ba4; --cat-maintenance: #2a78d6; --cat-other: #8a8a85;
 }
 :root[data-theme="dark"] {
   --trend-cost: #d95926;
-  --cat-restock: #9085e9; --cat-gas: #c98500; --cat-transport: #199e70;
+  --cat-restock: #d95926; --cat-gas: #199e70; --cat-transport: #c98500;
   --cat-wages-daily: #d55181; --cat-maintenance: #3987e5; --cat-other: #8f8e88;
 }
 .cost-bar-values dt { display: flex; align-items: center; gap: 8px; }
@@ -1274,4 +1274,12 @@ p, .feedback-message { text-wrap: pretty; }
 /* Up to RM 1,000,000.00 the narrow dock keeps the amount beside its buttons. */
 @media (max-width:389px) {
   .sheet-save-panel:not([data-wide]) .sheet-profit-summary>div[data-long] { font-size: 22px; white-space: nowrap; }
+}
+/* Month Close states its figure the same way as Operating Expenses: label above, large amount below. */
+.close-expectation .close-expected-total, .close-expectation.has-counts .close-expected-total { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); }
+.close-expectation .close-expected-total>strong, .close-expectation.has-counts .close-expected-total>strong { margin: 0; width: 100%; text-align: left; font-size: 32px; line-height: 40px; letter-spacing: -.04em; overflow-wrap: anywhere; }
+/* The same category dot appears wherever a cost category is named, so the chart colours become a key. */
+.cost-category-label { display: inline-flex; align-items: center; gap: 8px; }
+@supports (appearance: base-select) {
+  .category-select option[style]::before { content: ""; flex: 0 0 10px; height: 10px; border-radius: 50%; background: var(--dot); }
 }

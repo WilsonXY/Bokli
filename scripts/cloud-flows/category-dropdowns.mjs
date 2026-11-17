@@ -46,6 +46,10 @@ async function openPicker(page, selector, shot, name) {
   if(layout.height-layout.trigger.bottom>=menuHeight) assert(first.top>=layout.trigger.bottom,'Open below the field when the full menu fits there');
   assert(first.top>=0&&last.bottom<=layout.height,'The options must remain visible above or below the field');
   assert(Math.abs(first.left-layout.trigger.left)<=16,'The menu must stay anchored to its field');
+  if(selector.startsWith('#cost-category')) {
+    const dots=await select.evaluate(el=>[...el.options].map(option=>getComputedStyle(option,'::before').backgroundColor));
+    assert(dots.every(color=>color!=='rgba(0, 0, 0, 0)')&&new Set(dots).size===dots.length,'Each Daily Cost option carries its own chart colour dot');
+  }
   if(selector.startsWith('#cost-category')) await page.waitForFunction(()=>getComputedStyle(document.querySelector('.add-cost-action')).visibility==='hidden',null,{timeout:2000}).catch(()=>assert.fail('Add Cost hides under an open Cost Line menu instead of peeking out around it'));
   if(selector==='#expense-category') {
     const actions=page.locator('.expense-entry-card .entry-actions');

@@ -1338,6 +1338,7 @@ export function DailySheetForm({
                         <div className="cost-record-text flex flex-wrap items-center gap-2.5 min-w-0">
 
                           <span className="cost-category-label">
+                            <i className="cost-bar-dot" style={{ background: `var(--cat-${line.category})` }} aria-hidden="true" />
                             {getCategoryLabel(line.category)}
                           </span>
                           {line.note && !isExpanded && (
@@ -1371,7 +1372,7 @@ export function DailySheetForm({
                             <label htmlFor={`cost-category-${idx}`}>{t.categoryShort}</label>
                             <div className="category-control">
                             <select {...phoneCategoryPickerEvents} id={`cost-category-${idx}`} className="category-select" value={line.category} disabled={saving} onChange={e => handleUpdateCostLine(idx, { category: e.target.value as CostCategory })}>
-                              {categories.map(cat => <option key={cat.key} value={cat.key}>{cat.label}</option>)}
+                              {categories.map(cat => <option key={cat.key} value={cat.key} style={{ "--dot": `var(--cat-${cat.key})` } as React.CSSProperties}>{cat.label}</option>)}
                             </select><ActionIcon name="chevronDown" size={20} /></div>
                           </div>
 
