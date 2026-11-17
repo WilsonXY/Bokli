@@ -729,7 +729,7 @@ export function ExpensesView({
           )}
 
           {summary && <section className="expense-month-summary" aria-label={t.monthSummary}>
-            <div className="expense-month-total"><span>{t.operatingExpenses}</span><strong>{formatMyr(totalExpenseSen)}</strong></div>
+            <div className="expense-month-total"><span>{t.monthTotal}</span><strong>{formatMyr(totalExpenseSen)}</strong></div>
             <div className="expense-month-context"><div><span>{t.monthGrossProfit}</span><strong>{formatMyr(BigInt(summary.grossSen))}</strong></div><div><span>{t.netProfit}</span><strong className={BigInt(summary.grossSen) - totalExpenseSen >= 0n ? "text-finance-profit" : "text-finance-loss"}>{formatMyr(BigInt(summary.grossSen) - totalExpenseSen)}</strong></div></div>
           </section>}
 

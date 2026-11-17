@@ -428,7 +428,7 @@ export function MonthCloseView({
 
               {closeRecord?.closedAt && (
                 <div className="text-xs text-ink-muted tabular-nums">
-                  {t.closedAtLabel}: {closeRecord.closedAt}
+                  {t.closedAtLabel}: {closeRecord.closedAt.slice(0, 16)}
                 </div>
               )}
 

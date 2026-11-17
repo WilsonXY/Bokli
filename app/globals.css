@@ -1290,3 +1290,9 @@ p, .feedback-message { text-wrap: pretty; }
 /* The Daily Sheets list names its amount column on the right, above the amounts. */
 .daily-records summary>.daily-record-heading { flex: 1; }
 .daily-record-heading>.daily-record-column-heading { margin-left: auto; margin-right: var(--space-2); }
+/* On today, 今日 is a quiet "you are here" marker; on a past date the way back to today is the emphasised button. */
+.date-today-badge { background: rgb(var(--subtle)); color: rgb(var(--secondary)); border-color: rgb(var(--border)); box-shadow: none; }
+.return-today { background: rgb(var(--brand-light)); color: rgb(var(--brand-dark)); border-color: rgb(var(--brand) / .35); }
+:root[data-theme="dark"] .return-today { color: rgb(var(--brand)); }
+/* The Daily Sheets column caption stays quieter than the controls beside it. */
+.daily-record-heading>.daily-record-column-heading small { color: rgb(var(--muted)); font-weight: 500; }

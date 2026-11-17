@@ -69,5 +69,10 @@ export default async function quickEntry({ page, shot: rawShot }) {
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   const shortcut=await page.getByRole("button",{name:"回到今天",exact:true}).boundingBox();
   assert(shortcut && shortcut.x>=0 && shortcut.x+shortcut.width<=320);
+  const emphasis = await page.evaluate(() => {
+    const bg = selector => getComputedStyle(document.querySelector(selector)).backgroundColor;
+    return { back: bg(".return-today"), arrow: bg(".sheet-date-bar>div:first-child>button") };
+  });
+  assert.notEqual(emphasis.back, emphasis.arrow, "On a past date the way back to today must stand out from the arrows");
   await shot("past-date-320");
 }
