@@ -49,7 +49,7 @@ async function openPicker(page, selector, shot, name) {
   if(selector==='#expense-category') {
     const actions=page.locator('.expense-entry-card .entry-actions');
     assert.equal(await actions.evaluate(el=>getComputedStyle(el).visibility),'visible','Covered form actions must remain visible so the form never appears cleared');
-    assert(await actions.evaluate(el=>parseFloat(getComputedStyle(el).opacity)<=.5),'Covered form actions must be subdued while choosing a category');
+    assert.equal(await actions.evaluate(el=>getComputedStyle(el).opacity),'1','Form actions keep full strength under an open menu, so the form never looks disabled');
   }
   await shot(name,page,{fullPage:false});
 }
@@ -103,14 +103,13 @@ export default async function categoryDropdowns({page,shot}) {
   const last=await page.locator('#cost-category-0 option').last().boundingBox();
   assert(last&&last.y>=0&&last.y+last.height<=560,'A short phone viewport must let the final option scroll into view');
   for(const control of await page.locator('.sheet-save-panel,.workspace-sidebar').all()) {
-    assert.equal(await control.evaluate(el=>getComputedStyle(el).visibility),'visible','Underlying controls must remain visible during category selection');
-    assert(await control.evaluate(el=>parseFloat(getComputedStyle(el).opacity)<=.25&&getComputedStyle(el).pointerEvents==='none'),'Short-height selection must subdue competing bottom controls');
+    assert.equal(await control.evaluate(el=>getComputedStyle(el).visibility),'hidden','Short-height selection hides the bottom controls instead of leaving faded fragments around the menu');
   }
   await shot('cost-menu-short-phone',page,{fullPage:false});
   await page.keyboard.press('Enter');
   assert.equal(await page.locator('#cost-category-0').inputValue(),'other','Keyboard selection must still update the Cost Line');
   for(const control of await page.locator('.sheet-save-panel,.workspace-sidebar').all()) {
-    assert.equal(await control.evaluate(el=>getComputedStyle(el).opacity),'1','Bottom controls must return as soon as category selection finishes');
+    assert.equal(await control.evaluate(el=>getComputedStyle(el).visibility),'visible','Bottom controls must return as soon as category selection finishes');
   }
   await page.getByRole('button',{name:'保存账单',exact:true}).click();
   await page.locator('[id^="other-note-error-"]').waitFor();
