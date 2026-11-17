@@ -480,6 +480,7 @@ export function MonthCloseView({
           {/* Case 2: Month is OPEN (or REOPENED) — Entry Form */}
           {!isClosed && (
             <form onSubmit={handlePerformClose} className="reconciliation-form">
+              <h2>{t.reconciliationTitle}</h2>
               {isReopened && closeRecord?.reopenReason && (
                 <div className="p-2.5 rounded-lg bg-status-reopened-bg/40 border border-status-reopened/20 text-sm">
                   <span className="font-semibold text-status-reopened block mb-0.5">

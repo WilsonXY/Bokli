@@ -4,8 +4,8 @@ export default async function chartTabs({page,shot}) {
   await page.locator('.overview-trend').waitFor();
   await page.locator('[aria-busy="true"]').first().waitFor({state:'detached'});
   const tabs=page.getByRole('tablist',{name:'趋势数据'});
-  const revenue=tabs.getByRole('tab',{name:'总收入',exact:true});
-  const costs=tabs.getByRole('tab',{name:'总开销',exact:true});
+  const revenue=tabs.getByRole('tab',{name:'营业收入',exact:true});
+  const costs=tabs.getByRole('tab',{name:'日常开销',exact:true});
   const records=await page.locator('.daily-record').allTextContents();
   await costs.click({timeout:3000});
   assert.deepEqual(await page.locator('.daily-record').allTextContents(),records,'Chart tabs must leave the separate Daily Sheets list unchanged');

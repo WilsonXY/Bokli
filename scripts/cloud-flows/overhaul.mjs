@@ -54,7 +54,7 @@ export default async function flow({ page, shot: rawShot }) {
         await page.locator(".daily-records").scrollIntoViewIfNeeded();
         await pause(1000); await shot(`en-${theme}-daily-sheets`);
         await page.locator(".daily-records > summary").click();
-        await page.getByRole("tab", { name: "Costs", exact: true }).click();
+        await page.getByRole("tab", { name: "Daily Costs", exact: true }).click();
         await page.getByRole("heading", { name: "Daily Cost Trend", exact: true }).waitFor();
         assert.equal(await page.locator(".trend-dates-sparse>span").count(), 3);
         assert.match(await page.locator(".trend-dates-sparse>span").nth(1).innerText(), /-10$/);

@@ -766,6 +766,14 @@ export function DailySheetForm({
 
   const grossProfitSen =
     totalRevenueSen !== null ? totalRevenueSen - totalCostSen : null;
+  const grossProfitText = grossProfitSen !== null ? formatMyr(grossProfitSen) : "—";
+  const wideTotal = grossProfitText.length > 12;
+  useEffect(() => {
+    const active = document.activeElement;
+    if (!wideTotal || window.innerWidth >= 768 || !(active instanceof HTMLElement) || !active.matches("input,select,textarea") || !active.closest(".daily-layout")) return;
+    const frame = requestAnimationFrame(() => active.scrollIntoView({ block: "nearest", inline: "nearest" }));
+    return () => cancelAnimationFrame(frame);
+  }, [wideTotal]);
 
   // Delete-sheet snapshot: the saved figures (baseline), i.e. what is destroyed
   const savedRevenueSen =
@@ -1130,7 +1138,7 @@ export function DailySheetForm({
       </header>
 
       {/* Section 1: Revenue Entry */}
-      <section aria-label={t.revenueTitle} className="daily-revenue">
+      <section aria-label={t.revenueTitle} className="daily-revenue entry-section">
         <div className="section-heading flex items-center justify-between px-0.5">
           <h2 className="text-base font-medium text-ink-primary">
             {t.revenueTitle}
@@ -1240,7 +1248,7 @@ export function DailySheetForm({
       </section>
 
       {/* Section 2: Itemized Daily Costs */}
-      <section aria-label={t.costsTitle} className="daily-costs">
+      <section aria-label={t.costsTitle} className="daily-costs entry-section">
         <div className="section-heading flex items-center justify-between px-0.5">
           <h2 className="text-base font-medium text-ink-primary">
             {t.costsTitle}
@@ -1256,6 +1264,7 @@ export function DailySheetForm({
           <div className="cost-line-list">
             {costLines.map((line, idx) => {
               const isExpanded = expandedIndex === idx;
+              const amountText = formatMyr(BigInt(line.amountSen));
               return (
                 <div
                   key={getCostLineKey(line, idx)}
@@ -1283,7 +1292,7 @@ export function DailySheetForm({
                       >
                         <div className="cost-record-text flex flex-wrap items-center gap-2.5 min-w-0">
 
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-surface-subtle border border-surface-border text-ink-secondary whitespace-nowrap">
+                          <span className="cost-category-label">
                             {getCategoryLabel(line.category)}
                           </span>
                           {line.note && !isExpanded && (
@@ -1295,18 +1304,19 @@ export function DailySheetForm({
 
                         <div className="flex items-center gap-2.5 shrink-0">
                           <span
-                            className={`${amountSizeClass(
-                              formatMyr(BigInt(line.amountSen)),
+                            data-long={amountText.length > 12 || undefined}
+                            className={`money-list-value ${amountSizeClass(
+                              amountText,
                               "text-xs",
                               "text-base"
                             )} font-bold text-ink-secondary tabular-nums whitespace-nowrap`}
                           >
-                            {formatMyr(BigInt(line.amountSen))}
+                            {amountText}
                           </span>
                           {!isClosed && <span className="record-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span>}
                         </div>
                       </div>
-                      {isExpanded && !isClosed && <button type="button" onClick={() => setPendingDeleteIndex(idx)} aria-label={t.deleteCostLine} title={t.deleteCostLine} disabled={saving} className="cost-delete-action"><ActionIcon name="trash" /></button>}
+                      
                   </div>
 
                   {/* Expanded Form Body */}
@@ -1368,9 +1378,12 @@ export function DailySheetForm({
                             </div>
 
                             <div className="cost-note-row">
+                              <div className="cost-note-header">
                               <label htmlFor={`cost-note-${idx}`} className="block text-xs font-semibold text-ink-secondary mb-1">
                                 {t.note} {line.category === "other" ? <span className="text-finance-loss">*</span> : <span className="optional-label">{t.optionalBadge}</span>}
                               </label>
+                              {isExpanded && !isClosed && <button type="button" onClick={() => setPendingDeleteIndex(idx)} aria-label={t.deleteCostLine} title={t.deleteCostLine} disabled={saving} className="cost-delete-action"><ActionIcon name="trash" /></button>}
+                              </div>
                               <input
                                 id={`cost-note-${idx}`}
                                 type="text"
@@ -1462,14 +1475,14 @@ export function DailySheetForm({
               </div>
             )}
 
-            <div className="sheet-save-panel bg-white border border-surface-border rounded-xl p-3 flex items-center justify-between gap-3">
+            <div data-wide={wideTotal || undefined} className="sheet-save-panel bg-white border border-surface-border rounded-xl p-3 flex items-center justify-between gap-3">
               <div className="sheet-profit-summary">
                 <div className="text-[13px] text-ink-muted font-medium">
                   {t.grossProfit}
                 </div>
                 <div
-                  data-long={(grossProfitSen !== null ? formatMyr(grossProfitSen) : "—").length > 12 || undefined}
-                  data-very-long={(grossProfitSen !== null ? formatMyr(grossProfitSen) : "—").length > 18 || undefined}
+                  data-long={wideTotal || undefined}
+                  data-very-long={grossProfitText.length > 18 || undefined}
                   className={`${amountSizeClass(
                     grossProfitSen !== null ? formatMyr(grossProfitSen) : "—",
                     "text-base",
@@ -1548,7 +1561,7 @@ export function DailySheetForm({
         <p>{t.confirmRevertDesc}</p>
         <div className="dialog-actions">
           <button type="button" className="secondary-button" aria-label={t.cancel} autoFocus onClick={() => revertDialog.current?.close()}><ActionIcon name="close" /></button>
-          <button type="button" className="primary-button danger-action" aria-label={t.confirmRevertBtn} onClick={() => { revertDialog.current?.close(); handleRevert(); requestAnimationFrame(() => document.getElementById("cash-input")?.focus({ preventScroll: true })); }}><ActionIcon name="undo" /></button>
+          <button type="button" className="primary-button danger-action" aria-label={t.confirmRevertBtn} onClick={() => { revertDialog.current?.close(); handleRevert(); requestAnimationFrame(() => document.getElementById("cash-input")?.focus({ preventScroll: true })); }}><ActionIcon name="undo" /><span>{t.revertShort}</span></button>
         </div>
       </dialog>}
       {/* Deletion stays separate from the primary save action. */}
@@ -1672,11 +1685,6 @@ export function DailySheetForm({
         >
           <div className="confirmation-sheet w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-finance-loss-light border border-finance-loss-border/60 text-finance-loss flex items-center justify-center shrink-0 select-none">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </div>
               <div className="min-w-0">
                 <h3 id="confirm-delete-cost-title" className="text-base font-bold text-ink-primary">
                   {t.confirmDeleteItemTitle}

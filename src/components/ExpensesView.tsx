@@ -862,8 +862,9 @@ export function ExpensesView({
               </div>
             )}
 
-            <div hidden={isClosed || isDraftOpen} data-readonly={isClosed || undefined} className="expense-records-heading expense-toolbar">
-              <h2 className="sr-only">{t.savedExpensesTitle}</h2>
+            {(mergedExpenses.length > 0 || !isDraftOpen) && <div className="expense-ledger">
+            <div data-readonly={isClosed || undefined} className="expense-records-heading expense-toolbar">
+              <h2>{t.savedExpensesTitle}</h2>
               {!isClosed && !isDraftOpen && <button type="button" className="expense-add-icon" aria-label={t.addExpense} title={t.addExpense} onClick={() => setIsDraftOpen(true)}><ActionIcon name="add" size={24} /></button>}
             </div>
 
@@ -871,12 +872,13 @@ export function ExpensesView({
             {mergedExpenses.length > 0 && (
               <div className="expense-record-list">
                 {mergedExpenses.map((item) => {
+                  const amountText = formatMyr(BigInt(item.amountSen));
                   const Record = isClosed ? "div" : "details";
                   const Heading = isClosed ? "div" : "summary";
                   return <Record key={item.key} className="expense-record" data-readonly={isClosed || undefined} onToggle={e => { const record = e.currentTarget as HTMLDetailsElement; if (record.open) record.querySelector<HTMLElement>(".record-delete")?.scrollIntoView({ block: "nearest" }); }}>
                     <Heading className="expense-record-summary">
                       <span className="expense-record-category">{getCategoryLabel(item.type)}{item.ids.length > 1 && <small> ×{item.ids.length}</small>}</span>
-                      <span className={`expense-record-amount ${amountSizeClass(formatMyr(BigInt(item.amountSen)), "text-xs", "text-base")} font-bold text-ink-secondary tabular-nums`}>{formatMyr(BigInt(item.amountSen))}</span>
+                      <span data-long={amountText.length > 12 || undefined} className={`money-list-value expense-record-amount ${amountSizeClass(amountText, "text-xs", "text-base")} font-bold text-ink-secondary tabular-nums`}>{amountText}</span>
                       {!isClosed && <span className="record-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span>}
                       {item.note && <p className="expense-record-note">{item.note}</p>}
                     </Heading>
@@ -897,6 +899,7 @@ export function ExpensesView({
               </div>
             )}
 
+            </div>}
           </section>
 
           {/* Delete Item Confirmation Dialog */}
@@ -915,11 +918,6 @@ export function ExpensesView({
             >
               <div className="confirmation-sheet w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-finance-loss-light border border-finance-loss-border/60 text-finance-loss flex items-center justify-center shrink-0 select-none">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </div>
                   <div className="min-w-0">
                     <h3 id="confirm-delete-expense-title" className="text-base font-bold text-ink-primary">
                       {t.confirmDeleteItemTitle}
