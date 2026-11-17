@@ -25,8 +25,9 @@ export default async function chartTabs({page,shot}) {
   assert.deepEqual(await page.locator('.daily-record').allTextContents(),records,'Chart tabs must leave the separate Daily Sheets list unchanged');
   assert.equal(await costs.getAttribute('aria-selected'),'true');
   await page.getByRole('tabpanel').getByRole('heading',{name:'每日开销趋势',exact:true}).waitFor();
-  const swatch=await page.locator('.trend-legend>span').evaluate(el=>({width:el.getBoundingClientRect().width,height:el.getBoundingClientRect().height,style:getComputedStyle(el).borderTopStyle}));
+  const swatch=await page.locator('.trend-reference-key').evaluate(el=>({width:el.getBoundingClientRect().width,height:el.getBoundingClientRect().height,style:getComputedStyle(el).borderTopStyle}));
   assert(swatch.width>=swatch.height*4&&swatch.style==='dashed','A comparison legend must read as a line key rather than an unchecked checkbox');
+  assert.equal(await page.locator('.trend-legends .trend-legend').count(),2,'Both solid Costs and outlined Revenue need an explicit legend');
   await page.locator('.overview-trend').scrollIntoViewIfNeeded();
   await shot('cost-tab',page,{fullPage:false});
   await page.keyboard.press('ArrowLeft');

@@ -7,7 +7,10 @@ export default async function sheetFeedbackContext({page,shot}) {
   await page.getByRole('dialog').getByRole('button',{name:'确认保存',exact:true}).click();
   await page.locator('.sheet-profit-summary [role="status"]').filter({hasText:'已保存'}).waitFor();
   assert.equal(await page.locator('.feedback-message').count(),0);
-  await page.getByRole('button',{name:'删除当日账单',exact:true}).click();
+  const deleteSheet=page.getByRole('button',{name:'删除当日账单',exact:true});
+  await deleteSheet.scrollIntoViewIfNeeded();
+  await shot('stored-sheet-actions',page,{fullPage:false});
+  await deleteSheet.click();
   const dialog=page.getByRole('dialog');
   assert.equal(await dialog.locator('time').getAttribute('datetime'),date);
   assert.equal(await dialog.getByText(date,{exact:true}).count(),1,'The confirmation should state its date once');

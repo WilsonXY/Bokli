@@ -1106,7 +1106,7 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 .expense-record[open] .expense-record-summary:not(:has(.expense-record-note))::after { content: ""; grid-column: 1 / -1; height: 44px; }
 .expense-record[open] .expense-record-actions { position: absolute; right: 0; bottom: var(--space-2); height: 44px; padding: 0; z-index: 1; }
 .expense-record-actions .record-delete:focus-visible { outline-offset: -3px; }
-.empty-month .primary-button { width: 140px; min-width: 140px; min-height: 52px; }
+.empty-month .primary-button { width: 100%; min-width: 0; min-height: 52px; justify-content: center; }
 @media (max-width:767px) {
   .metric-tabs button { flex: 0 1 120px; }
 }
@@ -1118,8 +1118,10 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 .sheet-historical-date { flex: 0 0 100%; color: rgb(var(--secondary)); font-size: 14px; line-height: 20px; font-variant-numeric: tabular-nums; }
 .sheet-save-panel[data-historical] .sheet-profit-summary>div:first-child { flex-wrap: wrap; row-gap: 0; }
 .trend-legend { display: inline-flex; align-items: center; gap: var(--space-2); color: rgb(var(--secondary)); font-size: 14px; line-height: 24px; }
-.trend-legend>span { width: 28px; height: 0; border: 0; border-top: 2px dashed var(--trend-revenue); opacity: .75; }
-.trend-value-label { paint-order: stroke; stroke: rgb(var(--surface)); stroke-width: 4px; stroke-linejoin: round; }
+.trend-legends { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-1) var(--space-3); }
+.trend-reference-key { width: 28px; height: 0; border-top: 2px dashed var(--trend-revenue); opacity: .75; }
+.trend-cost-key { width: 10px; height: 16px; border-radius: 2px; background: rgb(var(--cost)); }
+.trend-value-label { stroke: none; }
 .sheet-save-error { align-items: flex-start; }
 .sheet-save-error>div { align-items: flex-start; }
 .sheet-save-error svg { margin-top: 4px; }
@@ -1127,6 +1129,16 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 .save-error-copy strong { font-size: 16px; }
 .save-error-copy>span { font-size: 14px; font-weight: 500; }
 .date-today-badge { background: rgb(var(--brand-light)); color: rgb(var(--brand)); border-color: rgb(var(--brand) / .3); box-shadow: none; }
+.sheet-save-status.is-error { color: rgb(var(--loss)); }
+.metric-tabs button:not([aria-selected="true"]) { background: transparent; border-color: transparent; box-shadow: none; }
+.metric-tabs button:not([aria-selected="true"]):hover { background: rgb(var(--surface) / .35); }
+.entry-section .cost-line-list>.cost-entry-card:has(.cost-editor) { position: relative; margin-bottom: var(--space-2); }
+.entry-section .cost-entry-card:has(.cost-editor) .cost-record-header { position: absolute; right: var(--space-2); top: var(--space-2); width: 96px; height: 44px; }
+.entry-section .cost-entry-card:has(.cost-editor) .cost-record-summary { flex: 0 0 44px; width: 44px; min-width: 44px; height: 44px; min-height: 44px; margin-left: auto; padding: 0; justify-content: center; }
+.cost-entry-card:has(.cost-editor) .cost-record-text { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.cost-entry-card:has(.cost-editor) .money-list-value { display: none; }
+.cost-entry-card:has(.cost-editor) .cost-header-delete { left: 0; right: auto; top: 0; transform: none; }
+.cost-entry-card:has(.cost-editor) .cost-category-row>label { display: flex; align-items: center; min-height: 44px; padding-right: 104px; }
 @media (max-width:767px) {
   :root:has(.sheet-save-panel[data-historical] .sheet-actions) { --save-panel-height: 92px; }
 }

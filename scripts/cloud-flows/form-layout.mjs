@@ -14,8 +14,10 @@ export default async function formLayout({page,shot}) {
   const panel=await active.boundingBox();
   assert(panel&&remove&&remove.y-panel.y>=8,'Expanded row actions need breathing room inside their panel');
   assert(remove&&chevron&&remove.width>=44&&remove.height>=44&&remove.x+remove.width<=chevron.x-8,'Delete and collapse need separate comfortable targets');
-  const gap=await active.evaluate(card=>card.querySelector('.cost-editor label').getBoundingClientRect().top-card.querySelector('.cost-category-label').getBoundingClientRect().bottom);
-  assert(gap>=8&&gap<=20,'The expanded summary must lead into its fields without an oversized gap');
+  const gap=await active.evaluate(card=>card.querySelector('.category-control').getBoundingClientRect().top-card.querySelector('.cost-editor label').getBoundingClientRect().bottom);
+  assert(gap>=4&&gap<=8,'The category label must lead directly into its selector');
+  const collapse=await active.locator('.cost-record-summary').boundingBox();
+  assert(collapse&&remove&&collapse.width>=44&&collapse.height>=44&&remove.x+remove.width<=collapse.x-8,'Collapse and Delete must have distinct 44px targets');
   const edges=await page.locator('.cost-record-summary[aria-expanded="false"] .tabular-nums').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().right));
   const note=await page.locator('.cost-editor .note-input').boundingBox();
   const editor=await page.locator('.cost-editor').evaluate(el=>({width:el.getBoundingClientRect().width,padding:parseFloat(getComputedStyle(el).paddingLeft)+parseFloat(getComputedStyle(el).paddingRight)}));
