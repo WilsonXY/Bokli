@@ -46,7 +46,7 @@ async function openPicker(page, selector, shot, name) {
   if(layout.height-layout.trigger.bottom>=menuHeight) assert(first.top>=layout.trigger.bottom,'Open below the field when the full menu fits there');
   assert(first.top>=0&&last.bottom<=layout.height,'The options must remain visible above or below the field');
   assert(Math.abs(first.left-layout.trigger.left)<=16,'The menu must stay anchored to its field');
-  if(selector.startsWith('#cost-category')) assert.equal(await page.locator('.add-cost-action').evaluate(el=>getComputedStyle(el).visibility),'hidden','Add Cost hides under an open Cost Line menu instead of peeking out around it');
+  if(selector.startsWith('#cost-category')) await page.waitForFunction(()=>getComputedStyle(document.querySelector('.add-cost-action')).visibility==='hidden',null,{timeout:2000}).catch(()=>assert.fail('Add Cost hides under an open Cost Line menu instead of peeking out around it'));
   if(selector==='#expense-category') {
     const actions=page.locator('.expense-entry-card .entry-actions');
     assert.equal(await actions.evaluate(el=>getComputedStyle(el).visibility),'hidden','Form actions hide under an open menu instead of peeking out half-covered');
