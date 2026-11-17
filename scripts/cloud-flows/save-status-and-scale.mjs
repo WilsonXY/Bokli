@@ -34,7 +34,7 @@ export default async function saveStatusAndScale({ page, shot }) {
   assert.equal((await save.boundingBox()).width, (await undo.boundingBox()).width, 'Footer actions need equal width');
   await page.getByRole('button', { name: /添加开销/ }).click();
   await page.locator('.cost-editor input.money-input').fill('5');
-  assert.equal(await page.locator('.cost-editor .record-actions .cost-delete-action').count(),1,'Delete belongs to the opened record details');
+  assert.equal(await page.locator('.cost-record-header .cost-delete-action').count(),1,'Delete belongs to the opened record header');
   await save.click();
   await page.getByRole('dialog').getByRole('button', { name: '确认保存', exact: true }).click();
   await status.filter({ hasText: '已保存' }).waitFor();

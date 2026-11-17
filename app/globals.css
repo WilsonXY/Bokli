@@ -532,7 +532,6 @@
 .profit-headline:after { content: none; }
 .daily-record-heading { display: inline-flex; align-items: baseline; gap: var(--space-3); }.daily-record-heading small { font-size: 14px; color: rgb(var(--secondary)); }
 .daily-record-counter { display: inline-flex; align-items: center; gap: 7px; }
-.daily-record-counter .ledger-chevron { margin-left: 4px; }
 .month-close-action { min-height: 64px; padding: 14px 18px; }
 .month-close-icon { width: 32px; height: 32px; background: transparent; border-radius: 0; }
 .sheet-actions>.sheet-revert-action { width: 48px; min-width: 48px; align-self: center; background: rgb(var(--surface)); }
@@ -983,7 +982,7 @@
 .settings-section .language-options, .settings-section .appearance-choice { border-radius: max(4px,calc(var(--radius-panel) - var(--surface-inset) - var(--edge))); box-shadow: none; }
 .account-section { flex-direction: row; align-items: center; justify-content: space-between; }
 .dialog-actions .danger-action { gap: var(--space-2); }
-.trend-unit { color: rgb(var(--secondary)); font-size: 14px; line-height: 24px; margin-left: auto; }
+.trend-unit { color: rgb(var(--secondary)); font-size: 16px; line-height: 24px; margin-left: 0; margin-right: auto; text-align: right; }
 .loading-layout .trend-unit { visibility: hidden; }
 .sheet-profit-summary>div:first-child { display: flex; align-items: baseline; gap: var(--space-2); }
 .sheet-save-status { font-size: 14px; white-space: nowrap; color: rgb(var(--secondary)); }
@@ -1001,7 +1000,6 @@
 .cost-category-row, .cost-money-row { grid-template-columns: minmax(0,1fr); gap: 6px; }
 .cost-money-row>[role="alert"] { grid-column: 1; }
 .record-actions { display: flex; justify-content: flex-end; gap: var(--space-2); padding: var(--space-2) 0; }
-.cost-editor .record-actions { padding: 0; }
 .expense-record-actions { grid-row: auto; grid-column: auto; align-self: stretch; }
 .cost-delete-action, .record-delete, .month-picker-trigger { border-radius: var(--radius-control); }
 .cost-record-text { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); }
@@ -1063,8 +1061,24 @@ html[lang="en"] .date-today-slot, html[lang="en"] .date-today-badge, html[lang="
 html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12px; }
 @media (max-width:359px) {
   html[lang="en"] .date-picker-trigger { padding: 0 6px; }
-  html[lang="en"] .date-value { font-size: 14px; }
 }
 
 .feedback-message>button { flex: 0 0 44px; width: 44px; min-width: 44px; height: 44px; font-size: 20px; }
 .empty-month .primary-button { color: white; background: #126756; border-color: #126756; box-shadow: var(--shadow-control); }
+
+/* Record actions share the header; the expanded amount remains in its editable field. */
+.cost-record-header { position: relative; }
+.entry-section .cost-record-summary { min-height: 48px; align-items: center; }
+.cost-record-summary[aria-expanded="true"] .money-list-value { visibility: hidden; }
+.cost-header-delete { position: absolute; right: 32px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; z-index: 1; }
+.cost-header-delete:focus-visible { outline-offset: -3px; }
+.entry-section .cost-editor { padding: var(--space-1) 0 var(--space-2); }
+.cost-editor .cost-fields { gap: var(--space-2); }
+.daily-record-heading { align-items: center; }
+.trend-dates { height: 24px; font-size: 16px; line-height: 24px; }
+.trend-scope, .cost-bar-meter small, .revenue-composition .account-balances dt, .revenue-composition .account-balances small, .revenue-donut-center span { font-size: 16px; line-height: 24px; }
+@media (max-width:767px) {
+  .sheet-date-bar>div:first-child { width: 100%; justify-content: space-between; }
+  .sheet-date-bar .date-picker-group { flex: 1; }
+  .sheet-date-bar .date-picker-trigger { flex: 1; justify-content: center; }
+}

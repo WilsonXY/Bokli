@@ -21,7 +21,7 @@ export default async function financialContext({page,shot}) {
   await dialog.getByRole('button',{name:'取消',exact:true}).click();
   await page.getByRole('button',{name:/添加开销/}).click();
   await page.locator('.cost-editor input.money-input').fill('5');
-  await page.locator('.cost-editor .cost-delete-action').click();
+  await page.locator('.cost-record-header .cost-delete-action').click();
   await page.getByRole('dialog').getByText('保存账单后生效。',{exact:true}).waitFor();
   await shot('draft-delete-timing',page,{fullPage:false});
   await page.getByRole('dialog').getByRole('button',{name:'取消',exact:true}).click();

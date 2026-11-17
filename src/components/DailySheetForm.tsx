@@ -1316,7 +1316,7 @@ export function DailySheetForm({
                           {!isClosed && <span className="record-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span>}
                         </div>
                       </div>
-
+                      {isExpanded && !isClosed && <button type="button" onClick={() => setPendingDeleteIndex(idx)} aria-label={t.deleteCostLine} title={t.deleteCostLine} disabled={saving} className="cost-delete-action cost-header-delete"><ActionIcon name="trash" /></button>}
                   </div>
 
                   {/* Expanded Form Body */}
@@ -1410,7 +1410,6 @@ export function DailySheetForm({
                               )}
                             </div>
                           </div>
-                          <div className="record-actions"><button type="button" onClick={() => setPendingDeleteIndex(idx)} aria-label={t.deleteCostLine} title={t.deleteCostLine} disabled={saving} className="cost-delete-action"><ActionIcon name="trash" /></button></div>
                         </div>
                       )}
                     </div>

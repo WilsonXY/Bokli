@@ -26,8 +26,9 @@ export default async function financialHierarchy({ page, shot }) {
   await page.getByRole('button', { name: /添加开销/ }).click();
   await page.locator('.cost-editor input.money-input').fill('5');
   const note = await page.locator('.cost-editor .note-input').boundingBox();
-  const remove = await page.locator('.cost-editor .record-actions .cost-delete-action').boundingBox();
-  assert(note && remove && remove.y >= note.y + note.height + 8, 'Delete must belong to the opened record after its fields');
+  const remove = await page.locator('.cost-record-header .cost-delete-action').boundingBox();
+  const header = await page.locator('.cost-record-header').boundingBox();
+  assert(note && remove && header && remove.y >= header.y && remove.y+remove.height<=header.y+header.height, 'Delete must stay inside its own record header');
   const hierarchy = await page.locator('.daily-costs').evaluate(section => ({
     total: parseFloat(getComputedStyle(section.querySelector('.section-heading>span:last-child')).fontSize),
     row: parseFloat(getComputedStyle(section.querySelector('.money-list-value')).fontSize),
