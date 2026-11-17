@@ -6,20 +6,21 @@
 # The fake data resets on every preview. Never touches the cloud database.
 # Safe by design: one run at a time (lock), refuses if the dev folder has
 # uncommitted work, only stops the preview this script started.
-# Machine paths: BOKLI_DEV_DIR (dev folder), BOKLI_DEV_VARS (Access settings).
+# BOKLI_DEV_DIR overrides the dev folder.
 set -u
 # Braces: bash reads the whole script before running it, so the checkout below
 # can safely replace this file when it runs from inside the dev folder.
 {
 BRANCH="${1:-}"
 [ -n "$BRANCH" ] || { echo "Usage: dev-preview.sh <branch-name>"; exit 2; }
+git check-ref-format --branch "$BRANCH" >/dev/null 2>&1 || { echo "REFUSED: '$BRANCH' is not a valid branch name."; exit 2; }
 DEV="${BOKLI_DEV_DIR:-$HOME/projects/bokli-dev}"
 STATE="$HOME/.local/state"; LOG="$STATE/bokli-dev.log"; PGID_FILE="$STATE/bokli-preview.pgid"
 exec 9>/tmp/bokli_preview.lock
 flock -n 9 || { echo "REFUSED: another preview is running right now. Wait 5 minutes and retry."; exit 3; }
 cd "$DEV" || exit 1
 DEV="$(pwd -P)"   # resolved, to match /proc/<pid>/cwd below
-DEV_VARS="${BOKLI_DEV_VARS:-$HOME/.config/bokli/boklidev.dev.vars}"   # Access settings for boklidev.ktte.me
+DEV_VARS="$HOME/.config/bokli/boklidev.dev.vars"   # Access settings for boklidev.ktte.me
 [ -f "$DEV_VARS" ] || { echo "REFUSED: $DEV_VARS is missing."; exit 8; }
 if [ -n "$(git status --porcelain --untracked-files=no)" ]; then
   echo "REFUSED: dev folder has uncommitted changes; not touching it."; exit 4

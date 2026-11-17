@@ -70,7 +70,8 @@ Skill details live in the skills, not in this file.
 
 ### Dev preview
 - When Katte asks to try a change (or it is user-visible and you'd write "please
-  test it"): push the branch, run `bash scripts/dev-preview.sh <branch>`.
+  test it"): push the branch, run `bash scripts/dev-preview.sh <branch>` (branch
+  too old to have it: rebase on `main` first).
   Only READY confirms https://boklidev.ktte.me serves it: send Katte that link plus
   1-2 concrete things to try. Otherwise report the output; don't claim it's ready.
 - The script is the only allowed way. NEVER start your own long-running server for
