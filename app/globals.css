@@ -168,12 +168,13 @@
 .account-balances dd { font-size: 22px; margin-top: 8px; overflow-wrap: anywhere; letter-spacing: -.025em; }
 .account-balances small { display: block; font-size: 14px; color: rgb(var(--secondary)); margin-top: 6px; }
 .cost-bars { margin-top: 24px; }
-.cost-bar-row { position: relative; padding-bottom: 28px; }
-.cost-bar-row>div:first-child { display: flex; justify-content: space-between; gap: 12px; font-size: 16px; }
+.cost-bar-row { display: flex; flex-direction: column; gap: 8px; }
+.cost-bar-values { display: flex; justify-content: space-between; gap: 12px; font-size: 16px; line-height: 24px; }
 .cost-bar-row dd { text-align: right; overflow-wrap: anywhere; }
-.cost-bar-track { margin-top: 10px; height: 8px; border-radius: 4px; background: rgb(var(--subtle)); overflow: hidden; width: calc(100% - 48px); }
+.cost-bar-meter { display: grid; grid-template-columns: minmax(0,1fr) 40px; align-items: center; gap: 12px; }
+.cost-bar-track { height: 8px; border-radius: 4px; background: rgb(var(--subtle)); overflow: hidden; }
 .cost-bar-track>span { display: block; height: 100%; background: rgb(var(--brand)); border-radius: inherit; }
-.cost-bar-row small { position: absolute; right: 0; bottom: 23px; font-size: 14px; color: rgb(var(--secondary)); }
+.cost-bar-row small { font-size: 14px; line-height: 20px; text-align: right; color: rgb(var(--secondary)); }
 .empty-month { display: flex; flex-direction: column; align-items: flex-start; gap: 16px; }
 .empty-month h2 { font-size: 22px; }
 .empty-month p { font-size: 16px; color: rgb(var(--secondary)); line-height: 1.7; }
@@ -925,7 +926,8 @@
   padding: var(--surface-inset); border: var(--edge) solid rgb(var(--border)); border-radius: var(--radius-panel);
   background: rgb(var(--surface)); box-shadow: var(--shadow-card);
 }
-.entry-section .section-heading { padding: 0; }
+.entry-section .section-heading { padding: 0; align-items: baseline; flex-wrap: wrap; }
+.entry-section .section-heading>span:last-child { font-size: 24px; line-height: 32px; color: rgb(var(--ink)); }
 .entry-section .revenue-fields, .entry-section .cost-line-list, .expense-ledger .expense-record-list {
   padding: 0; border: 0; border-radius: 0; box-shadow: none;
 }
@@ -938,13 +940,14 @@
 .money-list-value { font-size: 20px; color: rgb(var(--ink)); }
 .money-list-value[data-long] { font-size: 16px; }
 .cost-note-row { display: flex; flex-direction: column; align-items: stretch; gap: 6px; }
-.cost-note-row>label, .cost-note-header>label { display: flex; align-items: baseline; gap: var(--space-2); margin: 0; font-size: 16px; line-height: 24px; }
-.cost-note-header { display: flex; align-items: center; justify-content: space-between; min-height: 44px; gap: var(--space-3); }
+.cost-note-row>label { display: flex; align-items: baseline; gap: var(--space-2); margin: 0; font-size: 16px; line-height: 24px; }
+.cost-editor-actions { display: flex; padding-top: var(--space-2); border-top: var(--edge) solid rgb(var(--border)); }
 .cost-note-row>[role="alert"] { width: 100%; }
 .workspace-main input.note-input[aria-invalid="true"]:focus, .workspace-main input.money-input[aria-invalid="true"]:focus { border-color: rgb(var(--loss)); box-shadow: 0 0 0 2px rgb(var(--loss) / .14),var(--shadow-inset); }
 .operating-expenses { gap: var(--page-gap); }
 .expense-ledger { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
 .expense-toolbar { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0; gap: var(--space-3); }
+.expense-toolbar:not(:has(button)) { min-height: 28px; }
 .expense-toolbar h2, .entry-section h2, .reconciliation-form>h2, .settings-section h2 { font-size: 18px; line-height: 28px; margin: 0; }
 .expense-toolbar .expense-add-icon { width: 44px; min-height: 44px; height: 44px; padding: 0; flex: 0 0 44px; }
 .expense-record-actions { display: inline-flex; padding: 0 0 var(--space-2); }
@@ -967,6 +970,8 @@
 .settings-section .language-options, .settings-section .appearance-choice { border-radius: max(4px,calc(var(--radius-panel) - var(--surface-inset) - var(--edge))); box-shadow: none; }
 .account-section { flex-direction: row; align-items: center; justify-content: space-between; }
 .dialog-actions .danger-action { gap: var(--space-2); }
+:root[data-theme="dark"] .metric-tabs { background: rgb(var(--canvas)); }
+.settings-section .appearance-choice input { top: var(--space-3); right: var(--space-3); }
 
 @media (max-width:767px) {
   :root:has(.sheet-save-panel[data-wide] .sheet-actions) { --save-panel-height: 140px; }

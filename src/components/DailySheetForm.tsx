@@ -1378,12 +1378,9 @@ export function DailySheetForm({
                             </div>
 
                             <div className="cost-note-row">
-                              <div className="cost-note-header">
                               <label htmlFor={`cost-note-${idx}`} className="block text-xs font-semibold text-ink-secondary mb-1">
                                 {t.note} {line.category === "other" ? <span className="text-finance-loss">*</span> : <span className="optional-label">{t.optionalBadge}</span>}
                               </label>
-                              {isExpanded && !isClosed && <button type="button" onClick={() => setPendingDeleteIndex(idx)} aria-label={t.deleteCostLine} title={t.deleteCostLine} disabled={saving} className="cost-delete-action"><ActionIcon name="trash" /></button>}
-                              </div>
                               <input
                                 id={`cost-note-${idx}`}
                                 type="text"
@@ -1412,6 +1409,9 @@ export function DailySheetForm({
                                 </p>
                               )}
                             </div>
+                          </div>
+                          <div className="cost-editor-actions">
+                            <button type="button" onClick={() => setPendingDeleteIndex(idx)} aria-label={t.deleteCostLine} title={t.deleteCostLine} disabled={saving} className="cost-delete-action"><ActionIcon name="trash" /></button>
                           </div>
                         </div>
                       )}

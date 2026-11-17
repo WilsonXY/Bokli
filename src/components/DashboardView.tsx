@@ -186,8 +186,8 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
           </section>
           <section className="overview-costs panel" aria-labelledby="cost-heading"><h2 id="cost-heading">{t.costDistribution}</h2>
             {!costs.length ? <p className="empty-note">{t.noCostData}</p> : <dl className="cost-bars">{costs.map(item => <div className="cost-bar-row" key={item.cat}>
-              <div><dt>{item.label}</dt><dd>{formatMyr(BigInt(item.amountSen))}</dd></div>
-              <div className="cost-bar-track" aria-hidden="true"><span style={{ width: `${item.pct}%` }} /></div><small>{item.pct}%</small>
+              <div className="cost-bar-values"><dt>{item.label}</dt><dd>{formatMyr(BigInt(item.amountSen))}</dd></div>
+              <div className="cost-bar-meter"><div className="cost-bar-track" aria-hidden="true"><span style={{ width: `${item.pct}%` }} /></div><small>{item.pct}%</small></div>
             </div>)}</dl>}
           </section>
         </div>}
