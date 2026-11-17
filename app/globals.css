@@ -939,7 +939,7 @@
 .workspace-main input.note-input[aria-invalid="true"]:focus, .workspace-main input.money-input[aria-invalid="true"]:focus { border-color: rgb(var(--loss)); box-shadow: 0 0 0 2px rgb(var(--loss) / .14),var(--shadow-inset); }
 .operating-expenses { gap: var(--page-gap); }
 .expense-ledger { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
-.expense-ledger>.add-expense-action { margin-top: var(--space-2); }
+.expense-ledger>.expense-add-action { margin-top: var(--space-2); }
 .expense-toolbar { display: flex; align-items: center; justify-content: space-between; min-height: 44px; padding: 0; gap: var(--space-3); }
 .expense-toolbar:not(:has(button)) { min-height: 28px; }
 .expense-toolbar h2, .entry-section h2, .reconciliation-form>h2, .settings-section h2 { font-size: 18px; line-height: 28px; margin: 0; }

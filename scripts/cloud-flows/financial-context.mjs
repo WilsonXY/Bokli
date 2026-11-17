@@ -54,6 +54,8 @@ export default async function financialContext({page,shot}) {
   const remove=await record.locator('.record-delete').boundingBox();
   const noteBounds=await record.locator('.expense-record-note').evaluate(el=>{const range=document.createRange();range.selectNodeContents(el);const r=range.getBoundingClientRect();return {right:r.right,top:r.top,bottom:r.bottom};});
   assert(remove&&remove.x>=noteBounds.right+8&&remove.y<noteBounds.bottom&&remove.y+remove.height>noteBounds.top,'Expense Delete belongs beside its note, without an extra empty action row');
+  const addExpense=await page.locator('.expense-ledger>.expense-add-action').boundingBox();
+  assert(addExpense&&addExpense.y>=remove.y+remove.height+16,'An opened record action must stay clearly separated from Add');
   await record.locator('.record-delete').click();
   assert.equal(await page.getByRole('dialog').locator('time').getAttribute('datetime'),month,'Expense deletion must identify its selected month');
   await shot('expense-delete-month',page,{fullPage:false});

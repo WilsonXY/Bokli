@@ -3,6 +3,7 @@
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
+import { getTodayInKualaLumpur } from "@/lib/datetime";
 import { ActionIcon } from "./ActionIcon";
 import { ChannelIcon } from "./ChannelIcon";
 import { DashboardView, type SerializedMonthTile } from "./DashboardView";
@@ -30,6 +31,7 @@ function LoadingBackLink() {
 export function DailySheetSkeleton() {
   const { t } = useI18n();
   const date = useRequestedPeriod("date");
+  const historical = Boolean(date && date !== getTodayInKualaLumpur());
   return <div className="daily-layout page-stack" aria-busy="true">
     <header className="sheet-context">
     <div className="page-heading sheet-page-heading"><div><h1>{t.sheetTitle}</h1><p className="page-description">{t.sheetHint}</p><span role="status" className="sr-only">{t.loadingShort}</span></div></div>
@@ -43,7 +45,7 @@ export function DailySheetSkeleton() {
       <div className="revenue-fields">{(["cash", "tng"] as const).map(channel => <div key={channel} className={`revenue-field ${channel}-revenue`}><div className="revenue-field-label flex items-center"><span className="revenue-channel-icon"><ChannelIcon channel={channel} /></span><label>{channel === "cash" ? t.cashRevenueShort : t.tngRevenueShort}</label></div><MoneyField /></div>)}</div>
     </section>
     <section className="daily-costs entry-section"><div className="section-heading flex items-center justify-between"><h2>{t.costsTitle}</h2><span><span className="sr-only">{t.totalCosts}{t.fieldColon} </span><span className={value} aria-hidden="true">{"RM 0.00"}</span></span></div><button disabled className="add-cost-action skeleton-action w-full" aria-label={t.addCostLine}><ActionIcon name="add" size={24} /></button></section>
-    <div className="sheet-save-bar"><div className="sheet-save-panel"><div className="sheet-profit-summary"><div>{t.grossProfit}</div><div className={value} aria-hidden="true">{"RM 0.00"}</div></div><div className="sheet-actions"><button disabled className="sheet-save-action skeleton-action" aria-label={t.saveSheet}><ActionIcon name="save" /><span className="sheet-save-label">{t.saveShort}</span></button></div></div></div>
+    <div className="sheet-save-bar"><div className="sheet-save-panel" data-historical={historical || undefined}><div className="sheet-profit-summary"><div>{historical && <time className="sheet-historical-date" dateTime={date}>{date}</time>}{t.grossProfit}</div><div className={value} aria-hidden="true">{"RM 0.00"}</div></div><div className="sheet-actions"><button disabled className="sheet-save-action skeleton-action" aria-label={t.saveSheet}><ActionIcon name="save" /><span className="sheet-save-label">{t.saveShort}</span></button></div></div></div>
   </div>;
 }
 
