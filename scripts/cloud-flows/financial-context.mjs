@@ -13,6 +13,8 @@ export default async function financialContext({page,shot}) {
   const dialog=page.getByRole('dialog');
   assert.equal(await dialog.locator('time[datetime]').count(),1,'Save confirmation must identify the selected calendar date');
   assert.equal(await dialog.locator('time').getAttribute('datetime'),date);
+  assert.equal(await dialog.locator('time').getAttribute('data-period'),'past','Historical confirmations must retain the date warning cue');
+  assert.equal(await dialog.locator('time').evaluate(el=>getComputedStyle(el).backgroundColor),await page.locator('.date-picker-trigger').evaluate(el=>getComputedStyle(el).backgroundColor),'Historical dates must use the same visual cue before and during confirmation');
   assert.match(await dialog.locator('time').innerText(),new RegExp(date));
   assert(!await dialog.locator('h3').innerText().then(text=>text.includes('今日')),'Historical confirmation must not call the sheet today');
   assert.equal(await dialog.locator('[data-channel="cash"]').count(),1,'Cash must be independently reviewable');

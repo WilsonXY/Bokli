@@ -106,7 +106,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
   const scaleStep = 10 ** Math.floor(Math.log10(observedMaximum)) / 2;
   const maximum = Math.min(Number.MAX_SAFE_INTEGER, Math.ceil(observedMaximum * 1.15 / scaleStep) * scaleStep);
   const maximumLabel = formatMyr(BigInt(maximum)).replace(/^RM /, "").replace(/\.00$/, "");
-  const padLeft = Math.max(40, maximumLabel.length * 7.5 + 12);
+  const padLeft = Math.max(40, maximumLabel.length * 9 + 12);
   const columnStep = (chartW - padLeft - padRight) / Math.max(1, trend.length);
   const columnWidth = Math.min(40, columnStep * .48);
   const barWidth = trendMetric === "cost" ? columnWidth * .6 : columnWidth;

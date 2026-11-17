@@ -1148,7 +1148,7 @@ export function DailySheetForm({
               <svg className="w-4 h-4 shrink-0 text-finance-loss" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <div className="save-error-copy"><strong>{t.saveFailedDraftKept}</strong><span>{errorMessage === t.invalidAmount ? t.amountVerificationError : errorMessage}</span>{errorMessage === t.invalidAmount && <span>{t.saveRetryHint}</span>}</div>
+              <div className="save-error-copy"><strong>{t.saveFailedDraftKept}</strong><span>{errorMessage === t.invalidAmount ? t.amountVerificationError : errorMessage}</span>{errorMessage === t.invalidAmount && <span className="save-retry-hint">{t.saveRetryHint}</span>}</div>
             </div>
             <button
               type="button"
@@ -1564,7 +1564,7 @@ export function DailySheetForm({
 
       {isModified && <dialog ref={revertDialog} className="account-dialog" aria-labelledby="revert-title" onClick={e => { if (e.target === e.currentTarget) revertDialog.current?.close(); }}>
         <h2 id="revert-title">{t.confirmRevertTitle}</h2>
-        <time dateTime={date} className="confirmation-date"><ActionIcon name="calendar" size={20} />{date}</time>
+        <time dateTime={date} data-period={isToday ? "today" : "past"} className="confirmation-date"><ActionIcon name="calendar" size={20} />{date}</time>
         <p>{t.confirmRevertDesc}</p>
         <div className="dialog-actions">
           <button type="button" className="secondary-button" aria-label={t.cancel} autoFocus onClick={() => revertDialog.current?.close()}><ActionIcon name="close" /></button>
@@ -1625,7 +1625,7 @@ export function DailySheetForm({
                 </h3>
               </div>
             </div>
-            <time dateTime={date} className="confirmation-date"><ActionIcon name="calendar" size={20} />{date}</time>
+            <time dateTime={date} data-period={isToday ? "today" : "past"} className="confirmation-date"><ActionIcon name="calendar" size={20} />{date}</time>
             <p id="confirm-delete-sheet-desc" className="text-xs text-ink-muted mt-1 leading-relaxed">
               {t.confirmDeleteSheetDesc}
             </p>
@@ -1694,7 +1694,7 @@ export function DailySheetForm({
                 <h3 id="confirm-delete-cost-title" className="text-base font-bold text-ink-primary">
                   {t.confirmDeleteItemTitle}
                 </h3>
-                <time dateTime={date} className="confirmation-date"><ActionIcon name="calendar" size={20} />{date}</time>
+                <time dateTime={date} data-period={isToday ? "today" : "past"} className="confirmation-date"><ActionIcon name="calendar" size={20} />{date}</time>
                 <p id="confirm-delete-cost-desc" className="text-xs text-ink-muted mt-0.5">
                   {t.costDeleteDraftDesc}
                 </p>
@@ -1765,7 +1765,7 @@ export function DailySheetForm({
               <h3 id="confirm-modal-title" className="text-lg font-bold text-ink-primary">
                 {t.confirmSaveTitle}
               </h3>
-              <time dateTime={date} className="confirmation-date"><ActionIcon name="calendar" size={20} />{date}</time>
+              <time dateTime={date} data-period={isToday ? "today" : "past"} className="confirmation-date"><ActionIcon name="calendar" size={20} />{date}</time>
               <p id="confirm-modal-desc" className="sr-only">
                 {t.confirmSaveDesc}
               </p>

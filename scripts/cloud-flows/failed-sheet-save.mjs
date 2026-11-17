@@ -21,6 +21,7 @@ export default async function failedSheetSave({page,shot}) {
   await page.getByRole('dialog').getByRole('button',{name:'Confirm & Save',exact:true}).click();
   const error=page.getByRole('alert').filter({hasText:/amount/i});
   await error.waitFor();
+  assert(await error.locator('.save-error-copy>span').evaluateAll(nodes=>nodes.every(el=>parseFloat(getComputedStyle(el).fontSize)>=16)),'Recovery guidance needs normal readable body text');
   assert.equal(await page.locator('.sheet-profit-summary [role="status"]').innerText(),'Save failed','The persistent Save area must also identify the failed attempt');
   assert.equal(await error.getByText('Not saved. Your draft is kept.',{exact:true}).count(),1,'An unidentified rejection must state that the draft remains available');
   assert.equal(await error.getByText('Try saving again. If it still fails, ask the administrator.',{exact:true}).count(),1,'An unqualified rejection must offer recovery without blaming an unidentified field');

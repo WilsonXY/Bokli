@@ -18,7 +18,7 @@ async function openPicker(page, selector, shot, name) {
     const picker=getComputedStyle(el,'::picker(select)');
     const trigger=el.getBoundingClientRect();
     const options=[...el.options].map(option=>{const r=option.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,height:r.height,fontSize:parseFloat(getComputedStyle(option).fontSize)};});
-    return {appearance:picker.appearance,background:picker.backgroundColor,borderRadius:picker.borderRadius,trigger:{left:trigger.left,right:trigger.right,bottom:trigger.bottom},options,width:innerWidth,height:innerHeight};
+    return {appearance:picker.appearance,background:picker.backgroundColor,borderRadius:picker.borderRadius,bottomInset:parseFloat(picker.paddingBottom)+parseFloat(picker.borderBottomWidth),fieldFont:parseFloat(getComputedStyle(el).fontSize),trigger:{left:trigger.left,right:trigger.right,bottom:trigger.bottom},options,width:innerWidth,height:innerHeight};
   });
   assert.equal(layout.appearance,'base-select','The options list must be styled too, rather than using the OS dialog');
   assert.notEqual(layout.background,'rgba(0, 0, 0, 0)');
@@ -31,12 +31,19 @@ async function openPicker(page, selector, shot, name) {
   const first=layout.options[0],last=layout.options.at(-1);
   if(layout.width<=767) {
     assert(first.top>=layout.trigger.bottom,'Phone menus must open below the field after making room');
+    assert.equal(layout.fieldFont,first.fontSize,'Closed category values must be as readable as their open options');
+    const dock=page.locator('.sheet-save-panel');
+    if(await dock.isVisible()) {
+      const bounds=await dock.boundingBox();
+      assert(bounds&&last.bottom+layout.bottomInset<=bounds.y-8,'An open category menu needs a clear gap above the save dock');
+    }
     if(selector.startsWith('#cost-category')) assert(await select.evaluate(el=>el.closest('.cost-entry-card').querySelector('.cost-record-header').getBoundingClientRect().top>=0),'The active Cost Line header must remain visible while choosing its category');
   }
   const menuHeight=layout.options.reduce((sum,option)=>sum+option.height,0)+24;
   if(layout.height-layout.trigger.bottom>=menuHeight) assert(first.top>=layout.trigger.bottom,'Open below the field when the full menu fits there');
   assert(first.top>=0&&last.bottom<=layout.height,'The options must remain visible above or below the field');
   assert(Math.abs(first.left-layout.trigger.left)<=16,'The menu must stay anchored to its field');
+  if(selector==='#expense-category') assert.equal(await page.locator('.expense-entry-card .entry-actions').evaluate(el=>getComputedStyle(el).visibility),'hidden','The menu must quiet partially covered form actions');
   await shot(name,page,{fullPage:false});
 }
 
@@ -63,6 +70,7 @@ export default async function categoryDropdowns({page,shot}) {
     await page.locator('#expense-category option[value="utilities"]').click();
     assert.equal(await page.locator('#expense-category').inputValue(),'utilities');
     assert(!await page.locator('#expense-category').evaluate(el=>el.matches(':open')));
+    assert.equal(await page.locator('.expense-entry-card .entry-actions').evaluate(el=>getComputedStyle(el).visibility),'visible','Form actions must return after selection');
     if(width!==390) await checkMonthMenu(page,shot,`month-menu-light-${width}`);
   }
   await page.goto('/');
