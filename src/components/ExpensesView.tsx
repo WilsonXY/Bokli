@@ -632,7 +632,7 @@ export function ExpensesView({
   }, [expenses]);
 
   return (
-    <div className={`expenses-layout page-stack${isDraftOpen ? " is-entering" : ""}`}>
+    <div className="expenses-layout page-stack">
       {/* Page heading and period selection */}
       <div className="page-heading">
         <div><h1 className="text-xl font-bold text-ink-primary tracking-tight">

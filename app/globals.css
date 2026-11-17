@@ -512,10 +512,6 @@
 .settings-page input[type="radio"]:focus-visible { outline: 2px solid rgb(var(--brand)); outline-offset: 3px; }
 @media (forced-colors:active) { .settings-page input[type="radio"] { appearance: auto; }.settings-page input[type="radio"]::before { display: none; } }
 @media (max-width:767px) {
-  .expenses-layout.is-entering { gap: 14px; }
-  .expenses-layout.is-entering .page-heading { flex-wrap: nowrap; align-items: center; gap: 12px; }
-  .expenses-layout.is-entering .page-heading h1 { font-size: 24px; }
-  .expenses-layout.is-entering .page-description { display: none; }
   .expense-month-context { display: flex; flex-direction: column; }
   .expense-month-context>div { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items: baseline; gap: 12px; }
   .expense-month-context strong { text-align: right; margin: 0; }
