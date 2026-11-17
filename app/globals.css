@@ -716,7 +716,7 @@
 :root {
   --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
   --space-5: 20px; --space-6: 24px; --space-8: 32px;
-  --edge: 1px; --save-panel-height: 68px; --radius-control: 12px; --radius-panel: 24px; --surface-inset: var(--space-4); --nested-inset: var(--surface-inset);
+  --edge: 1px; --save-panel-height: 72px; --radius-control: 12px; --radius-panel: 24px; --surface-inset: var(--space-4); --nested-inset: var(--surface-inset);
   --page-gutter: var(--space-8); --page-gap: var(--space-6); --navigation-space: calc(64px + env(safe-area-inset-bottom));
 }
 .workspace-header { display: none; height: 0; padding: 0; }
@@ -878,7 +878,7 @@
   .mobile-navigation .nav-icon { width: 48px; height: 40px; border-radius: 20px; }
   .daily-layout:has(.sheet-actions) { padding-bottom: 0; }
   .daily-layout input, .daily-layout select { scroll-margin-bottom: calc(var(--navigation-space) + var(--save-panel-height) + 16px); }
-  .sheet-save-panel:has(.sheet-actions) { position: fixed; left: 0; right: 0; bottom: var(--navigation-space); z-index: 41; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; height: var(--save-panel-height); min-height: var(--save-panel-height); gap: var(--space-3); padding: var(--space-3) var(--page-gutter); border: 0; border-top: var(--edge) solid rgb(var(--border)); border-radius: 20px 20px 0 0; background: rgb(var(--surface)); box-shadow: 0 -4px 16px rgb(18 42 31 / .07); }
+  .sheet-save-panel:has(.sheet-actions) { position: fixed; left: 0; right: 0; bottom: var(--navigation-space); z-index: 41; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; height: var(--save-panel-height); min-height: var(--save-panel-height); gap: var(--space-3); padding: var(--space-2) var(--page-gutter); border: 0; border-top: var(--edge) solid rgb(var(--border)); border-radius: 20px 20px 0 0; background: rgb(var(--surface)); box-shadow: 0 -4px 16px rgb(18 42 31 / .07); }
   .sheet-actions { position: static; width: auto; padding: 0; margin: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
   .sheet-profit-summary { flex-direction: column; align-items: flex-start; gap: 0; }
   .sheet-profit-summary>div:first-child { font-size: 14px; line-height: 20px; }
@@ -886,7 +886,7 @@
   .sheet-profit-summary>div[data-long] { font-size: clamp(14px,4.8vw,18px); }
   .sheet-profit-summary>div[data-very-long] { font-size: clamp(12px,4vw,16px); }
   .sheet-actions>.sheet-save-action { flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: var(--radius-control); }
-  .sheet-actions>.sheet-revert-action { flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px; border-radius: var(--radius-control); }
+  .sheet-actions>.sheet-revert-action { flex: 0 0 44px; width: 44px; min-width: 44px; height: 44px; min-height: 44px; border-radius: var(--radius-control); }
   .sheet-save-label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; }
   .workspace-main .confirmation-overlay { align-items: flex-end; padding: 0; border: 0; }
   .workspace-main .confirmation-overlay>.confirmation-sheet, .account-dialog { width: 100%; max-width: none; max-height: calc(100dvh - 24px); overflow-y: auto; padding: var(--space-4) var(--page-gutter) max(16px,env(safe-area-inset-bottom)); border: var(--edge) solid rgb(var(--border)); border-bottom: 0; border-radius: 28px 28px 0 0; }
@@ -984,7 +984,7 @@
 :root[data-theme="dark"] .metric-tabs { background: rgb(var(--canvas)); }
 
 @media (max-width:767px) {
-  :root:has(.sheet-save-panel[data-wide] .sheet-actions) { --save-panel-height: 120px; }
+  :root:has(.sheet-save-panel[data-wide] .sheet-actions) { --save-panel-height: 124px; }
   .sheet-save-panel[data-wide]:has(.sheet-actions) { grid-template-columns: minmax(0,1fr); grid-template-rows: 52px 44px; gap: var(--space-2); padding: var(--space-2) var(--page-gutter); align-content: center; }
   .sheet-save-panel[data-wide] .sheet-profit-summary { grid-column: 1; grid-row: 1; }
   .sheet-save-panel[data-wide] .sheet-profit-summary>div:last-child { font-size: 24px; }

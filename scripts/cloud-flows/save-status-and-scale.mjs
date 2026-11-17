@@ -17,6 +17,7 @@ export default async function saveStatusAndScale({ page, shot }) {
   const save = page.locator('.sheet-save-action');
   const undo = page.locator('.sheet-revert-action');
   assert.equal((await save.boundingBox()).height, (await undo.boundingBox()).height, 'Footer actions need equal height');
+  assert.equal((await save.boundingBox()).width, (await undo.boundingBox()).width, 'Footer actions need equal width');
   await page.getByRole('button', { name: /添加开销/ }).click();
   await page.locator('.cost-editor input.money-input').fill('5');
   const header = page.locator('.cost-record-header');
