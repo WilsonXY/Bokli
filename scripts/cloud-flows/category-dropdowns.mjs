@@ -12,7 +12,10 @@ async function openPicker(page, selector, shot, name) {
   const select=page.locator(selector);
   await select.scrollIntoViewIfNeeded();
   assert.equal(await select.evaluate(el=>getComputedStyle(el).appearance),'base-select','Category menus must use the app-styled picker on desktop and phone');
+  const arrow=select.locator('..').locator('svg');
+  const closedArrow=await arrow.evaluate(el=>getComputedStyle(el).transform);
   await select.click();
+  assert.notEqual(await arrow.evaluate(el=>getComputedStyle(el).transform),closedArrow,'Category menus must use the same expanded indicator as month menus');
   await page.waitForFunction(selector=>document.querySelector(selector)?.matches(':open'),selector);
   const layout=await select.evaluate(el=>{
     const picker=getComputedStyle(el,'::picker(select)');
@@ -43,7 +46,11 @@ async function openPicker(page, selector, shot, name) {
   if(layout.height-layout.trigger.bottom>=menuHeight) assert(first.top>=layout.trigger.bottom,'Open below the field when the full menu fits there');
   assert(first.top>=0&&last.bottom<=layout.height,'The options must remain visible above or below the field');
   assert(Math.abs(first.left-layout.trigger.left)<=16,'The menu must stay anchored to its field');
-  if(selector==='#expense-category') assert.equal(await page.locator('.expense-entry-card .entry-actions').evaluate(el=>getComputedStyle(el).visibility),'hidden','The menu must quiet partially covered form actions');
+  if(selector==='#expense-category') {
+    const actions=page.locator('.expense-entry-card .entry-actions');
+    assert.equal(await actions.evaluate(el=>getComputedStyle(el).visibility),'visible','Covered form actions must remain visible so the form never appears cleared');
+    assert(await actions.evaluate(el=>parseFloat(getComputedStyle(el).opacity)<=.5),'Covered form actions must be subdued while choosing a category');
+  }
   await shot(name,page,{fullPage:false});
 }
 
@@ -71,6 +78,7 @@ export default async function categoryDropdowns({page,shot}) {
     assert.equal(await page.locator('#expense-category').inputValue(),'utilities');
     assert(!await page.locator('#expense-category').evaluate(el=>el.matches(':open')));
     assert.equal(await page.locator('.expense-entry-card .entry-actions').evaluate(el=>getComputedStyle(el).visibility),'visible','Form actions must return after selection');
+    assert.equal(await page.locator('.expense-entry-card .entry-actions').evaluate(el=>getComputedStyle(el).opacity),'1','Form actions must regain their normal emphasis after selection');
     if(width!==390) await checkMonthMenu(page,shot,`month-menu-light-${width}`);
   }
   await page.goto('/');
@@ -91,20 +99,35 @@ export default async function categoryDropdowns({page,shot}) {
   assert.notEqual(highlights.selected,highlights.focused,'Keyboard focus and the stored selection must remain visually distinct');
   const last=await page.locator('#cost-category-0 option').last().boundingBox();
   assert(last&&last.y>=0&&last.y+last.height<=560,'A short phone viewport must let the final option scroll into view');
-  for(const control of await page.locator('.sheet-save-panel,.mobile-navigation').all()) {
-    assert.equal(await control.evaluate(el=>getComputedStyle(el).visibility),'hidden','Short-height category selection must hide competing bottom controls');
+  for(const control of await page.locator('.sheet-save-panel,.workspace-sidebar').all()) {
+    assert.equal(await control.evaluate(el=>getComputedStyle(el).visibility),'visible','Underlying controls must remain visible during category selection');
+    assert(await control.evaluate(el=>parseFloat(getComputedStyle(el).opacity)<=.25&&getComputedStyle(el).pointerEvents==='none'),'Short-height selection must subdue competing bottom controls');
   }
   await shot('cost-menu-short-phone',page,{fullPage:false});
   await page.keyboard.press('Enter');
   assert.equal(await page.locator('#cost-category-0').inputValue(),'other','Keyboard selection must still update the Cost Line');
-  for(const control of await page.locator('.sheet-save-panel,.mobile-navigation').all()) {
-    assert.equal(await control.evaluate(el=>getComputedStyle(el).visibility),'visible','Bottom controls must return as soon as category selection finishes');
+  for(const control of await page.locator('.sheet-save-panel,.workspace-sidebar').all()) {
+    assert.equal(await control.evaluate(el=>getComputedStyle(el).opacity),'1','Bottom controls must return as soon as category selection finishes');
   }
   await page.getByRole('button',{name:'保存账单',exact:true}).click();
   await page.locator('[id^="other-note-error-"]').waitFor();
   await page.locator('#cost-category-0').click();
   await page.keyboard.press('Escape');
   assert(await page.locator('.sheet-save-panel').isVisible()&&await page.locator('.mobile-navigation').isVisible(),'Dismissing a short-height menu must also restore the bottom controls');
+  await page.setViewportSize({width:320,height:360});
+  const shortSelect=page.locator('#cost-category-0');
+  await shortSelect.focus();
+  await page.keyboard.press('Space');
+  await page.keyboard.press('Home');
+  const firstBefore=await shortSelect.locator('option').first().boundingBox();
+  await page.keyboard.press('End');
+  const firstAfter=await shortSelect.locator('option').first().boundingBox();
+  const lastAfter=await shortSelect.locator('option').last().boundingBox();
+  assert(firstBefore&&firstAfter&&firstAfter.y<firstBefore.y,'The fixed six-option menu must scroll internally in a very short viewport');
+  assert(lastAfter&&lastAfter.y>=0&&lastAfter.y+lastAfter.height<=360,'The final option must be fully visible after scrolling');
+  await shot('cost-menu-scrolled-phone',page,{fullPage:false});
+  await page.keyboard.press('Enter');
+  assert.equal(await shortSelect.inputValue(),'other');
   await page.goto('/settings');
   await page.getByRole('radio',{name:/深色模式/}).check();
   await openExpenseForm(page);

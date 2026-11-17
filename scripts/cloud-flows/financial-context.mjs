@@ -32,6 +32,8 @@ export default async function financialContext({page,shot}) {
   await page.locator('.cost-editor input.money-input').scrollIntoViewIfNeeded();
   const footer=page.locator('.sheet-save-panel');
   assert.equal(await footer.locator('time').getAttribute('datetime'),date);
+  assert(await footer.locator('time').evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>=16),'The historical date needs readable type in the persistent Save area');
+  assert.equal(await footer.locator('time').evaluate(el=>getComputedStyle(el).color),await page.locator('.date-picker-trigger').evaluate(el=>getComputedStyle(el).color),'The historical Save date must retain the amber date cue');
   const footerDate=await footer.locator('time').boundingBox(),footerBounds=await footer.boundingBox();
   assert(footerDate&&footerBounds&&footerDate.y>=footerBounds.y&&footerDate.y+footerDate.height<=footerBounds.y+footerBounds.height,'The historical date must stay in the visible footer during scrolled entry');
   await shot('historical-entry-date',page,{fullPage:false});

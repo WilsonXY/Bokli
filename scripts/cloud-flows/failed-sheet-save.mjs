@@ -24,7 +24,7 @@ export default async function failedSheetSave({page,shot}) {
   assert(await error.locator('.save-error-copy>span').evaluateAll(nodes=>nodes.every(el=>parseFloat(getComputedStyle(el).fontSize)>=16)),'Recovery guidance needs normal readable body text');
   assert.equal(await page.locator('.sheet-profit-summary [role="status"]').innerText(),'Save failed','The persistent Save area must also identify the failed attempt');
   assert.equal(await error.getByText('Not saved. Your draft is kept.',{exact:true}).count(),1,'An unidentified rejection must state that the draft remains available');
-  assert.equal(await error.getByText('Try saving again. If it still fails, ask the administrator.',{exact:true}).count(),1,'An unqualified rejection must offer recovery without blaming an unidentified field');
+  assert.equal(await error.getByText('Try saving again. If it still fails, ask for help.',{exact:true}).count(),1,'An unqualified rejection must offer recovery without blaming an unidentified field');
   assert(await page.getByRole('button',{name:'Save Sheet',exact:true}).isEnabled(),'A rejected write must allow another save attempt');
   const box=await error.boundingBox(),dock=await page.locator('.sheet-save-panel').boundingBox();
   assert.equal(await page.locator('#cash-input').inputValue(),'50','A rejected write must retain the cash draft');

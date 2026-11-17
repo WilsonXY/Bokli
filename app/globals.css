@@ -1115,7 +1115,7 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 }
 
 .sheet-feedback { grid-column: 1 / -1; }
-.sheet-historical-date { flex: 0 0 100%; color: rgb(var(--secondary)); font-size: 14px; line-height: 20px; font-variant-numeric: tabular-nums; }
+.sheet-historical-date { flex: 0 0 100%; color: rgb(var(--cost)); font-size: 16px; line-height: 20px; font-variant-numeric: tabular-nums; }
 .sheet-save-panel[data-historical] .sheet-profit-summary>div:first-child { flex-wrap: wrap; row-gap: 0; }
 .trend-legend { display: inline-flex; align-items: center; gap: var(--space-2); color: rgb(var(--secondary)); font-size: 14px; line-height: 24px; }
 .trend-legends { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-1) var(--space-3); }
@@ -1175,6 +1175,7 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m4 12 5 5L20 5'/%3E%3C/svg%3E") center/contain no-repeat;
   }
   .category-select:open { border-color: rgb(var(--brand)); box-shadow: 0 0 0 2px rgb(var(--brand) / .14), var(--shadow-inset); }
+  .category-control:has(.category-select:open)>svg { transform: translateY(-50%) rotate(180deg); }
 }
 .sheet-delete-action { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border: var(--edge) solid rgb(var(--loss-border)); border-radius: 12px; background: transparent; color: rgb(var(--loss)); font-size: 16px; }
 .sheet-delete-action:hover { background: rgb(var(--loss-light)); }
@@ -1198,7 +1199,7 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
   .expenses-layout, .close-layout, .settings-page { width: 100%; margin-inline: auto; }
 }
 @media (max-width:767px) and (max-height:640px) {
-  :root:has(.category-select:open) :is(.sheet-save-panel,.workspace-sidebar) { visibility: hidden; pointer-events: none; }
+  :root:has(.category-select:open) :is(.sheet-save-panel,.workspace-sidebar) { opacity: .15; pointer-events: none; }
 }
 @media (max-width:767px) {
   :root:has(.sheet-save-panel[data-historical] .sheet-actions) { --save-panel-height: 92px; }
@@ -1216,7 +1217,7 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 .feedback-message:not(.sheet-save-error) svg { width: 20px; height: 20px; flex-shrink: 0; }
 
 .confirmation-date[data-period="past"] { width: fit-content; padding: 4px 8px; border: var(--edge) solid rgb(var(--cost) / .35); border-radius: 8px; background: rgb(var(--cost-light)); color: rgb(var(--cost)); }
-.expense-entry-card:has(.category-select:open) .entry-actions { visibility: hidden; }
+.expense-entry-card:has(.category-select:open) .entry-actions { opacity: .35; pointer-events: none; }
 .trend-axis-label, .trend-legend { font-size: 16px; }
 @media (max-width:767px) {
   .trend-panel .panel-heading { flex-wrap: wrap; row-gap: 4px; }
