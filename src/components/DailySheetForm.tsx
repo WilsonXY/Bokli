@@ -1484,7 +1484,7 @@ export function DailySheetForm({
                 <div className="text-[13px] text-ink-muted font-medium">
                   {!isToday && <time className="sheet-historical-date" dateTime={date}>{date}</time>}
                   {t.grossProfit}
-                  {(errorMessage || isModified || savedSheet) && <span className={`sheet-save-status${errorMessage ? " is-error" : isModified ? " is-unsaved" : ""}`} role="status">{errorMessage ? t.saveFailedShort : isModified ? t.draftStatus : t.savedStatus}</span>}
+                  {(errorMessage || isModified || savedSheet) && <span className={`sheet-save-status${errorMessage ? " is-error" : isModified ? " is-unsaved" : " is-saved"}`} role="status">{errorMessage ? t.saveFailedShort : isModified ? t.draftStatus : t.savedStatus}</span>}
                 </div>
                 <div
                   data-long={wideTotal || undefined}

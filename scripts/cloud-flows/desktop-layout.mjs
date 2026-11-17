@@ -24,6 +24,11 @@ export default async function desktopLayout({page,shot}) {
     contentRight??=right;
     assert(Math.abs(right-contentRight)<=1,`Desktop destinations must share one content width (${path}: ${right} vs ${contentRight})`);
     if(await month.count()) assert(Math.abs((await month.boundingBox()).x+(await month.boundingBox()).width-right)<=1,'The month control must line up with the content it changes');
+    if(path.startsWith('/close')) {
+      assert.equal(await page.locator('#close-cash').getAttribute('placeholder'),null,'Balance fields keep the amount area empty so nothing looks pre-filled');
+      const hint=await page.locator('.zero-balance-hint').boundingBox(),field=await page.locator('#close-cash').boundingBox();
+      assert(hint&&field&&hint.y>=field.y+field.height,'The zero-balance hint sits under the balance fields');
+    }
     await page.waitForTimeout(900);
     await shot(name,page,{fullPage:false});
   }

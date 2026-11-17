@@ -1119,9 +1119,7 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 .sheet-save-panel[data-historical] .sheet-profit-summary>div:first-child { flex-wrap: wrap; row-gap: 0; }
 .trend-legend { display: inline-flex; align-items: center; gap: var(--space-2); color: rgb(var(--secondary)); font-size: 14px; line-height: 24px; }
 .trend-legends { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-1) var(--space-3); }
-.trend-reference-key { display: inline-flex; align-items: flex-end; gap: 4px; width: 24px; height: 20px; }
-.trend-reference-key::before, .trend-reference-key::after { content: ""; width: 10px; height: 20px; border: 2px solid var(--trend-revenue); border-radius: 2px; }
-.trend-reference-key::after { height: 14px; }
+.trend-reference-key { flex-shrink: 0; width: 12px; height: 18px; }
 .trend-cost-key { width: 10px; height: 16px; border-radius: 2px; background: rgb(var(--cost)); }
 .trend-value-label { stroke: none; }
 .sheet-save-error { align-items: flex-start; }
@@ -1249,3 +1247,14 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 .entry-section .cost-entry-card:has(.cost-editor) .cost-record-summary { border: var(--edge) solid rgb(var(--border-strong)); border-radius: var(--radius-control); background: rgb(var(--surface)); }
 p, .feedback-message { text-wrap: pretty; }
 @media (min-width:768px) { .settings-page>.page-heading { min-height: 48px; margin-bottom: 0; align-items: center; } }
+/* The zero-balance hint sits under both fields, not where the typed amount goes. */
+.zero-balance-hint { margin-top: calc(-1 * var(--space-2)); color: rgb(var(--secondary)); font-size: 16px; font-weight: 500; line-height: 24px; }
+/* The close button floats so the message can use the banner's full width. */
+.sheet-save-error { position: relative; }
+.sheet-save-error>div { flex: 1; }
+.sheet-save-error>button { position: absolute; top: 2px; right: 2px; margin: 0; }
+.save-error-copy>strong { padding-right: 36px; }
+.expense-entry-card:has(.category-select:open) .entry-actions { visibility: hidden; }
+.sheet-save-status.is-saved { color: rgb(var(--brand-dark)); background: rgb(var(--brand-light)); }
+:root[data-theme="dark"] .sheet-save-status.is-saved { color: rgb(var(--brand)); }
+:root[data-theme="dark"] .metric-tabs button[aria-selected="true"] { color: rgb(var(--brand)); border-color: rgb(var(--brand) / .5); }

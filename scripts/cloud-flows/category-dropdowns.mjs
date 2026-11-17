@@ -48,8 +48,7 @@ async function openPicker(page, selector, shot, name) {
   assert(Math.abs(first.left-layout.trigger.left)<=16,'The menu must stay anchored to its field');
   if(selector==='#expense-category') {
     const actions=page.locator('.expense-entry-card .entry-actions');
-    assert.equal(await actions.evaluate(el=>getComputedStyle(el).visibility),'visible','Covered form actions must remain visible so the form never appears cleared');
-    assert.equal(await actions.evaluate(el=>getComputedStyle(el).opacity),'1','Form actions keep full strength under an open menu, so the form never looks disabled');
+    assert.equal(await actions.evaluate(el=>getComputedStyle(el).visibility),'hidden','Form actions hide under an open menu instead of peeking out half-covered');
   }
   await shot(name,page,{fullPage:false});
 }

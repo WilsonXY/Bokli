@@ -83,6 +83,7 @@ export function MonthCloseSkeleton() {
     <div className="reconciliation-form">
       <h2>{t.reconciliationTitle}</h2>
       <div className="counted-balances grid grid-cols-1 sm:grid-cols-2">{field(t.cashOnHand)}{field(t.tngOnHand)}</div>
+      <p className="zero-balance-hint">{t.zeroBalanceShort}</p>
       <div className="reconciliation-preview p-3 border space-y-2"><div className="flex items-center justify-between text-sm"><span>{t.actualTotal}</span><span className={`text-base ${value}`} aria-hidden="true">{amount}</span></div><div className="flex items-center justify-between text-sm"><span>{t.expectedNet}</span><span className={`text-base ${value}`} aria-hidden="true">{amount}</span></div><div className="reconciliation-result is-pending"><div className="reconciliation-result-line"><span>{t.reconciliationDiff}</span><strong className={value} aria-hidden="true">—</strong></div></div></div>
       <div><label className="block text-sm mb-1">{t.closeNote} <span className="optional-label">{t.optionalBadge}</span></label><div className="skeleton-close-note" /></div>
       <button disabled className="skeleton-action w-full h-14" aria-label={t.btnPerformClose}><ActionIcon name="lock" /><span>{t.closeShort}</span></button>

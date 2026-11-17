@@ -166,7 +166,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
               <div className="trend-legends">
                 {trendMetric === "cost" ? <>
                   <span className="trend-legend"><span className="trend-cost-key" aria-hidden="true" />{t.sheetCostCol}</span>
-                  <span className="trend-legend"><span className="trend-reference-key" aria-hidden="true" />{t.sheetRevCol}</span>
+                  <span className="trend-legend"><svg className="trend-reference-key" viewBox="0 0 12 18" aria-hidden="true"><rect x="1" y="1" width="10" height="16" rx="2" fill="none" stroke={TREND_METRIC_COLORS.revenue} strokeWidth="2" strokeDasharray="4 3" /></svg>{t.sheetRevCol}</span>
                 </> : <span className="trend-legend"><span className="trend-revenue-key" aria-hidden="true" />{t.sheetRevCol}</span>}
               </div>
             </div>

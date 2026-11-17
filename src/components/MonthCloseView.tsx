@@ -509,7 +509,6 @@ export function MonthCloseView({
                           if (errorMessage) setErrorMessage(null);
                         }
                       }}
-                      placeholder={t.zeroBalanceShort}
                       className={`money-input w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
                         cashError ? "border-finance-loss" : "border-surface-border"
                       } text-lg font-bold text-ink-primary tabular-nums focus:outline-none focus:bg-white ${
@@ -544,7 +543,6 @@ export function MonthCloseView({
                           if (errorMessage) setErrorMessage(null);
                         }
                       }}
-                      placeholder={t.zeroBalanceShort}
                       className={`money-input w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
                         tngError ? "border-finance-loss" : "border-surface-border"
                       } text-lg font-bold text-ink-primary tabular-nums focus:outline-none focus:bg-white ${
@@ -561,6 +559,7 @@ export function MonthCloseView({
                   )}
                 </div>
               </div>
+              <p className="zero-balance-hint">{t.zeroBalanceShort}</p>
 
               {/* Live Reconciliation Preview Bar */}
               <div className="reconciliation-preview p-3 rounded-lg bg-surface-subtle border border-surface-border space-y-2">

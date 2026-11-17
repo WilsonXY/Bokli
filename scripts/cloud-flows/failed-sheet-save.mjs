@@ -30,6 +30,7 @@ export default async function failedSheetSave({page,shot}) {
   assert.equal(await page.locator('#cash-input').inputValue(),'50','A rejected write must retain the cash draft');
   assert.equal(await page.locator('.cost-entry-card').count(),12,'A rejected write must retain every Cost Line');
   assert(await error.evaluate(el=>el===document.activeElement),'A newly reported failure must receive accessible focus');
+  assert(await error.getByText('The amounts could not be verified.',{exact:true}).evaluate(el=>el.getBoundingClientRect().height<=30),'The short failure reason must fit on one line instead of wrapping beside the close button');
   await shot('failed-save-feedback',page,{fullPage:false});
   assert(box&&dock&&box.y>=0&&box.y+box.height<=dock.y-8,'A failed save must bring its error into view without losing the draft');
   await page.unroute('**/api/cloud-v1/sheets');
@@ -42,5 +43,6 @@ export default async function failedSheetSave({page,shot}) {
   await page.locator('.sheet-profit-summary [role="status"]').filter({hasText:/^Saved$/}).waitFor();
   assert.equal(await page.locator('#cash-input').inputValue(),'50');
   assert.equal(await page.locator('.cost-entry-card').count(),12,'Retry must store every retained Cost Line');
+  assert(await page.locator('.sheet-save-status').evaluate(el=>el.classList.contains('is-saved')&&getComputedStyle(el).color!==getComputedStyle(document.querySelector('.sheet-profit-summary')).color),'A stored sheet must show a distinct green Saved confirmation');
   await shot('retried-and-stored',page,{fullPage:false});
 }

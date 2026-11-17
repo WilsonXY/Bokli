@@ -229,7 +229,7 @@ export const DICTIONARY = {
   en: {
     closeShort: "Close",
     daysUnit: " days",
-    zeroBalanceShort: "None? Enter 0",
+    zeroBalanceShort: "No balance? Enter 0",
     blankRevenueZeroShort: "Blank → 0",
     expensesTitleShort: "Expenses",
     dailySheetsLabel: "Daily Sheets",
