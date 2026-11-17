@@ -114,6 +114,18 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
     y: chartH - padY - trendValueSen(row, trendMetric) / maximum * (chartH - padY * 2),
   }));
   const chartColor = TREND_METRIC_COLORS[trendMetric];
+  const valueLabel = (index: number) => formatMyr(BigInt(trendValueSen(trend[index], trendMetric))).replace(/^RM /, "");
+  const labelWidthAt = (index: number) => valueLabel(index).length * 9 + 4;
+  const trendTotal = trend.reduce((sum, row) => sum + trendValueSen(row, trendMetric), 0);
+  // In a busy month the peak day also gets its value, when it clears the first and last labels.
+  const peakIndex = (() => {
+    if (trend.length <= 3) return -1;
+    let best = 0;
+    trend.forEach((row, index) => { if (trendValueSen(row, trendMetric) > trendValueSen(trend[best], trendMetric)) best = index; });
+    if (best === 0 || best === trend.length - 1) return -1;
+    const half = Math.max(labelWidthAt(best), 50) / 2, x = points[best].x;
+    return x - half >= points[0].x + Math.max(labelWidthAt(0), 50) + 8 && x + half <= points[points.length - 1].x - Math.max(labelWidthAt(points.length - 1), 50) - 8 ? best : -1;
+  })();
   return (
     <div className={`dashboard-layout page-stack ${trend.length ? "has-records" : "no-records"}`}>
       <div className="page-heading">
@@ -137,7 +149,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
           <span className="month-close-icon" aria-hidden="true"><ActionIcon name="monthClose" size={23} /></span>
           <span><strong>{t.closeMonthAction}</strong><small className="sr-only">{t.closeMonthHint}</small></span><span className="action-arrow" aria-hidden="true"><ActionIcon name="chevronRight" size={20} /></span>
         </Link>
-        {trend.length > 0 && <details className="daily-records daily-ledger" open={trend.length <= 7}><summary><span className="daily-record-heading">{t.dailySheetsLabel}<small className="daily-record-counter" aria-label={`${trend.length} ${t.recordedDays}`}>{trend.length}{t.daysUnit}</small><span className="daily-record-column-heading"><small>{metricLabel}</small></span></span><span className="ledger-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span></summary><p className="sr-only">{t.chartDataBelow}</p><div>{trend.map(row => <Link key={row.date} href={`/?date=${row.date}`} className="daily-record"><span>{row.date}</span><span data-long={isLongAmount(formatMyr(BigInt(row.totalSen))) || undefined}><small className="sr-only">{metricLabel}</small>{formatMyr(BigInt(row.totalSen))}<span className="daily-record-arrow" aria-hidden="true"><ActionIcon name="chevronRight" size={16} /></span></span></Link>)}</div></details>}
+        {trend.length > 0 && <details className="daily-records daily-ledger" open={trend.length <= 7}><summary><span className="daily-record-heading">{t.dailySheetsLabel}<small className="daily-record-counter" aria-label={`${trend.length} ${t.recordedDays}`}>{trend.length}{t.daysUnit}</small></span><span className="ledger-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span></summary><p className="sr-only">{t.chartDataBelow}</p><div>{trend.map(row => <Link key={row.date} href={`/?date=${row.date}`} className="daily-record"><span>{row.date}</span><span data-long={isLongAmount(formatMyr(BigInt(row.totalSen))) || undefined}><small className="sr-only">{metricLabel}</small>{formatMyr(BigInt(row.totalSen))}<span className="daily-record-arrow" aria-hidden="true"><ActionIcon name="chevronRight" size={16} /></span></span></Link>)}</div></details>}
         {trend.length > 0 && <section className="overview-trend panel" aria-labelledby="trend-heading">
           <div className="metric-tabs" role="tablist" aria-label={t.trendMetric}>
             {(["revenue", "cost"] as const).map(metric => <button
@@ -161,25 +173,26 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
             <div className="panel-heading">
               <h2 id="trend-heading" className="sr-only">{trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}</h2>
               <span className="trend-unit" style={{width:padLeft-8}}>RM</span>
+              <span className="trend-total">{t.periodTotal}<strong>{formatMyr(BigInt(trendTotal))}</strong></span>
             </div>
             <div className="trend-frame" ref={chartRef}><svg key={trendMetric} className="trend-plot animate-chart-swap" data-maximum={maximum} viewBox={`0 0 ${chartW} ${chartH}`} aria-hidden="true" focusable="false">
               <line x1={padLeft} x2={padLeft} y1={padY} y2={chartH-padY} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />
               <line x1={padLeft-4} x2={padLeft} y1={padY} y2={padY} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />
               <line x1={padLeft} x2={chartW-padRight} y1={chartH-padY} y2={chartH-padY} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />
-              <text className="trend-axis-label" x={padLeft - 8} y={padY + 4} textAnchor="end" fill="rgb(var(--secondary))" fontSize="14">{maximumLabel}</text>
+              <text className="trend-axis-label trend-axis-maximum" x={padLeft - 8} y={padY + 4} textAnchor="end" fill="rgb(var(--ink))" fontSize="14" fontWeight="600">{maximumLabel}</text>
               <text className="trend-axis-label" x={padLeft - 8} y={chartH - padY + 4} textAnchor="end" fill="rgb(var(--secondary))" fontSize="14">0</text>
               {points.map((point, index) => {
-                const label = formatMyr(BigInt(trendValueSen(trend[index], trendMetric))).replace(/^RM /, "");
-                const labelWidth = label.length * 9 + 4;
+                const label = valueLabel(index);
+                const labelWidth = labelWidthAt(index);
                 const labelSpace = points.length <= 3 ? columnStep * .9 : (chartW - padLeft - padRight) / 2;
                 // Exact values are also available in the accessible dated list below.
-                const showLabel = labelWidth <= labelSpace && (index === 0 || index === points.length - 1 || points.length <= 3);
+                const showLabel = labelWidth <= labelSpace && (index === 0 || index === points.length - 1 || index === peakIndex || points.length <= 3);
                 const textAnchor = points.length > 3 && index === 0 ? "start" : points.length > 3 && index === points.length - 1 ? "end" : "middle";
                 return <g key={trend[index].date}><rect className="trend-column" x={point.x - columnWidth / 2} y={point.y} width={columnWidth} height={chartH - padY - point.y} rx="4" fill={chartColor} />{showLabel && <text x={point.x} y={chartH - padY + 24} textAnchor={textAnchor} className="trend-value-label" fill="rgb(var(--ink))" fontSize="16" fontWeight="500">{label}</text>}</g>;
               })}
             </svg></div>
             <dl className="sr-only">{trend.map(row => <div key={row.date}><dt>{row.date}</dt><dd>{formatMyr(BigInt(trendValueSen(row, trendMetric)))}</dd></div>)}</dl>
-            <div className="trend-dates trend-dates-sparse">{(trend.length <= 3 ? trend.map((row, index) => ({ row, point: points[index] })) : [{ row: trend[0], point: points[0] }, { row: trend[trend.length - 1], point: points[points.length - 1] }]).map(({ row, point }) => <span key={row.date} style={{ left: `${point.x / chartW * 100}%`, transform: "translateX(-50%)" }}>{row.date.slice(5)}</span>)}</div>
+            <div className="trend-dates trend-dates-sparse">{(trend.length <= 3 ? trend.map((row, index) => ({ row, point: points[index] })) : [0, ...(peakIndex > 0 ? [peakIndex] : []), trend.length - 1].map(index => ({ row: trend[index], point: points[index] }))).map(({ row, point }) => <span key={row.date} style={{ left: `${point.x / chartW * 100}%`, transform: "translateX(-50%)" }}>{row.date.slice(5)}</span>)}</div>
 
             <p className="trend-scope">{t.recordedDatesOnly}</p>
           </div>

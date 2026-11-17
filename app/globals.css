@@ -1251,16 +1251,16 @@ p, .feedback-message { text-wrap: pretty; }
 .sheet-save-status.is-saved { color: rgb(var(--brand-dark)); background: rgb(var(--brand-light)); }
 :root[data-theme="dark"] .sheet-save-status.is-saved { color: rgb(var(--brand)); }
 :root[data-theme="dark"] .metric-tabs button[aria-selected="true"] { color: rgb(var(--brand)); border-color: rgb(var(--brand) / .5); }
-/* Chart colours: one fixed hue per cost category (never re-ordered by amount); Restock, the main cost, shares the Daily Costs trend orange. Restock, Gas and Transport (the usual trio) pass the all-pairs colour-blind check in both themes; every use also carries the category name. */
+/* Chart colours: one fixed hue per cost category (never re-ordered by amount); Restock, the main cost, shares the Daily Costs trend orange. Restock, Gas and Transport (the usual trio) pass the all-pairs colour-blind check in both themes, all six clear the normal-vision floor, and every use also carries the category name. */
 :root {
   --trend-cost: #eb6834;
   --cat-restock: #eb6834; --cat-gas: #c2408f; --cat-transport: #2a78d6;
-  --cat-wages-daily: #6250d6; --cat-maintenance: #eda100; --cat-other: #8a8a85;
+  --cat-wages-daily: #0f9a8a; --cat-maintenance: #8a6f1f; --cat-other: #8a8a85;
 }
 :root[data-theme="dark"] {
   --trend-cost: #d95926;
   --cat-restock: #d95926; --cat-gas: #cf5aa8; --cat-transport: #3987e5;
-  --cat-wages-daily: #9085e9; --cat-maintenance: #c98500; --cat-other: #8f8e88;
+  --cat-wages-daily: #1fa89a; --cat-maintenance: #b5a034; --cat-other: #8f8e88;
 }
 .cost-bar-values dt { display: flex; align-items: center; gap: 8px; }
 .cost-bar-dot { flex-shrink: 0; width: 12px; height: 12px; border-radius: 50%; }
@@ -1296,3 +1296,12 @@ p, .feedback-message { text-wrap: pretty; }
 :root[data-theme="dark"] .return-today { color: rgb(var(--brand)); }
 /* The Daily Sheets column caption stays quieter than the controls beside it. */
 .daily-record-heading>.daily-record-column-heading small { color: rgb(var(--muted)); font-weight: 500; }
+/* Each trend tab states its total, so separate scales never suggest costs rival revenue. */
+.trend-panel .panel-heading { align-items: baseline; }
+.trend-total { display: inline-flex; align-items: baseline; gap: var(--space-2); color: rgb(var(--secondary)); font-size: 16px; line-height: 24px; }
+.trend-total strong { color: rgb(var(--ink)); font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.trend-scope { color: rgb(var(--secondary)); font-size: 15px; }
+/* Today is marked with an outline, distinct from the disabled grey arrow beside it. */
+.date-today-badge { background: rgb(var(--surface)); color: rgb(var(--brand-dark)); border-color: rgb(var(--brand) / .45); }
+:root[data-theme="dark"] .date-today-badge { color: rgb(var(--brand)); }
+:root[data-theme="dark"] .reconciliation-form>button[disabled]:not(.skeleton-action) { background: rgb(var(--subtle)); color: rgb(var(--muted)); border-color: transparent; box-shadow: none; }

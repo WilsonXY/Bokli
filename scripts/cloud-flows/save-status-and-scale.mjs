@@ -9,9 +9,11 @@ export default async function saveStatusAndScale({ page, shot }) {
   assert.equal(await unit.textContent(),'RM');
   assert.equal(await page.locator('.trend-column').count(),3,'Each recorded date needs its own column');
   assert.deepEqual(await page.locator('.trend-axis-label').allTextContents(),['700','0'],'The Revenue scale must leave headroom above the largest value');
+  assert.match(await page.locator('.trend-total').innerText(),/RM 1,700\.00/,'The Revenue tab states its total');
   assert.equal(await page.locator('.trend-reference-column, .trend-legends').count(),0,'Each tab shows one solid series; the tab names it, so no outlines or legend');
   await page.getByRole('tab', { name: '日常开销', exact: true }).click();
   assert.deepEqual(await page.locator('.trend-axis-label').allTextContents(),['250','0'],'Daily Costs use their own scale so differences between days stay visible');
+  assert.match(await page.locator('.trend-total').innerText(),/RM 475\.00/,'The Daily Costs tab states its own total, so its separate scale never suggests costs rival revenue');
   assert.equal(await page.locator('.trend-reference-column, .trend-legends').count(),0,'The Daily Costs tab shows costs alone');
   const fills=await page.locator('.trend-column').evaluateAll(nodes=>[...new Set(nodes.map(el=>getComputedStyle(el).fill))]);
   assert.equal(fills.length,1,'All cost columns share one solid colour');
