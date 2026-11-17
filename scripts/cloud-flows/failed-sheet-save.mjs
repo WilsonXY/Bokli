@@ -21,6 +21,9 @@ export default async function failedSheetSave({page,shot}) {
   await page.getByRole('dialog').getByRole('button',{name:'Confirm & Save',exact:true}).click();
   const error=page.getByRole('alert').filter({hasText:/amount/i});
   await error.waitFor();
+  assert.equal(await error.getByText('Not saved. Your draft is kept.',{exact:true}).count(),1,'An unidentified rejection must state that the draft remains available');
+  assert.equal(await error.getByText('Check the amounts, then save again.',{exact:true}).count(),1,'The error must give an available recovery action');
+  assert(await page.getByRole('button',{name:'Save Sheet',exact:true}).isEnabled(),'A rejected write must allow another save attempt');
   const box=await error.boundingBox(),dock=await page.locator('.sheet-save-panel').boundingBox();
   assert.equal(await page.locator('#cash-input').inputValue(),'50','A rejected write must retain the cash draft');
   assert.equal(await page.locator('.cost-entry-card').count(),12,'A rejected write must retain every Cost Line');

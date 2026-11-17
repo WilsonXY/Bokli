@@ -28,5 +28,8 @@ export default async function closedStates({ page, shot: rawShot }) {
   assert.equal(await page.getByRole("button", { name: "保存账单", exact: true }).count(), 0);
   assert.equal(await page.getByRole("button", { name: /添加开销/ }).count(), 0);
   await page.evaluate(() => document.fonts.ready);
+  const revenueEdge=await page.locator('#cash-input').evaluate(el=>el.getBoundingClientRect().right);
+  const costEdges=await page.locator('.cost-record-summary .money-list-value').evaluateAll(nodes=>nodes.map(el=>el.getBoundingClientRect().right));
+  assert(costEdges.every(edge=>Math.abs(edge-revenueEdge)<=1),'Read-only Daily Cost and Revenue amounts must share their right edge');
   await shot("closed-daily-sheet");
 }

@@ -1075,8 +1075,8 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 .cost-header-delete:focus-visible { outline-offset: -3px; }
 .entry-section .cost-editor { padding: var(--space-1) 0 var(--space-2); }
 .cost-editor .cost-fields { gap: var(--space-2); }
-.entry-section .cost-record-summary { padding-inline: var(--space-2); }
-.entry-section .cost-line-list>.cost-entry-card:has(.cost-editor) { padding: 0 var(--space-2) var(--space-2); border-radius: 16px; background: rgb(var(--subtle)); }
+.entry-section .cost-record-summary { padding-inline: 0; }
+.entry-section .cost-line-list>.cost-entry-card:has(.cost-editor) { padding: var(--space-2); border-radius: 16px; background: rgb(var(--subtle)); }
 .entry-section .cost-entry-card:has(.cost-editor) .cost-record-summary { padding-inline: 0; }
 .entry-section .cost-entry-card:has(.cost-editor) .cost-editor { padding-bottom: 0; }
 .cost-entry-card:has(.cost-editor) .cost-record-summary { background: transparent; }
@@ -1118,7 +1118,15 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
 .sheet-historical-date { flex: 0 0 100%; color: rgb(var(--secondary)); font-size: 14px; line-height: 20px; font-variant-numeric: tabular-nums; }
 .sheet-save-panel[data-historical] .sheet-profit-summary>div:first-child { flex-wrap: wrap; row-gap: 0; }
 .trend-legend { display: inline-flex; align-items: center; gap: var(--space-2); color: rgb(var(--secondary)); font-size: 14px; line-height: 24px; }
-.trend-legend>span { width: 14px; height: 18px; border: 1px solid rgb(var(--brand) / .4); border-radius: 3px; }
+.trend-legend>span { width: 28px; height: 0; border: 0; border-top: 2px dashed var(--trend-revenue); opacity: .75; }
+.trend-value-label { paint-order: stroke; stroke: rgb(var(--surface)); stroke-width: 4px; stroke-linejoin: round; }
+.sheet-save-error { align-items: flex-start; }
+.sheet-save-error>div { align-items: flex-start; }
+.sheet-save-error svg { margin-top: 4px; }
+.save-error-copy { display: grid; gap: var(--space-1); min-width: 0; line-height: 24px; }
+.save-error-copy strong { font-size: 16px; }
+.save-error-copy>span { font-size: 14px; font-weight: 500; }
+.date-today-badge { background: rgb(var(--brand-light)); color: rgb(var(--brand)); border-color: rgb(var(--brand) / .3); box-shadow: none; }
 @media (max-width:767px) {
   :root:has(.sheet-save-panel[data-historical] .sheet-actions) { --save-panel-height: 92px; }
 }

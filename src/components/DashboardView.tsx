@@ -167,7 +167,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
               <text className="trend-axis-label" x={padLeft - 8} y={chartH - padY + 4} textAnchor="end" fill="rgb(var(--secondary))" fontSize="14">0</text>
               {trendMetric === "cost" && points.map((point, index) => {
                 const height = trend[index].totalSen / maximum * (chartH - padY * 2);
-                return <rect key={trend[index].date} className="trend-reference-column" x={point.x - columnWidth / 2} y={chartH - padY - height} width={columnWidth} height={height} rx="4" fill="none" stroke={TREND_METRIC_COLORS.revenue} strokeOpacity=".4" vectorEffect="non-scaling-stroke" />;
+                return <rect key={trend[index].date} className="trend-reference-column" x={point.x - columnWidth / 2} y={chartH - padY - height} width={columnWidth} height={height} rx="4" fill="none" stroke={TREND_METRIC_COLORS.revenue} strokeWidth="1.5" strokeOpacity=".75" strokeDasharray="4 3" vectorEffect="non-scaling-stroke" />;
               })}
               {points.map((point, index) => {
                 const label = formatMyr(BigInt(trendValueSen(trend[index], trendMetric))).replace(/^RM /, "");
