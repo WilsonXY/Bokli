@@ -293,12 +293,6 @@
   .overview-composition { display: flex; flex-direction: column; }.overview-composition>section { width: 100%; }.account-balances dd { font-size: 22px; }.expense-month-total>strong { font-size: 34px; margin-bottom: 0; }.expense-month-context strong { font-size: 20px; }.expense-record-category { font-size: 18px; }.close-expected-total>strong { font-size: 40px; }.close-layout input:not([type="checkbox"]), .expenses-layout input { min-height: 50px; }.workspace-main label { font-size: 16px; }.workspace-main [role="alert"] { font-size: 14px; }
   .settings-section { grid-template-columns: 1fr; }.settings-section h2 { font-size: 20px; }.settings-section p { font-size: 16px; }.theme-swatch { height: 64px; }.settings-page>.page-heading { margin-bottom: 0; }
   .month-options { left: 0; right: auto; max-width: calc(100vw - 44px); }
-  .workspace-main [role="dialog"][aria-modal="true"] { align-items: flex-end; padding: 0; }
-  .workspace-main [role="dialog"][aria-modal="true"]>div { width: 100%; max-width: 100%; max-height: calc(100dvh - 48px); overflow-y: auto; border-radius: 24px 24px 0 0; padding: 26px 24px max(26px,env(safe-area-inset-bottom)); }
-  .workspace-main [role="dialog"][aria-modal="true"] h3 { font-size: 22px; line-height: 1.4; }
-  .workspace-main [role="dialog"][aria-modal="true"] p { font-size: 16px; line-height: 1.6; }
-  .workspace-main [role="dialog"][aria-modal="true"] button { min-height: 52px; font-size: 16px; }
-  .workspace-main [role="dialog"][aria-modal="true"] .text-xs { font-size: 14px; }
   .account-dialog { position: fixed; inset: auto 0 0; width: 100%; max-width: 100%; margin: 0; border-radius: 24px 24px 0 0; padding-bottom: max(28px,env(safe-area-inset-bottom)); }
   .skeleton-date-body { height: 52px; }.skeleton-count-field { height: 50px; }
 }

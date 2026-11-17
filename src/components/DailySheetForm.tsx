@@ -1483,6 +1483,20 @@ export function DailySheetForm({
 
               {!isClosed && (
                 <div className="sheet-actions flex items-center gap-2">
+                  {isModified && (
+                    <button
+                      type="button"
+                      onClick={() => revertDialog.current?.showModal()}
+                      disabled={saving}
+                      title={t.undoChanges}
+                      aria-label={t.undoChanges}
+                      className="sheet-revert-action h-12 w-12 shrink-0 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary hover:text-ink-primary shadow-xs flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 active:scale-95 cursor-pointer disabled:opacity-50 animate-in fade-in zoom-in-95 duration-150"
+                    >
+                      <ActionIcon name="undo" />
+                      <span className="sr-only">{t.undoChanges}</span>
+                    </button>
+                  )}
+
 
 
                   <button
@@ -1522,19 +1536,7 @@ export function DailySheetForm({
                     <span className={`save-state-icon${saving ? " animate-spin" : ""}`}><ActionIcon name={saving ? "loading" : savedSheet && !isModified ? "check" : "save"} />{isModified && !saving && <span className="pending-save-status" role="status" aria-label={t.draftStatus} />}</span>
                     <span className="sheet-save-label">{savedSheet && !isModified ? t.savedStatus : t.saveShort}</span>
                   </button>
-                  {isModified && (
-                    <button
-                      type="button"
-                      onClick={() => revertDialog.current?.showModal()}
-                      disabled={saving}
-                      title={t.undoChanges}
-                      aria-label={t.undoChanges}
-                      className="sheet-revert-action h-12 w-12 shrink-0 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary hover:text-ink-primary shadow-xs flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 active:scale-95 cursor-pointer disabled:opacity-50 animate-in fade-in zoom-in-95 duration-150"
-                    >
-                      <ActionIcon name="undo" />
-                      <span className="sr-only">{t.undoChanges}</span>
-                    </button>
-                  )}
+
                 </div>
               )}
             </div>

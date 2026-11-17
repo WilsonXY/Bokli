@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 export default async function saveDock({page,shot}) {
   await page.goto('/');
+  const initialSave = await page.getByRole('button',{name:'保存账单',exact:true}).boundingBox();
+  assert(initialSave);
   await page.locator('#cash-input').fill('50');
   for(const category of ['restock','transport','gas']) {
     await page.getByRole('button',{name:/添加开销/}).click();
@@ -19,6 +21,7 @@ export default async function saveDock({page,shot}) {
     const nav=await page.locator('.mobile-navigation').boundingBox();
     const field=await note.boundingBox();
     assert(save&&dock&&nav&&field&&total);
+    if(width===390 && height===844) assert.equal(Math.round(save.x),Math.round(initialSave.x),'Save must stay in the same position after editing reveals Revert');
     assert(dock.x>=0 && dock.x+dock.width<=width,'The whole Save dock must fit inside the phone viewport');
     assert(save.y>=0 && save.y+save.height<=nav.y-8,'Save must stay reachable above navigation while entering costs');
     assert.equal(Math.round(dock.y+dock.height),Math.round(nav.y),'Save and navigation must form one opaque footer without a gap');
