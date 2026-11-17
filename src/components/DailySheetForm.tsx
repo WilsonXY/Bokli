@@ -1316,7 +1316,7 @@ export function DailySheetForm({
                           {!isClosed && <span className="record-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span>}
                         </div>
                       </div>
-                      
+
                   </div>
 
                   {/* Expanded Form Body */}

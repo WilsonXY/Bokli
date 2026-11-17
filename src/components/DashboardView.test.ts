@@ -213,7 +213,7 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
       expect(trendValueSen(row, "cost")).toBe(1500);
     });
 
-    it("renders 总收入 / 总开销 tabs with the revenue tab selected by default", () => {
+    it("renders 营业收入 / 日常开销 tabs with the revenue tab selected by default", () => {
       const tile: SerializedMonthTile = {
         month: "2026-05",
         status: "open",
@@ -235,8 +235,8 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
         })
       );
 
-      expect(html).toMatch(/<button[^>]*aria-selected="true"[^>]*>总收入<\/button>/);
-      expect(html).toMatch(/<button[^>]*aria-selected="false"[^>]*>总开销<\/button>/);
+      expect(html).toMatch(/<button[^>]*aria-selected="true"[^>]*>营业收入<\/button>/);
+      expect(html).toMatch(/<button[^>]*aria-selected="false"[^>]*>日常开销<\/button>/);
       expect(html).toContain("每日收入趋势");
       expect(html).not.toContain("每日开销趋势");
     });
