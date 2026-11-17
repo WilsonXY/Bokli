@@ -8,10 +8,12 @@ export default async function chartTabs({page,shot}) {
   await costs.click({timeout:3000});
   assert.equal(await costs.getAttribute('aria-selected'),'true');
   await page.getByRole('tabpanel').getByRole('heading',{name:'每日开销趋势',exact:true}).waitFor();
+  await page.locator('.overview-trend').scrollIntoViewIfNeeded();
   await shot('cost-tab',page,{fullPage:false});
   await page.keyboard.press('ArrowLeft');
   assert.equal(await revenue.getAttribute('aria-selected'),'true');
   assert.equal(await revenue.evaluate(el=>el===document.activeElement),true);
   await page.getByRole('tabpanel').getByRole('heading',{name:'每日收入趋势',exact:true}).waitFor();
+  await page.locator('.overview-trend').scrollIntoViewIfNeeded();
   await shot('revenue-tab',page,{fullPage:false});
 }

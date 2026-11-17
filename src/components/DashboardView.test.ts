@@ -235,8 +235,8 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
         })
       );
 
-      expect(html).toMatch(/<button[^>]*aria-pressed="true"[^>]*>总收入<\/button>/);
-      expect(html).toMatch(/<button[^>]*aria-pressed="false"[^>]*>总开销<\/button>/);
+      expect(html).toMatch(/<button[^>]*aria-selected="true"[^>]*>总收入<\/button>/);
+      expect(html).toMatch(/<button[^>]*aria-selected="false"[^>]*>总开销<\/button>/);
       expect(html).toContain("每日收入趋势");
       expect(html).not.toContain("每日开销趋势");
     });

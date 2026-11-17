@@ -103,8 +103,8 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
   const metricLabel = trendMetric === "revenue" ? t.sheetRevCol : t.sheetCostCol;
   const chartH = 160, padX = 16, padY = 28;
   const maximum = Math.max(1000, ...trend.map(row => trendValueSen(row, trendMetric)));
-  const firstDate = Date.parse(`${trend[0]?.date}T00:00:00Z`);
-  const dateSpan = Math.max(1, Date.parse(`${trend[trend.length - 1]?.date}T00:00:00Z`) - firstDate);
+  const firstDate = trend.length ? Date.parse(`${trend[0].date}T00:00:00Z`) : 0;
+  const dateSpan = trend.length > 1 ? Math.max(1, Date.parse(`${trend[trend.length - 1].date}T00:00:00Z`) - firstDate) : 1;
   const points = trend.map(row => ({
     x: trend.length === 1 ? chartW / 2 : padX + (Date.parse(`${row.date}T00:00:00Z`) - firstDate) / dateSpan * (chartW - padX * 2),
     y: chartH - padY - trendValueSen(row, trendMetric) / maximum * (chartH - padY * 2),
@@ -167,7 +167,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
                 const label = formatMyr(BigInt(trendValueSen(trend[index], trendMetric)));
                 const single = points.length === 1;
                 const nearestPoint = Math.min(index ? point.x - points[index - 1].x : Infinity, index < points.length - 1 ? points[index + 1].x - point.x : Infinity);
-                const labelSpace = single ? chartW - padX * 2 : nearestPoint * .66;
+                const labelSpace = single ? chartW - padX * 2 : points.length <= 3 ? nearestPoint * .66 : (chartW - padX * 2) / 2;
                 // Exact values remain in the dated records; omit labels that would collide.
                 const showLabel = label.length * 8.5 <= labelSpace && (index === 0 || index === points.length - 1 || (points.length <= 3 && chartW >= 280));
                 return <g key={trend[index].date}><circle className="point-circle transition-[r,fill]" cx={point.x} cy={point.y} r="3.5" fill={chartColor} stroke="rgb(var(--surface))" vectorEffect="non-scaling-stroke" />{showLabel && <text x={point.x} y={point.y - 14} textAnchor={single ? "middle" : index === 0 ? "start" : index === points.length - 1 ? "end" : "middle"} className="trend-value-label" fill="rgb(var(--ink))" fontSize="14" fontWeight="500">{label}</text>}</g>;
