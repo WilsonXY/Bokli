@@ -36,6 +36,7 @@ export default async function saveDock({page,shot}) {
   const saved=page.locator('.sheet-save-action');
   await saved.getByText('已保存',{exact:true}).waitFor();
   assert.equal(await saved.isDisabled(),true,'A stored, unchanged sheet should show a completed state');
+  assert.equal(await page.locator('.feedback-message').count(),0,'Save feedback belongs in the visible dock without a duplicate banner beneath it');
   await shot('stored-sheet',page,{fullPage:false});
   await page.locator('#cash-input').fill('51');
   assert.equal(await saved.isEnabled(),true,'Editing a stored sheet must make Save available again');

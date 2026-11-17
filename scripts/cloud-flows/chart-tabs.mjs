@@ -10,9 +10,12 @@ export default async function chartTabs({page,shot}) {
     const margins=await tabs.evaluate(rail=>{
       const bounds=rail.getBoundingClientRect();
       const buttons=rail.querySelectorAll('button');
-      return {left:buttons[0].getBoundingClientRect().left-bounds.left,right:bounds.right-buttons[buttons.length-1].getBoundingClientRect().right};
+      const first=buttons[0].getBoundingClientRect(),last=buttons[buttons.length-1].getBoundingClientRect();
+      return {left:first.left-bounds.left,right:bounds.right-last.right,firstWidth:first.width,lastWidth:last.width,pairWidth:last.right-first.left};
     });
     assert(Math.abs(margins.left-margins.right)<=1,'The chart tabs must be centered with equal space at both ends');
+    assert(Math.abs(margins.firstWidth-margins.lastWidth)<=1,'Both tab shapes need the same width');
+    if(width<=390) assert(margins.pairWidth<=260&&margins.left>=16&&margins.right>=16,'Phone tabs need a compact pair with clear outer space');
   }
   await page.setViewportSize(originalViewport);
   const revenue=tabs.getByRole('tab',{name:'营业收入',exact:true});

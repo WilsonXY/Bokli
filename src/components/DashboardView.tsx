@@ -98,9 +98,13 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
   const noActivity = trend.length === 0 && metrics.every(metric => metric.value === 0);
   const cashPct = split?.totalSen ? Math.round(split.cashSen / split.totalSen * 100) : 0;
   const tngPct = split?.totalSen ? 100 - cashPct : 0;
+  const revenueTotal = formatMyr(BigInt(split?.totalSen ?? 0));
+  const costTotal = formatMyr(BigInt(totalCosts));
   const metricLabel = t.sheetRevCol;
   const chartH = 160, padRight = 12, padY = 28;
-  const maximum = Math.max(1000, ...trend.flatMap(row => [row.totalSen, row.costSen]));
+  const observedMaximum = Math.max(1000, ...trend.flatMap(row => [row.totalSen, row.costSen]));
+  const scaleStep = 10 ** Math.floor(Math.log10(observedMaximum)) / 2;
+  const maximum = Math.min(Number.MAX_SAFE_INTEGER, Math.ceil(observedMaximum * 1.15 / scaleStep) * scaleStep);
   const maximumLabel = formatMyr(BigInt(maximum)).replace(/^RM /, "").replace(/\.00$/, "");
   const padLeft = Math.max(44, maximumLabel.length * 7.5 + 12);
   const columnStep = (chartW - padLeft - padRight) / Math.max(1, trend.length);
@@ -117,7 +121,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
         <MonthSelectorDropdown loadingLabel={loading ? t.loadingShort : undefined} currentMonth={activeMonth} options={tiles.map(tile => ({ month: tile.month, status: tile.status }))} onSelect={month => router.push(`/dashboard?month=${month}`)} />
       </div>
       {loadError ? <div role="alert" className="page-error">{t.loadError}<p>{loadError}</p></div> : <>
-        {!trend.length && <section className="empty-month panel"><h2>{t.noDailyEntries}</h2><p>{t.emptyMonthHint}</p><Link className="primary-button" href="/" aria-label={t.recordDailySheet} title={t.recordDailySheet}><ActionIcon name="record" size={24} /></Link></section>}
+        {!trend.length && <section className="empty-month panel"><h2>{t.noDailyEntries}</h2><p>{t.emptyMonthHint}</p><Link className="primary-button" href="/" aria-label={t.recordDailySheet} title={t.recordDailySheet}><ActionIcon name="add" size={24} /><ActionIcon name="record" size={24} /></Link></section>}
         <section className={`overview-summary panel${noActivity ? " is-empty" : ""}`} hidden={noActivity} aria-label={t.monthSummary}>
           <div className={`profit-headline${isProfitPositive ? "" : " is-loss"}`}>
             <h2>{t.netProfit}<span className="profit-status sr-only">{!activeTile?.netSen ? t.evenStatus : isProfitPositive ? t.profitStatus : t.lossStatus}</span></h2>
@@ -133,7 +137,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
           <span className="month-close-icon" aria-hidden="true"><ActionIcon name="monthClose" size={23} /></span>
           <span><strong>{t.closeMonthAction}</strong><small className="sr-only">{t.closeMonthHint}</small></span><span className="action-arrow" aria-hidden="true"><ActionIcon name="chevronRight" size={20} /></span>
         </Link>
-        {trend.length > 0 && <details className="daily-records daily-ledger" open={trend.length <= 7}><summary><span className="daily-record-heading"><span className="ledger-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span>{t.dailySheetsLabel}<small className="daily-record-counter" aria-label={`${trend.length} ${t.recordedDays}`}>{trend.length}{t.daysUnit}</small></span><span className="daily-record-column-heading"><small>{metricLabel}</small></span></summary><p className="sr-only">{t.chartDataBelow}</p><div>{trend.map(row => <Link key={row.date} href={`/?date=${row.date}`} className="daily-record"><span>{row.date}</span><span data-long={isLongAmount(formatMyr(BigInt(row.totalSen))) || undefined}><small className="sr-only">{metricLabel}</small>{formatMyr(BigInt(row.totalSen))}<span className="daily-record-arrow" aria-hidden="true"><ActionIcon name="chevronRight" size={16} /></span></span></Link>)}</div></details>}
+        {trend.length > 0 && <details className="daily-records daily-ledger" open={trend.length <= 7}><summary><span className="daily-record-heading">{t.dailySheetsLabel}<small className="daily-record-counter" aria-label={`${trend.length} ${t.recordedDays}`}>{trend.length}{t.daysUnit}</small><span className="daily-record-column-heading"><small>· {metricLabel}</small></span></span><span className="ledger-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span></summary><p className="sr-only">{t.chartDataBelow}</p><div>{trend.map(row => <Link key={row.date} href={`/?date=${row.date}`} className="daily-record"><span>{row.date}</span><span data-long={isLongAmount(formatMyr(BigInt(row.totalSen))) || undefined}><small className="sr-only">{metricLabel}</small>{formatMyr(BigInt(row.totalSen))}<span className="daily-record-arrow" aria-hidden="true"><ActionIcon name="chevronRight" size={16} /></span></span></Link>)}</div></details>}
         {trend.length > 0 && <section className="overview-trend panel" aria-labelledby="trend-heading">
           <div className="metric-tabs" role="tablist" aria-label={t.trendMetric}>
             {(["revenue", "cost"] as const).map(metric => <button
@@ -156,7 +160,9 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
           <div className="trend-panel" role="tabpanel" id={trendPanelId} aria-labelledby={`${trendPanelId}-${trendMetric}`}>
             <div className="panel-heading"><h2 id="trend-heading" className="sr-only">{trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}</h2><span className="trend-unit" style={{width:padLeft-8}}>RM</span></div>
             <div className="trend-frame" ref={chartRef}><svg key={trendMetric} className="trend-plot animate-chart-swap" data-shared-maximum={maximum} viewBox={`0 0 ${chartW} ${chartH}`} aria-hidden="true" focusable="false">
-              {[padY, chartH - padY].map(y => <line key={y} x1={padLeft} x2={chartW - padRight} y1={y} y2={y} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />)}
+              <line x1={padLeft} x2={padLeft} y1={padY} y2={chartH-padY} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />
+              <line x1={padLeft-4} x2={padLeft} y1={padY} y2={padY} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />
+              <line x1={padLeft} x2={chartW-padRight} y1={chartH-padY} y2={chartH-padY} stroke="rgb(var(--border))" vectorEffect="non-scaling-stroke" />
               <text className="trend-axis-label" x={padLeft - 8} y={padY + 4} textAnchor="end" fill="rgb(var(--secondary))" fontSize="14">{maximumLabel}</text>
               <text className="trend-axis-label" x={padLeft - 8} y={chartH - padY + 4} textAnchor="end" fill="rgb(var(--secondary))" fontSize="14">0</text>
               {points.map((point, index) => {
@@ -174,7 +180,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
           </div>
         </section>}
         {(Boolean(split?.totalSen) || costs.length > 0) && <div className="overview-composition">
-          <section className="overview-split panel" aria-labelledby="split-heading"><h2 id="split-heading">{t.revenueSplit}</h2>
+          <section className="overview-split panel" aria-labelledby="split-heading"><div className="composition-heading"><h2 id="split-heading">{t.revenueSplit}</h2><strong className={`composition-total${loading ? " skeleton-value" : ""}`} data-long={isLongAmount(revenueTotal)||undefined}>{revenueTotal}</strong></div>
             {!split?.totalSen ? <p className="empty-note">{t.noRevenueData}</p> : <div className="revenue-composition">
               <div className="revenue-donut" aria-hidden="true">
                 <svg viewBox="0 0 128 128"><circle cx="64" cy="64" r="55" fill="none" stroke="rgb(var(--tng))" strokeWidth="16" /><circle cx="64" cy="64" r="55" fill="none" stroke="rgb(var(--cash))" strokeWidth="16" pathLength="100" strokeDasharray={`${cashPct} 100`} transform="rotate(-90 64 64)" /></svg>
@@ -183,7 +189,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
               <dl className="account-balances"><div className="cash-account"><dt><span aria-hidden="true"><ChannelIcon channel="cash" /></span>{t.cashRevenueShort}</dt><dd data-long={isLongAmount(formatMyr(BigInt(split.cashSen))) || undefined}>{formatMyr(BigInt(split.cashSen))}</dd><small>{cashPct}%</small></div><div className="tng-account"><dt><span aria-hidden="true"><ChannelIcon channel="tng" /></span>{t.tngRevenueShort}</dt><dd data-long={isLongAmount(formatMyr(BigInt(split.tngSen))) || undefined}>{formatMyr(BigInt(split.tngSen))}</dd><small>{tngPct}%</small></div></dl>
             </div>}
           </section>
-          <section className="overview-costs panel" aria-labelledby="cost-heading"><h2 id="cost-heading">{t.costDistribution}</h2>
+          <section className="overview-costs panel" aria-labelledby="cost-heading"><div className="composition-heading"><h2 id="cost-heading">{t.costDistribution}</h2><strong className={`composition-total${loading ? " skeleton-value" : ""}`} data-long={isLongAmount(costTotal)||undefined}>{costTotal}</strong></div>
             {!costs.length ? <p className="empty-note">{t.noCostData}</p> : <dl className="cost-bars">{costs.map(item => <div className="cost-bar-row" key={item.cat}>
               <div className="cost-bar-values"><dt>{item.label}</dt><dd>{formatMyr(BigInt(item.amountSen))}</dd></div>
               <div className="cost-bar-meter"><div className="cost-bar-track" aria-hidden="true"><span style={{ width: `${item.pct}%` }} /></div><small>{item.pct}%</small></div>

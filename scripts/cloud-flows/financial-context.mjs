@@ -31,6 +31,8 @@ export default async function financialContext({page,shot}) {
   assert(await page.locator('.expense-month-summary').isVisible(),'Monthly totals must remain visible during Operating Expense entry');
   await shot('expense-context-retained',page,{fullPage:false});
   await page.locator('#expense-amount').fill('5');
+  const expenseNote='临时摊位租金';
+  await page.locator('#expense-note').fill(expenseNote);
   await page.getByRole('button',{name:'添加支出',exact:true}).click();
   const dismiss=page.locator('.feedback-message button').first();
   await dismiss.waitFor();
@@ -38,8 +40,12 @@ export default async function financialContext({page,shot}) {
   assert(target&&target.width>=44&&target.height>=44,'Toast dismissal must have a comfortable touch target');
   await dismiss.click();
   const month=await page.locator('.month-picker-date').innerText();
-  await page.locator('.expense-record summary').first().click();
-  await page.locator('.expense-record .record-delete').first().click();
+  const record=page.locator('.expense-record').filter({hasText:expenseNote});
+  await record.locator('summary').click();
+  const remove=await record.locator('.record-delete').boundingBox();
+  const noteBounds=await record.locator('.expense-record-note').evaluate(el=>{const range=document.createRange();range.selectNodeContents(el);const r=range.getBoundingClientRect();return {right:r.right,top:r.top,bottom:r.bottom};});
+  assert(remove&&remove.x>=noteBounds.right+8&&remove.y<noteBounds.bottom&&remove.y+remove.height>noteBounds.top,'Expense Delete belongs beside its note, without an extra empty action row');
+  await record.locator('.record-delete').click();
   assert.equal(await page.getByRole('dialog').locator('time').getAttribute('datetime'),month,'Expense deletion must identify its selected month');
   await shot('expense-delete-month',page,{fullPage:false});
   await page.getByRole('dialog').getByRole('button',{name:'取消',exact:true}).click();

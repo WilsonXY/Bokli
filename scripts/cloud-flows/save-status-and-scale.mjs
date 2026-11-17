@@ -10,7 +10,7 @@ export default async function saveStatusAndScale({ page, shot }) {
   assert.equal(await page.locator('.trend-column').count(),3,'Each recorded date needs its own column');
   const revenueHeight=await page.locator('.trend-column').first().getAttribute('height').then(Number);
   const revenueScale=await page.locator('.trend-plot').getAttribute('data-shared-maximum');
-  assert.deepEqual(await page.locator('.trend-axis-label').allTextContents(),['600','0'],'The common scale must be explicit');
+  assert.deepEqual(await page.locator('.trend-axis-label').allTextContents(),['700','0'],'The common scale must leave headroom above the largest value');
   await page.getByRole('tab', { name: '日常开销', exact: true }).click();
   assert.equal(await page.locator('.trend-plot').getAttribute('data-shared-maximum'),revenueScale,'Switching measures must preserve their shared scale');
   const costHeight=await page.locator('.trend-column').first().getAttribute('height').then(Number);

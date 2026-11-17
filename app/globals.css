@@ -1082,3 +1082,27 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
   .sheet-date-bar .date-picker-group { flex: 1; }
   .sheet-date-bar .date-picker-trigger { flex: 1; justify-content: center; }
 }
+
+/* Both tab faces have explicit bounds; the active face joins the chart. */
+.metric-tabs button { border: var(--edge) solid rgb(var(--border)); border-bottom: 0; background: rgb(var(--canvas)); }
+.metric-tabs button[aria-selected="true"] { border-color: rgb(var(--border-strong)); box-shadow: inset 0 1px 0 rgb(255 255 255 / .4); }
+:root[data-theme="dark"] .metric-tabs { background: #0a120d; }
+:root[data-theme="dark"] .metric-tabs button:not([aria-selected="true"]) { color: rgb(var(--muted)); }
+.composition-heading { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: baseline; gap: var(--space-2); }
+.composition-heading h2 { min-width: 0; margin: 0; }
+.composition-total { font-size: 20px; line-height: 28px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.composition-total[data-long] { font-size: 16px; }
+.daily-record-heading { gap: var(--space-2); }
+.daily-records:not([open]) .daily-record-column-heading { display: none; }
+.expense-record[open] { position: relative; }
+.expense-record[open] .expense-record-note { grid-column: 1 / -1; min-height: 44px; padding-right: 56px; display: flex; align-items: center; }
+.expense-record[open] .expense-record-summary:not(:has(.expense-record-note))::after { content: ""; grid-column: 1 / -1; height: 44px; }
+.expense-record[open] .expense-record-actions { position: absolute; right: 0; bottom: var(--space-2); height: 44px; padding: 0; z-index: 1; }
+.expense-record-actions .record-delete:focus-visible { outline-offset: -3px; }
+.empty-month .primary-button { width: 140px; min-width: 140px; min-height: 52px; }
+@media (max-width:767px) {
+  .metric-tabs button { flex: 0 1 120px; }
+}
+@media (min-width:1024px) {
+  .expenses-layout, .close-layout { max-width: 760px; }
+}

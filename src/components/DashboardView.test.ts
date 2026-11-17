@@ -267,14 +267,24 @@ describe("DashboardView trend chart metric switch", () => {
     );
 
     const plot = html.match(/<svg[^>]*class="trend-plot[\s\S]*?<\/svg>/)?.[0] ?? "";
-    expect(plot).toContain('data-shared-maximum="10000"');
+    expect(plot).toContain('data-shared-maximum="15000"');
     const columns = Array.from(plot.matchAll(/<rect class="trend-column" x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)"/g), match => match.slice(1).map(Number));
     expect(columns).toHaveLength(2);
     expect(columns[0][0] + columns[0][2]).toBeLessThan(columns[1][0]);
-    expect(columns[0][3]).toBeCloseTo(52); // RM50 is half of the shared RM100 maximum.
-    expect(columns[1][3]).toBeCloseTo(62.4); // RM60 uses that same scale.
+    expect(columns[0][3] / columns[1][3]).toBeCloseTo(50 / 60);
+    expect(columns[0][1] + columns[0][3]).toBeCloseTo(columns[1][1] + columns[1][3]);
     expect(plot).not.toContain("<path");
     // The chart fades as one piece when switching measures.
     expect(html).toMatch(/<svg[^>]*class="[^"]*animate-chart-swap/);
+  });
+
+  it("keeps the padded scale within the supported money range", () => {
+    const html = ReactDOMServer.renderToStaticMarkup(React.createElement(DashboardView, {
+      tiles: [], activeMonth: "2026-05", activeTile: null,
+      trend: [{date:"2026-05-01",cashSen:Number.MAX_SAFE_INTEGER,tngSen:0,totalSen:Number.MAX_SAFE_INTEGER,costSen:0}],
+      split: null, costByCategory: null,
+    }));
+    expect(html).toContain(`data-shared-maximum="${Number.MAX_SAFE_INTEGER}"`);
+    expect(html).toContain("RM 90,071,992,547,409.91");
   });
 });

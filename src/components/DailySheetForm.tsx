@@ -586,8 +586,7 @@ export function DailySheetForm({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // The success banner is owned by a single timer. Every show/dismiss cancels the
-  // pending expiry first, so a timeout armed by an earlier save can never wipe a
-  // banner raised by a later one (two saves inside SUCCESS_BANNER_MS).
+  // pending expiry first, so an earlier message cannot clear a newer one.
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function clearSuccessTimer() {
@@ -962,7 +961,7 @@ export function DailySheetForm({
         if (data.sheet) {
           setSavedSheet({ id: data.sheet.id, updatedAt: data.sheet.updatedAt });
         }
-        showSuccessMessage(t.saveSuccess);
+        dismissSuccessMessage();
       }
       startTransition(() => {
         refresh();
