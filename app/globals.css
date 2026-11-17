@@ -983,13 +983,24 @@
 .settings-section .appearance-choice input { position: static; width: 20px; height: 20px; }
 :root[data-theme="dark"] .metric-tabs { background: rgb(var(--canvas)); }
 
-@media (max-width:767px) {
+@media (max-width:389px) {
   :root:has(.sheet-save-panel[data-wide] .sheet-actions) { --save-panel-height: 124px; }
   .sheet-save-panel[data-wide]:has(.sheet-actions) { grid-template-columns: minmax(0,1fr); grid-template-rows: 52px 44px; gap: var(--space-2); padding: var(--space-2) var(--page-gutter); align-content: center; }
   .sheet-save-panel[data-wide] .sheet-profit-summary { grid-column: 1; grid-row: 1; }
   .sheet-save-panel[data-wide] .sheet-profit-summary>div:last-child { font-size: 24px; }
   .sheet-save-panel[data-wide] .sheet-profit-summary>div[data-very-long] { font-size: 22px; }
   .sheet-save-panel[data-wide] .sheet-actions { grid-column: 1; grid-row: 2; width: 100%; justify-content: flex-end; }
+}
+@media (min-width:390px) and (max-width:767px) {
+  .sheet-profit-summary>div[data-long] { font-size: 22px; }
+  :root:has(.sheet-save-panel[data-very-long] .sheet-actions) { --save-panel-height: 124px; }
+  .sheet-save-panel[data-very-long]:has(.sheet-actions) { grid-template-columns: minmax(0,1fr); grid-template-rows: 52px 44px; gap: var(--space-2); padding: var(--space-2) var(--page-gutter); align-content: center; }
+  .sheet-save-panel[data-very-long] .sheet-profit-summary { grid-column: 1; grid-row: 1; }
+  .sheet-save-panel[data-very-long] .sheet-profit-summary>div:last-child { font-size: 24px; }
+  .sheet-save-panel[data-very-long] .sheet-profit-summary>div[data-very-long] { font-size: 22px; }
+  .sheet-save-panel[data-very-long] .sheet-actions { grid-column: 1; grid-row: 2; width: 100%; justify-content: flex-end; }
+}
+@media (max-width:767px) {
   .sheet-date-bar>div:first-child>button:disabled, .calendar-header button:disabled { opacity: 1; border-color: rgb(var(--border)); background: transparent; }
   .sheet-date-bar>div:first-child>button:disabled svg, .calendar-header button:disabled svg { opacity: .35; }
   html[lang="en"] .date-today-badge, html[lang="en"] .return-today { font-size: 14px; }

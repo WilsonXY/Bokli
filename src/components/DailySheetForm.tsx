@@ -1473,7 +1473,7 @@ export function DailySheetForm({
               </div>
             )}
 
-            <div data-wide={wideTotal || undefined} className="sheet-save-panel bg-white border border-surface-border rounded-xl p-3 flex items-center justify-between gap-3">
+            <div data-wide={wideTotal || undefined} data-very-long={grossProfitText.length > 18 || undefined} className="sheet-save-panel bg-white border border-surface-border rounded-xl p-3 flex items-center justify-between gap-3">
               <div className="sheet-profit-summary">
                 <div className="text-[13px] text-ink-muted font-medium">
                   {t.grossProfit}

@@ -61,6 +61,7 @@ export default async function saveDock({page,shot}) {
     const field=input.getBoundingClientRect(),footer=dock.getBoundingClientRect();
     return field.y>=0&&field.bottom<=footer.top-8;
   });
+  assert((await page.locator('.sheet-save-panel').boundingBox()).height <= 80, 'A six-digit amount that fits at 390px must retain the compact footer');
   await shot('wide-focused-amount',page,{fullPage:false});
 }
 
