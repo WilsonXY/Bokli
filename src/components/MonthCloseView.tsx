@@ -585,7 +585,7 @@ export function MonthCloseView({
                 <label htmlFor="close-note" className="block text-sm font-medium text-ink-secondary mb-1">
                   {t.closeNote}{" "}
                   {!isBalanced && countsComplete && !hasParseError && (
-                    <span className="text-finance-loss">{t.noteRequiredBadge}</span>
+                    <span className={closeNote.trim() ? "note-required is-filled" : "note-required"}>{t.noteRequiredBadge}</span>
                   )}
                   {(!countsComplete || isBalanced) && <span className="optional-label">{t.optionalBadge}</span>}
                 </label>

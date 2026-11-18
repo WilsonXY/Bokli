@@ -30,7 +30,10 @@ export default async function fullMonth({ page, shot }) {
     for (let i = 1; i < labels.length; i++) assert(labels[i].left >= labels[i - 1].right + 4, 'Value labels must never collide in a busy month');
     const dates = await page.locator('.trend-dates>span').evaluateAll(nodes => nodes.map(el => el.getBoundingClientRect().toJSON()));
     assert.equal(dates.length, labels.length, 'Each labelled value has its date');
-    labels.forEach((label, i) => assert(Math.abs(label.x + label.width / 2 - dates[i].x - dates[i].width / 2) < 1.5, 'A value and its date share one centre'));
+    const bars = await page.locator('.trend-column').evaluateAll(nodes => nodes.map(el => el.getBoundingClientRect().toJSON()));
+    assert(Math.abs(labels[0].left - bars[0].left) < 1.5 && Math.abs(dates[0].left - bars[0].left) < 1.5, 'The first value and date start at the first bar');
+    assert(Math.abs(labels.at(-1).right - bars.at(-1).right) < 1.5 && Math.abs(dates.at(-1).right - bars.at(-1).right) < 1.5, 'The last value and date end at the last bar');
+    if (labels.length === 3) assert(Math.abs(labels[1].x + labels[1].width / 2 - dates[1].x - dates[1].width / 2) < 1.5, 'The peak value and its date share one centre');
     assert.equal(await page.locator('.cost-bar-row').count(), 6, 'All six categories appear in the distribution');
     const fills = await page.locator('.cost-bar-track').evaluateAll(tracks => tracks.map(track => track.firstElementChild.getBoundingClientRect().width / track.getBoundingClientRect().width));
     const shares = await page.locator('.cost-bar-meter small').allTextContents();

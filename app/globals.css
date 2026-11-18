@@ -1317,3 +1317,6 @@ p, .feedback-message { text-wrap: pretty; }
 /* A locked month cannot be edited, so its past dates drop the amber "check this" colour. */
 .daily-layout[data-readonly] .date-picker-trigger[data-period="past"] { color: rgb(var(--ink)); background: rgb(var(--surface)); border-color: rgb(var(--border)); }
 .daily-layout[data-readonly] .date-picker-trigger[data-period="past"] .date-trigger-label>span, .daily-layout[data-readonly] .date-picker-trigger[data-period="past"] svg, .daily-layout[data-readonly] .sheet-historical-date { color: rgb(var(--secondary)); }
+/* "Required" is an amber cue until the note is written, then it settles to neutral. */
+.note-required { color: rgb(var(--cost)); }
+.note-required.is-filled { color: rgb(var(--secondary)); }
