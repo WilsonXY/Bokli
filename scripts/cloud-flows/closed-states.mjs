@@ -31,5 +31,7 @@ export default async function closedStates({ page, shot: rawShot }) {
   const revenueEdge=await page.locator('#cash-input').evaluate(el=>el.getBoundingClientRect().right);
   const costEdges=await page.locator('.cost-record-summary .money-list-value').evaluateAll(nodes=>nodes.map(el=>el.getBoundingClientRect().right));
   assert(costEdges.every(edge=>Math.abs(edge-revenueEdge)<=1),'Read-only Daily Cost and Revenue amounts must share their right edge');
+  const dateColors = await page.evaluate(() => ({ date: getComputedStyle(document.querySelector('.date-picker-trigger')).color, ink: getComputedStyle(document.body).color }));
+  assert.equal(dateColors.date, dateColors.ink, 'A locked month shows its date in neutral ink, not the amber editing cue');
   await shot("closed-daily-sheet");
 }

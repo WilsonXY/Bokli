@@ -1258,7 +1258,7 @@ p, .feedback-message { text-wrap: pretty; }
   --cat-wages-daily: #0f9a8a; --cat-maintenance: #8a6f1f; --cat-other: #5f6b76;
 }
 :root[data-theme="dark"] {
-  --trend-cost: #e8743f;
+  --trend-cost: #f4a261;
   --cat-restock: #d95926; --cat-gas: #cf5aa8; --cat-transport: #3987e5;
   --cat-wages-daily: #1fa89a; --cat-maintenance: #b5a034; --cat-other: #a3adb6;
 }
@@ -1314,6 +1314,6 @@ p, .feedback-message { text-wrap: pretty; }
 @media (max-width:389px) { .revenue-donut-center strong[data-long] { font-size: 20px; } }
 /* The Daily Sheets list names its two columns above the rows. */
 .daily-record-columns { display: flex; justify-content: space-between; padding: var(--space-2) 24px var(--space-1) 0; color: rgb(var(--secondary)); font-size: 15px; line-height: 22px; border-bottom: var(--edge) solid rgb(var(--border)); }
-/* The hidden Cancel/Save row leaves a soft placeholder, so the card does not look emptied. */
-.expense-entry-card:has(.category-select:open) .entry-actions { position: relative; }
-.expense-entry-card:has(.category-select:open) .entry-actions::after { content: ""; position: absolute; inset: 0; visibility: visible; border-radius: var(--radius-control); background: rgb(var(--subtle)); }
+/* A locked month cannot be edited, so its past dates drop the amber "check this" colour. */
+.daily-layout[data-readonly] .date-picker-trigger[data-period="past"] { color: rgb(var(--ink)); background: rgb(var(--surface)); border-color: rgb(var(--border)); }
+.daily-layout[data-readonly] .date-picker-trigger[data-period="past"] .date-trigger-label>span, .daily-layout[data-readonly] .date-picker-trigger[data-period="past"] svg, .daily-layout[data-readonly] .sheet-historical-date { color: rgb(var(--secondary)); }
