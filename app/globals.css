@@ -1310,3 +1310,5 @@ p, .feedback-message { text-wrap: pretty; }
 .return-today:hover { background: #0d4d41; }
 :root[data-theme="dark"] .return-today { background: rgb(var(--brand)); color: rgb(var(--canvas)); border-color: rgb(var(--brand)); }
 .calendar-header button:disabled svg { opacity: .25; }
+.revenue-donut-center strong[data-long] { font-size: 24px; }
+@media (max-width:389px) { .revenue-donut-center strong[data-long] { font-size: 20px; } }

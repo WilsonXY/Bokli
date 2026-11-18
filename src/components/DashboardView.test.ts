@@ -79,7 +79,8 @@ describe("DashboardView deterministic geometry & hydration stability", () => {
       expect(paths1).toEqual(paths2);
 
       expect(render1).toContain('class="cost-bars"');
-      expect(render1.match(/width:50%/g)?.length).toBe(2);
+      // Bars scale to the largest category, so an even split fills both tracks.
+      expect(render1.match(/width:100%/g)?.length).toBe(2);
     });
 
     it("renders the complete amount and 100% bar for a single cost category", () => {

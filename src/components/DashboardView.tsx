@@ -88,6 +88,8 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
     .map(cat => ({ cat, label: labels[cat], amountSen: costByCategory?.[cat] ?? 0, pct: totalCosts > 0 ? Math.round((costByCategory![cat] / totalCosts) * 100) : 0 }))
     .filter(item => item.amountSen > 0)
     .sort((a, b) => b.amountSen - a.amountSen);
+  // Bars are drawn against the largest category so the ranking shows; the % text keeps the share of the month.
+  const largestCost = costs[0]?.amountSen ?? 0;
   const headline = activeTile ? formatMyr(BigInt(activeTile.netSen)) : formatMyr(0n);
   const isProfitPositive = !activeTile || BigInt(activeTile.netSen) >= 0n;
   const metrics = [
@@ -116,7 +118,6 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
   const chartColor = TREND_METRIC_COLORS[trendMetric];
   const valueLabel = (index: number) => formatMyr(BigInt(trendValueSen(trend[index], trendMetric))).replace(/^RM /, "");
   const labelWidthAt = (index: number) => valueLabel(index).length * 9 + 4;
-  const labelled = (index: number) => trend.length <= 3 || index === 0 || index === trend.length - 1 || index === peakIndex;
   // A labelled day's value and date share one centre, kept inside the plot.
   const labelX = (index: number) => {
     if (trend.length <= 3) return points[index].x;
@@ -194,8 +195,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
                 const labelSpace = points.length <= 3 ? columnStep * .9 : (chartW - padLeft - padRight) / 2;
                 // Exact values are also available in the accessible dated list below.
                 const showLabel = labelWidth <= labelSpace && (index === 0 || index === points.length - 1 || index === peakIndex || points.length <= 3);
-                // In a busy month the labelled days stay full colour so each value points at its bar.
-                return <g key={trend[index].date}><rect className="trend-column" x={point.x - columnWidth / 2} y={point.y} width={columnWidth} height={chartH - padY - point.y} rx="4" fill={chartColor} fillOpacity={labelled(index) ? 1 : .45} />{showLabel && <text x={labelX(index)} y={chartH - padY + 24} textAnchor="middle" className="trend-value-label" fill="rgb(var(--ink))" fontSize="16" fontWeight="500">{label}</text>}</g>;
+                return <g key={trend[index].date}><rect className="trend-column" x={point.x - columnWidth / 2} y={point.y} width={columnWidth} height={chartH - padY - point.y} rx="4" fill={chartColor} />{showLabel && <text x={labelX(index)} y={chartH - padY + 24} textAnchor="middle" className="trend-value-label" fill="rgb(var(--ink))" fontSize="16" fontWeight="500">{label}</text>}</g>;
               })}
             </svg></div>
             <dl className="sr-only">{trend.map(row => <div key={row.date}><dt>{row.date}</dt><dd>{formatMyr(BigInt(trendValueSen(row, trendMetric)))}</dd></div>)}</dl>
@@ -209,7 +209,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
             {!split?.totalSen ? <p className="empty-note">{t.noRevenueData}</p> : <div className="revenue-composition">
               <div className="revenue-donut" aria-hidden="true">
                 <svg viewBox="0 0 128 128"><circle cx="64" cy="64" r="55" fill="none" stroke="rgb(var(--tng))" strokeWidth="16" /><circle cx="64" cy="64" r="55" fill="none" stroke="rgb(var(--cash))" strokeWidth="16" pathLength="100" strokeDasharray={`${cashPct} 100`} transform="rotate(-90 64 64)" /></svg>
-                <div className="revenue-donut-center"><strong>{cashPct}%</strong><span>{t.cashRevenueShort}</span></div>
+                <div className="revenue-donut-center"><strong data-long={cashPct === 100 || undefined}>{cashPct}%</strong><span>{t.cashRevenueShort}</span></div>
               </div>
               <dl className="account-balances"><div className="cash-account"><dt><span aria-hidden="true"><ChannelIcon channel="cash" /></span>{t.cashRevenueShort}</dt><dd data-long={isLongAmount(formatMyr(BigInt(split.cashSen))) || undefined}>{formatMyr(BigInt(split.cashSen))}</dd><small>{cashPct}%</small></div><div className="tng-account"><dt><span aria-hidden="true"><ChannelIcon channel="tng" /></span>{t.tngRevenueShort}</dt><dd data-long={isLongAmount(formatMyr(BigInt(split.tngSen))) || undefined}>{formatMyr(BigInt(split.tngSen))}</dd><small>{tngPct}%</small></div></dl>
             </div>}
@@ -217,7 +217,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
           <section className="overview-costs panel" aria-labelledby="cost-heading"><div className="composition-heading"><h2 id="cost-heading">{t.costDistribution}</h2><strong className={`composition-total${loading ? " skeleton-value" : ""}`} data-long={isLongAmount(costTotal)||undefined}>{costTotal}</strong></div>
             {!costs.length ? <p className="empty-note">{t.noCostData}</p> : <dl className="cost-bars">{costs.map(item => <div className="cost-bar-row" key={item.cat}>
               <div className="cost-bar-values"><dt><i className="cost-bar-dot" style={{ background: `var(--cat-${item.cat})` }} aria-hidden="true" />{item.label}</dt><dd>{formatMyr(BigInt(item.amountSen))}</dd></div>
-              <div className="cost-bar-meter"><div className="cost-bar-track" aria-hidden="true"><span style={{ width: `${item.pct}%`, background: `var(--cat-${item.cat})` }} /></div><small>{item.pct}%</small></div>
+              <div className="cost-bar-meter"><div className="cost-bar-track" aria-hidden="true"><span style={{ width: `${largestCost ? item.amountSen / largestCost * 100 : 0}%`, background: `var(--cat-${item.cat})` }} /></div><small>{item.pct}%</small></div>
             </div>)}</dl>}
           </section>
         </div>}
