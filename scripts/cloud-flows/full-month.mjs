@@ -33,7 +33,8 @@ export default async function fullMonth({ page, shot }) {
     labels.forEach((label, i) => assert(Math.abs(label.x + label.width / 2 - dates[i].x - dates[i].width / 2) < 1.5, 'A value and its date share one centre'));
     assert.equal(await page.locator('.cost-bar-row').count(), 6, 'All six categories appear in the distribution');
     const fills = await page.locator('.cost-bar-track').evaluateAll(tracks => tracks.map(track => track.firstElementChild.getBoundingClientRect().width / track.getBoundingClientRect().width));
-    assert(Math.abs(fills[0] - 1) < .01 && fills.every((fill, i) => i === 0 || fill <= fills[i - 1] + .001), 'The largest category fills its track and the rest rank below it');
+    const shares = await page.locator('.cost-bar-meter small').allTextContents();
+    fills.forEach((fill, i) => assert(Math.abs(fill * 100 - parseFloat(shares[i])) < 1.5, 'Each bar length matches its percentage of the month'));
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'A busy month must not overflow the phone');
     await page.locator('.overview-trend').scrollIntoViewIfNeeded();
     await shot(`busy-month-revenue-${width}`, page, { fullPage: false });

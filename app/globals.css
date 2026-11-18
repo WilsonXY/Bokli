@@ -1312,3 +1312,5 @@ p, .feedback-message { text-wrap: pretty; }
 .calendar-header button:disabled svg { opacity: .25; }
 .revenue-donut-center strong[data-long] { font-size: 24px; }
 @media (max-width:389px) { .revenue-donut-center strong[data-long] { font-size: 20px; } }
+/* The Daily Sheets list names its two columns above the rows. */
+.daily-record-columns { display: flex; justify-content: space-between; padding: var(--space-2) 24px var(--space-1) 0; color: rgb(var(--secondary)); font-size: 15px; line-height: 22px; border-bottom: var(--edge) solid rgb(var(--border)); }

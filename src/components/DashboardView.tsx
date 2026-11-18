@@ -88,8 +88,6 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
     .map(cat => ({ cat, label: labels[cat], amountSen: costByCategory?.[cat] ?? 0, pct: totalCosts > 0 ? Math.round((costByCategory![cat] / totalCosts) * 100) : 0 }))
     .filter(item => item.amountSen > 0)
     .sort((a, b) => b.amountSen - a.amountSen);
-  // Bars are drawn against the largest category so the ranking shows; the % text keeps the share of the month.
-  const largestCost = costs[0]?.amountSen ?? 0;
   const headline = activeTile ? formatMyr(BigInt(activeTile.netSen)) : formatMyr(0n);
   const isProfitPositive = !activeTile || BigInt(activeTile.netSen) >= 0n;
   const metrics = [
@@ -157,7 +155,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
           <span className="month-close-icon" aria-hidden="true"><ActionIcon name="monthClose" size={23} /></span>
           <span><strong>{t.closeMonthAction}</strong><small className="sr-only">{t.closeMonthHint}</small></span><span className="action-arrow" aria-hidden="true"><ActionIcon name="chevronRight" size={20} /></span>
         </Link>
-        {trend.length > 0 && <details className="daily-records daily-ledger" open={trend.length <= 7}><summary><span className="daily-record-heading">{t.dailySheetsLabel}<small className="daily-record-counter" aria-label={`${trend.length} ${t.recordedDays}`}>{trend.length}{t.daysUnit}</small></span><span className="ledger-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span></summary><p className="sr-only">{t.chartDataBelow}</p><div>{trend.map(row => <Link key={row.date} href={`/?date=${row.date}`} className="daily-record"><span>{row.date}</span><span data-long={isLongAmount(formatMyr(BigInt(row.totalSen))) || undefined}><small className="sr-only">{metricLabel}</small>{formatMyr(BigInt(row.totalSen))}<span className="daily-record-arrow" aria-hidden="true"><ActionIcon name="chevronRight" size={16} /></span></span></Link>)}</div></details>}
+        {trend.length > 0 && <details className="daily-records daily-ledger" open={trend.length <= 7}><summary><span className="daily-record-heading">{t.dailySheetsLabel}<small className="daily-record-counter" aria-label={`${trend.length} ${t.recordedDays}`}>{trend.length}{t.daysUnit}</small></span><span className="ledger-chevron" aria-hidden="true"><ActionIcon name="chevronDown" size={20} /></span></summary><p className="sr-only">{t.chartDataBelow}</p><div><div className="daily-record-columns" aria-hidden="true"><span>{t.dateLabel}</span><span>{metricLabel}</span></div>{trend.map(row => <Link key={row.date} href={`/?date=${row.date}`} className="daily-record"><span>{row.date}</span><span data-long={isLongAmount(formatMyr(BigInt(row.totalSen))) || undefined}><small className="sr-only">{metricLabel}</small>{formatMyr(BigInt(row.totalSen))}<span className="daily-record-arrow" aria-hidden="true"><ActionIcon name="chevronRight" size={16} /></span></span></Link>)}</div></details>}
         {trend.length > 0 && <section className="overview-trend panel" aria-labelledby="trend-heading">
           <div className="metric-tabs" role="tablist" aria-label={t.trendMetric}>
             {(["revenue", "cost"] as const).map(metric => <button
@@ -217,7 +215,7 @@ export function DashboardView({ tiles, activeMonth, activeTile, trend, split, co
           <section className="overview-costs panel" aria-labelledby="cost-heading"><div className="composition-heading"><h2 id="cost-heading">{t.costDistribution}</h2><strong className={`composition-total${loading ? " skeleton-value" : ""}`} data-long={isLongAmount(costTotal)||undefined}>{costTotal}</strong></div>
             {!costs.length ? <p className="empty-note">{t.noCostData}</p> : <dl className="cost-bars">{costs.map(item => <div className="cost-bar-row" key={item.cat}>
               <div className="cost-bar-values"><dt><i className="cost-bar-dot" style={{ background: `var(--cat-${item.cat})` }} aria-hidden="true" />{item.label}</dt><dd>{formatMyr(BigInt(item.amountSen))}</dd></div>
-              <div className="cost-bar-meter"><div className="cost-bar-track" aria-hidden="true"><span style={{ width: `${largestCost ? item.amountSen / largestCost * 100 : 0}%`, background: `var(--cat-${item.cat})` }} /></div><small>{item.pct}%</small></div>
+              <div className="cost-bar-meter"><div className="cost-bar-track" aria-hidden="true"><span style={{ width: `${item.pct}%`, background: `var(--cat-${item.cat})` }} /></div><small>{item.pct}%</small></div>
             </div>)}</dl>}
           </section>
         </div>}
