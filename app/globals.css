@@ -1151,7 +1151,7 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
     box-shadow: var(--shadow-float);
     font: inherit; font-size: 16px; font-weight: 500;
     overflow-y: auto; overscroll-behavior: contain;
-    scrollbar-width: thin; scrollbar-color: rgb(var(--secondary)) transparent; scrollbar-gutter: stable;
+    scrollbar-width: thin; scrollbar-color: rgb(var(--border-strong)) transparent; scrollbar-gutter: stable;
   }
   .category-select:has(option:nth-child(6))::picker(select) { min-block-size: min(316px,calc(50dvh - 36px)); }
   .category-select option {
@@ -1216,7 +1216,7 @@ html[lang="en"] .date-today-badge, html[lang="en"] .return-today { padding: 0 12
   .trend-panel .panel-heading { flex-wrap: wrap; row-gap: 4px; }
 }
 
-.month-options { scrollbar-width: thin; scrollbar-color: rgb(var(--secondary)) transparent; scrollbar-gutter: stable; }
+.month-options { scrollbar-width: thin; scrollbar-color: rgb(var(--border-strong)) transparent; scrollbar-gutter: stable; }
 .month-options [aria-selected="true"] .month-status-symbol>svg:last-of-type { stroke-width: 2; }
 .cost-delete-action { box-shadow: none; }
 .workspace-main .reconciliation-form input.money-input:placeholder-shown { font-size: 16px; line-height: 24px; }
@@ -1251,14 +1251,14 @@ p, .feedback-message { text-wrap: pretty; }
 .sheet-save-status.is-saved { color: rgb(var(--brand-dark)); background: rgb(var(--brand-light)); }
 :root[data-theme="dark"] .sheet-save-status.is-saved { color: rgb(var(--brand)); }
 :root[data-theme="dark"] .metric-tabs button[aria-selected="true"] { color: rgb(var(--brand)); border-color: rgb(var(--brand) / .5); }
-/* Chart colours: one fixed hue per cost category (never re-ordered by amount); Restock, the main cost, shares the Daily Costs trend orange. Restock, Gas and Transport (the usual trio) pass the all-pairs colour-blind check in both themes, all six clear the normal-vision floor, and every use also carries the category name. */
+/* Chart colours: one fixed hue per cost category (never re-ordered by amount); the Daily Costs trend uses a deeper orange of the same family as Restock, the main cost. Restock, Gas and Transport (the usual trio) pass the all-pairs colour-blind check in both themes, all six clear the normal-vision floor, and every use also carries the category name. */
 :root {
-  --trend-cost: #eb6834;
+  --trend-cost: #c4511c;
   --cat-restock: #eb6834; --cat-gas: #c2408f; --cat-transport: #2a78d6;
   --cat-wages-daily: #0f9a8a; --cat-maintenance: #8a6f1f; --cat-other: #5f6b76;
 }
 :root[data-theme="dark"] {
-  --trend-cost: #d95926;
+  --trend-cost: #e8743f;
   --cat-restock: #d95926; --cat-gas: #cf5aa8; --cat-transport: #3987e5;
   --cat-wages-daily: #1fa89a; --cat-maintenance: #b5a034; --cat-other: #a3adb6;
 }
@@ -1314,3 +1314,6 @@ p, .feedback-message { text-wrap: pretty; }
 @media (max-width:389px) { .revenue-donut-center strong[data-long] { font-size: 20px; } }
 /* The Daily Sheets list names its two columns above the rows. */
 .daily-record-columns { display: flex; justify-content: space-between; padding: var(--space-2) 24px var(--space-1) 0; color: rgb(var(--secondary)); font-size: 15px; line-height: 22px; border-bottom: var(--edge) solid rgb(var(--border)); }
+/* The hidden Cancel/Save row leaves a soft placeholder, so the card does not look emptied. */
+.expense-entry-card:has(.category-select:open) .entry-actions { position: relative; }
+.expense-entry-card:has(.category-select:open) .entry-actions::after { content: ""; position: absolute; inset: 0; visibility: visible; border-radius: var(--radius-control); background: rgb(var(--subtle)); }

@@ -45,4 +45,13 @@ export default async function fullMonth({ page, shot }) {
     await page.locator('.cost-bar-row').last().scrollIntoViewIfNeeded();
     await shot(`busy-month-distribution-${width}`, page, { fullPage: false });
   }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/settings');
+  await page.getByRole('radio', { name: /深色模式/ }).check();
+  await page.goto('/dashboard?month=2026-09');
+  await page.locator('[aria-busy="true"]').first().waitFor({ state: 'detached' });
+  const dots = await page.locator('.cost-bar-dot').evaluateAll(nodes => nodes.map(el => getComputedStyle(el).backgroundColor));
+  assert.equal(new Set(dots).size, 6, 'All six category colours stay distinct in dark mode');
+  await page.locator('.cost-bar-row').last().scrollIntoViewIfNeeded();
+  await shot('busy-month-distribution-dark-390', page, { fullPage: false });
 }
