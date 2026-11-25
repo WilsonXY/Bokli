@@ -5,8 +5,9 @@ const month = new Date(Date.UTC(kl.getUTCFullYear(), kl.getUTCMonth() - 1, 1)).t
 const reopenButton = (page) => page.getByRole("button", { name: "Reopen Month (Admin Only)" });
 
 export default async function flow({ page, shot, openAs }) {
+  await page.goto("/settings");
+  await page.getByRole("radio", { name: "Switch to English" }).click();
   await page.goto(`/close?month=${month}`);
-  await page.getByRole("button", { name: "Switch to English" }).click();
   // Seeded month: net profit RM305.00, all counted as cash.
   await page.getByPlaceholder("0.00").nth(0).fill("305");
   await page.getByPlaceholder("0.00").nth(1).fill("0");
@@ -24,8 +25,9 @@ export default async function flow({ page, shot, openAs }) {
   await shot("operator-closed-no-reopen");
 
   const admin = await openAs("katte");
+  await admin.goto("/settings");
+  await admin.getByRole("radio", { name: "Switch to English" }).click();
   await admin.goto(`/close?month=${month}`);
-  await admin.getByRole("button", { name: "Switch to English" }).click();
   await reopenButton(admin).click();
   await admin.getByPlaceholder("Explain why this month must be reopened").fill("Fix a typo in a sheet");
   await shot("admin-reopen-reason", admin);

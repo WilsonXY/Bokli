@@ -8,7 +8,8 @@ interface CalendarPopoverProps {
   todayKl: string; // YYYY-MM-DD
   isOpen: boolean;
   onClose: () => void;
-  onSelectDate: (date: string) => void;
+  /** Return `false` if the parent opened another modal (e.g. unsaved guard) so focus is not pulled back to the trigger. */
+  onSelectDate: (date: string) => boolean | void;
   triggerRef?: React.RefObject<HTMLElement | null>;
 }
 
@@ -20,91 +21,141 @@ export function CalendarPopover({
   onSelectDate,
   triggerRef,
 }: CalendarPopoverProps) {
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
+  const dialogRootRef = useRef<HTMLDivElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const dayRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const skipFocusRestoreRef = useRef(false);
 
-  // Parse initial year/month from date
-  const [initialYear, initialMonth] = date.split("-").map(Number);
+  const [initialYear, initialMonth, initialDay] = date.split("-").map(Number);
   const [viewYear, setViewYear] = useState<number>(initialYear || 2026);
   const [viewMonth, setViewMonth] = useState<number>(
     initialMonth !== undefined ? initialMonth - 1 : 8,
   );
+  const [activeDay, setActiveDay] = useState<number>(initialDay || 1);
 
-  // Sync viewing month when date changes or popover opens
   useEffect(() => {
     if (isOpen) {
-      const [y, m] = date.split("-").map(Number);
+      const [y, m, d] = date.split("-").map(Number);
       if (y && m) {
         setViewYear(y);
         setViewMonth(m - 1);
+        setActiveDay(d || 1);
       }
+      skipFocusRestoreRef.current = false;
     }
   }, [isOpen, date]);
 
-  // Click outside & Escape key detection
+  // Make background inert while modal dialog is open, move focus in, and restore inert + trigger focus on close
   useEffect(() => {
     if (!isOpen) return;
 
-    const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (
-        popoverRef.current &&
-        !popoverRef.current.contains(target) &&
-        (!triggerRef?.current || !triggerRef.current.contains(target))
-      ) {
-        onClose();
+    const inerted: HTMLElement[] = [];
+    const root = dialogRootRef.current;
+    const returnTrigger = triggerRef?.current ?? null;
+    if (root) {
+      for (let node: HTMLElement | null = root; node && node !== document.body; node = node.parentElement) {
+        for (const sibling of Array.from(node.parentElement?.children ?? [])) {
+          if (sibling !== node && sibling instanceof HTMLElement && !sibling.inert) {
+            sibling.inert = true;
+            inerted.push(sibling);
+          }
+        }
       }
+    }
+
+    const raf = requestAnimationFrame(() => {
+      const selectedBtn = popoverRef.current?.querySelector<HTMLButtonElement>(
+        `button[aria-label="${date}"]:not(:disabled)`
+      );
+      const firstEnabled = popoverRef.current?.querySelector<HTMLButtonElement>(
+        "button:not(:disabled)"
+      );
+      (selectedBtn ?? firstEnabled)?.focus();
+    });
+
+    return () => {
+      cancelAnimationFrame(raf);
+      for (const el of inerted) el.inert = false;
+      if (!skipFocusRestoreRef.current) {
+        returnTrigger?.focus();
+      }
+      skipFocusRestoreRef.current = false;
     };
+  }, [isOpen, date, triggerRef]);
+
+  useEffect(() => {
+    if (!isOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        e.preventDefault();
         onClose();
+        return;
+      }
+      if (e.key === "Tab" && popoverRef.current) {
+        const focusables = Array.from(
+          popoverRef.current.querySelectorAll<HTMLElement>(
+            'button:not(:disabled):not([tabindex="-1"])'
+          )
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement;
+        const outside = !popoverRef.current.contains(active);
+        if (e.shiftKey && (active === first || outside)) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && (active === last || outside)) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isOpen, onClose, triggerRef]);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
-  // Month navigation
+  const [todayY, todayM, todayD] = todayKl.split("-").map(Number);
+
+  const clampActiveDayForMonth = (year: number, monthIdx: number, preferredDay: number) => {
+    const maxInMonth = new Date(year, monthIdx + 1, 0).getDate();
+    const isCurrentKlMonth = year === todayY && monthIdx === todayM - 1;
+    const upperBound = isCurrentKlMonth ? Math.min(maxInMonth, todayD || maxInMonth) : maxInMonth;
+    return Math.max(1, Math.min(preferredDay, upperBound));
+  };
+
   const prevMonth = () => {
-    if (viewMonth === 0) {
-      setViewYear((y) => y - 1);
-      setViewMonth(11);
-    } else {
-      setViewMonth((m) => m - 1);
-    }
+    const nextY = viewMonth === 0 ? viewYear - 1 : viewYear;
+    const nextM = viewMonth === 0 ? 11 : viewMonth - 1;
+    setViewYear(nextY);
+    setViewMonth(nextM);
+    setActiveDay((prev) => clampActiveDayForMonth(nextY, nextM, prev));
   };
 
   const nextMonth = () => {
-    // Prevent navigating past the current month in KL
-    const [todayY, todayM] = todayKl.split("-").map(Number);
     if (viewYear > todayY || (viewYear === todayY && viewMonth >= todayM - 1)) {
       return;
     }
-    if (viewMonth === 11) {
-      setViewYear((y) => y + 1);
-      setViewMonth(0);
-    } else {
-      setViewMonth((m) => m + 1);
-    }
+    const nextY = viewMonth === 11 ? viewYear + 1 : viewYear;
+    const nextM = viewMonth === 11 ? 0 : viewMonth + 1;
+    setViewYear(nextY);
+    setViewMonth(nextM);
+    setActiveDay((prev) => clampActiveDayForMonth(nextY, nextM, prev));
   };
 
-  const [todayY, todayM] = todayKl.split("-").map(Number);
   const canGoNextMonth =
     viewYear < todayY || (viewYear === todayY && viewMonth < todayM - 1);
 
-  // Days in month calculation
   const totalDays = new Date(viewYear, viewMonth + 1, 0).getDate();
   const firstDaySundayBased = new Date(viewYear, viewMonth, 1).getDay();
-  // Monday based offset: 0=Monday, 6=Sunday
   const startDayOffset = (firstDaySundayBased + 6) % 7;
 
   const weekHeadersZh = ["一", "二", "三", "四", "五", "六", "日"];
@@ -119,98 +170,142 @@ export function CalendarPopover({
           year: "numeric",
         });
 
+  const effectiveTabDay = clampActiveDayForMonth(viewYear, viewMonth, activeDay);
+
+  const handleDayKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, dayIdx: number) => {
+    let delta = 0;
+    if (e.key === "ArrowLeft") delta = -1;
+    else if (e.key === "ArrowRight") delta = 1;
+    else if (e.key === "ArrowUp") delta = -7;
+    else if (e.key === "ArrowDown") delta = 7;
+    if (delta === 0) return;
+    e.preventDefault();
+    const nextIdx = dayIdx + delta;
+    if (nextIdx >= 0 && nextIdx < totalDays) {
+      const target = dayRefs.current[nextIdx];
+      if (target && !target.disabled) {
+        setActiveDay(nextIdx + 1);
+        target.focus();
+      }
+    }
+  };
+
   return (
-    <div
-      ref={popoverRef}
-      className="absolute top-full mt-2 left-1/2 z-50 bg-white border border-surface-border rounded-2xl shadow-xl p-3.5 w-72 max-w-[calc(100vw-2rem)] select-none animate-popover"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Date Picker"
-    >
-      {/* Month & Year Navigation Header */}
-      <div className="flex items-center justify-between mb-2.5 px-0.5">
-        <button
-          type="button"
-          onClick={prevMonth}
-          aria-label="Previous Month"
-          className="w-9 h-9 rounded-lg border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary flex items-center justify-center text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+    <div ref={dialogRootRef}>
+      {/* Backdrop sits above mobile bottom nav (z-40) so outside taps only dismiss the calendar */}
+      <div
+        aria-hidden="true"
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose();
+        }}
+        className="fixed inset-0 z-[45] bg-black/30 sm:bg-transparent"
+      />
+
+      {/* Static positioning wrapper (never shares element with transform animation; >=48px day cells at >=360px, max width at 320px) */}
+      <div className="fixed inset-x-0.5 min-[375px]:inset-x-1 bottom-[calc(var(--mobile-nav-height)+0.5rem)] sm:absolute sm:inset-x-auto sm:bottom-auto sm:top-full sm:mt-2.5 sm:right-0 sm:left-auto z-50 w-auto sm:w-[396px] max-w-[396px] sm:max-w-[calc(100vw-2rem)] mx-auto">
+        <div
+          ref={popoverRef}
+          className="bg-surface border border-surface-border rounded-2xl shadow-popover px-1 py-2.5 min-[375px]:px-1.5 min-[375px]:py-3 sm:p-3.5 select-none animate-slide-down"
+          role="dialog"
+          aria-modal="true"
+          aria-label={t.datePickerLabel}
         >
-          <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-
-        <span className="text-sm font-bold text-ink-primary">
-          {monthTitle}
-        </span>
-
-        <button
-          type="button"
-          disabled={!canGoNextMonth}
-          onClick={nextMonth}
-          aria-label="Next Month"
-          className="w-9 h-9 rounded-lg border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary flex items-center justify-center text-sm font-semibold transition-colors disabled:opacity-20 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
-        >
-          <svg aria-hidden="true" className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Weekday Headers */}
-      <div className="grid grid-cols-7 gap-1 text-center mb-1">
-        {weekHeaders.map((w) => (
-          <span
-            key={w}
-            className="text-[13px] font-semibold text-ink-muted h-5 flex items-center justify-center"
-          >
-            {w}
-          </span>
-        ))}
-      </div>
-
-      {/* Calendar Grid */}
-      <div className="grid grid-cols-7 gap-1 text-center">
-        {/* Empty slots before month start */}
-        {Array.from({ length: startDayOffset }).map((_, i) => (
-          <div key={`empty-${i}`} className="h-7" />
-        ))}
-
-        {/* Month Day Cells */}
-        {Array.from({ length: totalDays }).map((_, i) => {
-          const day = i + 1;
-          const dayStr = String(day).padStart(2, "0");
-          const monthStr = String(viewMonth + 1).padStart(2, "0");
-          const cellDate = `${viewYear}-${monthStr}-${dayStr}`;
-
-          const isSelected = cellDate === date;
-          const isToday = cellDate === todayKl;
-          const isFuture = cellDate > todayKl;
-
-          return (
+          {/* Month & Year Navigation Header */}
+          <div className="flex items-center justify-between px-1 mb-2">
             <button
-              key={cellDate}
               type="button"
-              disabled={isFuture}
-              onClick={() => {
-                onSelectDate(cellDate);
-                onClose();
-              }}
-              aria-label={cellDate}
-              className={`h-8 w-8 mx-auto rounded-lg btn-wave text-sm font-medium flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 ${
-                isSelected
-                  ? "bg-brand-broccoli text-white font-bold shadow-xs scale-105"
-                  : isFuture
-                    ? "text-ink-muted/30 cursor-not-allowed"
-                    : isToday
-                      ? "border border-brand-broccoli text-brand-broccoli font-bold hover:bg-brand-broccoli-light"
-                      : "text-ink-primary hover:bg-surface-subtle"
-              }`}
+              onClick={prevMonth}
+              aria-label={t.prevMonthLabel}
+              className="w-12 h-12 rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
             >
-              {day}
+              <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
             </button>
-          );
-        })}
+
+            <span className="text-sm font-bold text-ink-primary tracking-tight">
+              {monthTitle}
+            </span>
+
+            <button
+              type="button"
+              disabled={!canGoNextMonth}
+              onClick={nextMonth}
+              aria-label={t.nextMonthLabel}
+              className="w-12 h-12 rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary flex items-center justify-center transition-colors disabled:opacity-25 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+            >
+              <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Weekday Headers */}
+          <div className="grid grid-cols-7 gap-px min-[375px]:gap-0.5 sm:gap-1 text-center mb-1">
+            {weekHeaders.map((w) => (
+              <span
+                key={w}
+                className="text-xs font-semibold text-ink-muted h-7 flex items-center justify-center"
+              >
+                {w}
+              </span>
+            ))}
+          </div>
+
+          {/* Calendar Grid — Single Tab stop via roving tabIndex + Arrow-key grid navigation */}
+          <div className="grid grid-cols-7 gap-px min-[375px]:gap-0.5 sm:gap-1 text-center">
+            {Array.from({ length: startDayOffset }).map((_, i) => (
+              <div key={`empty-${i}`} className="h-12" />
+            ))}
+
+            {Array.from({ length: totalDays }).map((_, i) => {
+              const day = i + 1;
+              const dayStr = String(day).padStart(2, "0");
+              const monthStr = String(viewMonth + 1).padStart(2, "0");
+              const cellDate = `${viewYear}-${monthStr}-${dayStr}`;
+
+              const isSelected = cellDate === date;
+              const isToday = cellDate === todayKl;
+              const isFuture = cellDate > todayKl;
+              const isTabStop = !isFuture && day === effectiveTabDay;
+
+              return (
+                <button
+                  key={cellDate}
+                  ref={(el) => {
+                    dayRefs.current[i] = el;
+                  }}
+                  type="button"
+                  disabled={isFuture}
+                  tabIndex={isTabStop ? 0 : -1}
+                  aria-pressed={isSelected}
+                  onFocus={() => setActiveDay(day)}
+                  onClick={() => {
+                    const handoff = onSelectDate(cellDate);
+                    if (handoff === false) {
+                      skipFocusRestoreRef.current = true;
+                    }
+                    onClose();
+                  }}
+                  onKeyDown={(e) => handleDayKeyDown(e, i)}
+                  aria-label={cellDate}
+                  className={`h-12 w-full rounded-xl text-sm font-medium num-tabular flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli ${
+                    isSelected
+                      ? "bg-brand-cta text-brand-cta-ink font-bold shadow-card"
+                      : isFuture
+                        ? "text-ink-muted/30 cursor-not-allowed"
+                        : isToday
+                          ? "border border-brand-broccoli text-brand-broccoli font-bold hover:bg-brand-broccoli-light cursor-pointer"
+                          : "text-ink-primary hover:bg-surface-subtle cursor-pointer"
+                  }`}
+                >
+                  {day}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

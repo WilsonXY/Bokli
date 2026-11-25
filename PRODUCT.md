@@ -31,7 +31,7 @@ Used primarily on mobile devices inside bright, fast-paced food stall environmen
 ## Brand Commitments
 - **Name**: Bokli (簿里 — literally "inside the ledger").
 - **Mascot**: The friendly green broccoli emblem (🥦), representing fresh ingredients and business vitality.
-- **Strict Light Mode**: Glare-resistant light canvas for kitchen and outdoor stall readability.
+- **Bright Mode Default (+ Dark Mode in Settings)**: Glare-resistant warm paper light canvas by default for kitchen and outdoor stall readability, with a Dark Mode and Language toggle in Settings (`/settings`).
 - **Semantic Financial Colors**: Cash Emerald (#059669), TnG Royal Blue (#2563eb), Cost Amber (#d97706), Profit Forest Green (#16a34a), and Loss Crimson (#dc2626).
 
 ## Evidence on Hand

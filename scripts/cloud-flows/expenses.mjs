@@ -18,8 +18,9 @@ const expectStored = async (page, want) => {
 };
 
 export default async function flow({ page, shot }) {
+  await page.goto("/settings");
+  await page.getByRole("radio", { name: "Switch to English" }).click();
   await page.goto(`/expenses?month=${month}`);
-  await page.getByRole("button", { name: "Switch to English" }).click();
 
   // Double click on Save.
   await (await draft(page, "Utilities", "12.34")).dblclick();

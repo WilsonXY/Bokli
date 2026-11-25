@@ -2,10 +2,18 @@
 
 import React, { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { amountSizeClass, formatMyr, sanitizeMoneyInput, tryParseSen } from "@/lib/money";
+import { amountSizeClass, sanitizeMoneyInput, tryParseSen } from "@/lib/money";
 import { apiFetch } from "@/lib/cloud-client";
 import { useI18n, translateApiError, apiErrorPayloadFrom } from "@/lib/i18n";
+import { useUnsavedGuard } from "@/lib/unsaved-guard";
 import { CalendarPopover } from "@/components/CalendarPopover";
+import { MoneyValue, formatDisplayMyr } from "@/components/MoneyValue";
+import {
+  COST_CATEGORY_TOKENS,
+  CashIcon,
+  CostCategoryIcon,
+  TngIcon,
+} from "@/components/BokliIcons";
 import { isOtherNoteMissing, type CostCategory } from "@/lib/vocab";
 import {
   CostLineAmountOverflowError,
@@ -34,8 +42,6 @@ export interface DailySheetFormProps {
   initialCostLines: CostLineItem[];
   isClosed: boolean;
   todayKl: string;
-  // The saved Daily Sheet for `date`, or null if none (gates the delete-sheet
-  // button; the delete sends it so the server can refuse if it changed since)
   savedSheet?: { id: number; updatedAt: string } | null;
   initialCashInput?: string;
   initialTngInput?: string;
@@ -45,7 +51,6 @@ export interface DailySheetFormProps {
   initialExpandedIndex?: number | null;
 }
 
-// How long the save-success banner stays visible before it auto-dismisses.
 const SUCCESS_BANNER_MS = 3500;
 
 export function normalizeNote(note?: unknown): string {
@@ -55,18 +60,12 @@ export function normalizeNote(note?: unknown): string {
   return note.trim();
 }
 
-// Save-gate helper: index of the first "other"-category line missing its
-// required note, or -1. Used by handleSave to block the request client-side.
 export function findMissingOtherNoteIndex(
   lines: Pick<CostLineItem, "category" | "note">[]
 ): number {
-  return lines.findIndex(
-    (line) => isOtherNoteMissing(line.category, line.note)
-  );
+  return lines.findIndex((line) => isOtherNoteMissing(line.category, line.note));
 }
 
-// Save-gate helper: index of the first cost line with zero or non-positive amount,
-// or -1. Used to block save and display inline invalid-amount error under that row.
 export function findZeroCostLineIndex(
   lines: Pick<CostLineItem, "amountSen">[]
 ): number {
@@ -105,9 +104,6 @@ function extractCostLineIds(line: CostLineItem): number[] {
   ];
 }
 
-// Folds a merged group back into one form row: first-seen category/note/position,
-// exact summed amount, every underlying id once (so deleting the row drops the
-// whole group), and the first clientId that exists.
 function toMergedCostLine(group: CostLineGroup<CostLineItem>): CostLineItem {
   const first = group.members[0];
   const ids: number[] = [];
@@ -126,11 +122,6 @@ function toMergedCostLine(group: CostLineGroup<CostLineItem>): CostLineItem {
   };
 }
 
-// Merges the draft by the shared Cost Line identity (groupCostLines). Rows with
-// amount <= 0 are unsaved drafts: they are never merged and keep their position,
-// so the save gate can flag them. A row that is not merged is returned as the
-// same object, so its in-progress input is untouched. Throws
-// CostLineAmountOverflowError (index into `lines`) instead of clamping.
 export function consolidateCostLines(lines: CostLineItem[]): CostLineItem[] {
   const positiveIdx: number[] = [];
   lines.forEach((line, i) => {
@@ -157,7 +148,7 @@ export function consolidateCostLines(lines: CostLineItem[]): CostLineItem[] {
       return;
     }
     const group = groupAt.get(i);
-    if (!group) return; // merged into an earlier row
+    if (!group) return;
     result.push(group.members.length === 1 ? line : toMergedCostLine(group));
   });
   return result;
@@ -174,15 +165,10 @@ function normalizeLoadedCostLine(line: CostLineItem): CostLineItem {
   };
 }
 
-// Load path (server props / save response): normalizes each row (trimmed note,
-// id folded into ids, amountInput derived) and then applies the same merge.
 export function mergeCostLines(lines: CostLineItem[]): CostLineItem[] {
   return consolidateCostLines(lines.map(normalizeLoadedCostLine));
 }
 
-// Non-throwing consolidate for draft paths (add, expand, save): on overflow
-// the draft is kept exactly as-is (never merged, never clamped) and the index of
-// the row that could not be merged is reported; the save gate then blocks it.
 export function tryConsolidateCostLines(lines: CostLineItem[]): {
   lines: CostLineItem[];
   overflowIndex: number | null;
@@ -197,9 +183,6 @@ export function tryConsolidateCostLines(lines: CostLineItem[]): {
   }
 }
 
-// Save-gate helper: consolidates the draft and returns the index of the first
-// row that blocks saving on its amount (a merge that would overflow, or an
-// unsaved <= 0 draft), or null.
 export function consolidateCostLinesForSave(lines: CostLineItem[]): {
   lines: CostLineItem[];
   amountErrorIndex: number | null;
@@ -216,11 +199,8 @@ export function createNewCostLine(
   costLines: CostLineItem[],
   newLineFactory?: () => CostLineItem
 ): { lines: CostLineItem[]; expandedIndex: number } {
-  // (1) consolidate existing lines (kept unmerged if a merge would overflow)
   const consolidated = tryConsolidateCostLines(costLines).lines;
-  // (2) REMOVE any cost line with amountSen <= 0 (the unfilled one)
   const filledOnly = consolidated.filter((line) => line.amountSen > 0);
-  // (3) append one fresh empty row and expand it
   const newLine: CostLineItem = newLineFactory
     ? newLineFactory()
     : {
@@ -309,7 +289,6 @@ export function toggleCostLineExpansion(
 
   const { lines: consolidated, overflowIndex } = tryConsolidateCostLines(lines);
   if (overflowIndex !== null) {
-    // Merging would overflow: leave the draft untouched and just toggle.
     return {
       lines,
       expandedIndex: currentExpandedIndex === clickedIndex ? null : clickedIndex,
@@ -368,17 +347,8 @@ export function toggleCostLineExpansion(
   };
 }
 
-// Fields of the visible draft that the in-flight rebase tracks independently.
 export type DraftField = "cash" | "tng" | "costLines";
 
-// Rebase helper (local-first draft + authoritative baseline). After a save
-// returns, the server snapshot is authoritative for the *baseline*, but it must
-// never overwrite cost lines the Operator edited while the request was still in
-// flight — mom's typing wins. An untouched draft takes the saved rows verbatim;
-// a touched draft keeps every local row exactly as typed and only adopts the
-// saved row ids where the content still matches, so the baseline diff flags
-// precisely the rows she changed mid-flight and the next save re-sends the
-// merged draft.
 export function rebaseCostLinesAfterSave(
   localLines: CostLineItem[],
   savedLines: CostLineItem[],
@@ -396,7 +366,6 @@ export function rebaseCostLinesAfterSave(
         normalizeNote(saved.note) === normalizeNote(line.note)
     );
     if (matchIdx === -1) {
-      // Edited during the flight: keep her value, untouched by the snapshot.
       return line;
     }
     claimed.add(matchIdx);
@@ -404,15 +373,20 @@ export function rebaseCostLinesAfterSave(
   });
 }
 
-// The delete-sheet modal may only open while no other confirmation is open:
-// the save and Cost Line delete confirmations render later at the same z-50,
-// so they would sit visibly on top while the delete-sheet modal's inert/focus
-// trap made the hidden delete the one a keyboard confirm acts on.
 export function canOpenDeleteSheetModal(open: {
   showConfirmModal: boolean;
   pendingDeleteIndex: number | null;
 }): boolean {
   return !open.showConfirmModal && open.pendingDeleteIndex === null;
+}
+
+function formatWeekday(dateStr: string, lang: "zh" | "en"): string {
+  const parts = dateStr.split("-").map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return "";
+  const dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+  const zhDays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+  const enDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return lang === "zh" ? zhDays[dt.getUTCDay()] : enDays[dt.getUTCDay()];
 }
 
 export function DailySheetForm({
@@ -433,7 +407,7 @@ export function DailySheetForm({
 }: DailySheetFormProps) {
   const router = useRouter();
   const refresh = onRefresh ?? (() => router.refresh());
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [, startTransition] = useTransition();
 
   const categories: Array<{
@@ -448,30 +422,22 @@ export function DailySheetForm({
     { key: "other", label: t.catOther },
   ];
 
-  // Calendar popover toggle state & trigger ref
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const dateBtnRef = useRef<HTMLButtonElement>(null);
 
-  // Revenue inputs state
   const initCashStr = initialCashInput !== undefined ? initialCashInput : senToDecimalStr(initialCashSen);
   const initTngStr = initialTngInput !== undefined ? initialTngInput : senToDecimalStr(initialTngSen);
   const [cashInput, setCashInput] = useState(initCashStr);
   const [tngInput, setTngInput] = useState(initTngStr);
 
-  // Cost lines state - merged on frontend if same category and same note
   const [costLines, setCostLines] = useState<CostLineItem[]>(() =>
     mergeCostLines(initialCostLines)
   );
 
-  // Feedback states
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
   const [showDeleteSheetModal, setShowDeleteSheetModal] = useState(false);
   const [deletingSheet, setDeletingSheet] = useState(false);
-  // The delete-sheet modal's own error, apart from the shared errorMessage: the
-  // router.refresh() after a refused (409) delete takes the prop-sync full-reset
-  // branch, which clears errorMessage, and the Operator would lose the only sign
-  // that nothing was deleted. Cleared only when she reopens or retries.
   const [deleteSheetError, setDeleteSheetError] = useState<string | null>(null);
   const [savedSheet, setSavedSheet] = useState(initialSavedSheet);
   const savedSheetId = initialSavedSheet?.id ?? null;
@@ -482,28 +448,19 @@ export function DailySheetForm({
         ? { id: savedSheetId, updatedAt: savedSheetUpdatedAt }
         : null,
     );
-    // Nothing left to delete (e.g. removed elsewhere): drop a stale modal
     if (savedSheetId === null) setShowDeleteSheetModal(false);
   }, [savedSheetId, savedSheetUpdatedAt]);
   const sheetExists = savedSheet !== null;
   const deleteSheetBtnRef = useRef<HTMLButtonElement>(null);
   const deleteSheetModalRef = useRef<HTMLDivElement>(null);
 
-  // One in-flight mutation at a time: a save may not start while a delete is
-  // pending (it would recreate the day being deleted), nor a delete during a
-  // save. A ref, not state, so a second call in the same tick is also refused.
   const mutationInFlightRef = useRef<"save" | "delete" | null>(null);
 
-  // The delete-sheet modal is truly modal: everything outside it is inert, Tab
-  // and Shift+Tab cycle between its buttons, and focus returns to the
-  // delete-sheet button when it closes.
   useEffect(() => {
     if (!showDeleteSheetModal) return;
     const modal = deleteSheetModalRef.current;
     if (!modal) return;
 
-    // Inert every sibling on the path from the modal up to <body>: the form,
-    // the sticky bar and the app's nav all leave the focus and click order.
     const inerted: HTMLElement[] = [];
     for (let node: HTMLElement | null = modal; node && node !== document.body; node = node.parentElement) {
       for (const sibling of Array.from(node.parentElement?.children ?? [])) {
@@ -546,10 +503,9 @@ export function DailySheetForm({
       returnFocusTo?.focus();
     };
   }, [showDeleteSheetModal]);
+
   const [expandedIndex, setExpandedIndex] = useState<number | null>(() => {
-    if (initialExpandedIndex !== undefined) {
-      return initialExpandedIndex;
-    }
+    if (initialExpandedIndex !== undefined) return initialExpandedIndex;
     if (initialCostAmountErrorIndex !== null && initialCostAmountErrorIndex !== undefined) {
       return initialCostAmountErrorIndex;
     }
@@ -561,7 +517,70 @@ export function DailySheetForm({
     return zeroIdx !== -1 ? zeroIdx : (merged.length === 1 ? 0 : null);
   });
 
-  // Close modals on Escape key
+  const [pendingNavigation, setPendingNavigation] = useState<{
+    href: string;
+    historyDelta?: number;
+    returnFocusTo: HTMLElement | null;
+  } | null>(null);
+  const discardModalRef = useRef<HTMLDivElement | null>(null);
+  const { registerGuard, proceedHistoryNavigation } = useUnsavedGuard();
+
+  // Focus Keep Editing, make background inert, trap Tab, and restore focus on Discard modal cancel
+  useEffect(() => {
+    if (!pendingNavigation) return;
+    const modal = discardModalRef.current;
+    if (!modal) return;
+
+    const inerted: HTMLElement[] = [];
+    for (let node: HTMLElement | null = modal; node && node !== document.body; node = node.parentElement) {
+      for (const sibling of Array.from(node.parentElement?.children ?? [])) {
+        if (sibling !== node && sibling instanceof HTMLElement && !sibling.inert) {
+          sibling.inert = true;
+          inerted.push(sibling);
+        }
+      }
+    }
+
+    const focusableInModal = () =>
+      Array.from(modal.querySelectorAll<HTMLElement>("button:not(:disabled)"));
+    focusableInModal()[0]?.focus();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setPendingNavigation(null);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const focusable = focusableInModal();
+      if (focusable.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      const outside = !modal.contains(active);
+      if (e.shiftKey && (active === first || outside)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (active === last || outside)) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+
+    const returnFocusTo = pendingNavigation.returnFocusTo;
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      for (const el of inerted) el.inert = false;
+      if (returnFocusTo && document.contains(returnFocusTo)) {
+        returnFocusTo.focus();
+      }
+    };
+  }, [pendingNavigation]);
+
   useEffect(() => {
     if (!showConfirmModal && pendingDeleteIndex === null && !showDeleteSheetModal) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -574,13 +593,11 @@ export function DailySheetForm({
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [showConfirmModal, pendingDeleteIndex, showDeleteSheetModal, deletingSheet]);
+
   const [errorMessage, setErrorMessage] = useState<string | null>(initialErrorMessage);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  // The success banner is owned by a single timer. Every show/dismiss cancels the
-  // pending expiry first, so a timeout armed by an earlier save can never wipe a
-  // banner raised by a later one (two saves inside SUCCESS_BANNER_MS).
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const expandedEditorRef = useRef<HTMLDivElement | null>(null);
 
   function clearSuccessTimer() {
     if (successTimerRef.current !== null) {
@@ -589,8 +606,6 @@ export function DailySheetForm({
     }
   }
 
-  // Banner-only: deliberately touches no draft state, so dismissing it while a
-  // save is in flight cannot disturb the operator's in-flight edits.
   function dismissSuccessMessage() {
     clearSuccessTimer();
     setSuccessMessage(null);
@@ -605,7 +620,6 @@ export function DailySheetForm({
     }, SUCCESS_BANNER_MS);
   }
 
-  // Drop a pending expiry when the form unmounts
   useEffect(() => {
     return () => {
       if (successTimerRef.current !== null) {
@@ -613,53 +627,39 @@ export function DailySheetForm({
       }
     };
   }, []);
+
   const [noteErrorIndex, setNoteErrorIndex] = useState<number | null>(initialNoteErrorIndex);
   const [costAmountErrorIndex, setCostAmountErrorIndex] = useState<number | null>(initialCostAmountErrorIndex);
   const noteErrorRef = useRef<HTMLInputElement | null>(null);
   const costAmountErrorRef = useRef<HTMLInputElement | null>(null);
 
-  // Focus the offending note input when the save gate flags a missing note
   useEffect(() => {
     if (noteErrorIndex !== null) {
       noteErrorRef.current?.focus();
     }
   }, [noteErrorIndex]);
 
-  // Focus the offending amount input when the save gate flags a zero cost line
   useEffect(() => {
     if (costAmountErrorIndex !== null) {
       costAmountErrorRef.current?.focus();
     }
   }, [costAmountErrorIndex]);
-  const [saving, setSaving] = useState(false);
 
-  // Draft fields the Operator touched after the save request left the browser.
-  // Inputs are disabled while `saving`, but a keystroke can still land in the
-  // same tick (queued event, IME commit, paste) and the confirm/delete handlers
-  // stay live, so this set — not the disabled attribute — is what guarantees no
-  // keystroke is lost. Non-null only while a save is in flight.
+  const [saving, setSaving] = useState(false);
   const touchedDuringSaveRef = useRef<Set<DraftField> | null>(null);
+  const draftEverTouchedRef = useRef(false);
 
   function markTouchedDuringSave(field: DraftField) {
     touchedDuringSaveRef.current?.add(field);
     draftEverTouchedRef.current = true;
   }
 
-  // Sticky "she touched the draft at some point" flag for the prop-sync gate
-  // below: isModified alone misses a mid-flight keystroke that lands the draft
-  // back on the baseline (e.g. retyped "12.50" over "12.5" — same sen, so
-  // isModified is false), and the full-reset branch would then wipe the
-  // retyped formatting. Cleared only by explicit date navigation.
-  const draftEverTouchedRef = useRef(false);
-
-  // Baseline state representing the saved/initial state for the selected date
   const [baseline, setBaseline] = useState(() => ({
     cashInput: initCashStr,
     tngInput: initTngStr,
     costLines: mergeCostLines(initialCostLines),
   }));
 
-  // Check if current form inputs differ from baseline
   const isModified = useMemo(() => {
     if (cashInput.trim() !== baseline.cashInput.trim()) return true;
     if (tngInput.trim() !== baseline.tngInput.trim()) return true;
@@ -681,8 +681,6 @@ export function DailySheetForm({
     return false;
   }, [cashInput, tngInput, costLines, baseline]);
 
-  // Mirror the dirty flag into a ref so the prop-sync effect can consult it
-  // without re-running (and resetting the form) on every keystroke.
   const isModifiedRef = useRef(isModified);
   useEffect(() => {
     isModifiedRef.current = isModified;
@@ -690,7 +688,6 @@ export function DailySheetForm({
 
   const prevDateRef = useRef(date);
 
-  // Update form inputs when selected date or initial data changes
   useEffect(() => {
     const cashStr = initialCashInput !== undefined ? initialCashInput : senToDecimalStr(initialCashSen);
     const tngStr = initialTngInput !== undefined ? initialTngInput : senToDecimalStr(initialTngSen);
@@ -698,10 +695,6 @@ export function DailySheetForm({
     const dateChanged = prevDateRef.current !== date;
     prevDateRef.current = date;
 
-    // Same rebase invariant as handleSave: the router.refresh() fired after a
-    // save re-delivers the server props, and that snapshot may not overwrite a
-    // draft the Operator has already touched. Take it as the authoritative
-    // baseline only. Switching date is explicit navigation, so it still reloads.
     if (!dateChanged && (isModifiedRef.current || draftEverTouchedRef.current)) {
       setBaseline({
         cashInput: cashStr,
@@ -725,7 +718,6 @@ export function DailySheetForm({
     setErrorMessage(null);
   }, [date, initialCashSen, initialTngSen, initialCashInput, initialTngInput, initialCostLines]);
 
-  // Revert modifications back to baseline
   function handleRevert() {
     setCashInput(baseline.cashInput);
     setTngInput(baseline.tngInput);
@@ -755,7 +747,6 @@ export function DailySheetForm({
   const grossProfitSen =
     totalRevenueSen !== null ? totalRevenueSen - totalCostSen : null;
 
-  // Delete-sheet snapshot: the saved figures (baseline), i.e. what is destroyed
   const savedRevenueSen =
     (tryParseSen(baseline.cashInput) ?? 0n) + (tryParseSen(baseline.tngInput) ?? 0n);
   const savedCostSen = baseline.costLines.reduce(
@@ -763,7 +754,6 @@ export function DailySheetForm({
     0n,
   );
 
-  // Create and expand a new empty cost line with stable clientId
   function handleCreateNewCostLine() {
     if (isClosed) return;
     markTouchedDuringSave("costLines");
@@ -772,13 +762,15 @@ export function DailySheetForm({
     const result = createNewCostLine(costLines);
     setCostLines(result.lines);
     setExpandedIndex(result.expandedIndex);
+    requestAnimationFrame(() => {
+      expandedEditorRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    });
   }
 
-  // Update a specific cost line in place
-  function handleUpdateCostLine(
-    index: number,
-    patch: Partial<CostLineItem>
-  ) {
+  function handleUpdateCostLine(index: number, patch: Partial<CostLineItem>) {
     markTouchedDuringSave("costLines");
     if (
       (patch.note !== undefined && index === noteErrorIndex) ||
@@ -799,7 +791,6 @@ export function DailySheetForm({
     );
   }
 
-  // Remove Cost Line
   function handleRemoveCostLine(index: number) {
     if (isClosed) return;
     markTouchedDuringSave("costLines");
@@ -816,7 +807,6 @@ export function DailySheetForm({
 
   function handleToggleCostLine(index: number) {
     if (isClosed) return;
-    // Expanding also consolidates rows, so it counts as touching the draft.
     markTouchedDuringSave("costLines");
     const result = toggleCostLineExpansion(costLines, index, expandedIndex, {
       noteErrorIndex,
@@ -828,9 +818,6 @@ export function DailySheetForm({
     setCostAmountErrorIndex(result.costAmountErrorIndex);
   }
 
-
-
-  // Save full sheet
   async function handleSave() {
     if (saving || mutationInFlightRef.current !== null) return;
     if (isClosed) return;
@@ -856,7 +843,6 @@ export function DailySheetForm({
       setExpandedIndex(missingNoteIdx);
       setNoteErrorIndex(missingNoteIdx);
       setErrorMessage(null);
-      // Re-focus even if the same line was already flagged (effect won't refire)
       requestAnimationFrame(() => noteErrorRef.current?.focus());
       return;
     }
@@ -864,7 +850,6 @@ export function DailySheetForm({
     setErrorMessage(null);
     dismissSuccessMessage();
 
-    // Open the touched-fields window for the duration of the flight.
     touchedDuringSaveRef.current = new Set<DraftField>();
     mutationInFlightRef.current = "save";
     setSaving(true);
@@ -906,27 +891,17 @@ export function DailySheetForm({
         const savedCash = senToDecimalStr(Number(data.sheet.cashSen));
         const savedTng = senToDecimalStr(Number(data.sheet.tngSen));
 
-        // Cross-date guard: if she navigated to another date while the save
-        // was in flight, the navigation effect already reloaded this form for
-        // the new date — writing the old date's snapshot here would pollute
-        // the new date's baseline and draft.
         const navigatedAwayNow = prevDateRef.current !== savedDate;
         navigatedAway = navigatedAwayNow;
 
         const touched = touchedDuringSaveRef.current ?? new Set<DraftField>();
 
-        // The baseline always takes the server snapshot: it stays the
-        // authoritative reference for conflict detection and the
-        // unsaved-changes affordance.
         if (!navigatedAway) setBaseline({
           cashInput: savedCash,
           tngInput: savedTng,
           costLines: savedCostLines,
         });
 
-        // The visible draft only rebases onto fields she did NOT touch during
-        // the flight. Anything typed mid-flight survives verbatim and shows up
-        // as unsaved, so the next save re-sends the merged draft.
         if (!navigatedAway) {
           if (!touched.has("cash")) setCashInput(savedCash);
           if (!touched.has("tng")) setTngInput(savedTng);
@@ -954,7 +929,6 @@ export function DailySheetForm({
     }
   }
 
-  // Delete the whole Daily Sheet for this date, then reset to a clean empty day
   async function handleDeleteSheet() {
     if (deletingSheet || isClosed || !savedSheet) return;
     if (mutationInFlightRef.current !== null) return;
@@ -966,8 +940,6 @@ export function DailySheetForm({
     let navigatedAway = false;
 
     try {
-      // The confirmed record's identity: the server refuses (409 sheetChanged)
-      // if the stored sheet was changed or replaced since this snapshot loaded.
       const params = new URLSearchParams({
         date,
         id: String(savedSheet.id),
@@ -981,8 +953,6 @@ export function DailySheetForm({
         throw Object.assign(new Error(data.error ?? ""), { code: data.code });
       }
 
-      // Cross-date guard, same as handleSave: if she navigated to another date
-      // while the delete was in flight, the form already holds the new date.
       const navigatedAwayNow = prevDateRef.current !== savedDate;
       navigatedAway = navigatedAwayNow;
 
@@ -1003,8 +973,6 @@ export function DailySheetForm({
         refresh();
       });
     } catch (err) {
-      // Failure keeps the modal open with the error shown, so she can retry or
-      // cancel. On a conflict, reload so the modal shows the current figures.
       setDeleteSheetError(translateApiError(apiErrorPayloadFrom(err), t));
       if ((err as { code?: string }).code === "sheetChanged") {
         startTransition(() => {
@@ -1017,97 +985,226 @@ export function DailySheetForm({
     }
   }
 
-  // Navigation between dates
-  function navigateDate(offsetDays: number) {
+  const isToday = date === todayKl;
+  const isTodayRef = useRef(isToday);
+  useEffect(() => {
+    isTodayRef.current = isToday;
+  }, [isToday]);
+
+  // Guard persistent nav links, browser Back/Forward (popstate), and document unload when draft has unsaved edits
+  useEffect(() => {
+    return registerGuard({
+      isDirty: (targetHref) => {
+        if (!isModifiedRef.current) return false;
+        // Tapping the already-active Daily Sheet tab (`/`) while already on today is a no-op
+        if (targetHref === "/" && isTodayRef.current) return false;
+        return true;
+      },
+      onRequestLeave: ({ href, historyDelta, triggerEl }) => {
+        setPendingNavigation({
+          href,
+          historyDelta,
+          returnFocusTo:
+            triggerEl ??
+            (document.activeElement instanceof HTMLElement ? document.activeElement : null),
+        });
+      },
+    });
+  }, [registerGuard]);
+
+  useEffect(() => {
+    if (!isModified) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isModified]);
+
+  function requestNavigateToDate(targetDate: string, triggerEl?: HTMLElement | null): boolean {
+    if (targetDate === date) return true;
+    if (isModified) {
+      setPendingNavigation({
+        href: `/?date=${targetDate}`,
+        returnFocusTo:
+          triggerEl ??
+          (document.activeElement instanceof HTMLElement ? document.activeElement : dateBtnRef.current),
+      });
+      return false;
+    }
+    router.push(`/?date=${targetDate}`);
+    return true;
+  }
+
+  function navigateDate(offsetDays: number, triggerEl?: HTMLElement | null) {
     const current = new Date(`${date}T00:00:00Z`);
     current.setUTCDate(current.getUTCDate() + offsetDays);
     const targetDate = current.toISOString().slice(0, 10);
-    router.push(`/?date=${targetDate}`);
+    requestNavigateToDate(targetDate, triggerEl);
   }
 
-  const isToday = date === todayKl;
   const canGoNext = date < todayKl;
+  const weekday = formatWeekday(date, lang);
 
   const getCategoryLabel = (key: string) => {
     const found = categories.find((c) => c.key === key);
     return found ? found.label : key;
   };
 
+  function handleSaveTrigger() {
+    if (hasParseError || cashSen === null || tngSen === null) {
+      setErrorMessage(t.invalidAmount);
+      return;
+    }
+    if (hasZeroCostLine) {
+      const zeroIdx = findZeroCostLineIndex(costLines);
+      if (zeroIdx !== -1) {
+        setExpandedIndex(zeroIdx);
+        setCostAmountErrorIndex(zeroIdx);
+        setNoteErrorIndex(null);
+        setErrorMessage(null);
+        requestAnimationFrame(() => costAmountErrorRef.current?.focus());
+        return;
+      }
+    }
+    setCostAmountErrorIndex(null);
+    setExpandedIndex(null);
+    setShowConfirmModal(true);
+  }
+
+  const sheetStatusBadge = isModified
+    ? {
+        label: t.unsavedChanges,
+        className: "bg-finance-cost-light text-finance-cost border-finance-cost/30",
+      }
+    : sheetExists
+    ? {
+        label: t.savedState,
+        className: "bg-finance-profit-light text-finance-profit border-finance-profit-border",
+      }
+    : {
+        label: t.newSheetState,
+        className: "bg-surface-subtle text-ink-muted border-surface-border",
+      };
+
+  const saveIsPrimary = !sheetExists || isModified;
+  const isNeutralZeroPreview =
+    !sheetExists && !isModified && totalRevenueSen === 0n && totalCostSen === 0n;
+
   return (
-    <div className="space-y-4">
-      {/* Date Bar with Calendar Toggle Popover & Lock Notice */}
-      <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs flex flex-col gap-2.5">
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => navigateDate(-1)}
-            aria-label={t.prevDay}
-            title={t.prevDay}
-            className="w-11 h-11 shrink-0 rounded-lg border border-surface-border hover:bg-surface-subtle btn-wave text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors sm:w-auto sm:px-3.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
-          >
-            <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            <span className="hidden sm:inline whitespace-nowrap">{t.prevDay}</span>
-          </button>
-
-          {/* Toggleable Date Button with Calendar Popover */}
-          <div className="relative min-w-0">
-            <button
-              ref={dateBtnRef}
-              type="button"
-              onClick={() => setIsCalendarOpen((prev) => !prev)}
-              aria-expanded={isCalendarOpen}
-              aria-haspopup="dialog"
-              className="relative text-center group cursor-pointer px-2 py-1 rounded-lg hover:bg-surface-subtle transition-colors focus:outline-none max-w-full"
-              title="点击打开/关闭日历 (Click to toggle calendar)"
-            >
-              <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
-                <span className="text-base font-bold text-ink-primary group-hover:text-brand-broccoli transition-colors">
-                  {date}
+    <div className="space-y-3 sm:space-y-5 pb-28 lg:pb-0">
+      {/* Consistent Page Header + Compact Date Toolbar (Status pill always visible even at 320px) */}
+      <div className="space-y-2.5 sm:space-y-3">
+        <div className="flex flex-col gap-2.5 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center justify-between sm:justify-start gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-ink-primary tracking-tight whitespace-nowrap">
+                {t.dailySheetTitle}
+              </h1>
+              {isToday ? (
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-brand-broccoli-light font-semibold text-brand-broccoli border border-brand-broccoli/20 whitespace-nowrap shrink-0">
+                  {t.today}
                 </span>
-                {isToday && (
-                  <span className="text-[13px] px-2 py-0.5 rounded bg-brand-broccoli-light font-semibold text-brand-broccoli">
-                    {t.today}
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => requestNavigateToDate(todayKl)}
+                  aria-label={t.jumpToToday}
+                  className="group inline-flex items-center min-h-[48px] sm:min-h-[34px] -my-2.5 sm:my-0 focus:outline-none cursor-pointer shrink-0"
+                >
+                  <span className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full bg-brand-broccoli-light text-brand-broccoli border border-brand-broccoli/20 group-hover:bg-brand-broccoli/15 group-focus-visible:ring-2 group-focus-visible:ring-brand-broccoli text-xs font-semibold transition-colors whitespace-nowrap">
+                    <span aria-hidden="true" className="sm:hidden">↺</span>
+                    <span className="sm:hidden">{t.jumpToTodayShort}</span>
+                    <span className="hidden sm:inline">{t.jumpToToday}</span>
                   </span>
+                </button>
+              )}
+            </div>
+            {!isClosed && (
+              <span
+                className={`lg:hidden text-[11px] font-semibold px-2.5 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${sheetStatusBadge.className}`}
+              >
+                {isModified ? (
+                  <>
+                    <span className="sm:hidden">{t.unsavedShort}</span>
+                    <span className="hidden sm:inline">{sheetStatusBadge.label}</span>
+                  </>
+                ) : (
+                  sheetStatusBadge.label
                 )}
-              </div>
-              <p className="text-[13px] text-ink-muted">
-                {t.klTime}
-              </p>
-            </button>
-
-            {/* Calendar Popover */}
-            <CalendarPopover
-              date={date}
-              todayKl={todayKl}
-              isOpen={isCalendarOpen}
-              triggerRef={dateBtnRef}
-              onClose={() => setIsCalendarOpen(false)}
-              onSelectDate={(newDate) => {
-                router.push(`/?date=${newDate}`);
-              }}
-            />
+              </span>
+            )}
           </div>
 
-          <button
-            type="button"
-            disabled={!canGoNext}
-            onClick={() => navigateDate(1)}
-            aria-label={t.nextDay}
-            title={t.nextDay}
-            className="w-11 h-11 shrink-0 rounded-lg border border-surface-border hover:bg-surface-subtle btn-wave text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors disabled:opacity-30 disabled:pointer-events-none sm:w-auto sm:px-3.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
-          >
-            <span className="hidden sm:inline whitespace-nowrap">{t.nextDay}</span>
-            <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+          {/* Compact Date Stepper with 48px mobile tap targets */}
+          <div className="inline-flex items-center justify-between sm:justify-end gap-1 bg-surface border border-surface-border rounded-xl p-0.5 sm:p-1 shadow-card">
+            <button
+              type="button"
+              onClick={() => navigateDate(-1)}
+              aria-label={t.prevDay}
+              title={t.prevDay}
+              className="w-12 h-12 sm:w-10 sm:h-10 shrink-0 rounded-lg hover:bg-surface-subtle btn-tactile text-ink-secondary hover:text-ink-primary flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+            >
+              <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+
+            {/* Date Display + Calendar Popover Trigger */}
+            <div className="relative flex items-center justify-center min-w-0">
+              <button
+                ref={dateBtnRef}
+                type="button"
+                onClick={() => setIsCalendarOpen((prev) => !prev)}
+                aria-expanded={isCalendarOpen}
+                aria-haspopup="dialog"
+                className="group cursor-pointer h-12 sm:h-10 px-2 sm:px-3 rounded-lg hover:bg-surface-subtle transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli flex items-center gap-1.5 sm:gap-2 whitespace-nowrap"
+                title="点击打开/关闭日历 (Click to toggle calendar)"
+              >
+                <svg aria-hidden="true" className="w-4 h-4 text-ink-muted group-hover:text-brand-broccoli transition-colors shrink-0" fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                </svg>
+                <span className="text-sm sm:text-base font-bold text-ink-primary group-hover:text-brand-broccoli transition-colors num-tabular">
+                  {date}
+                </span>
+                {weekday && (
+                  <span className="text-xs font-medium text-ink-muted">
+                    {weekday}
+                  </span>
+                )}
+              </button>
+
+              <CalendarPopover
+                date={date}
+                todayKl={todayKl}
+                isOpen={isCalendarOpen}
+                triggerRef={dateBtnRef}
+                onClose={() => setIsCalendarOpen(false)}
+                onSelectDate={(newDate) => {
+                  return requestNavigateToDate(newDate, dateBtnRef.current);
+                }}
+              />
+            </div>
+
+            <button
+              type="button"
+              disabled={!canGoNext}
+              onClick={() => navigateDate(1)}
+              aria-label={t.nextDay}
+              title={t.nextDay}
+              className="w-12 h-12 sm:w-10 sm:h-10 shrink-0 rounded-lg hover:bg-surface-subtle btn-tactile text-ink-secondary hover:text-ink-primary flex items-center justify-center disabled:opacity-30 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+            >
+              <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {isClosed && (
-          <div className="py-2 px-3 rounded-lg bg-status-closed-bg/60 border border-status-closed/20 flex items-center gap-2 text-sm font-medium text-status-closed">
-            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <div className="py-2.5 px-4 rounded-xl bg-status-closed-bg border border-status-closed/20 flex items-center gap-2 text-sm font-semibold text-status-closed">
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
             <span>{t.monthLocked}</span>
@@ -1115,225 +1212,257 @@ export function DailySheetForm({
         )}
       </div>
 
-      {/* Section 1: Revenue Entry */}
-      <section aria-label="Revenue Entry" className="space-y-2">
-        <div className="flex items-center justify-between px-0.5">
-          <h2 className="text-base font-bold text-ink-secondary uppercase tracking-wider">
-            {t.revenueTitle}
-          </h2>
-          <span className="text-sm font-medium text-ink-muted">
-            {t.totalRevenue}: <span className="font-semibold text-ink-primary">{totalRevenueSen !== null ? formatMyr(totalRevenueSen) : "—"}</span>
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {/* Cash Revenue Card */}
-          <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-cash transition-all">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <span className="w-2 h-2 rounded-full bg-channel-cash inline-block shrink-0" />
-              <label
-                htmlFor="cash-input"
-                className="text-sm font-semibold text-ink-primary"
-              >
-                {t.cashRevenue}
-              </label>
-            </div>
-
-            <div className="relative flex items-center">
-              <span className="absolute left-2.5 text-sm font-bold text-channel-cash select-none">
-                RM
+      {/* Main Responsive 2-Column Workspace (lg:grid-rows-[auto_1fr] keeps Delete directly under Day Summary) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-[auto_1fr] gap-4 sm:gap-5 items-start">
+        {/* Left Column: Revenue Entry & Daily Costs */}
+        <div className="lg:col-span-7 lg:row-span-2 space-y-3.5 sm:space-y-5">
+          {/* Section 1: Revenue Entry Card (compact on 320px so full 48px Add Cost Line clears dock on first paint) */}
+          <section aria-label="Revenue Entry" className="bg-surface border border-surface-border rounded-2xl p-3.5 sm:p-6 shadow-card space-y-2.5 sm:space-y-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <h2 className="text-base font-bold text-ink-primary whitespace-nowrap">
+                {t.revenueTitle}
+              </h2>
+              <span className="text-xs sm:text-sm font-medium text-ink-muted num-tabular whitespace-nowrap">
+                {t.totalRevenue}:{" "}
+                <span className="font-bold text-ink-primary">
+                  {totalRevenueSen !== null ? <MoneyValue sen={totalRevenueSen} /> : "—"}
+                </span>
               </span>
-              <input
-                id="cash-input"
-                type="text"
-                inputMode="decimal"
-                disabled={isClosed || saving}
-                value={cashInput}
-                onChange={(e) => {
-                  const sanitized = sanitizeMoneyInput(e.target.value);
-                  if (sanitized !== null) {
-                    markTouchedDuringSave("cash");
-                    setCashInput(sanitized);
-                    if (errorMessage) setErrorMessage(null);
-                    if (successMessage) dismissSuccessMessage();
-                  }
-                }}
-                placeholder="0.00"
-                className={`w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
-                  cashError ? "border-finance-loss" : "border-surface-border"
-                } text-lg font-bold text-ink-primary focus:outline-none focus:bg-white ${
-                  cashError
-                    ? "focus:border-finance-loss focus-visible:ring-finance-loss/50"
-                    : "focus:border-channel-cash focus-visible:ring-channel-cash/50"
-                } focus-visible:ring-2 disabled:opacity-60 transition-colors`}
-              />
             </div>
-            {cashError && (
-              <div className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
-                <span>{t.invalidAmount}</span>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              {/* Cash Revenue Input */}
+              <div>
+                <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
+                  <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-channel-cash-light text-channel-cash flex items-center justify-center shrink-0">
+                    <CashIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </span>
+                  <label htmlFor="cash-input" className="text-sm font-semibold text-ink-primary">
+                    {t.cashRevenue}
+                  </label>
+                </div>
+
+                <div className="relative flex items-center">
+                  <span className="absolute left-3.5 text-sm font-bold text-channel-cash select-none">
+                    RM
+                  </span>
+                  <input
+                    id="cash-input"
+                    type="text"
+                    inputMode="decimal"
+                    disabled={isClosed || saving}
+                    value={cashInput}
+                    onChange={(e) => {
+                      const sanitized = sanitizeMoneyInput(e.target.value);
+                      if (sanitized !== null) {
+                        markTouchedDuringSave("cash");
+                        setCashInput(sanitized);
+                        if (errorMessage) setErrorMessage(null);
+                        if (successMessage) dismissSuccessMessage();
+                      }
+                    }}
+                    placeholder="0.00"
+                    className={`w-full h-12 sm:h-14 pl-11 pr-3.5 rounded-xl bg-surface-input border ${
+                      cashError ? "border-finance-loss" : "border-surface-border-strong"
+                    } text-lg sm:text-xl font-bold text-ink-primary num-tabular focus:outline-none focus:bg-surface ${
+                      cashError
+                        ? "focus:border-finance-loss focus-visible:ring-finance-loss/40"
+                        : "focus:border-channel-cash focus-visible:ring-channel-cash/30"
+                    } focus-visible:ring-2 disabled:opacity-60 transition-colors`}
+                  />
+                </div>
+                {cashError && (
+                  <div role="alert" className="mt-1.5 py-1.5 px-3 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium">
+                    <span>{t.invalidAmount}</span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
 
-          {/* TnG Revenue Card */}
-          <div className="bg-white border border-surface-border rounded-xl p-3 shadow-xs focus-within:border-channel-tng transition-all">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <span className="w-2 h-2 rounded-full bg-channel-tng inline-block shrink-0" />
-              <label
-                htmlFor="tng-input"
-                className="text-sm font-semibold text-ink-primary"
-              >
-                {t.tngRevenue}
-              </label>
-            </div>
+              {/* TnG Revenue Input */}
+              <div>
+                <div className="flex items-center gap-2 mb-1.5 sm:mb-2">
+                  <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-channel-tng-light text-channel-tng flex items-center justify-center shrink-0">
+                    <TngIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  </span>
+                  <label htmlFor="tng-input" className="text-sm font-semibold text-ink-primary">
+                    {t.tngRevenue}
+                  </label>
+                </div>
 
-            <div className="relative flex items-center">
-              <span className="absolute left-2.5 text-sm font-bold text-channel-tng select-none">
-                RM
-              </span>
-              <input
-                id="tng-input"
-                type="text"
-                inputMode="decimal"
-                disabled={isClosed || saving}
-                value={tngInput}
-                onChange={(e) => {
-                  const sanitized = sanitizeMoneyInput(e.target.value);
-                  if (sanitized !== null) {
-                    markTouchedDuringSave("tng");
-                    setTngInput(sanitized);
-                    if (errorMessage) setErrorMessage(null);
-                    if (successMessage) dismissSuccessMessage();
-                  }
-                }}
-                placeholder="0.00"
-                className={`w-full h-12 pl-9 pr-2.5 rounded-lg bg-surface-canvas border ${
-                  tngError ? "border-finance-loss" : "border-surface-border"
-                } text-lg font-bold text-ink-primary focus:outline-none focus:bg-white ${
-                  tngError
-                    ? "focus:border-finance-loss focus-visible:ring-finance-loss/50"
-                    : "focus:border-channel-tng focus-visible:ring-channel-tng/50"
-                } focus-visible:ring-2 disabled:opacity-60 transition-colors`}
-              />
-            </div>
-            {tngError && (
-              <div className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium flex items-center justify-between">
-                <span>{t.invalidAmount}</span>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3.5 text-sm font-bold text-channel-tng select-none">
+                    RM
+                  </span>
+                  <input
+                    id="tng-input"
+                    type="text"
+                    inputMode="decimal"
+                    disabled={isClosed || saving}
+                    value={tngInput}
+                    onChange={(e) => {
+                      const sanitized = sanitizeMoneyInput(e.target.value);
+                      if (sanitized !== null) {
+                        markTouchedDuringSave("tng");
+                        setTngInput(sanitized);
+                        if (errorMessage) setErrorMessage(null);
+                        if (successMessage) dismissSuccessMessage();
+                      }
+                    }}
+                    placeholder="0.00"
+                    className={`w-full h-12 sm:h-14 pl-11 pr-3.5 rounded-xl bg-surface-input border ${
+                      tngError ? "border-finance-loss" : "border-surface-border-strong"
+                    } text-lg sm:text-xl font-bold text-ink-primary num-tabular focus:outline-none focus:bg-surface ${
+                      tngError
+                        ? "focus:border-finance-loss focus-visible:ring-finance-loss/40"
+                        : "focus:border-channel-tng focus-visible:ring-channel-tng/30"
+                    } focus-visible:ring-2 disabled:opacity-60 transition-colors`}
+                  />
+                </div>
+                {tngError && (
+                  <div role="alert" className="mt-1.5 py-1.5 px-3 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium">
+                    <span>{t.invalidAmount}</span>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
-      </section>
+            </div>
+          </section>
 
-      {/* Section 2: Itemized Daily Costs */}
-      <section aria-label="Daily Costs Entry" className="space-y-2.5">
-        <div className="pt-2 pb-0.5" aria-hidden="true">
-          <hr className="border-t border-surface-border" />
-        </div>
-        <div className="flex items-center justify-between px-0.5">
-          <h2 className="text-base font-bold text-ink-secondary uppercase tracking-wider">
-            {t.costsTitle}
-          </h2>
-          <span className="sr-only">{t.costCategory}</span>
-          <span className="text-sm font-medium text-ink-muted">
-            {t.totalCosts}: <span className="font-semibold text-ink-primary">{formatMyr(totalCostSen)}</span>
-          </span>
-        </div>
+          {/* Section 2: Daily Costs Card (48px Add Cost Line button right in header — stays on 1 row even at 320px) */}
+          <section aria-label="Daily Costs Entry" className="bg-surface border border-surface-border rounded-2xl shadow-card overflow-hidden">
+            <div className="px-3.5 py-3 sm:px-6 sm:py-4 border-b border-surface-border flex items-center justify-between gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-baseline gap-0 sm:gap-2.5 min-w-0">
+                <h2 className="text-base font-bold text-ink-primary whitespace-nowrap">
+                  {t.costsTitle}
+                </h2>
+                <span className="sr-only">{t.costCategory}</span>
+                <span className="text-sm font-bold text-ink-secondary num-tabular whitespace-nowrap">
+                  <MoneyValue sen={totalCostSen} />
+                </span>
+              </div>
 
-        {/* Dynamic Cost Lines (Each line has its own summary + form) */}
-        {costLines.length > 0 && (
-          <div className="space-y-2">
-            {costLines.map((line, idx) => {
-              const isExpanded = expandedIndex === idx;
-              return (
-                <div
-                  key={getCostLineKey(line, idx)}
-                  className={`bg-white border rounded-xl shadow-xs transition-all overflow-hidden ${
-                        isExpanded
-                          ? "border-brand-broccoli ring-2 ring-brand-broccoli/20"
-                          : "border-surface-border hover:border-slate-300"
+              {!isClosed && (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={handleCreateNewCostLine}
+                  className="min-h-[48px] h-12 px-3 sm:px-4 rounded-xl bg-brand-broccoli-light hover:bg-brand-broccoli/15 border border-brand-broccoli/25 text-brand-broccoli font-semibold text-sm btn-tactile inline-flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50 whitespace-nowrap shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli"
+                >
+                  <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                  <span>{t.addCostLine}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Cost Lines List — Separate accessible expand & 48px delete targets, unified category icons */}
+            {costLines.length > 0 ? (
+              <div className="divide-y divide-surface-border">
+                {costLines.map((line, idx) => {
+                  const isExpanded = expandedIndex === idx;
+                  const token = COST_CATEGORY_TOKENS[line.category];
+                  const catLabel = getCategoryLabel(line.category);
+                  return (
+                    <div
+                      key={getCostLineKey(line, idx)}
+                      className={`transition-colors ${
+                        isExpanded ? "bg-surface-subtle/35" : "bg-surface"
                       }`}
                     >
-                  {/* Summary Row */}
-                      <div
-                        onClick={() => {
-                          if (isClosed) return;
-                          handleToggleCostLine(idx);
-                        }}
-                        role="button"
-                        tabIndex={isClosed ? -1 : 0}
-                        aria-expanded={isExpanded}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            if (!isClosed) handleToggleCostLine(idx);
-                          }
-                        }}
-                        className={`w-full px-4 py-3 flex items-center justify-between gap-2 select-none bg-white transition-colors ${
-                          isClosed ? "cursor-default" : "cursor-pointer hover:bg-surface-subtle/50"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-5 h-5 flex items-center justify-center text-slate-400 shrink-0">
-                            <svg
-                              className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""}`}
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2.5"
-                              viewBox="0 0 24 24"
+                      {/* Summary Row: Two Sibling Buttons (No Nested Interactive Controls) */}
+                      <div className="flex items-center">
+                        <button
+                          type="button"
+                          disabled={isClosed}
+                          onClick={() => {
+                            if (isClosed) return;
+                            handleToggleCostLine(idx);
+                          }}
+                          aria-expanded={isExpanded}
+                          className={`flex-1 min-w-0 min-h-[60px] pl-5 sm:pl-6 pr-2 py-3 flex items-center justify-between gap-3 text-left select-none transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-broccoli ${
+                            isClosed ? "cursor-default" : "cursor-pointer hover:bg-surface-subtle/50"
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <span
+                              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                              style={{
+                                backgroundColor: token.softVar,
+                                color: token.colorVar,
+                              }}
+                              aria-hidden="true"
                             >
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                            </svg>
-                          </div>
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded bg-surface-subtle border border-surface-border text-ink-secondary whitespace-nowrap">
-                            {getCategoryLabel(line.category)}
-                          </span>
-                          {line.note && (
-                            <span className="text-sm text-ink-primary font-medium truncate">
-                              {line.note}
+                              <CostCategoryIcon category={line.category} className="w-4 h-4" />
                             </span>
-                          )}
-                        </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-ink-primary truncate">
+                                {catLabel}
+                              </div>
+                              {line.note && (
+                                <span className="block text-xs text-ink-muted truncate mt-0.5">
+                                  {line.note}
+                                </span>
+                              )}
+                            </div>
+                          </div>
 
-                        <div className="flex items-center gap-2.5 shrink-0">
-                          <span
-                            className={`${amountSizeClass(
-                              formatMyr(BigInt(line.amountSen)),
-                              "text-xs",
-                              "text-base"
-                            )} font-bold text-slate-700 tabular-nums whitespace-nowrap`}
-                          >
-                            {formatMyr(BigInt(line.amountSen))}
-                          </span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span
+                              className={`${amountSizeClass(
+                                formatDisplayMyr(BigInt(line.amountSen)),
+                                "text-xs",
+                                "text-base"
+                              )} font-bold text-ink-primary whitespace-nowrap`}
+                            >
+                              <MoneyValue sen={BigInt(line.amountSen)} />
+                            </span>
 
-                          {!isClosed && (
+                            {!isClosed && (
+                              <svg
+                                aria-hidden="true"
+                                className={`w-4 h-4 text-ink-muted transition-transform duration-150 shrink-0 ${
+                                  isExpanded ? "rotate-180 text-brand-broccoli" : ""
+                                }`}
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                              </svg>
+                            )}
+                          </div>
+                        </button>
+
+                        {!isClosed && (
+                          <div className="pr-3 sm:pr-4 shrink-0">
                             <button
                               type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPendingDeleteIndex(idx);
-                              }}
+                              onClick={() => setPendingDeleteIndex(idx)}
                               aria-label={t.delete}
-                              title={t.delete}
-                              className="w-9 h-9 rounded-lg hover:bg-finance-loss-light text-ink-muted hover:text-finance-loss flex items-center justify-center text-xs transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+                              title={`${t.delete} ${catLabel}`}
+                              className="w-12 h-12 rounded-xl hover:bg-finance-loss-light text-ink-muted hover:text-finance-loss flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                               </svg>
                             </button>
-                          )}
-                        </div>
+                          </div>
+                        )}
                       </div>
 
-                  {/* Expanded Form Body */}
+                      {/* Expanded Editor */}
                       {isExpanded && !isClosed && (
-                        <div className="p-4 border-t border-surface-border bg-surface-canvas/30 space-y-3">
-                          {/* Category Selection */}
+                        <div
+                          ref={expandedEditorRef}
+                          className="px-5 sm:px-6 pb-5 pt-3 border-t border-surface-border/70 space-y-4 scroll-mb-40"
+                        >
+                          {/* Category Pills */}
                           <div>
-                            <span className="block text-xs font-semibold text-ink-secondary mb-2">
+                            <span className="block text-xs font-semibold text-ink-muted mb-2">
                               {t.costCategory ?? t.selectCategory}
                             </span>
-                            <div className="flex flex-wrap gap-1.5">
+                            <div className="flex flex-wrap gap-2">
                               {categories.map((cat) => {
                                 const isSelected = line.category === cat.key;
                                 return (
@@ -1342,10 +1471,10 @@ export function DailySheetForm({
                                     type="button"
                                     disabled={isClosed || saving}
                                     onClick={() => handleUpdateCostLine(idx, { category: cat.key })}
-                                    className={`min-h-[44px] px-3.5 py-2 rounded-lg text-sm font-semibold border btn-wave transition-colors select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 disabled:opacity-50 ${
+                                    className={`min-h-[48px] sm:min-h-[44px] px-3.5 py-2 rounded-xl text-sm font-semibold border btn-tactile select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli disabled:opacity-50 cursor-pointer ${
                                       isSelected
-                                        ? "bg-brand-broccoli text-white border-brand-broccoli shadow-xs"
-                                        : "bg-surface-canvas border-surface-border text-ink-secondary hover:border-ink-muted hover:text-ink-primary"
+                                        ? "bg-brand-cta text-brand-cta-ink border-brand-cta shadow-card"
+                                        : "bg-surface border-surface-border text-ink-secondary hover:border-surface-border-strong hover:text-ink-primary"
                                     }`}
                                   >
                                     {cat.label}
@@ -1356,16 +1485,17 @@ export function DailySheetForm({
                           </div>
 
                           {/* Amount & Note Inputs */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <div>
-                              <label className="block text-xs font-semibold text-ink-secondary mb-1">
+                              <label htmlFor={`cost-amount-input-${idx}`} className="block text-xs font-semibold text-ink-secondary mb-1.5">
                                 {t.amount}
                               </label>
                               <div className="relative flex items-center">
-                                <span className="absolute left-3 text-sm font-bold text-ink-muted select-none">
+                                <span className="absolute left-3.5 text-sm font-bold text-ink-muted select-none">
                                   RM
                                 </span>
                                 <input
+                                  id={`cost-amount-input-${idx}`}
                                   type="text"
                                   inputMode="decimal"
                                   disabled={isClosed || saving}
@@ -1385,10 +1515,10 @@ export function DailySheetForm({
                                   }}
                                   onFocus={() => setExpandedIndex(idx)}
                                   placeholder="0.00"
-                                  className={`w-full h-11 pl-10 pr-2.5 rounded-lg bg-surface-canvas border text-base font-semibold text-ink-primary tabular-nums focus:outline-none focus:bg-white focus-visible:ring-2 transition-colors ${
+                                  className={`w-full h-12 pl-11 pr-3 rounded-xl bg-surface-input border text-base font-bold text-ink-primary num-tabular focus:outline-none focus:bg-surface focus-visible:ring-2 transition-colors ${
                                     idx === costAmountErrorIndex
-                                      ? "border-finance-loss focus:border-finance-loss focus-visible:ring-finance-loss/50"
-                                      : "border-surface-border focus:border-ink-primary focus-visible:ring-brand-broccoli/50"
+                                      ? "border-finance-loss focus:border-finance-loss focus-visible:ring-finance-loss/40"
+                                      : "border-surface-border-strong focus:border-brand-broccoli focus-visible:ring-brand-broccoli/30"
                                   }`}
                                 />
                               </div>
@@ -1396,7 +1526,7 @@ export function DailySheetForm({
                                 <div
                                   id={`cost-amount-error-${idx}`}
                                   role="alert"
-                                  className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-medium flex items-center justify-between"
+                                  className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-medium"
                                 >
                                   <span>{t.invalidAmount}</span>
                                 </div>
@@ -1404,10 +1534,11 @@ export function DailySheetForm({
                             </div>
 
                             <div>
-                              <label className="block text-xs font-semibold text-ink-secondary mb-1">
+                              <label htmlFor={`cost-note-input-${idx}`} className="block text-xs font-semibold text-ink-secondary mb-1.5">
                                 {t.note} {line.category === "other" && <span className="text-finance-loss">*</span>}
                               </label>
                               <input
+                                id={`cost-note-input-${idx}`}
                                 type="text"
                                 disabled={isClosed || saving}
                                 value={line.note ?? ""}
@@ -1419,16 +1550,16 @@ export function DailySheetForm({
                                 }}
                                 onFocus={() => setExpandedIndex(idx)}
                                 placeholder={line.category === "other" ? t.noteRequired : t.noteOptional}
-                                className={`w-full h-11 px-3 rounded-lg bg-surface-canvas border text-sm text-ink-primary focus:outline-none focus:bg-white focus-visible:ring-2 focus-visible:ring-brand-broccoli/50 transition-colors ${
+                                className={`w-full h-12 px-3.5 rounded-xl bg-surface-input border text-sm text-ink-primary focus:outline-none focus:bg-surface focus-visible:ring-2 transition-colors ${
                                   idx === noteErrorIndex
-                                    ? "border-finance-loss focus:border-finance-loss"
-                                    : "border-surface-border focus:border-ink-primary"
+                                    ? "border-finance-loss focus:border-finance-loss focus-visible:ring-finance-loss/40"
+                                    : "border-surface-border-strong focus:border-brand-broccoli focus-visible:ring-brand-broccoli/30"
                                 }`}
                               />
                               {idx === noteErrorIndex && (
                                 <p
                                   id={`other-note-error-${idx}`}
-                                  className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-medium flex items-center justify-between"
+                                  className="mt-1.5 py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-medium"
                                   role="alert"
                                 >
                                   <span>{t.otherNoteRequired}</span>
@@ -1439,197 +1570,204 @@ export function DailySheetForm({
                         </div>
                       )}
                     </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Standalone Clickable "+ Add Cost" Button at bottom */}
-        {!isClosed && (
-          <button
-            type="button"
-            disabled={saving}
-            onClick={handleCreateNewCostLine}
-            className="relative w-full min-h-[60px] py-3 px-4 rounded-xl bg-emerald-50/40 hover:bg-emerald-50/80 flex items-center justify-center gap-2 text-sm font-bold text-brand-broccoli transition-all shadow-xs select-none active:scale-[0.99] cursor-pointer group overflow-hidden disabled:opacity-50"
-          >
-            <svg
-              className="absolute inset-0 w-full h-full pointer-events-none rounded-xl"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <rect
-                x="1"
-                y="1"
-                width="calc(100% - 2px)"
-                height="calc(100% - 2px)"
-                rx="11"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeDasharray="8 5"
-                className="text-emerald-400/90 group-hover:text-brand-broccoli transition-colors"
-              />
-            </svg>
-            <span className="text-lg leading-none relative z-10">+</span>
-            <span className="relative z-10">{t.addCostLine}</span>
-          </button>
-        )}
-        <div className="pt-2 pb-0.5" aria-hidden="true">
-          <hr className="border-t border-surface-border" />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="px-5 py-6 text-center text-sm text-ink-muted">
+                {t.noCostsRecorded}
+              </div>
+            )}
+          </section>
         </div>
-      </section>
 
-      {/* Sticky Bottom Action Bar & Notifications */}
-      <div className="sticky bottom-16 z-30 space-y-2">
+        {/* Fixed Bottom Summary & Save Dock on Mobile/Tablet (< lg), Sticky Sidebar Card on Desktop (lg+) */}
+        <div className="fixed bottom-[var(--mobile-nav-height)] left-0 right-0 z-30 lg:sticky lg:top-8 lg:bottom-auto lg:left-auto lg:right-auto lg:col-span-5 lg:col-start-8 space-y-2.5">
             {errorMessage && (
-              <div className="py-2.5 px-3.5 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-md animate-slide-down">
-                <div className="flex items-center gap-2 min-w-0">
-                  <svg className="w-4 h-4 shrink-0 text-finance-loss" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <span className="truncate">{errorMessage}</span>
+              <div role="alert" className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-0">
+                <div className="py-2.5 px-4 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between shadow-card animate-slide-down">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <svg className="w-4 h-4 shrink-0 text-finance-loss" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span className="truncate">{errorMessage}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setErrorMessage(null)}
+                    className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss w-7 h-7 flex items-center justify-center rounded-lg shrink-0 cursor-pointer"
+                    aria-label="Close"
+                  >
+                    ✕
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setErrorMessage(null)}
-                  className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss w-7 h-7 flex items-center justify-center rounded-md shrink-0"
-                  aria-label="Close"
-                >
-                  ✕
-                </button>
               </div>
             )}
 
             {successMessage && (
-              <div className="py-2.5 px-3.5 rounded-xl bg-brand-broccoli-light border border-brand-broccoli/30 text-sm text-brand-broccoli font-bold flex items-center justify-between shadow-md animate-slide-down">
-                <div className="flex items-center gap-2 min-w-0">
-                  <svg className="w-4 h-4 shrink-0 text-brand-broccoli" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span className="truncate">{successMessage}</span>
+              <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-0">
+                <div className="py-2.5 px-4 rounded-xl bg-brand-broccoli-light border border-brand-broccoli/30 text-sm text-brand-broccoli font-semibold flex items-center justify-between shadow-card animate-slide-down">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <svg className="w-4 h-4 shrink-0 text-brand-broccoli" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="truncate">{successMessage}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={dismissSuccessMessage}
+                    className="text-xs font-bold ml-2 text-ink-muted hover:text-brand-broccoli w-7 h-7 flex items-center justify-center rounded-lg shrink-0 cursor-pointer"
+                    aria-label="Close"
+                  >
+                    ✕
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={dismissSuccessMessage}
-                  className="text-xs font-bold ml-2 text-ink-muted hover:text-brand-broccoli w-7 h-7 flex items-center justify-center rounded-md shrink-0"
-                  aria-label="Close"
-                >
-                  ✕
-                </button>
               </div>
             )}
 
-            <div className="bg-white/95 backdrop-blur-md border border-surface-border rounded-xl p-3 shadow-sm flex items-center justify-between gap-3">
-              <div>
-                <div className="text-[13px] text-ink-muted font-medium">
-                  {t.grossProfit}
+            <div className="bg-surface border-t border-surface-border lg:border lg:rounded-2xl shadow-[0_-4px_14px_rgba(22,22,20,0.08)] lg:shadow-card">
+              <div className="max-w-5xl mx-auto px-4 sm:px-6 py-2.5 lg:p-5 space-y-4">
+                {/* Desktop Equation Breakdown */}
+                <div className="hidden lg:block space-y-2.5 pb-4 border-b border-surface-border">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-bold text-ink-primary">
+                      {t.daySummaryTitle}
+                    </span>
+                    {!isClosed && (
+                      <span
+                        className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${sheetStatusBadge.className}`}
+                      >
+                        {sheetStatusBadge.label}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-ink-muted">{t.totalRevenue}</span>
+                    <span className="font-semibold text-ink-primary num-tabular">
+                      {totalRevenueSen !== null ? <MoneyValue sen={totalRevenueSen} /> : "—"}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-ink-muted">{t.totalCosts}</span>
+                    <span className="font-semibold text-ink-secondary num-tabular">
+                      {totalCostSen > 0n ? "\u2212" : ""}
+                      <MoneyValue sen={totalCostSen} />
+                    </span>
+                  </div>
                 </div>
-                <div
-                  className={`${amountSizeClass(
-                    grossProfitSen !== null ? formatMyr(grossProfitSen) : "—",
-                    "text-base",
-                    "text-xl"
-                  )} font-bold ${
-                    grossProfitSen !== null && grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
-                  }`}
-                >
-                  {grossProfitSen !== null ? formatMyr(grossProfitSen) : "—"}
+
+                {/* Day Result + Scrolled Unsaved Indicator + 48px Undo & Save CTAs */}
+                <div className="flex lg:flex-col items-center lg:items-stretch justify-between gap-2.5 lg:gap-4">
+                  <div className="flex flex-col lg:flex-row lg:items-baseline lg:justify-between min-w-0">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-xs sm:text-sm text-ink-muted font-medium whitespace-nowrap truncate">
+                        {t.grossProfit}
+                      </span>
+                      {!isClosed && isModified && (
+                        <span
+                          className="lg:hidden inline-flex items-center gap-1 text-[11px] font-semibold text-finance-cost whitespace-nowrap shrink-0"
+                          title={t.unsavedChanges}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-finance-cost shrink-0" aria-hidden="true" />
+                          <span>{t.unsavedShort}</span>
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      className={`${amountSizeClass(
+                        grossProfitSen !== null ? formatDisplayMyr(grossProfitSen) : "—",
+                        "text-base",
+                        "text-xl"
+                      )} lg:text-2xl font-bold mt-0.5 lg:mt-0 ${
+                        isNeutralZeroPreview
+                          ? "text-ink-muted"
+                          : grossProfitSen !== null && grossProfitSen >= 0n
+                          ? "text-finance-profit"
+                          : "text-finance-loss"
+                      }`}
+                    >
+                      {grossProfitSen !== null ? (
+                        <MoneyValue sen={grossProfitSen} variant="metric" />
+                      ) : (
+                        "—"
+                      )}
+                    </div>
+                  </div>
+
+                  {!isClosed && (
+                    <div className="flex items-center gap-2 shrink-0 lg:w-full">
+                      {isModified && (
+                        <button
+                          type="button"
+                          onClick={handleRevert}
+                          disabled={saving}
+                          title={t.undoChanges}
+                          aria-label={t.undoChanges}
+                          className="h-12 px-3 sm:px-3.5 shrink-0 rounded-xl border border-surface-border-strong bg-surface hover:bg-surface-subtle text-ink-secondary hover:text-ink-primary btn-tactile inline-flex items-center justify-center gap-1.5 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                        >
+                          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.1" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+                          </svg>
+                          <span>{t.undoShort}</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        disabled={saving || hasParseError}
+                        onClick={handleSaveTrigger}
+                        aria-label={t.saveSheet}
+                        className={`h-12 px-4 sm:px-5 lg:px-6 lg:flex-1 rounded-xl btn-tactile font-semibold text-sm tracking-wide flex items-center justify-center gap-1.5 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli focus-visible:ring-offset-1 cursor-pointer whitespace-nowrap ${
+                          saveIsPrimary
+                            ? "bg-brand-cta hover:bg-brand-cta-hover text-brand-cta-ink shadow-card"
+                            : "bg-surface-subtle hover:bg-surface-hover text-ink-muted hover:text-ink-secondary border border-surface-border shadow-none"
+                        }`}
+                      >
+                        {saving ? (
+                          <span>{t.saving}</span>
+                        ) : (
+                          <>
+                            <span className="sm:hidden">{t.saveSheetShort}</span>
+                            <span className="hidden sm:inline">{t.saveSheet}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
-
-              {!isClosed && (
-                <div className="flex items-center gap-2">
-                  {isModified && (
-                    <button
-                      type="button"
-                      onClick={handleRevert}
-                      disabled={saving}
-                      title={t.undoChanges}
-                      aria-label={t.undoChanges}
-                      className="h-12 w-12 shrink-0 rounded-lg border border-surface-border bg-white hover:bg-surface-subtle text-ink-secondary hover:text-ink-primary shadow-xs flex items-center justify-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 active:scale-95 cursor-pointer disabled:opacity-50 animate-in fade-in zoom-in-95 duration-150"
-                    >
-                      <svg
-                        className="w-5 h-5 text-ink-secondary"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"
-                        />
-                      </svg>
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    disabled={saving || hasParseError}
-                    onClick={() => {
-                      if (hasParseError || cashSen === null || tngSen === null) {
-                        setErrorMessage(t.invalidAmount);
-                        return;
-                      }
-                      if (hasZeroCostLine) {
-                        const zeroIdx = findZeroCostLineIndex(costLines);
-                        if (zeroIdx !== -1) {
-                        setExpandedIndex(zeroIdx);
-                        setCostAmountErrorIndex(zeroIdx);
-                        setNoteErrorIndex(null);
-                        setErrorMessage(null);
-                        requestAnimationFrame(() => costAmountErrorRef.current?.focus());
-                        return;
-                      }
-                      }
-                      setCostAmountErrorIndex(null);
-                      setExpandedIndex(null);
-                      setShowConfirmModal(true);
-                    }}
-                    className="h-12 px-5 rounded-lg bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-semibold text-sm tracking-wide shadow-xs flex items-center gap-1.5 transition-colors disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 focus-visible:ring-offset-1"
-                  >
-                    {saving ? (
-                      <span>{t.saving}</span>
-                    ) : (
-                      <span>{t.saveSheet}</span>
-                    )}
-                  </button>
-                </div>
-              )}
             </div>
           </div>
 
-      {/* Delete Daily Sheet button: after the sticky bar in the DOM, so it is only
-          reached at the true bottom of the page. At full scroll the sticky bar
-          sits in normal flow above it (sticky only shifts upward), and the
-          bottom padding here plus AppShell's main pb-24 keeps it clear of the
-          fixed bottom nav even on a short day that barely scrolls. */}
-      {sheetExists && (
-        <div className="pt-6 pb-4">
-          <button
-            ref={deleteSheetBtnRef}
-            type="button"
-            disabled={
-              isClosed ||
-              saving ||
-              deletingSheet ||
-              !canOpenDeleteSheetModal({ showConfirmModal, pendingDeleteIndex })
-            }
-            onClick={() => {
-              if (!canOpenDeleteSheetModal({ showConfirmModal, pendingDeleteIndex })) return;
-              setErrorMessage(null);
-              setDeleteSheetError(null);
-              setShowDeleteSheetModal(true);
-            }}
-            className="w-full h-12 rounded-xl bg-finance-loss hover:bg-finance-loss/90 btn-wave text-white font-bold text-sm flex items-center justify-center gap-2 transition-colors shadow-xs disabled:opacity-40 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
-          >
-            <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-            <span>{t.deleteSheetBtn}</span>
-          </button>
-        </div>
-      )}
+          {/* Quiet De-Escalated Destructive Action — Directly under Day Summary (centered, zero chasm) */}
+          {sheetExists && (
+            <div className="lg:col-span-5 lg:col-start-8 pt-1 pb-2 flex justify-center">
+              <button
+                ref={deleteSheetBtnRef}
+                type="button"
+                disabled={
+                  isClosed ||
+                  saving ||
+                  deletingSheet ||
+                  !canOpenDeleteSheetModal({ showConfirmModal, pendingDeleteIndex })
+                }
+                onClick={() => {
+                  if (!canOpenDeleteSheetModal({ showConfirmModal, pendingDeleteIndex })) return;
+                  setErrorMessage(null);
+                  setDeleteSheetError(null);
+                  setShowDeleteSheetModal(true);
+                }}
+                className="min-h-[44px] px-4 rounded-xl text-finance-loss/85 hover:text-finance-loss hover:bg-finance-loss-light border border-transparent hover:border-finance-loss-border transition-colors font-semibold text-xs sm:text-sm flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+              >
+                <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                <span>{t.deleteSheetBtn}</span>
+              </button>
+            </div>
+          )}
+      </div>
 
       {/* Delete Daily Sheet Confirmation Modal */}
       {showDeleteSheetModal && (
@@ -1639,15 +1777,15 @@ export function DailySheetForm({
           aria-modal="true"
           aria-labelledby="confirm-delete-sheet-title"
           aria-describedby="confirm-delete-sheet-desc"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-slide-down"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm animate-slide-down"
           onClick={(e) => {
             if (e.target === e.currentTarget && !deletingSheet) setShowDeleteSheetModal(false);
           }}
         >
-          <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
+          <div className="w-full max-w-sm bg-surface rounded-2xl p-6 shadow-popover border border-surface-border space-y-5">
             <div className="flex flex-col items-center text-center gap-3">
-              <div className="w-16 h-16 rounded-full bg-finance-loss-light border border-finance-loss-border/60 text-finance-loss flex items-center justify-center shrink-0 select-none">
-                <svg aria-hidden="true" className="w-10 h-10" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <div className="w-14 h-14 rounded-2xl bg-finance-loss-light border border-finance-loss-border text-finance-loss flex items-center justify-center shrink-0 select-none">
+                <svg aria-hidden="true" className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v9m0 5h.01" />
                 </svg>
               </div>
@@ -1655,29 +1793,24 @@ export function DailySheetForm({
                 <h3 id="confirm-delete-sheet-title" className="text-lg font-bold text-ink-primary">
                   {t.confirmDeleteSheetTitle}
                 </h3>
-                <p id="confirm-delete-sheet-desc" className="text-xs text-ink-muted mt-1 leading-relaxed">
+                <p id="confirm-delete-sheet-desc" className="text-[13px] text-ink-muted mt-1 leading-relaxed">
                   {t.confirmDeleteSheetDesc}
                 </p>
               </div>
             </div>
 
-            {/* Daily Sheet snapshot: what is being destroyed */}
-            <div className="p-3.5 rounded-xl bg-surface-subtle border border-surface-border space-y-2">
+            <div className="p-4 rounded-xl bg-surface-subtle border border-surface-border space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-ink-secondary font-medium">{t.sheetDate}</span>
-                <span className="font-bold text-ink-primary tabular-nums">{date}</span>
+                <span className="text-ink-secondary">{t.sheetDate}</span>
+                <span className="font-bold text-ink-primary num-tabular">{date}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-ink-secondary font-medium">{t.savedTotalRevenue}</span>
-                <span className="font-bold text-ink-primary tabular-nums">
-                  {formatMyr(savedRevenueSen)}
-                </span>
+                <span className="text-ink-secondary">{t.savedTotalRevenue}</span>
+                <MoneyValue sen={savedRevenueSen} className="font-bold text-ink-primary" />
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-ink-secondary font-medium">{t.savedTotalCosts}</span>
-                <span className="font-bold text-finance-loss tabular-nums">
-                  {formatMyr(savedCostSen)}
-                </span>
+                <span className="text-ink-secondary">{t.savedTotalCosts}</span>
+                <MoneyValue sen={savedCostSen} className="font-bold text-finance-loss" />
               </div>
             </div>
 
@@ -1687,14 +1820,13 @@ export function DailySheetForm({
               </p>
             )}
 
-            {/* Modal Actions */}
             <div className="flex items-center gap-2.5 pt-1">
               <button
                 type="button"
                 autoFocus
                 disabled={deletingSheet}
                 onClick={() => setShowDeleteSheetModal(false)}
-                className="flex-1 h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary font-semibold text-sm transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer disabled:opacity-50"
+                className="flex-1 min-h-[48px] rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer disabled:opacity-50"
               >
                 {t.cancel}
               </button>
@@ -1702,7 +1834,7 @@ export function DailySheetForm({
                 type="button"
                 disabled={deletingSheet}
                 onClick={handleDeleteSheet}
-                className="flex-1 h-11 rounded-xl bg-finance-loss hover:bg-finance-loss/90 btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer disabled:opacity-50"
+                className="flex-1 min-h-[48px] rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer disabled:opacity-50"
               >
                 {t.confirmDeleteBtn}
               </button>
@@ -1717,15 +1849,15 @@ export function DailySheetForm({
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-delete-cost-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-slide-down"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm animate-slide-down"
           onClick={(e) => {
             if (e.target === e.currentTarget) setPendingDeleteIndex(null);
           }}
         >
-          <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-finance-loss-light border border-finance-loss-border/60 text-finance-loss flex items-center justify-center shrink-0 select-none">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <div className="w-full max-w-sm bg-surface rounded-2xl p-6 shadow-popover border border-surface-border space-y-5">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-finance-loss-light border border-finance-loss-border text-finance-loss flex items-center justify-center shrink-0 select-none">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                 </svg>
               </div>
@@ -1739,10 +1871,9 @@ export function DailySheetForm({
               </div>
             </div>
 
-            {/* Item detail snapshot */}
-            <div className="p-3 rounded-xl bg-surface-subtle border border-surface-border flex items-center justify-between gap-2">
+            <div className="p-3.5 rounded-xl bg-surface-subtle border border-surface-border flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-white border border-surface-border text-ink-secondary whitespace-nowrap">
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-surface border border-surface-border text-ink-secondary whitespace-nowrap">
                   {getCategoryLabel(costLines[pendingDeleteIndex].category)}
                 </span>
                 {costLines[pendingDeleteIndex].note && (
@@ -1753,21 +1884,20 @@ export function DailySheetForm({
               </div>
               <span
                 className={`${amountSizeClass(
-                  formatMyr(BigInt(costLines[pendingDeleteIndex].amountSen)),
+                  formatDisplayMyr(BigInt(costLines[pendingDeleteIndex].amountSen)),
                   "text-xs",
                   "text-base"
-                )} font-bold text-finance-loss whitespace-nowrap tabular-nums`}
+                )} font-bold text-finance-loss whitespace-nowrap`}
               >
-                {formatMyr(BigInt(costLines[pendingDeleteIndex].amountSen))}
+                <MoneyValue sen={BigInt(costLines[pendingDeleteIndex].amountSen)} />
               </span>
             </div>
 
-            {/* Modal Actions */}
             <div className="flex items-center gap-2.5 pt-1">
               <button
                 type="button"
                 onClick={() => setPendingDeleteIndex(null)}
-                className="flex-1 h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary font-semibold text-sm transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer"
+                className="flex-1 min-h-[48px] rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
               >
                 {t.cancel}
               </button>
@@ -1777,7 +1907,7 @@ export function DailySheetForm({
                   handleRemoveCostLine(pendingDeleteIndex);
                   setPendingDeleteIndex(null);
                 }}
-                className="flex-1 h-11 rounded-xl bg-finance-loss hover:bg-finance-loss/90 btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+                className="flex-1 min-h-[48px] rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
               >
                 {t.confirmDeleteBtn}
               </button>
@@ -1786,50 +1916,99 @@ export function DailySheetForm({
         </div>
       )}
 
-      {/* Confirmation Popout Modal */}
+      {/* Unsaved Draft Guard Modal (inert background, focus trap, focus return) */}
+      {pendingNavigation !== null && (
+        <div
+          ref={discardModalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="discard-unsaved-title"
+          aria-describedby="discard-unsaved-desc"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm animate-slide-down"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setPendingNavigation(null);
+          }}
+        >
+          <div className="w-full max-w-sm bg-surface rounded-2xl p-6 shadow-popover border border-surface-border space-y-5">
+            <div className="space-y-1.5">
+              <h3 id="discard-unsaved-title" className="text-lg font-bold text-ink-primary">
+                {t.discardUnsavedTitle}
+              </h3>
+              <p id="discard-unsaved-desc" className="text-[13px] text-ink-muted leading-relaxed">
+                {t.discardUnsavedDesc}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 pt-1">
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setPendingNavigation(null)}
+                className="flex-1 min-h-[48px] rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+              >
+                {t.keepEditingBtn}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = pendingNavigation;
+                  setPendingNavigation(null);
+                  if (typeof target.historyDelta === "number") {
+                    proceedHistoryNavigation(target.historyDelta);
+                  } else {
+                    router.push(target.href);
+                  }
+                }}
+                className="flex-1 min-h-[48px] rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+              >
+                {t.discardAndSwitchBtn}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save Confirmation Modal */}
       {showConfirmModal && (
         <div
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-modal-title"
           aria-describedby="confirm-modal-desc"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-slide-down"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm animate-slide-down"
           onClick={(e) => {
             if (e.target === e.currentTarget && !saving) setShowConfirmModal(false);
           }}
         >
-          <div className="w-full max-w-sm bg-white rounded-2xl p-5 shadow-xl border border-surface-border space-y-4">
+          <div className="w-full max-w-sm bg-surface rounded-2xl p-6 shadow-popover border border-surface-border space-y-5">
             <div className="space-y-1">
               <h3 id="confirm-modal-title" className="text-lg font-bold text-ink-primary">
                 {t.confirmSaveTitle}
               </h3>
-              <p id="confirm-modal-desc" className="text-xs text-ink-muted leading-relaxed">
+              <p id="confirm-modal-desc" className="text-[13px] text-ink-muted leading-relaxed">
                 {t.confirmSaveDesc}
               </p>
             </div>
 
-            {/* Modal Summary Info */}
-            <div className="p-3.5 rounded-xl bg-surface-subtle border border-surface-border space-y-2">
+            <div className="p-4 rounded-xl bg-surface-subtle border border-surface-border space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-ink-secondary font-medium">{t.totalRevenue}</span>
-                <span className="font-bold text-ink-primary tabular-nums">
-                  {totalRevenueSen !== null ? formatMyr(totalRevenueSen) : "—"}
+                <span className="text-ink-secondary">{t.totalRevenue}</span>
+                <span className="font-bold text-ink-primary num-tabular">
+                  {totalRevenueSen !== null ? <MoneyValue sen={totalRevenueSen} /> : "—"}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-ink-secondary font-medium">{t.totalCosts}</span>
-                <span className="font-bold text-ink-primary tabular-nums">
-                  {formatMyr(totalCostSen)}
-                </span>
+                <span className="text-ink-secondary">{t.totalCosts}</span>
+                <MoneyValue sen={totalCostSen} className="font-bold text-ink-primary" />
               </div>
-              <div className="pt-2 border-t border-surface-border flex justify-between text-base">
+              <div className="pt-2.5 border-t border-surface-border flex justify-between text-base">
                 <span className="font-bold text-ink-primary">{t.grossProfit}</span>
                 <span
-                  className={`font-black tabular-nums ${
-                    grossProfitSen !== null && grossProfitSen >= 0n ? "text-brand-broccoli" : "text-finance-loss"
+                  className={`font-bold num-tabular ${
+                    grossProfitSen !== null && grossProfitSen >= 0n ? "text-finance-profit" : "text-finance-loss"
                   }`}
                 >
-                  {grossProfitSen !== null ? formatMyr(grossProfitSen) : "—"}
+                  {grossProfitSen !== null ? <MoneyValue sen={grossProfitSen} /> : "—"}
                 </span>
               </div>
             </div>
@@ -1839,7 +2018,7 @@ export function DailySheetForm({
                 type="button"
                 disabled={saving}
                 onClick={() => setShowConfirmModal(false)}
-                className="flex-1 h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-wave text-ink-secondary font-semibold text-sm transition-colors flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer disabled:opacity-50"
+                className="flex-1 min-h-[48px] rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer disabled:opacity-50"
               >
                 {t.cancel}
               </button>
@@ -1850,7 +2029,7 @@ export function DailySheetForm({
                   setShowConfirmModal(false);
                   await handleSave();
                 }}
-                className="flex-1 h-11 rounded-xl bg-brand-broccoli hover:bg-brand-broccoli-dark btn-wave text-white font-bold text-sm transition-colors flex items-center justify-center gap-1.5 shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60 cursor-pointer disabled:opacity-50"
+                className="flex-1 min-h-[48px] rounded-xl bg-brand-cta hover:bg-brand-cta-hover btn-tactile text-brand-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer disabled:opacity-50"
               >
                 {saving ? t.saving : t.confirmSaveBtn}
               </button>

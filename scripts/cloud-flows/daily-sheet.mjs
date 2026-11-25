@@ -10,8 +10,9 @@ async function save(page) {
 }
 
 export default async function flow({ page, shot }) {
+  await page.goto("/settings");
+  await page.getByRole("radio", { name: "Switch to English" }).click();
   await page.goto("/");
-  await page.getByRole("button", { name: "Switch to English" }).click();
   await page.locator("#cash-input").fill("450.00");
   await page.locator("#tng-input").fill("120.50");
   await page.getByRole("button", { name: "Add Cost" }).click();

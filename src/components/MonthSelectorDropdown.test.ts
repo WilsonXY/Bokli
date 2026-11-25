@@ -42,7 +42,7 @@ describe("MonthSelectorDropdown", () => {
   ];
 
   describe("rendering provided month options", () => {
-    it("renders trigger button with current month and status badge", () => {
+    it("renders trigger button with current month, status badge, and accessible name containing current month", () => {
       const html = ReactDOMServer.renderToStaticMarkup(
         React.createElement(MonthSelectorDropdown, {
           currentMonth: "2026-05",
@@ -51,9 +51,10 @@ describe("MonthSelectorDropdown", () => {
         }),
       );
 
-      // Trigger button shows currentMonth and openStatus badge
+      // Trigger button shows currentMonth and openStatus badge, and exposes currentMonth in aria-label
       expect(html).toContain("2026-05");
       expect(html).toContain(t.openStatus);
+      expect(html).toContain(`aria-label="${t.monthSelect}: 2026-05 (${t.openStatus})"`);
       expect(html).not.toContain('role="listbox"');
     });
 
@@ -72,7 +73,7 @@ describe("MonthSelectorDropdown", () => {
       expect(label(t.reopenedStatus)).toContain("invisible");
     });
 
-    it("renders full listbox with all options and status badges when open", () => {
+    it("renders full listbox with all options, status badges, and a single roving Tab stop when open", () => {
       const html = ReactDOMServer.renderToStaticMarkup(
         React.createElement(MonthSelectorDropdown, {
           currentMonth: "2026-05",
@@ -89,6 +90,10 @@ describe("MonthSelectorDropdown", () => {
       expect(html).toContain(t.openStatus);
       expect(html).toContain(t.closedStatus);
       expect(html).toContain(t.reopenedStatus);
+
+      // Roving tabIndex: exactly one option is a Tab stop (tabindex="0")
+      const tabZeroOptions = html.match(/role="option"[^>]*tabindex="0"/g) ?? [];
+      expect(tabZeroOptions).toHaveLength(1);
     });
   });
 

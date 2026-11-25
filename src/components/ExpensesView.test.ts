@@ -157,6 +157,64 @@ describe("ExpensesView frontend review fixes", () => {
       expect(html).toContain("本月毛利润");
       expect(html).not.toContain("当日毛利润");
     });
+
+    it("renders exact-sen crimson overrun bar and caption even when rounded share displays 100% (RM 100.01 vs RM 100.00)", () => {
+      const html = ReactDOMServer.renderToStaticMarkup(
+        React.createElement(ExpensesView, {
+          currentMonth: "2026-05",
+          availableMonths: ["2026-05"],
+          initialExpenses: [
+            {
+              id: 1,
+              month: "2026-05",
+              type: "rental",
+              amountSen: 10001, // RM 100.01
+              note: "Rent",
+              createdAt: "2026-05-01 10:00:00",
+            },
+          ],
+          summary: {
+            grossSen: 10000, // RM 100.00 -> rounded 100%, but genuine RM 0.01 overrun!
+            operatingSen: 10001,
+            netSen: -1,
+          },
+          isClosed: false,
+        }),
+      );
+
+      expect(html).toContain("bg-finance-opex");
+      expect(html).toContain("bg-finance-loss");
+      expect(html).toContain("超出毛利润 RM 0.01");
+    });
+
+    it("uses uncovered Operating Expenses wording when Gross Profit is zero or negative", () => {
+      const html = ReactDOMServer.renderToStaticMarkup(
+        React.createElement(ExpensesView, {
+          currentMonth: "2026-05",
+          availableMonths: ["2026-05"],
+          initialExpenses: [
+            {
+              id: 1,
+              month: "2026-05",
+              type: "rental",
+              amountSen: 20000, // RM 200.00
+              note: "Rent",
+              createdAt: "2026-05-01 10:00:00",
+            },
+          ],
+          summary: {
+            grossSen: -5000, // -RM 50.00 negative Gross Profit
+            operatingSen: 20000,
+            netSen: -25000,
+          },
+          isClosed: false,
+        }),
+      );
+
+      expect(html).toContain("bg-finance-loss");
+      expect(html).toContain("无毛利润可覆盖：RM 200.00");
+      expect(html).not.toContain("超出毛利润 RM 200.00");
+    });
   });
   describe("Invalid amount error inline parity", () => {
     it("renders inline amount error under input without top banner when amountError is true", () => {
@@ -266,28 +324,28 @@ describe("ExpensesView frontend review fixes", () => {
         }),
       );
 
-      // Summary gross: RM1005686.12 (12 chars) -> replaces text-base with text-xs (no coexistence)
-      expect(html).toContain("RM1005686.12");
-      expect(html).toMatch(/class="[^"]*text-xs sm:text-xl font-bold text-ink-primary tabular-nums"[^>]*>RM1005686\.12/);
-      expect(html).not.toMatch(/class="[^"]*text-base[^"]*"[^>]*>RM1005686\.12/);
+      // Summary hero Operating Expenses: RM 1,200,000.00 (>11 chars) -> text-2xl instead of text-3xl
+      expect(html).toContain("1,200,000");
+      expect(html).toMatch(/class="[^"]*text-2xl sm:text-4xl font-bold tracking-tight text-ink-primary"/);
 
-      // Summary operating expenses: RM1200000.00 (12 chars) -> replaces text-base with text-xs (no coexistence)
-      expect(html).toContain("RM1200000.00");
-      expect(html).toMatch(/class="[^"]*text-xs sm:text-xl font-bold text-slate-700 tabular-nums"[^>]*>RM1200000\.00/);
-      expect(html).not.toMatch(/class="[^"]*text-base[^"]*"[^>]*>RM1200000\.00/);
+      // Summary ruled Gross Profit: RM 1,005,686.12 (>11 chars) -> replaces text-base with text-xs
+      expect(html).toContain("RM 1,005,686.12");
+      expect(html).toMatch(/class="[^"]*text-xs sm:text-base font-bold text-ink-primary"[^>]*><span[^>]*>RM 1,005,686\.12/);
+      expect(html).not.toMatch(/class="[^"]*text-base sm:text-base font-bold text-ink-primary"[^>]*><span[^>]*>RM 1,005,686\.12/);
 
-      // Summary net: -RM194313.88 (13 chars) -> text-xl instead of text-2xl
-      expect(html).toContain("-RM194313.88");
-      expect(html).toMatch(/class="[^"]*text-xl sm:text-3xl font-extrabold tracking-tight tabular-nums text-rose-600"[^>]*>-RM194313\.88/);
-      expect(html).not.toMatch(/class="[^"]*text-2xl[^"]*"[^>]*>-RM194313\.88/);
+      // Summary ruled Operating Expenses: RM 1,200,000.00 (>11 chars) -> replaces text-base with text-xs
+      expect(html).toContain("RM 1,200,000.00");
+      expect(html).toMatch(/class="[^"]*text-xs sm:text-base font-semibold text-ink-secondary num-tabular"/);
 
-      // Merged expense item: RM1200000.00 (12 chars) -> replaces text-base with text-xs (no coexistence)
-      expect(html).toMatch(/class="[^"]*text-xs font-bold text-slate-700 tabular-nums whitespace-nowrap"[^>]*>RM1200000\.00/);
-      expect(html).not.toMatch(/class="[^"]*text-base[^"]*"[^>]*>RM1200000\.00/);
+      // Summary ruled Net Profit: −RM 194,313.88 (>11 chars) -> text-base instead of text-xl
+      expect(html).toContain("194,313");
+      expect(html).toMatch(/class="[^"]*text-base sm:text-2xl font-bold tracking-tight text-finance-loss"/);
 
-      // Delete modal snapshot: RM1200000.00 (12 chars) -> replaces text-base with text-xs (no coexistence)
-      expect(html).toMatch(/class="[^"]*text-xs font-bold text-finance-loss whitespace-nowrap tabular-nums"[^>]*>RM1200000\.00/);
-      expect(html).not.toMatch(/class="[^"]*text-base[^"]*"[^>]*>RM1200000\.00/);
+      // Merged expense item: RM 1,200,000.00 (>11 chars) -> replaces text-base with text-xs
+      expect(html).toMatch(/class="[^"]*text-xs font-bold text-ink-primary whitespace-nowrap"[^>]*><span[^>]*>RM 1,200,000\.00/);
+
+      // Delete modal snapshot: RM 1,200,000.00 (>11 chars) -> replaces text-base with text-xs
+      expect(html).toMatch(/class="[^"]*text-xs font-bold text-finance-loss whitespace-nowrap"[^>]*><span[^>]*>RM 1,200,000\.00/);
     });
 
     it("keeps standard base classes on money amounts <= 11 chars", () => {
@@ -300,35 +358,32 @@ describe("ExpensesView frontend review fixes", () => {
               id: 1,
               month: "2026-05",
               type: "rental",
-              amountSen: 50000000, // RM500000.00 -> 11 chars
+              amountSen: 500000, // RM 5,000.00 -> 11 chars
               note: "Main Stall",
               createdAt: "2026-05-01 10:00:00",
             },
           ],
           summary: {
-            grossSen: 50000000, // RM500000.00 -> 11 chars
-            operatingSen: 50000000, // RM500000.00 -> 11 chars
-            netSen: 0, // RM0.00 -> 6 chars
+            grossSen: 500000, // RM 5,000.00 -> 11 chars
+            operatingSen: 500000, // RM 5,000.00 -> 11 chars
+            netSen: 0, // RM 0.00 -> 7 chars
           },
           isClosed: false,
         }),
       );
 
-      // Summary gross: RM500000.00 (11 chars) -> keeps text-base sm:text-xl (no text-xs)
-      expect(html).toMatch(/class="[^"]*text-base sm:text-xl font-bold text-ink-primary tabular-nums"[^>]*>RM500000\.00/);
-      expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
+      // Summary hero Operating Expenses: RM 5,000.00 (11 chars) -> text-3xl sm:text-4xl
+      expect(html).toMatch(/class="[^"]*text-3xl sm:text-4xl font-bold tracking-tight text-ink-primary"/);
 
-      // Summary operating: RM500000.00 (11 chars) -> keeps text-base sm:text-xl (no text-xs)
-      expect(html).toMatch(/class="[^"]*text-base sm:text-xl font-bold text-slate-700 tabular-nums"[^>]*>RM500000\.00/);
-      expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
+      // Summary ruled Gross Profit: RM 5,000.00 (11 chars) -> keeps text-base sm:text-base (no text-xs)
+      expect(html).toMatch(/class="[^"]*text-base sm:text-base font-bold text-ink-primary"[^>]*><span[^>]*>RM 5,000\.00/);
+      expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*><span[^>]*>RM 5,000\.00/);
 
-      // Summary net: RM0.00 (6 chars) -> text-2xl sm:text-3xl
-      expect(html).toMatch(/class="[^"]*text-2xl sm:text-3xl font-extrabold tracking-tight tabular-nums text-emerald-700"[^>]*>RM0\.00/);
-      expect(html).not.toMatch(/class="[^"]*text-xl[^"]*"[^>]*>RM0\.00/);
+      // Summary ruled Net Profit: RM 0.00 (7 chars) -> text-xl sm:text-2xl
+      expect(html).toMatch(/class="[^"]*text-xl sm:text-2xl font-bold tracking-tight text-finance-profit"/);
 
-      // Merged expense item: RM500000.00 (11 chars) -> keeps text-base (no text-xs)
-      expect(html).toMatch(/class="[^"]*text-base font-bold text-slate-700 tabular-nums whitespace-nowrap"[^>]*>RM500000\.00/);
-      expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
+      // Merged expense item: RM 5,000.00 (11 chars) -> keeps text-base (no text-xs)
+      expect(html).toMatch(/class="[^"]*text-base font-bold text-ink-primary whitespace-nowrap"[^>]*><span[^>]*>RM 5,000\.00/);
     });
   });
 });

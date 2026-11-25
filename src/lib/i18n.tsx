@@ -14,16 +14,25 @@ export const DICTIONARY = {
     navDashboard: "概览",
     navExpenses: "支出",
     navClose: "结账",
+    navSettings: "设置",
     // Date & Navigation
     prevDay: "前一天",
     nextDay: "后一天",
+    datePickerLabel: "选择日期",
+    prevMonthLabel: "上个月",
+    nextMonthLabel: "下个月",
     today: "今日",
-    klTime: "吉隆坡时间",
+    jumpToToday: "回到今日",
+    jumpToTodayShort: "回今日",
+    recordTodaySheet: "记今日账",
+    recordTodayShort: "记今日账",
+    klTime: "马来西亚时间 (GMT+8)",
     monthLocked: "该月份已结账锁定（仅供查看）",
-    // Revenue
+    // Daily Sheet
+    dailySheetTitle: "每日账单",
     revenueTitle: "营业收入",
     cashRevenue: "现金收入",
-    tngRevenue: "Touch 'n Go 收入",
+    tngRevenue: "TnG 收入",
     totalRevenue: "营业总额",
     // Daily Costs
     costsTitle: "日常开销",
@@ -49,8 +58,15 @@ export const DICTIONARY = {
     // Gross Profit & Save
     grossProfit: "当日毛利润",
     monthGrossProfit: "本月毛利润",
+    daySummaryTitle: "当日结算",
+    newSheetState: "未录入",
+    unsavedChanges: "未保存修改",
+    unsavedShort: "未保存",
+    savedState: "已保存",
     undoChanges: "撤销修改",
+    undoShort: "撤销",
     saveSheet: "保存账单",
+    saveSheetShort: "保存",
     confirmSaveTitle: "确认保存今日账单？",
     confirmSaveDesc: "请核对今日营业数据，确认无误后点击保存。",
     confirmSaveBtn: "确认保存",
@@ -62,6 +78,10 @@ export const DICTIONARY = {
     deleteSheetBtn: "删除当日账单",
     confirmDeleteSheetTitle: "确认删除当日账单？",
     confirmDeleteSheetDesc: "将删除这一天的全部记录，包括所有开销明细，删除后无法恢复。屏幕上未保存的修改也会一并丢弃。",
+    discardUnsavedTitle: "放弃未保存的修改？",
+    discardUnsavedDesc: "当前账单有未保存的修改。离开当前页面将丢弃这些修改，是否继续？",
+    keepEditingBtn: "继续编辑",
+    discardAndSwitchBtn: "放弃并离开",
     sheetDate: "日期",
     savedTotalRevenue: "已保存的营业总额",
     savedTotalCosts: "已保存的开销总额",
@@ -88,23 +108,48 @@ export const DICTIONARY = {
     openStatus: "进行中",
     closedStatus: "已结账",
     reopenedStatus: "已重开",
-    grossProfitFormula: "毛利润（营业收入 - 日常开销）",
+    grossProfitFormula: "毛利润（营业收入 − 日常开销）",
     operatingExpenses: "固定支出",
     netProfit: "本月净利润",
-    netProfitFormula: "毛利润 - 固定支出",
-    revenueSplit: "收入构成 (Cash / TnG)",
+    netProfitFormula: "毛利润 − 固定支出",
+    profitMargin: "净利率",
+    shortfallLabel: "亏损",
+    dailyCostsCoveredLabel: "日常开销（营业额内）",
+    opexCoveredLabel: "固定支出（营业额内）",
+    shortfallUncoveredLabel: "超出营业额",
+    revenueMarkLabel: "营业额",
+    shortfallSummaryCaption: "本月总开支 {outflow}，高于营业额 {revenue}",
+    shortfallZeroRevenueCaption: "本月总开支 {outflow}，暂无营业收入",
+    chartKeyRecordedZero: "已记 RM 0",
+    chartKeyUnrecorded: "未记账",
+    vsPrevMonth: "较",
+    profitFlowTitle: "本月利润构成",
+    insightEmpty: "本月尚未录入经营数据，点击「记今日账」开始记账。",
+    insightDaysAndTopCost: "已记录 {days} 天营业，{category}占日常开销 {pct}%。",
+    insightDaysOnly: "本月已记录 {days} 天营业账单。",
+    insightLossCallout: "本月总开支超出营业额 {loss}。",
+    dailyAverage: "已记日均",
+    peakDay: "最高日",
+    prevRecordedDay: "前一个记录日",
+    nextRecordedDay: "后一个记录日",
+    revenueSplit: "收入构成",
+    revenueSplitSub: "现金与 TnG 渠道占比",
     noRevenueData: "本月暂无收入数据",
     costDistribution: "日常开销分布",
+    costDistributionSub: "按类别统计本月日常开销",
     noCostData: "本月暂无开销数据",
     dailyTrend: "每日收入趋势",
     dailyCostTrend: "每日开销趋势",
+    dailySheetsList: "每日账单明细",
     noDailyEntries: "本月暂无每日账单记录",
     dateCol: "日期",
+    daysUnit: "天",
     sheetRevCol: "总收入",
     sheetCostCol: "总开销",
     sheetProfitCol: "毛利润",
     // Expenses
     expensesTitle: "固定支出",
+    expensesListTitle: "本月支出明细",
     catRental: "摊位租金",
     catUtilities: "水电杂费",
     catWages: "每月薪资",
@@ -113,20 +158,34 @@ export const DICTIONARY = {
     addExpenseSuccess: "固定支出记录添加成功",
     lastAddSaved: "上次添加已保存",
     lastAddNotSaved: "上次添加未保存，请重新添加",
-    deleteExpenseSuccess: "支出记录已删除",
+    deleteExpenseSuccess: "固定支出已删除",
     noExpensesRecorded: "本月暂无固定支出",
     expenseTotal: "固定支出总计",
+    grossProfitShareLabel: "占本月毛利润",
+    opexShareSentence: "固定支出占本月毛利润",
+    expensesOverrunCaption: "超出毛利润 {overrun}",
+    expensesUncoveredCaption: "无毛利润可覆盖：{amount}",
+    grossProfitBoundaryLabel: "本月毛利润",
     monthSelect: "月份",
     // Month Close
     closeTitle: "月度结账与对账",
-    closeWarning: "结账后将锁定本月数据，不可修改。",
+    bookSummaryTitle: "本月账面汇总",
+    reconciliationSection: "实盘对账",
+    closeWarning: "月度结账后将锁定本月数据，不可修改。",
     cashOnHand: "现金实际余额",
-    tngOnHand: "Touch 'n Go 实际余额",
+    tngOnHand: "TnG 实际余额",
     expectedNet: "账面净利润",
     actualTotal: "实际总金额",
     reconciliationDiff: "对账差异",
+    reconciliationAwaiting: "待输入实盘余额",
+    reconciliationAwaitingHint: "请输入现金与 TnG 实际余额以核对账实差异",
+    blankCountsZeroHint: "未填写项按 RM 0.00 计",
+    closeReadyAwaitingHint: "请先输入现金或 TnG 实盘余额后再结账",
+    closeReadyNoteHint: "存在对账差异，请填写结账备注后再结账",
     reconciliationBalanced: "账实相符",
     reconciliationMismatch: "存在差异 (需填写说明)",
+    reconciliationShortBy: "少于账面",
+    reconciliationOverBy: "多于账面",
     closeNote: "结账备注",
     closeNoteOptional: "结账说明 (可选)",
     closeNotePlaceholder: "如有差异，请务必填写说明",
@@ -147,13 +206,36 @@ export const DICTIONARY = {
     closedAtLabel: "结账时间",
     reopenedAtLabel: "重开时间",
     reasonLabel: "重开原因",
+    // Settings
+    settingsTitle: "设置",
+    settingsSubtitle: "管理外观主题、界面语言与当前账号",
+    appearanceTitle: "外观主题",
+    appearanceDesc: "默认使用明亮模式，适合档口明亮环境清晰读数",
+    themeLight: "明亮模式",
+    themeLightDesc: "高对比度温暖纸张浅色界面",
+    themeDark: "深色模式",
+    themeDarkDesc: "低眩光暖炭黑夜间界面",
+    languageTitle: "界面语言",
+    languageDesc: "切换账本显示语言，立即保存并生效",
+    langZh: "简体中文",
+    langZhDesc: "中文界面",
+    langEn: "English",
+    langEnDesc: "英文界面",
+    accountTitle: "账号与会话",
+    accountRoleLabel: "当前角色",
+    ledgerInfoTitle: "账本配置",
+    ledgerCurrencyLabel: "记账货币",
+    ledgerTimezoneLabel: "营业时区",
+    reconciliationChannelsLabel: "对账渠道",
+    reconciliationChannelsValue: "现金 + TnG",
+    signOutDesc: "退出当前设备上的 Bokli 登录状态",
     // Sign out
-    signOut: "退出",
+    signOut: "退出登录",
     confirmSignOutTitle: "确认退出登录？",
     confirmSignOutBtn: "确认退出",
   },
   en: {
-    brandSubtitle: "Food Stall Ops",
+    brandSubtitle: "Food Stall Ledger",
     roleOperator: "Operator",
     roleAdmin: "Admin",
     // Navigation
@@ -161,20 +243,29 @@ export const DICTIONARY = {
     navDashboard: "Overview",
     navExpenses: "Expenses",
     navClose: "Month Close",
+    navSettings: "Settings",
     // Date & Navigation
     prevDay: "Prev Day",
     nextDay: "Next Day",
+    datePickerLabel: "Date Picker",
+    prevMonthLabel: "Previous Month",
+    nextMonthLabel: "Next Month",
     today: "Today",
-    klTime: "Asia/Kuala_Lumpur",
+    jumpToToday: "Jump to Today",
+    jumpToTodayShort: "Today",
+    recordTodaySheet: "Today's Sheet",
+    recordTodayShort: "Today",
+    klTime: "Malaysia Time (GMT+8)",
     monthLocked: "Month closed and locked (Read-only)",
-    // Revenue
+    // Daily Sheet
+    dailySheetTitle: "Daily Sheet",
     revenueTitle: "Revenue",
     cashRevenue: "Cash Revenue",
-    tngRevenue: "Touch 'n Go Revenue",
+    tngRevenue: "TnG Revenue",
     totalRevenue: "Total Revenue",
     // Daily Costs
     costsTitle: "Daily Costs",
-    totalCosts: "Total Costs",
+    totalCosts: "Daily Costs",
     selectCategory: "Cost Category",
     costCategory: "Cost Category",
     expenseCategory: "Expense Category",
@@ -183,8 +274,8 @@ export const DICTIONARY = {
     noteOptional: "Note (optional)",
     noteRequired: "Please specify description (Required)",
     noteRequiredBadge: "Required",
-    addCostLine: "Add Cost",
-    noCostsRecorded: "No costs recorded for today",
+    addCostLine: "Add Cost Line",
+    noCostsRecorded: "No Cost Lines recorded for this day",
     delete: "Delete",
     // Categories
     catRestock: "Restock",
@@ -195,31 +286,42 @@ export const DICTIONARY = {
     catOther: "Other",
     // Gross Profit & Save
     grossProfit: "Day's Gross Profit",
-    monthGrossProfit: "Month's Gross Profit",
+    monthGrossProfit: "Gross Profit",
+    daySummaryTitle: "Day Summary",
+    newSheetState: "New sheet",
+    unsavedChanges: "Unsaved changes",
+    unsavedShort: "Unsaved",
+    savedState: "Saved",
     undoChanges: "Undo changes",
+    undoShort: "Undo",
     saveSheet: "Save Sheet",
-    confirmSaveTitle: "Confirm Save Daily Sheet? ",
-    confirmSaveDesc: "Please review today's figures before saving.",
+    saveSheetShort: "Save",
+    confirmSaveTitle: "Save this Daily Sheet?",
+    confirmSaveDesc: "Review today's revenue and Cost Lines before saving.",
     confirmSaveBtn: "Confirm & Save",
     confirmDeleteItemTitle: "Remove this item?",
     confirmDeleteItemDesc: "This item will be removed from the total.",
     removesRecordSingle: "removes 1 record",
     removesRecordPlural: "removes {count} records",
     confirmDeleteBtn: "Delete",
-    deleteSheetBtn: "Delete this Daily Sheet",
+    deleteSheetBtn: "Delete Daily Sheet",
     confirmDeleteSheetTitle: "Delete this Daily Sheet?",
     confirmDeleteSheetDesc: "This removes the whole day's record, including all its Cost Lines. It cannot be undone. Any unsaved edits on screen will be discarded.",
+    discardUnsavedTitle: "Discard unsaved changes?",
+    discardUnsavedDesc: "This Daily Sheet has unsaved edits. Leaving this sheet will discard them.",
+    keepEditingBtn: "Keep Editing",
+    discardAndSwitchBtn: "Discard & Leave",
     sheetDate: "Date",
     savedTotalRevenue: "Saved Total Revenue",
-    savedTotalCosts: "Saved Total Costs",
+    savedTotalCosts: "Saved Daily Costs",
     deleteSheetSuccess: "Daily Sheet deleted",
     sheetChangedError: "This day's record was changed elsewhere, so nothing was deleted. Please review it again.",
     saving: "Saving...",
-    saveSuccess: "Daily sheet saved successfully",
+    saveSuccess: "Daily Sheet saved successfully",
     saveError: "Failed to save, please retry",
     loadError: "Failed to load data. Please refresh or try again later.",
     retry: "Retry",
-    unauthorizedError: "Unauthorized or session expired. Please log in again.",
+    unauthorizedError: "Unauthorized or session expired. Please sign in again.",
     forbiddenError: "Forbidden: You do not have permission to perform this action.",
     monthClosedError: "This month is closed and locked from changes.",
     networkError: "Network connection error. Please try again later.",
@@ -227,7 +329,7 @@ export const DICTIONARY = {
     invalidAmount: "Please enter a valid amount",
     otherNoteRequired: "Note is required when category is 'Other'",
     // Dashboard
-    overviewTitle: "This Month's Overview",
+    overviewTitle: "Monthly Overview",
     monthTiles: "Month Tiles",
     currentViewing: "Viewing",
     noMonthsRecorded: "No recorded months yet",
@@ -235,56 +337,95 @@ export const DICTIONARY = {
     openStatus: "In Progress",
     closedStatus: "Closed",
     reopenedStatus: "Reopened",
-    grossProfitFormula: "Gross Profit (Revenue - Costs)",
+    grossProfitFormula: "Gross Profit (Revenue \u2212 Daily Costs)",
     operatingExpenses: "Operating Expenses",
     netProfit: "Net Profit",
-    netProfitFormula: "Gross Profit - Operating",
-    revenueSplit: "Cash vs TnG Split",
+    netProfitFormula: "Gross Profit \u2212 Operating Expenses",
+    profitMargin: "Net Margin",
+    shortfallLabel: "Shortfall",
+    dailyCostsCoveredLabel: "Daily Costs (within revenue)",
+    opexCoveredLabel: "Operating Expenses (covered)",
+    shortfallUncoveredLabel: "Uncovered",
+    revenueMarkLabel: "Revenue",
+    shortfallSummaryCaption: "Total costs {outflow} vs {revenue} revenue",
+    shortfallZeroRevenueCaption: "Total costs {outflow} with no revenue recorded",
+    chartKeyRecordedZero: "RM 0 recorded",
+    chartKeyUnrecorded: "No sheet",
+    vsPrevMonth: "vs",
+    profitFlowTitle: "Profit Breakdown",
+    insightEmpty: "No Daily Sheets recorded for this month yet.",
+    insightDaysAndTopCost: "{days} sheets logged · {category} is {pct}% of Daily Costs",
+    insightDaysOnly: "{days} Daily Sheets recorded this month",
+    insightLossCallout: "Total costs exceed revenue by {loss}",
+    dailyAverage: "Avg. / recorded day",
+    peakDay: "Peak Day",
+    prevRecordedDay: "Previous recorded day",
+    nextRecordedDay: "Next recorded day",
+    revenueSplit: "Cash vs TnG Revenue",
+    revenueSplitSub: "Revenue share by payment channel",
     noRevenueData: "No revenue data for this month",
-    costDistribution: "Cost Distribution",
-    noCostData: "No cost data for this month",
-    dailyTrend: "Daily Revenue Trend",
-    dailyCostTrend: "Daily Cost Trend",
-    noDailyEntries: "No daily sheets for this month",
+    costDistribution: "Cost Categories",
+    costDistributionSub: "Daily Costs ranked by category",
+    noCostData: "No Daily Costs for this month",
+    dailyTrend: "Daily Revenue",
+    dailyCostTrend: "Daily Costs",
+    dailySheetsList: "Daily Sheets",
+    noDailyEntries: "No Daily Sheets for this month",
     dateCol: "Date",
+    daysUnit: "days",
     sheetRevCol: "Revenue",
-    sheetCostCol: "Costs",
-    sheetProfitCol: "Gross",
+    sheetCostCol: "Daily Costs",
+    sheetProfitCol: "Gross Profit",
     // Expenses
     expensesTitle: "Operating Expenses",
+    expensesListTitle: "This Month's Items",
     catRental: "Stall Rent",
     catUtilities: "Utilities",
     catWages: "Monthly Wages",
     catOpOther: "Other",
-    addExpense: "Add Expense",
-    addExpenseSuccess: "Expense added successfully",
+    addExpense: "Add Operating Expense",
+    addExpenseSuccess: "Operating Expense added successfully",
     lastAddSaved: "Last add was saved",
     lastAddNotSaved: "Last add not saved, add again",
-    deleteExpenseSuccess: "Expense deleted",
-    noExpensesRecorded: "No operating expenses recorded for this month",
-    expenseTotal: "Total Expenses",
+    deleteExpenseSuccess: "Operating Expense deleted",
+    noExpensesRecorded: "No Operating Expenses recorded for this month",
+    expenseTotal: "Total Operating Expenses",
+    grossProfitShareLabel: "Share of Gross Profit",
+    opexShareSentence: "Operating Expenses of Gross Profit",
+    expensesOverrunCaption: "Exceeds Gross Profit by {overrun}",
+    expensesUncoveredCaption: "Uncovered by Gross Profit: {amount}",
+    grossProfitBoundaryLabel: "Gross Profit",
     monthSelect: "Month",
     // Month Close
     closeTitle: "Month Close",
-    closeWarning: "Closing will lock this month from edits.",
-    cashOnHand: "Physical Cash Counted",
-    tngOnHand: "Touch 'n Go Ending Balance",
+    bookSummaryTitle: "Book Summary",
+    reconciliationSection: "Reconciliation",
+    closeWarning: "Month Close locks this month from further edits.",
+    cashOnHand: "Cash on Hand",
+    tngOnHand: "TnG on Hand",
     expectedNet: "Book Net Profit",
     actualTotal: "Total Counted",
     reconciliationDiff: "Reconciliation Variance",
-    reconciliationBalanced: "Balanced",
+    reconciliationAwaiting: "Awaiting Count",
+    reconciliationAwaitingHint: "Enter counted Cash and TnG balances to check variance",
+    blankCountsZeroHint: "Blank field counts as RM 0.00",
+    closeReadyAwaitingHint: "Enter counted Cash or TnG balance before Month Close",
+    closeReadyNoteHint: "Add a close note explaining the variance to continue",
+    reconciliationBalanced: "Matched",
     reconciliationMismatch: "Variance Detected (Note required)",
+    reconciliationShortBy: "Short by",
+    reconciliationOverBy: "Over by",
     closeNote: "Close Note",
     closeNoteOptional: "Close note (optional)",
-    closeNotePlaceholder: "Required if variance is detected",
-    confirmEmptyMonth: "No sheets, confirm close empty month",
-    emptyMonthError: "No sheets recorded. Check confirm empty month to proceed.",
+    closeNotePlaceholder: "Required when a variance is detected",
+    confirmEmptyMonth: "No sheets, confirm Month Close for empty month",
+    emptyMonthError: "No Daily Sheets recorded. Confirm empty month to proceed.",
     varianceNoteRequired: "Variance detected. A note is required.",
     reopenReasonRequired: "Reason is required to reopen this month.",
     cancel: "Cancel",
     btnPerformClose: "Close Month",
     closingMonth: "Closing...",
-    closeSuccess: "Month closed and locked successfully",
+    closeSuccess: "Month Close complete — ledger is now locked",
     reopenTitle: "Reopen Month (Admin Only)",
     reopenReason: "Reopen Reason",
     reopenPlaceholder: "Explain why this month must be reopened",
@@ -294,6 +435,29 @@ export const DICTIONARY = {
     closedAtLabel: "Closed At",
     reopenedAtLabel: "Reopened At",
     reasonLabel: "Reason",
+    // Settings
+    settingsTitle: "Settings",
+    settingsSubtitle: "Manage appearance, display language, and account",
+    appearanceTitle: "Appearance",
+    appearanceDesc: "Bright Mode is the default for clear reading at the stall",
+    themeLight: "Bright Mode",
+    themeLightDesc: "High-contrast warm paper light interface",
+    themeDark: "Dark Mode",
+    themeDarkDesc: "Low-glare charcoal surface for evening review",
+    languageTitle: "Language",
+    languageDesc: "Switch interface language immediately",
+    langZh: "简体中文",
+    langZhDesc: "Simplified Chinese",
+    langEn: "English",
+    langEnDesc: "English interface",
+    accountTitle: "Account & Session",
+    accountRoleLabel: "Role",
+    ledgerInfoTitle: "Ledger Details",
+    ledgerCurrencyLabel: "Currency",
+    ledgerTimezoneLabel: "Timezone",
+    reconciliationChannelsLabel: "Channels",
+    reconciliationChannelsValue: "Cash & TnG",
+    signOutDesc: "Sign out of Bokli on this device",
     // Sign out
     signOut: "Sign Out",
     confirmSignOutTitle: "Sign out of Bokli?",
@@ -315,6 +479,10 @@ const I18nContext = createContext<I18nContextType>({
   t: DICTIONARY.zh,
 });
 
+function toHtmlLang(lang: Language): string {
+  return lang === "zh" ? "zh-Hans" : "en";
+}
+
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [lang, setLangState] = useState<Language>("zh");
 
@@ -323,6 +491,9 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       const stored = localStorage.getItem("bokli_lang");
       if (stored === "zh" || stored === "en") {
         setLangState(stored);
+        document.documentElement.lang = toHtmlLang(stored);
+      } else {
+        document.documentElement.lang = "zh-Hans";
       }
     } catch {
       // localStorage unavailable (SSR/incognito)
@@ -331,6 +502,9 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   const setLang = (nextLang: Language) => {
     setLangState(nextLang);
+    if (typeof document !== "undefined") {
+      document.documentElement.lang = toHtmlLang(nextLang);
+    }
     try {
       localStorage.setItem("bokli_lang", nextLang);
     } catch {
@@ -355,32 +529,16 @@ export function useI18n() {
   return useContext(I18nContext);
 }
 
-/**
- * The structured error body every API route now returns: `code` is the stable
- * protocol, `error` is English prose kept for logs and legacy fallback.
- */
 export interface ApiErrorPayload {
   error?: string | null;
   code?: string | null;
 }
 
-/**
- * Reads the payload back out of a caught value: client code throws
- * `Object.assign(new Error(data.error), { code: data.code })`. Same property
- * reads as the former inline `{ error: err.message, code: err.code }`.
- */
 export function apiErrorPayloadFrom(err: unknown): ApiErrorPayload {
   const { message, code } = err as { message?: string; code?: string | null };
   return { error: message, code };
 }
 
-/**
- * The API error protocol: stable error code -> i18n key.
- *
- * This record is the ONLY place a server error code becomes a user-facing
- * string. `notFound` and `futureDate` have no dedicated i18n case, so they
- * intentionally land on the generic save error rather than inventing one.
- */
 export const API_ERROR_CODE_TO_KEY: Record<string, keyof TranslationMap> = {
   unauthorized: "unauthorizedError",
   identityChanged: "unauthorizedError",
@@ -398,15 +556,6 @@ export const API_ERROR_CODE_TO_KEY: Record<string, keyof TranslationMap> = {
   saveError: "saveError",
 };
 
-/**
- * Translates an API error for display.
- *
- * Prefers the structured `code`; the English-prose substring matcher below is
- * ONLY a fallback for codeless errors (client-side failures, legacy or
- * deliberately codeless 400s). Substring matching on prose is what used to
- * collide "note is required when Operating Expense type is 'other'" with the
- * Reconciliation variance message — a coded error never reaches it.
- */
 export function translateApiError(
   error: string | ApiErrorPayload | undefined | null,
   t: TranslationMap
