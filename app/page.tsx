@@ -29,11 +29,9 @@ export default function HomePage() {
     <CloudPage
       param="date"
       load={load}
-      skeleton={<div className="max-w-2xl mx-auto"><DailySheetSkeleton /></div>}
+      skeleton={<DailySheetSkeleton />}
       render={(props, reload) => (
-        <div className="max-w-2xl mx-auto">
-          <DailySheetForm key={props.date} {...props} onRefresh={reload} />
-        </div>
+        <DailySheetForm key={props.date} {...props} onRefresh={reload} />
       )}
     />
   );

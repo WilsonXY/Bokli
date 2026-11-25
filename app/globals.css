@@ -5,61 +5,263 @@
 @layer base {
   :root {
     color-scheme: light;
+    --mobile-nav-height: calc(4rem + env(safe-area-inset-bottom, 0px));
+
+    /* Warm paper-porcelain surfaces (Bright Mode default) */
+    --surface-default: 255 255 255;       /* #ffffff */
+    --surface-canvas: 247 246 242;        /* #f7f6f2 */
+    --surface-subtle: 240 238 232;        /* #f0eee8 */
+    --surface-hover: 233 231 223;         /* #e9e7df */
+    --surface-border: 224 221 213;        /* #e0ddd5 */
+    --surface-border-strong: 133 128 116; /* #858074 — >= 3.7:1 WCAG AA glare-resistant input outline */
+    --surface-input: 252 251 248;         /* #fcfbf8 */
+
+    /* Warm near-black ink (never harsh #000) */
+    --ink-primary: 22 22 20;              /* #161614 */
+    --ink-secondary: 68 67 61;            /* #44433d */
+    --ink-muted: 102 100 92;              /* #66645c — >= 5.5:1 on #fff */
+
+    /* Brand accent — Broccoli Forest Green (text/icons) */
+    --brand-broccoli: 21 128 61;          /* #15803d — 5.13:1 on #fff */
+    --brand-broccoli-dark: 22 101 52;     /* #166534 */
+    --brand-broccoli-light: 232 245 237;  /* #e8f5ed */
+
+    /* Solid CTA surfaces (WCAG AA guaranteed in both Light & Dark modes) */
+    --brand-cta: 21 128 61;               /* #15803d + #fff = 5.13:1 */
+    --brand-cta-hover: 22 101 52;         /* #166534 */
+    --brand-cta-ink: 255 255 255;         /* #ffffff */
+    --danger-cta: 185 28 28;              /* #b91c1c + #fff = 6.47:1 */
+    --danger-cta-hover: 153 27 27;        /* #991b1b */
+    --danger-cta-ink: 255 255 255;        /* #ffffff */
+
+    /* Semantic money channels (exclusively reserved for Cash vs TnG) */
+    --channel-cash: 4 120 87;             /* #047857 */
+    --channel-cash-light: 236 253 245;    /* #ecfdf5 */
+    --channel-tng: 29 78 216;             /* #1d4ed8 */
+    --channel-tng-light: 239 246 255;     /* #eff6ff */
+
+    /* Semantic financial states (consistent hue family across Light & Dark) */
+    --finance-cost: 180 83 9;             /* #b45309 — warm amber-ochre (reserved for Daily Costs) */
+    --finance-cost-light: 255 250 235;    /* #fffaeb */
+    --finance-opex: 51 65 85;             /* #334155 — deep architectural slate (reserved for Operating Expenses) */
+    --finance-opex-light: 241 245 249;    /* #f1f5f9 */
+    --finance-profit: 21 128 61;          /* #15803d */
+    --finance-profit-light: 240 253 244;  /* #f0fdf4 */
+    --finance-profit-border: 187 247 208; /* #bbf7d0 */
+    --finance-loss: 185 28 28;            /* #b91c1c */
+    --finance-loss-light: 254 242 242;    /* #fef2f2 */
+    --finance-loss-border: 254 202 202;   /* #fecaca */
+
+    /* Month lock statuses */
+    --status-closed: 22 101 52;           /* #166534 */
+    --status-closed-bg: 220 252 231;      /* #dcfce7 */
+    --status-reopened: 146 64 14;         /* #92400e */
+    --status-reopened-bg: 254 243 199;    /* #fef3c7 */
+    --status-open: 7 89 133;              /* #075985 */
+    --status-open-bg: 224 242 254;        /* #e0f2fe */
+
+    /* Dedicated Cost Category Palette (verified disjoint from Cash emerald, TnG cobalt, Profit green, Cost amber & Loss crimson) */
+    --cat-restock: #6d28d9;
+    --cat-restock-soft: #f3e8ff;
+    --cat-gas: #a21caf;
+    --cat-gas-soft: #fae8ff;
+    --cat-transport: #0891b2;
+    --cat-transport-soft: #ecfeff;
+    --cat-wages: #4d7c0f;
+    --cat-wages-soft: #f7fee7;
+    --cat-maintenance: #713f12;
+    --cat-maintenance-soft: #fef3c7;
+    --cat-other: #78716c;
+    --cat-other-soft: #f0efed;
+
+    /* Dedicated Operating Expense Icon Tokens (verified disjoint from Cash, TnG, Cost amber, OpEx slate & Loss crimson) */
+    --op-rental: #6d28d9;
+    --op-rental-soft: #f3e8ff;
+    --op-utilities: #0891b2;
+    --op-utilities-soft: #ecfeff;
+    --op-wages: #a21caf;
+    --op-wages-soft: #fae8ff;
+    --op-other: #78716c;
+    --op-other-soft: #f0efed;
+
+    /* Chart variables */
+    --chart-grid: #e0ddd5;
+    --chart-axis: #66645c;
+    --chart-revenue: #15803d;
+    --chart-revenue-soft: rgba(21, 128, 61, 0.14);
+    --chart-cost: #b45309;
+    --chart-cost-soft: rgba(180, 83, 9, 0.14);
+    --chart-tooltip-bg: #ffffff;
+    --chart-tooltip-border: #9c978a;
+    --chart-tooltip-ink: #161614;
+    --chart-tooltip-muted: #66645c;
+
+    /* Layered elevation shadows — crisp warm bottom drop so cards feel gently lifted */
+    --shadow-card: 0 1px 2px rgba(22, 22, 20, 0.06), 0 4px 10px -2px rgba(22, 22, 20, 0.08), 0 2px 4px -2px rgba(22, 22, 20, 0.04);
+    --shadow-control: 0 1px 2px rgba(22, 22, 20, 0.08), 0 2px 5px -1px rgba(22, 22, 20, 0.06);
+    --shadow-popover: 0 14px 34px -6px rgba(22, 22, 20, 0.18), 0 6px 14px -4px rgba(22, 22, 20, 0.09);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: rgb(var(--ink-muted));
+    font-weight: 400;
+    opacity: 1;
+  }
+
+  .dark {
+    color-scheme: dark;
+
+    /* Warm obsidian charcoal surfaces (Dark Mode) */
+    --surface-default: 26 26 24;          /* #1a1a18 */
+    --surface-canvas: 17 17 15;           /* #11110f */
+    --surface-subtle: 36 36 33;           /* #242421 */
+    --surface-hover: 46 45 41;            /* #2e2d29 */
+    --surface-border: 48 47 43;           /* #302f2b */
+    --surface-border-strong: 115 113 104; /* #737168 — >= 3.8:1 WCAG AA dark-mode input outline */
+    --surface-input: 20 20 18;            /* #141412 */
+
+    /* Warm off-white ink */
+    --ink-primary: 243 242 238;           /* #f3f2ee */
+    --ink-secondary: 200 198 188;         /* #c8c6bc */
+    --ink-muted: 156 154 144;             /* #9c9a90 */
+
+    /* Brand accent calibrated for dark-surface text/icons */
+    --brand-broccoli: 74 222 128;         /* #4ade80 — 10.4:1 on #1a1a18 */
+    --brand-broccoli-dark: 34 197 94;     /* #22c55e */
+    --brand-broccoli-light: 20 46 31;     /* #142e1f */
+
+    /* Solid CTA surfaces in Dark Mode — rich forest green + crisp white (>= 5.1:1) */
+    --brand-cta: 21 128 61;               /* #15803d + #fff = 5.13:1 */
+    --brand-cta-hover: 22 150 70;         /* #169646 */
+    --brand-cta-ink: 255 255 255;         /* #ffffff */
+    --danger-cta: 185 28 28;              /* #b91c1c + #fff = 6.47:1 */
+    --danger-cta-hover: 210 38 38;        /* #d22626 */
+    --danger-cta-ink: 255 255 255;        /* #ffffff */
+
+    /* Semantic money channels */
+    --channel-cash: 52 211 153;           /* #34d399 */
+    --channel-cash-light: 16 42 34;       /* #102a22 */
+    --channel-tng: 96 165 250;            /* #60a5fa */
+    --channel-tng-light: 22 36 59;        /* #16243b */
+
+    /* Semantic financial states (same hue family as Light Mode) */
+    --finance-cost: 245 158 11;           /* #f59e0b — reserved for Daily Costs */
+    --finance-cost-light: 51 36 14;       /* #33240e */
+    --finance-opex: 148 163 184;          /* #94a3b8 — architectural slate (reserved for Operating Expenses) */
+    --finance-opex-light: 30 37 48;       /* #1e2530 */
+    --finance-profit: 74 222 128;         /* #4ade80 */
+    --finance-profit-light: 18 43 28;     /* #122b1c */
+    --finance-profit-border: 30 82 52;    /* #1e5234 */
+    --finance-loss: 248 113 113;          /* #f87171 */
+    --finance-loss-light: 58 23 24;       /* #3a1718 */
+    --finance-loss-border: 112 36 39;     /* #702427 */
+
+    /* Month lock statuses */
+    --status-closed: 74 222 128;          /* #4ade80 */
+    --status-closed-bg: 20 46 31;         /* #142e1f */
+    --status-reopened: 245 158 11;        /* #f59e0b */
+    --status-reopened-bg: 51 36 14;       /* #33240e */
+    --status-open: 56 189 248;            /* #38bdf8 */
+    --status-open-bg: 18 42 58;           /* #122a3a */
+
+    /* Dedicated Cost Category Palette for Dark Mode (verified disjoint from Cash, TnG, Cost, Profit & Loss) */
+    --cat-restock: #a78bfa;
+    --cat-restock-soft: rgba(167, 139, 250, 0.16);
+    --cat-gas: #e879f9;
+    --cat-gas-soft: rgba(232, 121, 249, 0.16);
+    --cat-transport: #22d3ee;
+    --cat-transport-soft: rgba(34, 211, 238, 0.15);
+    --cat-wages: #bef264;
+    --cat-wages-soft: rgba(190, 242, 100, 0.14);
+    --cat-maintenance: #fdba74;
+    --cat-maintenance-soft: rgba(253, 186, 116, 0.16);
+    --cat-other: #d6d3d1;
+    --cat-other-soft: rgba(214, 211, 209, 0.16);
+
+    /* Dedicated Operating Expense Icon Tokens for Dark Mode */
+    --op-rental: #a78bfa;
+    --op-rental-soft: rgba(167, 139, 250, 0.16);
+    --op-utilities: #22d3ee;
+    --op-utilities-soft: rgba(34, 211, 238, 0.15);
+    --op-wages: #e879f9;
+    --op-wages-soft: rgba(232, 121, 249, 0.16);
+    --op-other: #d6d3d1;
+    --op-other-soft: rgba(214, 211, 209, 0.16);
+
+    /* Chart variables */
+    --chart-grid: #302f2b;
+    --chart-axis: #9c9a90;
+    --chart-revenue: #4ade80;
+    --chart-revenue-soft: rgba(74, 222, 128, 0.2);
+    --chart-cost: #f59e0b;
+    --chart-cost-soft: rgba(245, 158, 11, 0.2);
+    --chart-tooltip-bg: #242421;
+    --chart-tooltip-border: #54524a;
+    --chart-tooltip-ink: #f3f2ee;
+    --chart-tooltip-muted: #9c9a90;
+
+    /* Layered elevation shadows — deep bottom drop + subtle top hairline highlight in Dark Mode */
+    --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 2px 4px rgba(0, 0, 0, 0.34), 0 8px 18px -4px rgba(0, 0, 0, 0.38);
+    --shadow-control: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 1px 3px rgba(0, 0, 0, 0.38), 0 3px 6px -2px rgba(0, 0, 0, 0.3);
+    --shadow-popover: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 16px 38px -6px rgba(0, 0, 0, 0.58), 0 6px 16px -4px rgba(0, 0, 0, 0.42);
   }
 
   html,
   body {
-    background-color: #f8fafc;
-    color: #0f172a;
+    background-color: rgb(var(--surface-canvas));
+    color: rgb(var(--ink-primary));
     -webkit-tap-highlight-color: transparent;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--font-noto-sans-sc), "Noto Sans SC", "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 500;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  input,
+  button,
+  select,
+  textarea {
+    font-family: inherit;
   }
 }
 
-/* Ensure minimum touch targets */
+.num-tabular {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* Minimum touch target helper */
 .touch-target {
   min-height: 48px;
   min-width: 48px;
 }
 
-/* Tactile Wave / Ripple effect on button press (preserves exact button dimensions) */
-.btn-wave {
-  position: relative;
-  overflow: hidden;
-  -webkit-tap-highlight-color: transparent;
+/* Tactile button press micro-interaction */
+.btn-tactile {
+  transition:
+    background-color 150ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 150ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    color 150ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 90ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-.ripple-wave {
-  position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-  background: currentColor;
-  opacity: 0.38;
-  transform: scale(0);
-  animation: ripple-expansion 550ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  z-index: 10;
-}
-
-@keyframes ripple-expansion {
-  0% {
-    transform: scale(0);
-    opacity: 0.38;
-  }
-  60% {
-    opacity: 0.22;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 0;
+@media (hover: hover) and (pointer: fine) {
+  .btn-tactile:not(:disabled):hover {
+    transform: translateY(-1px);
   }
 }
 
-/* Smooth Spatial Entrances */
+.btn-tactile:not(:disabled):active {
+  transform: translateY(1px) scale(0.985);
+}
+
+/* Subtle Spatial Entrances */
 @layer utilities {
   @keyframes slide-in-down {
     from {
       opacity: 0;
-      transform: translateY(-8px);
+      transform: translateY(-6px);
     }
     to {
       opacity: 1;
@@ -68,13 +270,28 @@
   }
 
   .animate-slide-down {
-    animation: slide-in-down 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: slide-in-down 200ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  }
+
+  @keyframes slide-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-slide-up {
+    animation: slide-in-up 220ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
   }
 
   @keyframes popover-enter {
     0% {
       opacity: 0;
-      transform: translate(-50%, -8px) scale(0.96);
+      transform: translate(-50%, -6px) scale(0.98);
     }
     100% {
       opacity: 1;
@@ -83,14 +300,14 @@
   }
 
   .animate-popover {
-    animation: popover-enter 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: popover-enter 180ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
     transform-origin: top center;
   }
 
   @keyframes dropdown-enter {
     0% {
       opacity: 0;
-      transform: translateY(-8px) scale(0.96);
+      transform: translateY(-6px) scale(0.98);
     }
     100% {
       opacity: 1;
@@ -99,7 +316,7 @@
   }
 
   .animate-dropdown {
-    animation: dropdown-enter 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: dropdown-enter 180ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
     transform-origin: top right;
   }
 
@@ -107,10 +324,13 @@
     from {
       opacity: 0;
     }
+    to {
+      opacity: 1;
+    }
   }
 
   .animate-chart-swap {
-    animation: chart-swap 250ms ease-out;
+    animation: chart-swap 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 }
 
@@ -124,99 +344,4 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  .ripple-wave {
-    display: none !important;
-  }
-}
-
-/* Distilled Frameless & Flush Layout for Home Page Daily Sheet */
-.daily-sheet-canvas {
-  padding: 1rem 1rem 6rem;
-}
-.daily-sheet-canvas .space-y-4 > .bg-white.border.border-surface-border:not(.cost-entry-card) {
-  border: none !important;
-  box-shadow: none !important;
-  background: transparent !important;
-  border-radius: 0 !important;
-  padding: 0.5rem 0 !important;
-}
-.daily-sheet-canvas section {
-  border-bottom: 1px solid var(--surface-border, #e2e8f0);
-  padding-bottom: 1.25rem;
-  margin-bottom: 0.5rem;
-}
-.daily-sheet-canvas input {
-  background: #ffffff !important;
-  border: 1px solid #cbd5e1 !important;
-  border-radius: 8px !important;
-}
-
-/* Modals and dialog overlays must always retain crisp solid surface and elevation */
-.daily-sheet-canvas [role="dialog"] .bg-white,
-.daily-sheet-canvas .fixed .bg-white {
-  background-color: #ffffff !important;
-  border: 1px solid var(--surface-border, #e2e8f0) !important;
-  border-radius: 1rem !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !important;
-}
-
-/* High-Density Compact Quick-Entry for Fixed Expenses Page */
-.expenses-canvas {
-  padding: 0.75rem 0.75rem 5rem;
-}
-.expenses-canvas .space-y-4 {
-  gap: 0.75rem !important;
-}
-.expenses-canvas .space-y-3 {
-  gap: 0.5rem !important;
-}
-.expenses-canvas .space-y-4 > .bg-white.border.border-surface-border:not([aria-label="Month Financial Summary"]),
-.expenses-canvas section > .bg-white.border.border-surface-border,
-.expenses-canvas section.bg-white.border.border-surface-border:not([aria-label="Month Financial Summary"]) {
-  padding: 0.625rem 0.875rem !important;
-  border-radius: 10px !important;
-}
-.expenses-canvas section[aria-label="Month Financial Summary"],
-.expenses-canvas .space-y-4 > section[aria-label="Month Financial Summary"] {
-  padding: 0 !important;
-  border-radius: 0.75rem !important;
-}
-.expenses-canvas section[aria-label="Month Financial Summary"] .p-3 {
-  padding: 0.75rem 1rem !important;
-}
-.expenses-canvas input {
-  height: 2.5rem !important;
-  font-size: 0.9375rem !important;
-}
-.expenses-canvas button.min-h-\[44px\] {
-  min-height: 2.25rem !important;
-  height: 2.25rem !important;
-  padding: 0 0.75rem !important;
-  font-size: 0.8125rem !important;
-}
-
-/* Daily Trend Interactive Chart Points */
-.chart-point-interactive {
-  cursor: pointer;
-  outline: none;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-}
-@media (hover: hover) and (pointer: fine) {
-  .chart-point-interactive:hover .point-circle {
-    r: 6 !important;
-    fill: var(--trend-point-active, #1d4ed8) !important;
-  }
-  .chart-point-interactive:hover .point-guide {
-    opacity: 1 !important;
-  }
-}
-.chart-point-interactive:focus .point-circle,
-.chart-point-interactive:focus-visible .point-circle {
-  r: 6 !important;
-  fill: var(--trend-point-active, #1d4ed8) !important;
-}
-.chart-point-interactive:focus .point-guide,
-.chart-point-interactive:focus-visible .point-guide {
-  opacity: 1 !important;
 }

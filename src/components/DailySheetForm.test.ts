@@ -129,14 +129,14 @@ describe("DailySheetForm parse error handling and tryParseSen helper", () => {
       })
     );
 
-    // P4: Date navigation button uses clean inline title
-    expect(html).toContain("点击打开/关闭日历 (Click to toggle calendar)");
+    // P4: Date navigation button uses clean localized inline title
+    expect(html).toContain('title="选择日期"');
 
     // P5: Check that Save Sheet button uses bold compact button
     expect(html).toContain(t.saveSheet);
 
-    // P6: Sections have uppercase tracking headers
-    expect(html).toContain("tracking-wider");
+    // P6: Page renders a semantic h1 Daily Sheet header
+    expect(html).toContain(t.dailySheetTitle);
   });
 
   it("renders compact action bar on mobile viewport and flush revenue inputs", () => {
@@ -157,9 +157,9 @@ describe("DailySheetForm parse error handling and tryParseSen helper", () => {
     expect(html).toContain(t.cashRevenue);
     expect(html).toContain(t.tngRevenue.replace("'", "&#x27;"));
 
-    // Check gross profit summary
+    // Check gross profit summary (grouped display format)
     expect(html).toContain(t.grossProfit);
-    expect(html).toContain("RM210.00");
+    expect(html).toContain("RM 210.00");
   });
 });
 
@@ -279,12 +279,12 @@ describe("mergeCostLines, getCostLineKey, and deletion logic", () => {
     const riceMatches = html.match(/>Rice<\/span>/g) || [];
     expect(riceMatches).toHaveLength(1);
 
-    // Unmerged individual amounts (RM20.00, RM30.00) must NOT appear anywhere in the rendered markup
-    expect(html).not.toContain("RM20.00");
-    expect(html).not.toContain("RM30.00");
+    // Unmerged individual amounts (RM 20.00, RM 30.00) must NOT appear anywhere in the rendered markup
+    expect(html).not.toContain("RM 20.00");
+    expect(html).not.toContain("RM 30.00");
 
-    // The merged line amount RM50.00 is rendered
-    expect(html).toContain("RM50.00");
+    // The merged line amount RM 50.00 is rendered
+    expect(html).toContain("RM 50.00");
 
     // Exactly one delete button is rendered for the single merged row
     const deleteButtonMatches = html.match(new RegExp(`aria-label="${t.delete}"`, "g")) || [];
@@ -342,11 +342,11 @@ describe("mergeCostLines, getCostLineKey, and deletion logic", () => {
       })
     );
     expect(html3).toContain("Rice");
-    expect(html3).toContain("RM10.00");
+    expect(html3).toContain("RM 10.00");
     expect(html3).toContain("Shell");
-    expect(html3).toContain("RM25.00");
+    expect(html3).toContain("RM 25.00");
     expect(html3).toContain("Stove");
-    expect(html3).toContain("RM40.00");
+    expect(html3).toContain("RM 40.00");
 
     // When a single row is rendered or an item is expanded, its inputs are controlled
     const htmlSingle = ReactDOMServer.renderToStaticMarkup(
@@ -374,11 +374,11 @@ describe("mergeCostLines, getCostLineKey, and deletion logic", () => {
       })
     );
     expect(html2).toContain("Rice");
-    expect(html2).toContain("RM10.00");
+    expect(html2).toContain("RM 10.00");
     expect(html2).toContain("Stove");
-    expect(html2).toContain("RM40.00");
+    expect(html2).toContain("RM 40.00");
     expect(html2).not.toContain("Shell");
-    expect(html2).not.toContain("RM25.00");
+    expect(html2).not.toContain("RM 25.00");
 
     // Reverting/reloading data refreshes the input values back to baseline
     const reloaded = mergeCostLines([lineA, lineB, lineC]);
@@ -637,7 +637,7 @@ describe("Cost line inline errors and boxed styling parity", () => {
     expect(html).toContain("border-finance-loss");
 
     // Verify top notification banner is NOT rendered
-    expect(html).not.toContain('aria-label="Close"');
+    expect(html).not.toContain('aria-label="关闭"');
   });
 });
 
@@ -906,14 +906,14 @@ describe("DailySheetForm component cost item accordion and close behavior", () =
       })
     );
 
-    const costSection = html.slice(html.indexOf('aria-label="Daily Costs Entry"'));
+    const costSection = html.slice(html.indexOf('aria-label="日常开销"'));
 
     // The card is closed: aria-expanded="false" and cost input is NOT rendered
     expect(costSection).toContain('aria-expanded="false"');
     expect(costSection).not.toContain('aria-expanded="true"');
     expect(costSection).not.toContain('placeholder="0.00"');
-    // Summary row is clickable and interactive (not disabled)
-    expect(costSection).toContain('tabindex="0"');
+    // Summary row uses a native interactive <button> (not disabled)
+    expect(costSection).toContain('<button type="button" aria-expanded="false"');
     expect(costSection).toContain("cursor-pointer");
     expect(costSection).not.toContain("aria-disabled");
   });
@@ -932,7 +932,7 @@ describe("DailySheetForm component cost item accordion and close behavior", () =
       })
     );
 
-    const costSection = html.slice(html.indexOf('aria-label="Daily Costs Entry"'));
+    const costSection = html.slice(html.indexOf('aria-label="日常开销"'));
 
     // Rendered expanded: aria-expanded="true" and cost amount input is rendered
     expect(costSection).toContain('aria-expanded="true"');
@@ -958,7 +958,7 @@ describe("DailySheetForm component cost item accordion and close behavior", () =
       })
     );
 
-    const costSection0 = htmlItem0.slice(htmlItem0.indexOf('aria-label="Daily Costs Entry"'));
+    const costSection0 = htmlItem0.slice(htmlItem0.indexOf('aria-label="日常开销"'));
     const trueCount0 = (costSection0.match(/aria-expanded="true"/g) || []).length;
     const falseCount0 = (costSection0.match(/aria-expanded="false"/g) || []).length;
     expect(trueCount0).toBe(1);
@@ -977,7 +977,7 @@ describe("DailySheetForm component cost item accordion and close behavior", () =
       })
     );
 
-    const costSection1 = htmlItem1.slice(htmlItem1.indexOf('aria-label="Daily Costs Entry"'));
+    const costSection1 = htmlItem1.slice(htmlItem1.indexOf('aria-label="日常开销"'));
     const trueCount1 = (costSection1.match(/aria-expanded="true"/g) || []).length;
     const falseCount1 = (costSection1.match(/aria-expanded="false"/g) || []).length;
     expect(trueCount1).toBe(1);
@@ -1003,7 +1003,7 @@ describe("DailySheetForm component cost item accordion and close behavior", () =
       })
     );
 
-    const costSection = html.slice(html.indexOf('aria-label="Daily Costs Entry"'));
+    const costSection = html.slice(html.indexOf('aria-label="日常开销"'));
     const trueCount = (costSection.match(/aria-expanded="true"/g) || []).length;
     const falseCount = (costSection.match(/aria-expanded="false"/g) || []).length;
     expect(trueCount).toBe(1);
@@ -1031,28 +1031,27 @@ describe("DailySheetForm long money amount dynamic sizing", () => {
       })
     );
 
-    // Cost line summary amount: RM1200000.00 (12 chars) -> replaces text-base with text-xs (no coexistence)
-    expect(html).toContain("RM1200000.00");
-    expect(html).toMatch(/class="[^"]*text-xs font-bold text-slate-700 tabular-nums whitespace-nowrap"[^>]*>RM1200000\.00/);
-    expect(html).not.toMatch(/class="[^"]*text-base[^"]*"[^>]*>RM1200000\.00/);
+    // Cost line summary amount: RM 1,200,000.00 (>11 chars) -> replaces text-base with text-xs
+    expect(html).toContain("RM 1,200,000.00");
+    expect(html).toMatch(/class="[^"]*text-xs font-bold text-ink-primary whitespace-nowrap"[^>]*><span[^>]*>RM 1,200,000\.00/);
+    expect(html).not.toMatch(/class="[^"]*text-base[^"]*"[^>]*><span[^>]*>RM 1,200,000\.00/);
 
-    // Sticky bottom bar gross profit: 100568612 - 120000000 = -19431388 -> -RM194313.88 (13 chars) -> text-base
-    expect(html).toContain("-RM194313.88");
-    expect(html).toMatch(/class="[^"]*text-base font-bold text-finance-loss"[^>]*>-RM194313\.88/);
-    expect(html).not.toMatch(/class="[^"]*text-xl font-bold text-finance-loss"[^>]*>-RM194313\.88/);
+    // Sticky bottom bar gross profit: 100568612 - 120000000 = -19431388 -> −RM 194,313.88 (>11 chars) -> text-base
+    expect(html).toContain("194,313");
+    expect(html).toMatch(/class="[^"]*text-base lg:text-2xl font-bold mt-0\.5 lg:mt-0 text-finance-loss"/);
   });
 
   it("keeps standard base classes when formatted money amounts are <= 11 characters", () => {
     const html = ReactDOMServer.renderToStaticMarkup(
       React.createElement(DailySheetForm, {
         date: "2026-05-15",
-        initialCashSen: 50000000, // RM500000.00 -> 11 chars
+        initialCashSen: 500000, // RM 5,000.00 -> 11 chars
         initialTngSen: 0,
         initialCostLines: [
           {
             clientId: "c-normal",
             category: "restock",
-            amountSen: 50000000, // RM500000.00 -> 11 chars
+            amountSen: 500000, // RM 5,000.00 -> 11 chars
             note: "Standard order",
           },
         ],
@@ -1061,14 +1060,12 @@ describe("DailySheetForm long money amount dynamic sizing", () => {
       })
     );
 
-    // Cost line summary amount: RM500000.00 (11 chars) -> no text-xs
-    expect(html).toMatch(/class="[^"]*text-base font-bold text-slate-700 tabular-nums whitespace-nowrap"[^>]*>RM500000\.00/);
-    expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*>RM500000\.00/);
+    // Cost line summary amount: RM 5,000.00 (11 chars) -> keeps text-base (no text-xs)
+    expect(html).toMatch(/class="[^"]*text-base font-bold text-ink-primary whitespace-nowrap"[^>]*><span[^>]*>RM 5,000\.00/);
+    expect(html).not.toMatch(/class="[^"]*text-xs[^"]*"[^>]*><span[^>]*>RM 5,000\.00/);
 
-    // Sticky bottom bar gross profit: RM0.00 (6 chars) -> text-xl
-    expect(html).toContain("RM0.00");
-    expect(html).toMatch(/class="[^"]*text-xl font-bold text-brand-broccoli"[^>]*>RM0\.00/);
-    expect(html).not.toMatch(/class="[^"]*text-base font-bold text-brand-broccoli"[^>]*>RM0\.00/);
+    // Sticky bottom bar gross profit: RM 0.00 (7 chars) -> text-xl
+    expect(html).toMatch(/class="[^"]*text-xl lg:text-2xl font-bold mt-0\.5 lg:mt-0 text-finance-profit"/);
   });
 });
 
@@ -1343,16 +1340,13 @@ describe("Delete Daily Sheet button and sticky summary bar", () => {
     expect(deleteSheetButton(render({}))).toBeNull();
   });
 
-  it("is shown, enabled, and solid red with white text when a saved Daily Sheet exists", () => {
+  it("is shown, enabled, and styled as a restrained ghost destructive action when a saved Daily Sheet exists", () => {
     const btn = deleteSheetButton(render({ savedSheet: SAVED }));
     expect(btn).not.toBeNull();
     expect(btn).not.toContain('disabled=""');
-    expect(btn).toMatch(/(\s|")bg-finance-loss(\s|")/);
-    expect(btn).toContain("hover:bg-finance-loss/90");
-    expect(btn).toMatch(/(\s|")text-white(\s|")/);
-    expect(btn).not.toMatch(/(\s|")bg-white(\s|")/);
-    expect(btn).not.toMatch(/(\s|")border-finance-loss(\s|")/);
-    expect(btn).not.toContain("text-finance-loss");
+    expect(btn).toContain("text-finance-loss");
+    expect(btn).toContain("hover:bg-finance-loss-light");
+    expect(btn).not.toMatch(/(\s|")bg-finance-loss(\s|")/);
   });
 
   it("is shown for a saved sheet with zero Cost Lines (short day)", () => {
@@ -1366,7 +1360,7 @@ describe("Delete Daily Sheet button and sticky summary bar", () => {
     expect(btn).toMatch(/disabled=""/);
   });
 
-  it("comes after the sticky summary bar in the DOM, with its own bottom spacing", () => {
+  it("comes after the floating sticky summary card in the DOM, with its own spacing", () => {
     const html = render({
       savedSheet: SAVED,
       initialCostLines: [
@@ -1374,19 +1368,32 @@ describe("Delete Daily Sheet button and sticky summary bar", () => {
         { id: 2, category: "gas", amountSen: 500 },
       ],
     });
-    const barIdx = html.indexOf('class="sticky bottom-16 z-30 space-y-2"');
+    const barIdx = html.indexOf('data-testid="floating-save-card"');
     const btnIdx = html.indexOf(t.deleteSheetBtn);
     expect(barIdx).toBeGreaterThan(-1);
     expect(btnIdx).toBeGreaterThan(barIdx);
     const wrapperStart = html.lastIndexOf("<div", html.lastIndexOf("<button", btnIdx));
-    expect(html.slice(wrapperStart, html.indexOf(">", wrapperStart) + 1)).toContain("pb-4");
+    expect(html.slice(wrapperStart, html.indexOf(">", wrapperStart) + 1)).toContain("pb-2");
   });
 
-  it("summary bar keeps its sticky positioning class (not fixed)", () => {
+  it("summary card stays floating sticky above mobile bottom nav and sticky on desktop", () => {
     for (const savedSheet of [null, SAVED]) {
       const html = render({ savedSheet });
-      expect(html).toContain('class="sticky bottom-16 z-30 space-y-2"');
+      expect(html).toContain('data-testid="floating-save-card"');
+      expect(html).toContain("sticky bottom-[var(--mobile-nav-height)]");
+      expect(html).toContain("lg:top-8 lg:bottom-auto");
+      expect(html).toContain("backdrop-blur-md");
     }
+  });
+
+  it("shows New sheet status on an unsaved day and Saved status on a persisted day", () => {
+    const unsavedHtml = render({ savedSheet: null });
+    expect(unsavedHtml).toContain(t.newSheetState);
+    expect(unsavedHtml).not.toContain(`>${t.savedState}<`);
+
+    const savedHtml = render({ savedSheet: SAVED });
+    expect(savedHtml).toContain(`>${t.savedState}<`);
+    expect(savedHtml).not.toContain(`>${t.newSheetState}<`);
   });
 
   it("the delete-sheet modal cannot open while the save or Cost Line delete confirmation is open", () => {
