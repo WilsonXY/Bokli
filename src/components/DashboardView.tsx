@@ -589,7 +589,7 @@ export function DashboardView({
               <div className="md:col-span-6 p-5 sm:p-6 flex flex-col justify-start gap-5">
                 <div>
                   <div className="flex items-center flex-wrap gap-2">
-                    <span className="text-sm font-semibold text-ink-muted">
+                    <span className="text-sm font-semibold text-ink-muted mr-auto">
                       {t.netProfit}
                     </span>
                     {netMarginPct !== null && (
@@ -1032,14 +1032,6 @@ export function DashboardView({
                                 }`}
                               >
                                 <MoneyValue sen={activeVal} />
-                              </div>
-                              <div className="flex items-baseline justify-between gap-1.5 text-[11px] text-ink-muted num-tabular leading-tight whitespace-nowrap">
-                                <span className="truncate">{trendMetric === "revenue" ? t.sheetCostCol : t.sheetRevCol}</span>
-                                <strong className="font-semibold text-ink-secondary shrink-0">
-                                  <MoneyValue
-                                    sen={trendMetric === "revenue" ? activeRow.costSen : activeRow.totalSen}
-                                  />
-                                </strong>
                               </div>
                             </div>
                           );

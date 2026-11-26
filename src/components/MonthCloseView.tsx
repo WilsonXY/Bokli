@@ -11,6 +11,8 @@ import { MonthSelectorDropdown, MonthOption } from "@/components/MonthSelectorDr
 import { MoneyValue } from "@/components/MoneyValue";
 import { CashIcon, TngIcon } from "@/components/BokliIcons";
 
+const STATUS_REFRESH_DEADLINE_MS = 10_000;
+
 interface FinancialSnapshot {
   revenueSen: number;
   dailyCostSen: number;
@@ -300,7 +302,9 @@ export function MonthCloseView({
   useEffect(() => {
     isCloseDraftDirtyRef.current = isCloseDraftDirty;
     submittingRef.current = submitting;
-    isTransitioningRef.current = isTransitioning && !refreshFailed;
+    // Only the write itself blocks leaving: once the server has acknowledged
+    // it, a slow status refresh must not trap the user on this page.
+    isTransitioningRef.current = submitting;
     isClosedRef.current = isClosed;
   }, [isCloseDraftDirty, submitting, isTransitioning, refreshFailed, isClosed]);
 
@@ -413,13 +417,21 @@ export function MonthCloseView({
     if (isRetry) setRetryingRefresh(true);
     else setRefreshFailed(false);
     let failed = false;
+    let deadline: ReturnType<typeof setTimeout> | undefined;
     try {
       const result = refresh({ quiet: true });
       if (result && typeof (result as Promise<unknown>).then === "function") {
-        failed = (await result) === false;
+        // A stalled read surfaces Retry after 10s; if it lands later, the
+        // status effect still clears the notice.
+        const timedOut = new Promise<false>((resolve) => {
+          deadline = setTimeout(() => resolve(false), STATUS_REFRESH_DEADLINE_MS);
+        });
+        failed = (await Promise.race([result, timedOut])) === false;
       }
     } catch {
       failed = true;
+    } finally {
+      clearTimeout(deadline);
     }
     setRetryingRefresh(false);
     if (failed) {
@@ -513,10 +525,7 @@ export function MonthCloseView({
   );
   const staleStatusNotice =
     pendingStatusTarget !== null && !refreshFailed && !submitting ? (
-      <div
-        role="status"
-        className="flex items-center gap-2 p-3.5 rounded-xl bg-status-reopened-bg border border-status-reopened/20 text-sm text-status-reopened font-semibold"
-      >
+      <div className="flex items-center gap-2 p-3.5 rounded-xl bg-surface-subtle border border-surface-border text-sm text-ink-secondary font-semibold">
         {spinner}
         <span>{pendingStatusTarget === "closed" ? t.closeSavedUpdating : t.reopenSavedUpdating}</span>
       </div>
@@ -558,7 +567,11 @@ export function MonthCloseView({
           ? isClosed
             ? t.reopening
             : t.closingMonth
-          : successMessage ?? ""}
+          : pendingStatusTarget !== null && !refreshFailed
+            ? pendingStatusTarget === "closed"
+              ? t.closeSavedUpdating
+              : t.reopenSavedUpdating
+            : successMessage ?? ""}
       </span>
 
       <div className="space-y-6">
@@ -570,7 +583,7 @@ export function MonthCloseView({
 
         <MonthSelectorDropdown
           currentMonth={currentMonth}
-          disabled={isTransitioning && !refreshFailed}
+          disabled={submitting}
           options={(
             monthOptions ||
             availableMonths.map((m) => ({
@@ -592,7 +605,7 @@ export function MonthCloseView({
           )}
           onSelect={(month, triggerEl) => {
             if (month === currentMonth) return;
-            if (isTransitioning && !refreshFailed) return;
+            if (submitting) return;
             const targetHref = `/close?month=${month}`;
             if (isCloseDraftDirty) {
               setPendingNavigation({
@@ -689,10 +702,8 @@ export function MonthCloseView({
                   </h2>
                   {financials.revenueSen > 0 && (
                     <span
-                      className={`text-xs font-semibold px-2.5 py-0.5 rounded-full num-tabular whitespace-nowrap shrink-0 ${
-                        expectedNetSen >= 0n
-                          ? "bg-finance-profit-light text-finance-profit border border-finance-profit-border"
-                          : "bg-finance-loss-light text-finance-loss border border-finance-loss-border"
+                      className={`text-sm font-semibold num-tabular whitespace-nowrap shrink-0 ${
+                        expectedNetSen >= 0n ? "text-finance-profit" : "text-finance-loss"
                       }`}
                     >
                       {t.profitMargin}{" "}

@@ -717,17 +717,6 @@ export function ExpensesView({
   }, [expenses]);
 
   const netAfterExpenseSen = summary ? BigInt(summary.grossSen) - totalExpenseSen : null;
-  const grossSenBig = summary ? BigInt(summary.grossSen) : null;
-  const positiveGrossSen = grossSenBig !== null && grossSenBig > 0n ? grossSenBig : 0n;
-  const isOverGross =
-    summary !== null && summary !== undefined && totalExpenseSen > positiveGrossSen;
-  const overrunSen = isOverGross ? totalExpenseSen - positiveGrossSen : 0n;
-  const grossSharePct =
-    summary && summary.grossSen > 0
-      ? Math.round((Number(totalExpenseSen) / summary.grossSen) * 100)
-      : null;
-  const grossShareBarWidth =
-    grossSharePct !== null ? Math.min(100, Math.max(0, grossSharePct)) : 0;
 
   return (
     <>
@@ -865,95 +854,6 @@ export function ExpensesView({
                     </div>
                   </div>
 
-                  {(grossSharePct !== null || isOverGross) && (
-                    <div className="space-y-2 pt-0.5">
-                      <div className="flex items-center justify-between text-xs gap-2">
-                        <span className="text-ink-secondary font-medium">
-                          {t.opexShareSentence}
-                        </span>
-                        {grossSharePct !== null && (
-                          <span
-                            className={`num-tabular font-bold shrink-0 ${
-                              isOverGross ? "text-finance-loss" : "text-ink-primary"
-                            }`}
-                          >
-                            {grossSharePct}%
-                          </span>
-                        )}
-                      </div>
-                      {isOverGross && totalExpenseSen > 0n ? (
-                        (() => {
-                          const rawOverrunPct =
-                            (Number(overrunSen) / Number(totalExpenseSen)) * 100;
-                          const overrunPct =
-                            positiveGrossSen === 0n
-                              ? 100
-                              : Math.min(100, Math.max(2, Number(rawOverrunPct.toFixed(1))));
-                          const coveredPct = Math.max(0, Number((100 - overrunPct).toFixed(1)));
-                          const hasPositiveGross = positiveGrossSen > 0n;
-                          const overrunLabel = hasPositiveGross
-                            ? t.expensesOverrunCaption.replace(
-                                "{overrun}",
-                                formatDisplayMyr(overrunSen)
-                              )
-                            : t.expensesUncoveredCaption.replace(
-                                "{amount}",
-                                formatDisplayMyr(totalExpenseSen)
-                              );
-                          return (
-                            <>
-                              <div className="relative py-0.5" aria-label={overrunLabel}>
-                                <div className="w-full h-2.5 rounded-full bg-surface-subtle overflow-hidden flex">
-                                  {coveredPct > 0 && (
-                                    <div
-                                      className="h-full bg-finance-opex transition-all duration-300"
-                                      style={{ width: `${coveredPct}%` }}
-                                      title={`${t.opexCoveredLabel}: ${formatDisplayMyr(positiveGrossSen)}`}
-                                    />
-                                  )}
-                                  <div
-                                    className="h-full bg-finance-loss transition-all duration-300"
-                                    style={{ width: `${overrunPct}%` }}
-                                    title={overrunLabel}
-                                  />
-                                </div>
-                                {coveredPct > 0 && coveredPct < 100 && (
-                                  <span
-                                    aria-hidden="true"
-                                    style={{ left: `${coveredPct}%` }}
-                                    title={`${t.grossProfitBoundaryLabel}: ${formatDisplayMyr(positiveGrossSen)}`}
-                                    className="pointer-events-none absolute -top-0.5 -bottom-0.5 w-[2px] rounded-full bg-ink-primary -translate-x-1/2 ring-1 ring-surface"
-                                  />
-                                )}
-                              </div>
-                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs num-tabular">
-                                {hasPositiveGross && (
-                                  <span className="inline-flex items-center gap-1.5 text-ink-muted">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-finance-opex shrink-0" aria-hidden="true" />
-                                    <span>
-                                      {t.grossProfitBoundaryLabel} <MoneyValue sen={positiveGrossSen} />
-                                    </span>
-                                  </span>
-                                )}
-                                <span className="inline-flex items-center gap-1.5 text-finance-loss font-semibold">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-finance-loss shrink-0" aria-hidden="true" />
-                                  <span>{overrunLabel}</span>
-                                </span>
-                              </div>
-                            </>
-                          );
-                        })()
-                      ) : (
-                        <div className="w-full h-2.5 rounded-full bg-surface-subtle overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-finance-opex transition-all duration-300"
-                            style={{ width: `${grossShareBarWidth}%` }}
-                            title={`${t.opexShareSentence}: ${grossSharePct ?? 0}%`}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
 
                 {/* Ruled Gross-to-Net Ledger Breakdown (matching Month Close Book Summary) */}

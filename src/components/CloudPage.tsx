@@ -30,6 +30,7 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
   const query = value ? `?${param}=${encodeURIComponent(value)}` : "";
   const [state, setState] = useState<{ query: string; props?: P; stale?: boolean } | null>(null);
   const latest = useRef(0);
+  const [retrying, setRetrying] = useState(false);
 
   // A reload keeps the current screen (and its drafts) until the new data lands.
   const reload = useCallback((opts?: { quiet?: boolean }): Promise<boolean> => {
@@ -105,10 +106,17 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
         ref={retryRef}
         type="button"
         data-period-retry
-        onClick={() => void reload()}
-        className="shrink-0 min-h-[44px] px-4 rounded-xl border border-finance-loss-border bg-surface hover:bg-surface-subtle text-finance-loss font-semibold text-xs btn-tactile cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60"
+        aria-disabled={retrying}
+        aria-busy={retrying}
+        onClick={() => {
+          // One request at a time; the button stays mounted and focused.
+          if (retrying) return;
+          setRetrying(true);
+          void reload().finally(() => setRetrying(false));
+        }}
+        className="shrink-0 min-h-[44px] min-w-[7rem] px-4 rounded-xl border border-finance-loss-border bg-surface hover:bg-surface-subtle text-finance-loss font-semibold text-sm btn-tactile cursor-pointer aria-disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60"
       >
-        {t.retry}
+        {retrying ? t.refreshingStatus : t.retry}
       </button>
     </div>
   );

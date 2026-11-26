@@ -158,7 +158,7 @@ describe("ExpensesView frontend review fixes", () => {
       expect(html).not.toContain("当日毛利润");
     });
 
-    it("renders exact-sen crimson overrun bar and caption even when rounded share displays 100% (RM 100.01 vs RM 100.00)", () => {
+    it("has no share-of-gross-profit bar, even when expenses exceed Gross Profit (owner removed it)", () => {
       const html = ReactDOMServer.renderToStaticMarkup(
         React.createElement(ExpensesView, {
           currentMonth: "2026-05",
@@ -174,7 +174,7 @@ describe("ExpensesView frontend review fixes", () => {
             },
           ],
           summary: {
-            grossSen: 10000, // RM 100.00 -> rounded 100%, but genuine RM 0.01 overrun!
+            grossSen: 10000, // RM 100.00
             operatingSen: 10001,
             netSen: -1,
           },
@@ -182,38 +182,12 @@ describe("ExpensesView frontend review fixes", () => {
         }),
       );
 
-      expect(html).toContain("bg-finance-opex");
-      expect(html).toContain("bg-finance-loss");
-      expect(html).toContain("超出毛利润 RM 0.01");
-    });
-
-    it("uses uncovered Operating Expenses wording when Gross Profit is zero or negative", () => {
-      const html = ReactDOMServer.renderToStaticMarkup(
-        React.createElement(ExpensesView, {
-          currentMonth: "2026-05",
-          availableMonths: ["2026-05"],
-          initialExpenses: [
-            {
-              id: 1,
-              month: "2026-05",
-              type: "rental",
-              amountSen: 20000, // RM 200.00
-              note: "Rent",
-              createdAt: "2026-05-01 10:00:00",
-            },
-          ],
-          summary: {
-            grossSen: -5000, // -RM 50.00 negative Gross Profit
-            operatingSen: 20000,
-            netSen: -25000,
-          },
-          isClosed: false,
-        }),
-      );
-
-      expect(html).toContain("bg-finance-loss");
-      expect(html).toContain("无毛利润可覆盖：RM 200.00");
-      expect(html).not.toContain("超出毛利润 RM 200.00");
+      expect(html).not.toContain("占本月毛利润");
+      expect(html).not.toContain("超出毛利润");
+      expect(html).not.toContain("无毛利润可覆盖");
+      // The ledger below still carries the result, with the loss in red
+      expect(html).toContain("本月毛利润");
+      expect(html).toContain("text-finance-loss");
     });
   });
   describe("Invalid amount error inline parity", () => {

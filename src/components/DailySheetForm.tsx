@@ -479,6 +479,7 @@ export function DailySheetForm({
   const addCostBtnRef = useRef<HTMLButtonElement>(null);
   const discardDraftBtnRef = useRef<HTMLButtonElement>(null);
   const saveBtnRef = useRef<HTMLButtonElement>(null);
+  const saveSummaryRef = useRef<HTMLDivElement>(null);
   const deleteCostLineTriggerRef = useRef<HTMLButtonElement | null>(null);
   const deleteSheetModalRef = useRef<HTMLDivElement>(null);
   const discardDraftModalRef = useRef<HTMLDivElement>(null);
@@ -592,9 +593,9 @@ export function DailySheetForm({
     },
     canClose: !saving,
     returnFocusTo: saveBtnRef.current,
-    // After a successful save, Save is disabled; land on the date button, not a
-    // number field that would pop the phone keyboard over the saved sheet.
-    fallbackFocusRef: dateBtnRef,
+    // After a successful save, Save is disabled; land on the Save card's own
+    // result (always on screen, never a number field that pops the keyboard).
+    fallbackFocusRef: saveSummaryRef,
     suppressFocusRestore: pendingNavigation !== null,
   });
 
@@ -1216,10 +1217,10 @@ export function DailySheetForm({
         {successMessage ?? ""}
       </span>
 
-      <div className="space-y-1.5 sm:space-y-5">
+      <div className="space-y-3 sm:space-y-5">
 
       {/* Consistent Page Header + Compact Date Toolbar (Status pill always visible even at 320px) */}
-      <div className="space-y-1 sm:space-y-3">
+      <div className="space-y-2.5 sm:space-y-3">
         <div className="flex flex-col gap-1.5 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center justify-between sm:justify-start gap-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -1353,9 +1354,9 @@ export function DailySheetForm({
       </div>
 
       {/* Main Responsive 2-Column Workspace (lg:grid-rows-[auto_1fr] keeps Delete directly under Day Summary) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-[auto_1fr] gap-2 sm:gap-5 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-[auto_1fr] gap-3 sm:gap-5 items-start">
         {/* Left Column: Revenue Entry & Daily Costs */}
-        <div className="lg:col-span-7 lg:row-span-2 space-y-2 sm:space-y-5">
+        <div className="lg:col-span-7 lg:row-span-2 space-y-3 sm:space-y-5">
           {/* Section 1: Revenue Entry Card (uniform px-3.5 mobile edge; compact vertical rhythm for 320x660 first-paint clearance) */}
           <section aria-label={t.revenueTitle} className="bg-surface border border-surface-border rounded-2xl px-3.5 py-2 sm:p-6 shadow-card space-y-1.5 sm:space-y-4">
             <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
@@ -1840,7 +1841,12 @@ export function DailySheetForm({
 
                 {/* Day Result + Scrolled Unsaved Indicator + 48px Undo & Save CTAs (roomy at 320px even when dirty) */}
                 <div className="flex lg:flex-col items-center lg:items-stretch justify-between gap-2 lg:gap-4">
-                  <div className="flex flex-col lg:flex-row lg:items-baseline lg:justify-between min-w-0">
+                  <div
+                    ref={saveSummaryRef}
+                    tabIndex={-1}
+                    data-testid="save-dock-summary"
+                    className="flex flex-col lg:flex-row lg:items-baseline lg:justify-between min-w-0 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                  >
                     <div className="flex items-center gap-1.5 min-w-0">
                       <span
                         data-testid="save-dock-label"
@@ -1890,12 +1896,13 @@ export function DailySheetForm({
                           disabled={saving}
                           title={t.discardChanges}
                           aria-label={t.discardChanges}
-                          className="h-12 px-2.5 sm:px-3.5 shrink-0 rounded-xl border border-surface-border-strong bg-surface hover:bg-surface-subtle shadow-control text-ink-secondary hover:text-ink-primary btn-tactile inline-flex items-center justify-center gap-1 sm:gap-1.5 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                          className="h-12 w-12 sm:w-auto px-0 sm:px-3.5 shrink-0 rounded-xl border border-surface-border-strong bg-surface hover:bg-surface-subtle shadow-control text-ink-secondary hover:text-ink-primary btn-tactile inline-flex items-center justify-center sm:gap-1.5 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer disabled:opacity-50 whitespace-nowrap"
                         >
-                          <svg className="hidden sm:block w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.1" viewBox="0 0 24 24" aria-hidden="true">
+                          {/* Undo arrow alone on phones; arrow + word from sm up */}
+                          <svg className="w-5 h-5 sm:w-4 sm:h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.1" viewBox="0 0 24 24" aria-hidden="true">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
                           </svg>
-                          <span>{t.discardShort}</span>
+                          <span className="hidden sm:inline">{t.discardShort}</span>
                         </button>
                       )}
 
