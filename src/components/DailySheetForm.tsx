@@ -1509,8 +1509,8 @@ export function DailySheetForm({
                         isExpanded ? "bg-surface-subtle/35" : "bg-surface"
                       }`}
                     >
-                      {/* Summary Row: Two Sibling Buttons (No Nested Interactive Controls) */}
-                      <div className="flex items-center">
+                      {/* Summary Row: Two Sibling Buttons (No Nested Interactive Controls), 8px apart */}
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
                           disabled={isClosed}

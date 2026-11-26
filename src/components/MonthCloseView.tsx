@@ -226,6 +226,9 @@ export function MonthCloseView({
   const [refreshFailed, setRefreshFailed] = useState(false);
   const [retryingRefresh, setRetryingRefresh] = useState(false);
   const [retryFailedOnce, setRetryFailedOnce] = useState(false);
+  // Only the latest refresh attempt may update progress or failure; a timed
+  // out or superseded attempt that settles later is ignored.
+  const refreshAttemptRef = useRef(0);
   const [errorMessage, setErrorMessage] = useState<string | null>(initialErrorMessage);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [pendingNavigation, setPendingNavigation] = useState<{
@@ -333,6 +336,7 @@ export function MonthCloseView({
   useEffect(() => {
     if (!retryingRefresh) return;
     const id = setTimeout(() => {
+      refreshAttemptRef.current += 1; // abandon the stalled attempt
       setRetryingRefresh(false);
       setRetryFailedOnce(true);
     }, STATUS_REFRESH_DEADLINE_MS);
@@ -384,6 +388,9 @@ export function MonthCloseView({
     setReopenReasonError(null);
     setPendingStatusTarget(null);
     setRefreshFailed(false);
+    refreshAttemptRef.current += 1;
+    setRetryingRefresh(false);
+    setRetryFailedOnce(false);
     setPendingNavigation(null);
   }, [currentMonth, initialCashOnHandInput, initialTngOnHandInput, initialCloseNote, initialConfirmEmpty]);
 
@@ -437,6 +444,7 @@ export function MonthCloseView({
   // A retry keeps the saved-but-stale notice (and its focused button) mounted
   // and shows progress in place, instead of unmounting it mid-request.
   async function runStatusRefresh(target: "closed" | "open", isRetry = false) {
+    const attempt = ++refreshAttemptRef.current;
     setPendingStatusTarget(target);
     if (isRetry) {
       setRetryingRefresh(true);
@@ -453,6 +461,7 @@ export function MonthCloseView({
     } catch {
       failed = true;
     }
+    if (attempt !== refreshAttemptRef.current) return;
     if (isRetry) {
       setRetryingRefresh(false);
       // Either the read failed or it still showed the old status (the notice
@@ -903,7 +912,7 @@ export function MonthCloseView({
                               if (errorMessage) setErrorMessage(null);
                             }}
                             placeholder={t.reopenPlaceholder}
-                            className={`w-full h-12 px-3.5 rounded-xl bg-surface-input border text-base sm:text-sm [@media(pointer:coarse)]:text-base text-ink-primary focus:outline-none focus:bg-surface focus-visible:ring-2 disabled:opacity-100 disabled:bg-surface-subtle disabled:text-ink-secondary disabled:cursor-default transition-colors ${
+                            className={`w-full h-12 px-3.5 rounded-xl bg-surface-input border text-base sm:text-sm [@media(pointer:coarse)]:text-base text-ink-primary focus:outline-none focus:bg-surface focus-visible:ring-2 disabled:opacity-100 disabled:bg-surface-subtle disabled:text-ink-secondary disabled:border-surface-border disabled:cursor-default transition-colors ${
                               reopenReasonError
                                 ? "border-finance-loss focus:border-finance-loss focus-visible:ring-finance-loss/40"
                                 : "border-surface-border-strong focus:border-brand-broccoli focus-visible:ring-brand-broccoli/40"
@@ -1031,7 +1040,7 @@ export function MonthCloseView({
                               cashError
                                 ? "focus:border-finance-loss focus-visible:ring-finance-loss/40"
                                 : "focus:border-channel-cash focus-visible:ring-channel-cash/30"
-                            } focus-visible:ring-2 disabled:opacity-100 disabled:bg-surface-subtle disabled:text-ink-secondary disabled:cursor-default transition-colors`}
+                            } focus-visible:ring-2 disabled:opacity-100 disabled:bg-surface-subtle disabled:text-ink-secondary disabled:border-surface-border disabled:cursor-default transition-colors`}
                           />
                         </div>
                         {cashError && (
@@ -1080,7 +1089,7 @@ export function MonthCloseView({
                               tngError
                                 ? "focus:border-finance-loss focus-visible:ring-finance-loss/40"
                                 : "focus:border-channel-tng focus-visible:ring-channel-tng/30"
-                            } focus-visible:ring-2 disabled:opacity-100 disabled:bg-surface-subtle disabled:text-ink-secondary disabled:cursor-default transition-colors`}
+                            } focus-visible:ring-2 disabled:opacity-100 disabled:bg-surface-subtle disabled:text-ink-secondary disabled:border-surface-border disabled:cursor-default transition-colors`}
                           />
                         </div>
                         {tngError && (
@@ -1184,7 +1193,7 @@ export function MonthCloseView({
                             ? t.closeNoteExample
                             : t.closeNoteOptional
                         }
-                        className="w-full h-12 px-3.5 rounded-xl bg-surface-input border border-surface-border-strong text-base sm:text-sm [@media(pointer:coarse)]:text-base text-ink-primary focus:outline-none focus:bg-surface focus:border-brand-broccoli focus-visible:ring-2 focus-visible:ring-brand-broccoli/30 disabled:opacity-100 disabled:bg-surface-subtle disabled:text-ink-secondary disabled:cursor-default transition-colors"
+                        className="w-full h-12 px-3.5 rounded-xl bg-surface-input border border-surface-border-strong text-base sm:text-sm [@media(pointer:coarse)]:text-base text-ink-primary focus:outline-none focus:bg-surface focus:border-brand-broccoli focus-visible:ring-2 focus-visible:ring-brand-broccoli/30 disabled:opacity-100 disabled:bg-surface-subtle disabled:text-ink-secondary disabled:border-surface-border disabled:cursor-default transition-colors"
                       />
                       {!isBalanced && hasInputs && !hasParseError && (
                         <p

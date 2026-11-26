@@ -4,6 +4,8 @@ import React, { Suspense, useCallback, useEffect, useRef, useState } from "react
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
 
+const RETRY_DEADLINE_MS = 10_000;
+
 interface CloudPageProps<P> {
   /** The one query parameter the page reads (?date= or ?month=). */
   param: "date" | "month";
@@ -32,8 +34,14 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
   const latest = useRef(0);
   const [retrying, setRetrying] = useState(false);
   const [retryFailed, setRetryFailed] = useState(false);
-  // "Still couldn't load" belongs to the period it was shown for.
-  useEffect(() => setRetryFailed(false), [query]);
+  // A retry belongs to the period it was started for and gives up after
+  // RETRY_DEADLINE_MS; a stale or abandoned attempt never touches the UI.
+  const retryAttempt = useRef(0);
+  useEffect(() => {
+    retryAttempt.current += 1;
+    setRetrying(false);
+    setRetryFailed(false);
+  }, [query]);
 
   // A reload keeps the current screen (and its drafts) until the new data lands.
   const reload = useCallback((opts?: { quiet?: boolean }): Promise<boolean> => {
@@ -103,7 +111,7 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
 
   if (state?.query !== query) return skeleton;
   const error = (
-    <div role="alert" className="mb-3 p-4 rounded-xl bg-finance-loss-light border border-finance-loss-border text-finance-loss text-sm font-semibold flex items-center justify-between gap-3">
+    <div role="alert" className="mb-3 p-4 rounded-xl bg-finance-loss-light border border-finance-loss-border text-finance-loss text-sm font-semibold flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
       <span>
         {t.loadError}
         {retryFailed && <span className="block mt-0.5 font-medium">{t.loadStillFailing}</span>}
@@ -117,8 +125,17 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
         onClick={() => {
           // One request at a time; the button stays mounted and focused.
           if (retrying) return;
+          const attempt = ++retryAttempt.current;
           setRetrying(true);
+          const deadline = setTimeout(() => {
+            if (attempt !== retryAttempt.current) return;
+            retryAttempt.current += 1;
+            setRetrying(false);
+            setRetryFailed(true);
+          }, RETRY_DEADLINE_MS);
           void reload().then((ok) => {
+            clearTimeout(deadline);
+            if (attempt !== retryAttempt.current) return;
             setRetrying(false);
             setRetryFailed(!ok);
             if (!ok) return;
@@ -133,7 +150,7 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
             });
           });
         }}
-        className="shrink-0 min-h-[44px] min-w-[8.5rem] px-4 rounded-xl border border-finance-loss-border bg-surface hover:bg-surface-subtle text-finance-loss font-semibold text-sm btn-tactile inline-flex items-center justify-center gap-1.5 cursor-pointer aria-disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60"
+        className="shrink-0 min-h-[44px] w-full sm:w-auto sm:min-w-[8.5rem] px-4 rounded-xl border border-finance-loss-border bg-surface hover:bg-surface-subtle text-finance-loss font-semibold text-sm btn-tactile inline-flex items-center justify-center gap-1.5 cursor-pointer aria-disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60"
       >
         {retrying && (
           <svg aria-hidden="true" className="w-3.5 h-3.5 shrink-0 animate-spin motion-reduce:animate-none" viewBox="0 0 24 24" fill="none">

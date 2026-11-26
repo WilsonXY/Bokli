@@ -607,7 +607,7 @@ export function DashboardView({
                       <span
                         className={`text-xs font-semibold px-2.5 py-0.5 rounded-full num-tabular border ${
                           momDeltaSen >= 0n
-                            ? "bg-surface-subtle text-finance-profit border-surface-border"
+                            ? "bg-surface-subtle text-brand-broccoli-dark border-surface-border"
                             : "bg-surface-subtle text-finance-loss border-surface-border"
                         }`}
                       >
@@ -938,7 +938,9 @@ export function DashboardView({
                     {/* Screen-reader live readout only when a bar is explicitly pinned or keyboard-focused (never noisy passive hover) */}
                     <div className="sr-only" aria-live="polite" aria-atomic="true">
                       {(validPinnedDate ?? validFocusedDate) && activeRow
-                        ? `${activeRow.date} ${formatShortWeekday(activeRow.date, lang)} ${t.sheetRevCol} ${formatDisplayMyr(activeRow.totalSen)} ${t.sheetCostCol} ${formatDisplayMyr(activeRow.costSen)}`
+                        ? `${activeRow.date} ${formatShortWeekday(activeRow.date, lang)} ${
+                            trendMetric === "revenue" ? t.sheetRevCol : t.sheetCostCol
+                          } ${formatDisplayMyr(trendMetric === "revenue" ? activeRow.totalSen : activeRow.costSen)}`
                         : ""}
                     </div>
 
