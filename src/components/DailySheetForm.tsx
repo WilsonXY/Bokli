@@ -1323,33 +1323,10 @@ export function DailySheetForm({
               <h1 className="text-xl sm:text-2xl font-bold text-ink-primary tracking-tight whitespace-nowrap">
                 {t.dailySheetTitle}
               </h1>
-              {isToday ? (
+              {isToday && (
                 <span className="text-xs px-2.5 py-0.5 rounded-full bg-brand-broccoli-light font-semibold text-brand-broccoli border border-brand-broccoli/20 whitespace-nowrap shrink-0">
                   {t.today}
                 </span>
-              ) : (
-                <button
-                  type="button"
-                  data-period-control="today"
-                  disabled={saving || deletingSheet}
-                  onClick={(e) => requestNavigateToDate(todayKl, e.currentTarget)}
-                  className="group inline-flex items-center min-h-[48px] lg:min-h-[44px] -my-1.5 lg:-my-0.5 focus:outline-none cursor-pointer disabled:opacity-40 disabled:pointer-events-none shrink-0"
-                >
-                  <span className="inline-flex items-center gap-1.5 h-9 sm:h-10 px-3 sm:px-3.5 rounded-xl bg-brand-broccoli-light text-brand-broccoli border border-brand-broccoli/40 shadow-control btn-tactile group-hover:bg-[#dff4e7] group-hover:text-brand-broccoli-dark dark:group-hover:bg-brand-broccoli/20 dark:group-hover:text-brand-broccoli group-hover:border-brand-broccoli/55 group-focus-visible:ring-2 group-focus-visible:ring-brand-broccoli text-[13px] sm:text-sm font-semibold transition-colors whitespace-nowrap">
-                    <svg
-                      aria-hidden="true"
-                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.3"
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
-                    </svg>
-                    <span className="sm:hidden">{t.jumpToTodayShort}</span>
-                    <span className="hidden sm:inline">{t.jumpToToday}</span>
-                  </span>
-                </button>
               )}
             </div>
             {!isClosed && (
@@ -2008,9 +1985,9 @@ export function DailySheetForm({
                         disabled={saving || hasParseError || !saveIsPrimary}
                         onClick={handleSaveTrigger}
                         aria-label={t.saveSheet}
-                        className={`h-12 px-3.5 sm:px-5 lg:px-6 lg:flex-1 rounded-xl btn-tactile font-semibold text-sm tracking-wide flex items-center justify-center gap-1.5 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli focus-visible:ring-offset-1 cursor-pointer whitespace-nowrap ${
+                        className={`h-12 px-3.5 sm:px-5 lg:px-6 lg:flex-1 rounded-xl btn-tactile font-semibold text-sm tracking-wide flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli focus-visible:ring-offset-1 cursor-pointer whitespace-nowrap ${
                           saveIsPrimary
-                            ? "bg-brand-cta hover:bg-brand-cta-hover text-brand-cta-ink shadow-card"
+                            ? "bg-brand-cta hover:bg-brand-cta-hover text-brand-cta-ink shadow-card disabled:opacity-50"
                             : "bg-surface-subtle enabled:hover:bg-surface-hover text-ink-muted enabled:hover:text-ink-secondary border border-surface-border shadow-none disabled:cursor-default"
                         }`}
                       >
@@ -2456,6 +2433,30 @@ export function DailySheetForm({
         </div>
       )}
       </div>
+      {/* Floating 回今天 pill on past days only. Fixed (not in the flow) and centred over the
+          title row's free middle, so it stays reachable while Mom scrolls a long sheet. It sits
+          under the app header (z-30), the calendar (z-45/50) and every dialog (z-50). */}
+      {!isToday && (
+        <div className="fixed inset-x-0 lg:left-[244px] top-[50px] sm:top-[81px] lg:top-[35px] z-20 flex justify-center pointer-events-none">
+          <button
+            type="button"
+            data-period-control="today"
+            disabled={saving || deletingSheet}
+            onClick={(e) => requestNavigateToDate(todayKl, e.currentTarget)}
+            aria-label={t.jumpToToday}
+            className="group pointer-events-auto animate-slide-down inline-flex items-center h-12 px-1 focus:outline-none cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+          >
+            <span className="inline-flex items-center justify-center gap-1.5 h-10 min-w-10 px-3 min-[375px]:px-4 rounded-full bg-brand-cta text-brand-cta-ink shadow-popover btn-tactile group-hover:bg-brand-cta-hover group-focus-visible:ring-2 group-focus-visible:ring-brand-broccoli group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-surface text-sm font-semibold transition-colors whitespace-nowrap">
+              <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.3" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+              </svg>
+              {/* "Daily Sheet" leaves no room for the word between title and status below 375px, so English goes icon-only there */}
+              <span className={lang === "en" ? "hidden min-[375px]:inline lg:hidden" : "lg:hidden"}>{t.jumpToTodayShort}</span>
+              <span className="hidden lg:inline">{t.jumpToToday}</span>
+            </span>
+          </button>
+        </div>
+      )}
     </>
   );
 }

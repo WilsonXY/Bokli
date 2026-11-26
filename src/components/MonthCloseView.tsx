@@ -929,13 +929,6 @@ export function MonthCloseView({
                           )}
                           <div className="flex items-center gap-2.5">
                             <button
-                              type="submit"
-                              disabled={isTransitioning}
-                              className="min-h-[48px] px-5 rounded-xl bg-brand-cta hover:bg-brand-cta-hover text-brand-cta-ink btn-tactile font-semibold text-sm disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
-                            >
-                              {submitting ? t.reopening : t.btnPerformReopen}
-                            </button>
-                            <button
                               type="button"
                               disabled={isTransitioning}
                               onClick={() => {
@@ -945,9 +938,16 @@ export function MonthCloseView({
                                 setShowReopenBox(false);
                                 requestAnimationFrame(() => reopenBtnRef.current?.focus());
                               }}
-                              className="min-h-[48px] px-4 rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary text-sm font-semibold disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+                              className="min-h-[48px] px-4 rounded-xl border border-surface-border bg-surface hover:bg-surface-subtle btn-tactile text-ink-secondary text-sm font-semibold disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
                             >
                               {t.cancel}
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={isTransitioning}
+                              className="min-h-[48px] px-5 rounded-xl bg-brand-cta hover:bg-brand-cta-hover text-brand-cta-ink btn-tactile font-semibold text-sm disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+                            >
+                              {submitting ? t.reopening : t.btnPerformReopen}
                             </button>
                           </div>
                         </form>
@@ -1221,13 +1221,13 @@ export function MonthCloseView({
 
                     {/* Empty Month Confirmation */}
                     {!hasSheetsInMonth && (
-                      <label className="flex items-center gap-2.5 text-sm font-medium text-ink-secondary cursor-pointer select-none py-1">
+                      <label className="flex items-center gap-2.5 min-h-[44px] text-sm font-medium text-ink-secondary cursor-pointer select-none py-1">
                         <input
                           type="checkbox"
                           disabled={isTransitioning}
                           checked={confirmEmpty}
                           onChange={(e) => setConfirmEmpty(e.target.checked)}
-                          className="w-5 h-5 rounded border-surface-border-strong accent-brand-broccoli cursor-pointer disabled:opacity-50 focus:ring-2 focus:ring-brand-broccoli/50"
+                          className="w-5 h-5 rounded border-surface-border-strong accent-brand-broccoli cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli"
                         />
                         <span>{t.confirmEmptyMonth}</span>
                       </label>
