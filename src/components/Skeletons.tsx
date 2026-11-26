@@ -1,17 +1,39 @@
 "use client";
 
 import React from "react";
+import { useI18n } from "@/lib/i18n";
 
 const bar = "rounded-lg bg-surface-subtle animate-pulse";
 const card = "bg-surface border border-surface-border rounded-2xl p-5 sm:p-6 shadow-card";
 
+/**
+ * Same-size stand-in for the MonthSelectorDropdown trigger: its real (hidden)
+ * contents give it the real width in either language, so the header wraps
+ * exactly like the loaded page. "0000-00" has the width of any month
+ * (tabular digits), and the three status labels stack like the real badge.
+ */
+function MonthPickerBar() {
+  const { t } = useI18n();
+  return (
+    <div aria-hidden="true" className={`${bar} h-12 lg:h-11 px-2.5 sm:px-3 rounded-xl border border-transparent flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 self-start sm:self-auto`}>
+      <span className="invisible hidden min-[360px]:block w-4 h-4 shrink-0" />
+      <span className="invisible font-semibold text-sm tracking-tight num-tabular">0000-00</span>
+      <span className="invisible grid text-xs font-semibold px-2 py-0.5 border">
+        {[t.openStatus, t.closedStatus, t.reopenedStatus].map((label) => (
+          <span key={label} className="col-start-1 row-start-1">{label}</span>
+        ))}
+      </span>
+      <span className="invisible w-4 h-4 shrink-0" />
+    </div>
+  );
+}
+
+// Matches the month pages' header: 32px title over (phones) or beside the month picker.
 function HeaderBar() {
   return (
     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div className={`${bar} h-8 w-44`} />
-      <div className="flex items-center gap-2">
-        <div className={`${bar} h-11 w-40 rounded-xl`} />
-      </div>
+      <MonthPickerBar />
     </div>
   );
 }
@@ -26,11 +48,11 @@ export function DailySheetSkeleton() {
   return (
     <div className="space-y-3 sm:space-y-5" aria-busy="true">
       <div className="space-y-2.5 sm:space-y-3">
-        <div className="flex flex-col gap-2.5 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2.5 sm:gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center min-h-9">
             <div className={`${bar} h-8 w-36`} />
           </div>
-          <div className={`${bar} h-[54px] w-full sm:w-[277px] rounded-xl`} />
+          <div className={`${bar} h-[54px] w-full md:w-[277px] rounded-xl`} />
         </div>
       </div>
 
@@ -69,10 +91,30 @@ export function DailySheetSkeleton() {
 }
 
 /** Matches DashboardView: header, hero Profit Story + Waterfall card, 7/5 analytics row, and Daily Sheets ledger. */
+// The Overview header also carries the "+ 记账" / "+ Today's Sheet" button; its
+// hidden label wraps the row onto two lines exactly when the real one does
+// (English on phones), so the content below starts at the same height.
+function DashboardHeaderBar() {
+  const { t } = useI18n();
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className={`${bar} h-8 w-44`} />
+      <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2">
+        <MonthPickerBar />
+        <div aria-hidden="true" className={`${bar} h-12 lg:h-11 px-3 sm:px-4 rounded-xl flex items-center gap-1.5 text-sm font-semibold whitespace-nowrap shrink-0`}>
+          <span className="invisible w-4 h-4 shrink-0" />
+          <span className="invisible sm:hidden">{t.recordTodayShort}</span>
+          <span className="invisible hidden sm:inline">{t.recordTodaySheet}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardSkeleton() {
   return (
     <div className="space-y-5" aria-busy="true">
-      <HeaderBar />
+      <DashboardHeaderBar />
 
       <div className={`${card} grid grid-cols-1 md:grid-cols-12 gap-6`}>
         <div className="md:col-span-6 space-y-3">
@@ -125,7 +167,7 @@ export function DashboardSkeleton() {
 /** Matches ExpensesView: header, 5/7 desktop grid with Profit Impact card and Recorded Items card. */
 export function ExpensesSkeleton() {
   return (
-    <div className="space-y-5" aria-busy="true">
+    <div className="space-y-6" aria-busy="true">
       <HeaderBar />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         <div className={`lg:col-span-5 ${card} space-y-4`}>
@@ -151,7 +193,7 @@ export function ExpensesSkeleton() {
 /** Matches MonthCloseView: header, 5/7 desktop grid with Book Summary waterfall and Reconciliation card. */
 export function MonthCloseSkeleton() {
   return (
-    <div className="space-y-5" aria-busy="true">
+    <div className="space-y-6" aria-busy="true">
       <HeaderBar />
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         <div className={`lg:col-span-5 ${card} space-y-3`}>

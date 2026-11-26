@@ -1,8 +1,10 @@
 import { setLanguage } from "./settings-helpers.mjs";
-// Loading skeletons: each page's skeleton has the same boxes as the loaded page
-// (fake data), so nothing jumps when the data lands. Both languages; run with
-// and without --mobile. The Daily Sheet is checked on a date switch, the month
-// pages on load (the same skeleton shows when switching months). Then last
+// Loading skeletons: nothing above the fold jumps when the data lands. Both
+// languages; run with and without --mobile. The Daily Sheet (Mom's main page)
+// is checked box for box on a date switch. The month pages are checked on load
+// (the same skeleton shows when switching months) for the page header and where
+// the content starts only: their cards change height with language and data,
+// so the owner chose not to mirror every card. Then last
 // month is closed, and the page header (title and month picker) is checked
 // again: the picker keeps its width whatever the month's status.
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -87,7 +89,10 @@ export default async function flow({ page, shot }) {
     await shot(`${lang}-sheet-loaded`);
 
     for (const [path, api] of monthPages) {
-      compare(`${lang} ${path}`, ...(await monthPage(page, `${path}?month=${lastMonth}`, api, lang, `${lang}-${api}`, shot)));
+      const [skeleton, loaded] = await monthPage(page, `${path}?month=${lastMonth}`, api, lang, `${lang}-${api}`, shot);
+      // Header box, then the content's top-left corner and width.
+      const start = (boxes) => [boxes[0], boxes[1]?.slice(0, 3)];
+      compare(`${lang} ${path} header and content start`, start(skeleton), start(loaded));
     }
   }
 

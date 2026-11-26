@@ -1317,8 +1317,9 @@ export function DailySheetForm({
 
       {/* Consistent Page Header + Compact Date Toolbar (Status pill always visible even at 320px) */}
       <div className="space-y-2.5 sm:space-y-3">
-        <div className="flex flex-col gap-2.5 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center justify-between sm:justify-start gap-2 min-h-9">
+        {/* Title row and date bar stay stacked until md, so the floating Today pill always has the title row's free middle (side by side, a 640-714px window puts the date bar under it) */}
+        <div className="flex flex-col gap-2.5 sm:gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center justify-between md:justify-start gap-2 min-h-9">
             <div className="flex items-center gap-2 min-w-0">
               <h1 className="text-xl sm:text-2xl font-bold text-ink-primary tracking-tight whitespace-nowrap">
                 {t.dailySheetTitle}
@@ -1345,8 +1346,44 @@ export function DailySheetForm({
             )}
           </div>
 
+          {/* Floating Today (今天) pill on past days only. Fixed (not in the flow) and centred over the
+              title row's free middle, so it stays reachable while Mom scrolls a long sheet. It sits
+              under the app header (z-30), the calendar (z-45/50) and every dialog (z-50), hides while the calendar is
+              open (the anchored panel would cut across it) and while CloudPage's refresh-failed banner is up (globals.css).
+              In the DOM right after the title row, so Tab reaches it before the date bar, as it reads on screen. */}
+          {!isToday && (
+            <div data-today-pill className={`fixed inset-x-0 lg:left-[244px] top-[50px] sm:top-[70px] md:top-[81px] lg:top-[35px] z-20 flex justify-center pointer-events-none${isCalendarOpen ? " invisible" : ""}`}>
+              <button
+                type="button"
+                data-period-control="today"
+                disabled={saving || deletingSheet}
+                onClick={(e) => requestNavigateToDate(todayKl, e.currentTarget)}
+                aria-label={t.jumpToToday}
+                title={t.jumpToToday}
+                className="group pointer-events-auto animate-slide-down inline-flex items-center h-12 px-1 focus:outline-none cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+              >
+                <span className="inline-flex items-center justify-center gap-1.5 h-10 min-w-10 px-3 min-[375px]:px-4 rounded-full bg-brand-cta text-brand-cta-ink shadow-popover btn-tactile group-hover:bg-brand-cta-hover group-focus-visible:ring-2 group-focus-visible:ring-brand-broccoli group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-surface text-sm font-semibold transition-colors whitespace-nowrap">
+                  {/* Owner's choice: the curved "go back" arrow, even though Discard uses the same glyph */}
+                  <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.3" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+                  </svg>
+                  {/* Chinese always reads "↶今天" (owner's wording). English: "Today", "Jump to Today" from xl, and
+                      icon-only below 375px, where "Daily Sheet" leaves no room for the word between title and status */}
+                  {lang === "en" ? (
+                    <>
+                      <span className="hidden min-[375px]:inline xl:hidden">{t.jumpToTodayShort}</span>
+                      <span className="hidden xl:inline">{t.jumpToToday}</span>
+                    </>
+                  ) : (
+                    <span>{t.jumpToTodayShort}</span>
+                  )}
+                </span>
+              </button>
+            </div>
+          )}
+
           {/* Compact Date Stepper with 48px touch targets on phones & tablets (CalendarPopover right-aligned flush to stepper) */}
-          <div className="relative inline-flex items-center justify-between sm:justify-end gap-2 bg-surface border border-surface-border rounded-xl p-0.5 sm:p-1 shadow-card">
+          <div className="relative inline-flex items-center justify-between md:justify-end gap-2 bg-surface border border-surface-border rounded-xl p-0.5 sm:p-1 shadow-card">
             <button
               type="button"
               disabled={saving || deletingSheet}
@@ -2433,30 +2470,6 @@ export function DailySheetForm({
         </div>
       )}
       </div>
-      {/* Floating 回今天 pill on past days only. Fixed (not in the flow) and centred over the
-          title row's free middle, so it stays reachable while Mom scrolls a long sheet. It sits
-          under the app header (z-30), the calendar (z-45/50) and every dialog (z-50). */}
-      {!isToday && (
-        <div className="fixed inset-x-0 lg:left-[244px] top-[50px] sm:top-[81px] lg:top-[35px] z-20 flex justify-center pointer-events-none">
-          <button
-            type="button"
-            data-period-control="today"
-            disabled={saving || deletingSheet}
-            onClick={(e) => requestNavigateToDate(todayKl, e.currentTarget)}
-            aria-label={t.jumpToToday}
-            className="group pointer-events-auto animate-slide-down inline-flex items-center h-12 px-1 focus:outline-none cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
-          >
-            <span className="inline-flex items-center justify-center gap-1.5 h-10 min-w-10 px-3 min-[375px]:px-4 rounded-full bg-brand-cta text-brand-cta-ink shadow-popover btn-tactile group-hover:bg-brand-cta-hover group-focus-visible:ring-2 group-focus-visible:ring-brand-broccoli group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-surface text-sm font-semibold transition-colors whitespace-nowrap">
-              <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.3" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
-              </svg>
-              {/* "Daily Sheet" leaves no room for the word between title and status below 375px, so English goes icon-only there */}
-              <span className={lang === "en" ? "hidden min-[375px]:inline lg:hidden" : "lg:hidden"}>{t.jumpToTodayShort}</span>
-              <span className="hidden lg:inline">{t.jumpToToday}</span>
-            </span>
-          </button>
-        </div>
-      )}
     </>
   );
 }
