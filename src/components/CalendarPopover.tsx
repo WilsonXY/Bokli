@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { acquireDocumentScrollLock } from "@/lib/use-modal-focus-trap";
 
@@ -54,6 +54,28 @@ export function CalendarPopover({
       skipFocusRestoreRef.current = false;
     }
   }, [isOpen, date]);
+
+  // Anchored popover (tablet/desktop): cap its height to the space below the
+  // trigger so a six-week month never runs off-screen; the date grid scrolls.
+  // The bottom-sheet layouts (phones, short landscape) keep their CSS cap.
+  useLayoutEffect(() => {
+    if (!isOpen) return;
+    const popover = popoverRef.current;
+    if (!popover) return;
+    const fit = () => {
+      popover.style.maxHeight = "";
+      const anchored = getComputedStyle(popover.parentElement ?? popover).position === "absolute";
+      if (!anchored) return;
+      const room = window.innerHeight - popover.getBoundingClientRect().top - 12;
+      popover.style.maxHeight = `${Math.max(240, Math.floor(room))}px`;
+    };
+    fit();
+    window.addEventListener("resize", fit);
+    return () => {
+      window.removeEventListener("resize", fit);
+      popover.style.maxHeight = "";
+    };
+  }, [isOpen]);
 
   // Make background inert & lock document scroll while modal dialog is open, move focus in, and restore on close
   useEffect(() => {

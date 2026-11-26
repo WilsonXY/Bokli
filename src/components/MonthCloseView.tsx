@@ -35,7 +35,7 @@ export interface CloseRecordData {
 }
 
 export interface MonthCloseViewProps {
-  onRefresh?: () => void | Promise<boolean | void>;
+  onRefresh?: (opts?: { quiet?: boolean }) => void | Promise<boolean | void>;
   currentMonth: string;
   availableMonths: string[];
   financials?: FinancialSnapshot | null;
@@ -216,11 +216,13 @@ export function MonthCloseView({
   const cashOnHandInputRef = useRef<HTMLInputElement | null>(null);
   const errorAlertRef = useRef<HTMLDivElement | null>(null);
   const staleRetryRef = useRef<HTMLButtonElement | null>(null);
+  const pageHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [pendingStatusTarget, setPendingStatusTarget] = useState<"closed" | "open" | null>(null);
   const [refreshFailed, setRefreshFailed] = useState(false);
+  const [retryingRefresh, setRetryingRefresh] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(initialErrorMessage);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [pendingNavigation, setPendingNavigation] = useState<{
@@ -319,7 +321,9 @@ export function MonthCloseView({
       requestAnimationFrame(() => {
         const active = document.activeElement;
         if (active && active !== document.body) return;
-        (isClosed ? reopenBtnRef.current : cashOnHandInputRef.current)?.focus();
+        // Operators have no Reopen button: fall back to the page heading.
+        const target = isClosed ? reopenBtnRef.current : cashOnHandInputRef.current;
+        (target ?? pageHeadingRef.current)?.focus();
       });
     }
   }, [pendingStatusTarget, isClosed]);
@@ -385,21 +389,23 @@ export function MonthCloseView({
     }, 3500);
   }
 
-  async function runStatusRefresh(target: "closed" | "open") {
+  // A retry keeps the saved-but-stale notice (and its focused button) mounted
+  // and shows progress in place, instead of unmounting it mid-request.
+  async function runStatusRefresh(target: "closed" | "open", isRetry = false) {
     setPendingStatusTarget(target);
-    setRefreshFailed(false);
+    if (isRetry) setRetryingRefresh(true);
+    else setRefreshFailed(false);
+    let failed = false;
     try {
-      const result = refresh();
+      const result = refresh({ quiet: true });
       if (result && typeof (result as Promise<unknown>).then === "function") {
-        const ok = await result;
-        if (ok === false) {
-          setRefreshFailed(true);
-        }
+        failed = (await result) === false;
       }
     } catch {
-      setRefreshFailed(true);
-      setErrorMessage(t.loadError);
+      failed = true;
     }
+    setRetryingRefresh(false);
+    if (failed) setRefreshFailed(true);
   }
 
   async function handlePerformClose(e: React.FormEvent) {
@@ -488,10 +494,14 @@ export function MonthCloseView({
         <button
           ref={staleRetryRef}
           type="button"
-          onClick={() => void runStatusRefresh(pendingStatusTarget)}
-          className="shrink-0 min-h-[44px] px-4 rounded-xl border border-status-reopened/30 bg-surface hover:bg-surface-subtle btn-tactile text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+          aria-disabled={retryingRefresh}
+          aria-busy={retryingRefresh}
+          onClick={() => {
+            if (!retryingRefresh) void runStatusRefresh(pendingStatusTarget, true);
+          }}
+          className="shrink-0 min-h-[44px] px-4 rounded-xl border border-status-reopened/30 bg-surface hover:bg-surface-subtle btn-tactile text-sm font-semibold aria-disabled:opacity-60 aria-disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
         >
-          {t.retry}
+          {retryingRefresh ? t.refreshingStatus : t.retry}
         </button>
       </div>
     ) : null;
@@ -515,7 +525,7 @@ export function MonthCloseView({
       <div className="space-y-6">
       {/* Header & Month Selector — Stacks cleanly on narrow mobile */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold text-ink-primary tracking-tight">
+        <h1 ref={pageHeadingRef} tabIndex={-1} className="text-2xl font-bold text-ink-primary tracking-tight focus:outline-none">
           {t.closeTitle}
         </h1>
 

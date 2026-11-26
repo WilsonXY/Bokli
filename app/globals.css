@@ -61,12 +61,12 @@
     --status-open-bg: 224 242 254;        /* #e0f2fe */
 
     /* Dedicated Cost Category Palette (verified disjoint from Cash emerald, TnG cobalt, Profit green, Cost amber & Loss crimson) */
-    --cat-restock: #4a7aa8;
-    --cat-restock-soft: #eef3f9;
+    --cat-restock: #0891b2;
+    --cat-restock-soft: #ecfeff;
     --cat-gas: #db2777;
     --cat-gas-soft: #fdf2f8;
-    --cat-transport: #0891b2;
-    --cat-transport-soft: #ecfeff;
+    --cat-transport: #4a7aa8;
+    --cat-transport-soft: #eef3f9;
     --cat-wages: #4d7c0f;
     --cat-wages-soft: #f7fee7;
     --cat-maintenance: #713f12;
@@ -75,10 +75,10 @@
     --cat-other-soft: #f0efed;
 
     /* Dedicated Operating Expense Icon Tokens (verified disjoint from Cash, TnG, Cost amber, OpEx slate & Loss crimson) */
-    --op-rental: #4a7aa8;
-    --op-rental-soft: #eef3f9;
-    --op-utilities: #0891b2;
-    --op-utilities-soft: #ecfeff;
+    --op-rental: #0891b2;
+    --op-rental-soft: #ecfeff;
+    --op-utilities: #4a7aa8;
+    --op-utilities-soft: #eef3f9;
     --op-wages: #db2777;
     --op-wages-soft: #fdf2f8;
     --op-other: #78716c;
@@ -166,12 +166,12 @@
     --status-open-bg: 18 42 58;           /* #122a3a */
 
     /* Dedicated Cost Category Palette for Dark Mode (verified disjoint from Cash, TnG, Cost, Profit & Loss) */
-    --cat-restock: #4682b4;
-    --cat-restock-soft: rgba(70, 130, 180, 0.2);
+    --cat-restock: #22d3ee;
+    --cat-restock-soft: rgba(34, 211, 238, 0.15);
     --cat-gas: #f783c0;
     --cat-gas-soft: rgba(247, 131, 192, 0.16);
-    --cat-transport: #22d3ee;
-    --cat-transport-soft: rgba(34, 211, 238, 0.15);
+    --cat-transport: #4682b4;
+    --cat-transport-soft: rgba(70, 130, 180, 0.2);
     --cat-wages: #bef264;
     --cat-wages-soft: rgba(190, 242, 100, 0.14);
     --cat-maintenance: #fdba74;
@@ -180,10 +180,10 @@
     --cat-other-soft: rgba(214, 211, 209, 0.16);
 
     /* Dedicated Operating Expense Icon Tokens for Dark Mode */
-    --op-rental: #4682b4;
-    --op-rental-soft: rgba(70, 130, 180, 0.2);
-    --op-utilities: #22d3ee;
-    --op-utilities-soft: rgba(34, 211, 238, 0.15);
+    --op-rental: #22d3ee;
+    --op-rental-soft: rgba(34, 211, 238, 0.15);
+    --op-utilities: #4682b4;
+    --op-utilities-soft: rgba(70, 130, 180, 0.2);
     --op-wages: #f783c0;
     --op-wages-soft: rgba(247, 131, 192, 0.16);
     --op-other: #d6d3d1;

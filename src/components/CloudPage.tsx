@@ -8,7 +8,8 @@ interface CloudPageProps<P> {
   /** The one query parameter the page reads (?date= or ?month=). */
   param: "date" | "month";
   load: (query: string) => Promise<P>;
-  render: (props: P, reload: () => Promise<boolean>) => React.ReactNode;
+  /** `quiet`: the view reports a failure itself, so keep the page-level alert off. */
+  render: (props: P, reload: (opts?: { quiet?: boolean }) => Promise<boolean>) => React.ReactNode;
   /** Shown while loading; shape it like the loaded page so nothing jumps. */
   skeleton?: React.ReactNode;
 }
@@ -31,7 +32,7 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
   const latest = useRef(0);
 
   // A reload keeps the current screen (and its drafts) until the new data lands.
-  const reload = useCallback((): Promise<boolean> => {
+  const reload = useCallback((opts?: { quiet?: boolean }): Promise<boolean> => {
     const call = ++latest.current;
     return load(query).then(
       (props) => {
@@ -40,7 +41,11 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
       },
       (err) => {
         console.error("Failed to load page data:", err);
-        if (call === latest.current) setState((prev) => (prev?.query === query && prev.props ? { ...prev, stale: true } : { query }));
+        if (call === latest.current) {
+          setState((prev) =>
+            prev?.query === query && prev.props ? { ...prev, stale: !opts?.quiet } : { query },
+          );
+        }
         return false;
       },
     );
