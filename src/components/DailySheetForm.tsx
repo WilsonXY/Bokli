@@ -592,7 +592,9 @@ export function DailySheetForm({
     },
     canClose: !saving,
     returnFocusTo: saveBtnRef.current,
-    fallbackFocusRef: cashInputRef,
+    // After a successful save, Save is disabled; land on the date button, not a
+    // number field that would pop the phone keyboard over the saved sheet.
+    fallbackFocusRef: dateBtnRef,
     suppressFocusRestore: pendingNavigation !== null,
   });
 
@@ -1906,7 +1908,7 @@ export function DailySheetForm({
                         className={`h-12 px-3.5 sm:px-5 lg:px-6 lg:flex-1 rounded-xl btn-tactile font-semibold text-sm tracking-wide flex items-center justify-center gap-1.5 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli focus-visible:ring-offset-1 cursor-pointer whitespace-nowrap ${
                           saveIsPrimary
                             ? "bg-brand-cta hover:bg-brand-cta-hover text-brand-cta-ink shadow-card"
-                            : "bg-surface-subtle hover:bg-surface-hover text-ink-muted hover:text-ink-secondary border border-surface-border shadow-none"
+                            : "bg-surface-subtle enabled:hover:bg-surface-hover text-ink-muted enabled:hover:text-ink-secondary border border-surface-border shadow-none disabled:cursor-default"
                         }`}
                       >
                         {saving ? (

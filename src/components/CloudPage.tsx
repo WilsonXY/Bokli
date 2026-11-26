@@ -62,13 +62,28 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
   const lastPeriodControl = useRef<string | null>(null);
   useEffect(() => {
     const onFocusIn = (e: FocusEvent) => {
-      const el = e.target instanceof Element ? e.target.closest<HTMLElement>("[data-period-control]") : null;
+      if (!(e.target instanceof Element)) return;
+      // The load-error Retry keeps the period control as the return target.
+      if (e.target.closest("[data-period-retry]")) return;
+      const el = e.target.closest<HTMLElement>("[data-period-control]");
       lastPeriodControl.current = el?.dataset.periodControl ?? null;
     };
     document.addEventListener("focusin", onFocusIn);
     return () => document.removeEventListener("focusin", onFocusIn);
   }, []);
   const landedQuery = state?.props ? state.query : null;
+  // A period that failed to load replaces the view with the error: give its
+  // Retry the focus that fell to <body>.
+  const retryRef = useRef<HTMLButtonElement | null>(null);
+  const failedQuery = state && !state.props ? state.query : null;
+  useEffect(() => {
+    if (failedQuery === null || failedQuery !== query) return;
+    const frame = requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (!active || active === document.body) retryRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [failedQuery, query]);
   useEffect(() => {
     const key = lastPeriodControl.current;
     if (landedQuery !== query || !key) return;
@@ -87,7 +102,9 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
     <div role="alert" className="mb-3 p-4 rounded-xl bg-finance-loss-light border border-finance-loss-border text-finance-loss text-sm font-semibold flex items-center justify-between gap-3">
       <span>{t.loadError}</span>
       <button
+        ref={retryRef}
         type="button"
+        data-period-retry
         onClick={() => void reload()}
         className="shrink-0 min-h-[44px] px-4 rounded-xl border border-finance-loss-border bg-surface hover:bg-surface-subtle text-finance-loss font-semibold text-xs btn-tactile cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60"
       >

@@ -501,13 +501,29 @@ export function MonthCloseView({
     }
   }
 
-  // Shown beside the action that just saved, so the user knows the write landed
-  // and only the displayed status is out of date.
+  // Shown beside the action that just saved, from the acknowledged write until
+  // the refreshed record lands: "updating" while the refresh runs, then
+  // "hasn't caught up" + Retry if it fails. Stacks below sm so the copy keeps
+  // its width at 320-390px.
+  const spinner = (
+    <svg aria-hidden="true" className="w-3.5 h-3.5 shrink-0 animate-spin motion-reduce:animate-none" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
+      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  );
   const staleStatusNotice =
-    refreshFailed && pendingStatusTarget !== null ? (
+    pendingStatusTarget !== null && !refreshFailed && !submitting ? (
+      <div
+        role="status"
+        className="flex items-center gap-2 p-3.5 rounded-xl bg-status-reopened-bg border border-status-reopened/20 text-sm text-status-reopened font-semibold"
+      >
+        {spinner}
+        <span>{pendingStatusTarget === "closed" ? t.closeSavedUpdating : t.reopenSavedUpdating}</span>
+      </div>
+    ) : refreshFailed && pendingStatusTarget !== null ? (
       <div
         role="alert"
-        className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-status-reopened-bg border border-status-reopened/20 text-sm text-status-reopened font-semibold"
+        className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between p-3.5 rounded-xl bg-status-reopened-bg border border-status-reopened/20 text-sm text-status-reopened font-semibold"
       >
         <span>
           {pendingStatusTarget === "closed" ? t.closeSavedStatusStale : t.reopenSavedStatusStale}
@@ -521,14 +537,9 @@ export function MonthCloseView({
           onClick={() => {
             if (!retryingRefresh) void runStatusRefresh(pendingStatusTarget, true);
           }}
-          className="shrink-0 min-h-[44px] min-w-[7.5rem] px-4 rounded-xl border border-status-reopened/30 bg-surface hover:bg-surface-subtle btn-tactile text-sm font-semibold inline-flex items-center justify-center gap-1.5 aria-disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+          className="shrink-0 min-h-[44px] w-full sm:w-auto sm:min-w-[9.5rem] px-4 rounded-xl border border-status-reopened/30 bg-surface hover:bg-surface-subtle btn-tactile text-sm font-semibold inline-flex items-center justify-center gap-1.5 aria-disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
         >
-          {retryingRefresh && (
-            <svg aria-hidden="true" className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
-              <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-            </svg>
-          )}
+          {retryingRefresh && spinner}
           {retryingRefresh ? t.refreshingStatus : t.retry}
         </button>
       </div>
@@ -560,7 +571,7 @@ export function MonthCloseView({
         <MonthSelectorDropdown
           currentMonth={currentMonth}
           disabled={isTransitioning && !refreshFailed}
-          options={
+          options={(
             monthOptions ||
             availableMonths.map((m) => ({
               month: m,
@@ -573,7 +584,12 @@ export function MonthCloseView({
                     : "open"
                   : "open",
             }))
-          }
+          ).map((o) =>
+            // The write is acknowledged: show its status before the refresh lands.
+            o.month === currentMonth && pendingStatusTarget !== null
+              ? { ...o, status: pendingStatusTarget === "closed" ? "closed" : "reopened" }
+              : o,
+          )}
           onSelect={(month, triggerEl) => {
             if (month === currentMonth) return;
             if (isTransitioning && !refreshFailed) return;
