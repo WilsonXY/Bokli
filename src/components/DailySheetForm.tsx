@@ -1221,7 +1221,7 @@ export function DailySheetForm({
 
       {/* Consistent Page Header + Compact Date Toolbar (Status pill always visible even at 320px) */}
       <div className="space-y-2.5 sm:space-y-3">
-        <div className="flex flex-col gap-1.5 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2.5 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center justify-between sm:justify-start gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <h1 className="text-xl sm:text-2xl font-bold text-ink-primary tracking-tight whitespace-nowrap">
