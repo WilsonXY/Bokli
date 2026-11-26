@@ -1298,7 +1298,7 @@ export function DailySheetForm({
                 onClick={() => setIsCalendarOpen((prev) => !prev)}
                 aria-expanded={isCalendarOpen}
                 aria-haspopup="dialog"
-                className="group cursor-pointer h-12 lg:h-10 px-2 sm:px-3 rounded-lg hover:bg-surface-subtle transition-colors disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli flex items-center gap-1.5 sm:gap-2 whitespace-nowrap"
+                className="group cursor-pointer h-12 lg:h-11 px-2 sm:px-3 rounded-lg hover:bg-surface-subtle transition-colors disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli flex items-center gap-1.5 sm:gap-2 whitespace-nowrap"
                 title={t.datePickerLabel}
               >
                 <svg aria-hidden="true" className="w-4 h-4 text-ink-muted group-hover:text-brand-broccoli transition-colors shrink-0" fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24">

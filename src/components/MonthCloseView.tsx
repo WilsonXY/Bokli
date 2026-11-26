@@ -811,13 +811,23 @@ export function MonthCloseView({
                   className="flex-1 bg-surface border border-surface-border rounded-2xl p-5 sm:p-6 shadow-card space-y-5"
                 >
                   <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-surface-border">
-                    <div className="flex items-center gap-2.5 text-status-closed font-bold text-sm">
-                      <span className="w-8 h-8 rounded-xl bg-status-closed-bg flex items-center justify-center shrink-0">
+                    {/* After an acknowledged reopen the heading follows the write; the
+                        figures below are labelled as the previous close snapshot. */}
+                    <div
+                      className={`flex items-center gap-2.5 font-bold text-sm ${
+                        pendingStatusTarget === "open" ? "text-status-reopened" : "text-status-closed"
+                      }`}
+                    >
+                      <span
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                          pendingStatusTarget === "open" ? "bg-status-reopened-bg" : "bg-status-closed-bg"
+                        }`}
+                      >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24" aria-hidden="true">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                         </svg>
                       </span>
-                      <span>{t.monthLocked}</span>
+                      <span>{pendingStatusTarget === "open" ? t.reopenedShowingPreviousClose : t.monthLocked}</span>
                     </div>
                   </div>
 

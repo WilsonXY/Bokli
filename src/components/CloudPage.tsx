@@ -150,9 +150,12 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
   if (state?.query !== query) return skeleton;
   const error = (
     <div role="alert" className="mb-3 p-4 rounded-xl bg-finance-loss-light border border-finance-loss-border text-finance-loss text-sm font-semibold flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <span>
-        {/* With no page behind it, say which period failed. */}
-        {!state.props && value ? t.loadErrorFor.replace("{period}", value) : t.loadError}
+      <span className="min-w-0 break-words">
+        {/* With no page behind it, say which period failed (only a real
+            YYYY-MM or YYYY-MM-DD; anything else hand-typed gets the generic line). */}
+        {!state.props && value && /^\d{4}-\d{2}(-\d{2})?$/.test(value)
+          ? t.loadErrorFor.replace("{period}", value)
+          : t.loadError}
         {retryFailed && <span className="block mt-0.5 font-medium">{t.loadStillFailing}</span>}
       </span>
       <button

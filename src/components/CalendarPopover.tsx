@@ -403,7 +403,7 @@ export function CalendarPopover({
           </div>
 
           {/* Sticky Weekday Headers above Scrollable Day Grid */}
-          <div className="shrink-0 grid grid-cols-7 min-[375px]:gap-x-1 sm:gap-x-2 text-center mb-1">
+          <div className="shrink-0 grid grid-cols-7 min-[375px]:gap-x-1 min-[390px]:gap-x-2 text-center mb-1">
             {weekHeaders.map((w) => (
               <span
                 key={w}
@@ -432,7 +432,7 @@ export function CalendarPopover({
               className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
             >
               {/* Calendar Grid — Single Tab stop via roving tabIndex + Arrow-key grid navigation */}
-              <div className="grid grid-cols-7 gap-y-2 min-[375px]:gap-x-1 sm:gap-x-2 text-center [@media(max-height:500px)]:pb-2">
+              <div className="grid grid-cols-7 gap-y-2 min-[375px]:gap-x-1 min-[390px]:gap-x-2 text-center [@media(max-height:500px)]:pb-2">
               {Array.from({ length: startDayOffset }).map((_, i) => (
                 <div key={`empty-${i}`} className="h-12 [@media(max-height:500px)]:h-11" />
               ))}

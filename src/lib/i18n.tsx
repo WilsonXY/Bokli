@@ -32,6 +32,7 @@ export const DICTIONARY = {
     recordTodayShort: "记账",
     klTime: "马来西亚时间 (GMT+8)",
     monthLocked: "该月份已结账锁定（仅供查看）",
+    reopenedShowingPreviousClose: "已重新开账（以下为上次结账记录）",
     // Daily Sheet
     dailySheetTitle: "每日账单",
     revenueTitle: "营业收入",
@@ -288,6 +289,7 @@ export const DICTIONARY = {
     recordTodayShort: "Today's Sheet",
     klTime: "Malaysia Time (GMT+8)",
     monthLocked: "Month closed and locked (Read-only)",
+    reopenedShowingPreviousClose: "Month reopened (showing the previous close)",
     // Daily Sheet
     dailySheetTitle: "Daily Sheet",
     revenueTitle: "Revenue",
