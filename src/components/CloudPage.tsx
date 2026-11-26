@@ -54,6 +54,34 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
     void reload();
   }, [reload]);
 
+  // Changing the date or month swaps the whole view (skeleton, then a fresh
+  // view), which would drop keyboard focus on <body>. Remember the last
+  // focused period control ([data-period-control]) and put focus back on the
+  // same control in the new view, or on the period trigger if it is now
+  // disabled (Next Day on today).
+  const lastPeriodControl = useRef<string | null>(null);
+  useEffect(() => {
+    const onFocusIn = (e: FocusEvent) => {
+      const el = e.target instanceof Element ? e.target.closest<HTMLElement>("[data-period-control]") : null;
+      lastPeriodControl.current = el?.dataset.periodControl ?? null;
+    };
+    document.addEventListener("focusin", onFocusIn);
+    return () => document.removeEventListener("focusin", onFocusIn);
+  }, []);
+  const landedQuery = state?.props ? state.query : null;
+  useEffect(() => {
+    const key = lastPeriodControl.current;
+    if (landedQuery !== query || !key) return;
+    const frame = requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active && active !== document.body) return;
+      const pick = (k: string) =>
+        document.querySelector<HTMLElement>(`[data-period-control="${k}"]:not(:disabled)`);
+      (pick(key) ?? pick("trigger"))?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [landedQuery, query]);
+
   if (state?.query !== query) return skeleton;
   const error = (
     <div role="alert" className="mb-3 p-4 rounded-xl bg-finance-loss-light border border-finance-loss-border text-finance-loss text-sm font-semibold flex items-center justify-between gap-3">

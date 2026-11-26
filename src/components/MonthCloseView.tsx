@@ -223,6 +223,7 @@ export function MonthCloseView({
   const [pendingStatusTarget, setPendingStatusTarget] = useState<"closed" | "open" | null>(null);
   const [refreshFailed, setRefreshFailed] = useState(false);
   const [retryingRefresh, setRetryingRefresh] = useState(false);
+  const [retryFailedOnce, setRetryFailedOnce] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(initialErrorMessage);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [pendingNavigation, setPendingNavigation] = useState<{
@@ -282,8 +283,10 @@ export function MonthCloseView({
   const isClosed = Boolean(closeRecord?.isClosed);
   const isReopened = Boolean(closeRecord?.isReopened);
 
+  // A submitted count waiting for the refreshed record is saved, not a draft.
   const isCloseDraftDirty =
     (!isClosed &&
+      pendingStatusTarget !== "closed" &&
       (cashOnHandInput !== initialCashOnHandInput ||
         tngOnHandInput !== initialTngOnHandInput ||
         closeNote !== initialCloseNote ||
@@ -314,8 +317,15 @@ export function MonthCloseView({
       (pendingStatusTarget === "closed" && isClosed) ||
       (pendingStatusTarget === "open" && !isClosed)
     ) {
+      if (pendingStatusTarget === "closed") {
+        setCashOnHandInput(initialCashOnHandInput);
+        setTngOnHandInput(initialTngOnHandInput);
+        setCloseNote(initialCloseNote);
+        setConfirmEmpty(initialConfirmEmpty);
+      }
       setPendingStatusTarget(null);
       setRefreshFailed(false);
+      setRetryFailedOnce(false);
       // The form that held focus was replaced; land focus on the new state's
       // first control instead of leaving it on <body>.
       requestAnimationFrame(() => {
@@ -326,7 +336,14 @@ export function MonthCloseView({
         (target ?? pageHeadingRef.current)?.focus();
       });
     }
-  }, [pendingStatusTarget, isClosed]);
+  }, [
+    pendingStatusTarget,
+    isClosed,
+    initialCashOnHandInput,
+    initialTngOnHandInput,
+    initialCloseNote,
+    initialConfirmEmpty,
+  ]);
 
   // Reset local draft inputs when navigating to a different month
   useEffect(() => {
@@ -405,7 +422,11 @@ export function MonthCloseView({
       failed = true;
     }
     setRetryingRefresh(false);
-    if (failed) setRefreshFailed(true);
+    if (failed) {
+      setRefreshFailed(true);
+      // Visible change for sighted users when a retry fails fast.
+      if (isRetry) setRetryFailedOnce(true);
+    }
   }
 
   async function handlePerformClose(e: React.FormEvent) {
@@ -422,11 +443,9 @@ export function MonthCloseView({
       setSubmitting,
       setSuccessMessage,
       showSuccessMessage,
+      // Keep the submitted count on screen (read-only) until the closed record
+      // lands; the reset happens then, so a later reopen starts fresh.
       onClosed: () => {
-        setCashOnHandInput(initialCashOnHandInput);
-        setTngOnHandInput(initialTngOnHandInput);
-        setCloseNote(initialCloseNote);
-        setConfirmEmpty(initialConfirmEmpty);
         startTransition(() => {
           void runStatusRefresh("closed");
         });
@@ -490,7 +509,10 @@ export function MonthCloseView({
         role="alert"
         className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-status-reopened-bg border border-status-reopened/20 text-sm text-status-reopened font-semibold"
       >
-        <span>{pendingStatusTarget === "closed" ? t.closeSavedStatusStale : t.reopenSavedStatusStale}</span>
+        <span>
+          {pendingStatusTarget === "closed" ? t.closeSavedStatusStale : t.reopenSavedStatusStale}
+          {retryFailedOnce && <span className="block mt-0.5 font-medium">{t.refreshStillFailing}</span>}
+        </span>
         <button
           ref={staleRetryRef}
           type="button"
@@ -499,8 +521,14 @@ export function MonthCloseView({
           onClick={() => {
             if (!retryingRefresh) void runStatusRefresh(pendingStatusTarget, true);
           }}
-          className="shrink-0 min-h-[44px] px-4 rounded-xl border border-status-reopened/30 bg-surface hover:bg-surface-subtle btn-tactile text-sm font-semibold aria-disabled:opacity-60 aria-disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+          className="shrink-0 min-h-[44px] min-w-[7.5rem] px-4 rounded-xl border border-status-reopened/30 bg-surface hover:bg-surface-subtle btn-tactile text-sm font-semibold inline-flex items-center justify-center gap-1.5 aria-disabled:cursor-wait focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
         >
+          {retryingRefresh && (
+            <svg aria-hidden="true" className="w-3.5 h-3.5 animate-spin motion-reduce:animate-none" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="3" />
+              <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+            </svg>
+          )}
           {retryingRefresh ? t.refreshingStatus : t.retry}
         </button>
       </div>

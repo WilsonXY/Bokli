@@ -205,6 +205,7 @@ export function MonthSelectorDropdown({
       {/* Dropdown Trigger Button */}
       <button
         ref={triggerBtnRef}
+        data-period-control="trigger"
         type="button"
         disabled={disabled}
         onClick={() => {

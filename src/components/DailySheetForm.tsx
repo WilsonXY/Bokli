@@ -1231,6 +1231,7 @@ export function DailySheetForm({
               ) : (
                 <button
                   type="button"
+                  data-period-control="today"
                   disabled={saving || deletingSheet}
                   onClick={(e) => requestNavigateToDate(todayKl, e.currentTarget)}
                   className="group inline-flex items-center min-h-[48px] lg:min-h-[40px] -my-1.5 lg:my-0 focus:outline-none cursor-pointer disabled:opacity-40 disabled:pointer-events-none shrink-0"
@@ -1273,6 +1274,7 @@ export function DailySheetForm({
             <button
               type="button"
               disabled={saving || deletingSheet}
+              data-period-control="prev"
               onClick={(e) => navigateDate(-1, e.currentTarget)}
               aria-label={t.prevDay}
               title={t.prevDay}
@@ -1287,6 +1289,7 @@ export function DailySheetForm({
             <div className="flex items-center justify-center min-w-0">
               <button
                 ref={dateBtnRef}
+                data-period-control="trigger"
                 type="button"
                 disabled={saving || deletingSheet}
                 onClick={() => setIsCalendarOpen((prev) => !prev)}
@@ -1312,6 +1315,7 @@ export function DailySheetForm({
             <button
               type="button"
               disabled={!canGoNext || saving || deletingSheet}
+              data-period-control="next"
               onClick={(e) => navigateDate(1, e.currentTarget)}
               aria-label={t.nextDay}
               title={t.nextDay}
@@ -1896,7 +1900,7 @@ export function DailySheetForm({
                       <button
                         ref={saveBtnRef}
                         type="button"
-                        disabled={saving || hasParseError}
+                        disabled={saving || hasParseError || !saveIsPrimary}
                         onClick={handleSaveTrigger}
                         aria-label={t.saveSheet}
                         className={`h-12 px-3.5 sm:px-5 lg:px-6 lg:flex-1 rounded-xl btn-tactile font-semibold text-sm tracking-wide flex items-center justify-center gap-1.5 disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli focus-visible:ring-offset-1 cursor-pointer whitespace-nowrap ${
