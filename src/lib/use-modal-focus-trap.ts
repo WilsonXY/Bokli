@@ -26,12 +26,6 @@ let savedScrollState: {
   scrollY: number;
   htmlOverflow: string;
   htmlOverscrollBehavior: string;
-  bodyOverflow: string;
-  bodyPosition: string;
-  bodyTop: string;
-  bodyLeft: string;
-  bodyRight: string;
-  bodyWidth: string;
   bodyPaddingRight: string;
 } | null = null;
 
@@ -56,22 +50,13 @@ export function acquireDocumentScrollLock(): () => void {
       scrollY,
       htmlOverflow: html.style.overflow,
       htmlOverscrollBehavior: html.style.overscrollBehavior,
-      bodyOverflow: body.style.overflow,
-      bodyPosition: body.style.position,
-      bodyTop: body.style.top,
-      bodyLeft: body.style.left,
-      bodyRight: body.style.right,
-      bodyWidth: body.style.width,
       bodyPaddingRight: body.style.paddingRight,
     };
+    // Lock the viewport through <html> only. Never touch body's overflow or
+    // position: either turns body into its own scroll container, and every
+    // sticky header/sidebar/Save card then shifts by the current scrollY.
     html.style.overflow = "hidden";
     html.style.overscrollBehavior = "none";
-    body.style.overflow = "hidden";
-    body.style.position = "fixed";
-    body.style.top = `-${scrollY}px`;
-    body.style.left = `-${scrollX}px`;
-    body.style.right = "0";
-    body.style.width = "100%";
     if (scrollbarWidth > 0) {
       body.style.paddingRight = `${scrollbarWidth}px`;
     }
@@ -88,14 +73,10 @@ export function acquireDocumentScrollLock(): () => void {
       savedScrollState = null;
       html.style.overflow = prev.htmlOverflow;
       html.style.overscrollBehavior = prev.htmlOverscrollBehavior;
-      body.style.overflow = prev.bodyOverflow;
-      body.style.position = prev.bodyPosition;
-      body.style.top = prev.bodyTop;
-      body.style.left = prev.bodyLeft;
-      body.style.right = prev.bodyRight;
-      body.style.width = prev.bodyWidth;
       body.style.paddingRight = prev.bodyPaddingRight;
-      window.scrollTo(prev.scrollX, prev.scrollY);
+      if (window.scrollX !== prev.scrollX || window.scrollY !== prev.scrollY) {
+        window.scrollTo(prev.scrollX, prev.scrollY);
+      }
     }
   };
 }

@@ -56,7 +56,7 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
       <button
         type="button"
         onClick={() => void reload()}
-        className="shrink-0 min-h-[40px] px-3.5 rounded-lg border border-finance-loss-border bg-surface hover:bg-surface-subtle text-finance-loss font-semibold text-xs btn-tactile cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60"
+        className="shrink-0 min-h-[44px] px-4 rounded-xl border border-finance-loss-border bg-surface hover:bg-surface-subtle text-finance-loss font-semibold text-xs btn-tactile cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60"
       >
         {t.retry}
       </button>

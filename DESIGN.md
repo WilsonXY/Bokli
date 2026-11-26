@@ -57,4 +57,4 @@ Bokli ("簿里") is an operational bookkeeping web application for a Malaysian f
 - Daily Costs: Warm Amber (`#b45309` light / `#fbbf24` dark)
 - Net Profit: Forest Green (`#15803d` light / `#4ade80` dark)
 - Loss / Destructive: Crimson (`#dc2626` light / `#f87171` dark)
-- Cost Categories (donut + ranking bars): Cobalt Blue (Restock), Amber (Gas), Deep Teal (Transport), Rose (Wages), Moss Olive (Maintenance), Slate (Other) — strictly zero violet/lavender.
+- Cost Categories (ranking bars + icon tiles): Steel Blue (Restock `#4a7aa8` / `#4682b4`), Pink (Gas `#db2777` / `#f783c0`), Cyan (Transport `#0891b2` / `#22d3ee`), Moss Olive (Wages `#4d7c0f` / `#bef264`), Umber (Maintenance `#713f12` / `#fdba74`), Stone (Other `#78716c` / `#d6d3d1`). Operating Expense icons reuse them: Rental steel blue, Utilities cyan, Wages pink. Never saturated cobalt, emerald, amber or crimson (reserved for TnG, Cash, Daily Costs and Loss; `src/lib/theme.test.ts` enforces the distance) and strictly zero violet/lavender.

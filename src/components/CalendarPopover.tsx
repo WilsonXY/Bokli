@@ -340,7 +340,7 @@ export function CalendarPopover({
               type="button"
               onClick={prevMonth}
               aria-label={t.prevMonthLabel}
-              className="justify-self-start w-12 h-12 [@media(max-height:500px)]:w-10 [@media(max-height:500px)]:h-10 rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer shrink-0"
+              className="justify-self-start w-12 h-12 [@media(max-height:500px)]:w-11 [@media(max-height:500px)]:h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer shrink-0"
             >
               <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -355,13 +355,13 @@ export function CalendarPopover({
               {monthTitle}
             </span>
 
-            <div className="justify-self-end flex items-center gap-1.5 shrink-0">
+            <div className="justify-self-end flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 disabled={!canGoNextMonth}
                 onClick={nextMonth}
                 aria-label={t.nextMonthLabel}
-                className="w-12 h-12 [@media(max-height:500px)]:w-10 [@media(max-height:500px)]:h-10 rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary flex items-center justify-center transition-colors disabled:opacity-25 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+                className="w-12 h-12 [@media(max-height:500px)]:w-11 [@media(max-height:500px)]:h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary flex items-center justify-center transition-colors disabled:opacity-25 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
               >
                 <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -371,7 +371,7 @@ export function CalendarPopover({
                 type="button"
                 onClick={onClose}
                 aria-label={t.closeLabel}
-                className="hidden [@media(max-height:500px)]:flex w-10 h-10 rounded-xl border border-surface-border hover:bg-surface-subtle text-ink-secondary hover:text-ink-primary items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+                className="hidden [@media(max-height:500px)]:flex w-11 h-11 rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary hover:text-ink-primary items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
               >
                 <svg aria-hidden="true" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -412,7 +412,7 @@ export function CalendarPopover({
               {/* Calendar Grid — Single Tab stop via roving tabIndex + Arrow-key grid navigation */}
               <div className="grid grid-cols-7 gap-px min-[375px]:gap-1 text-center [@media(max-height:500px)]:pb-2">
               {Array.from({ length: startDayOffset }).map((_, i) => (
-                <div key={`empty-${i}`} className="h-12 [@media(max-height:500px)]:h-9" />
+                <div key={`empty-${i}`} className="h-12 [@media(max-height:500px)]:h-11" />
               ))}
 
             {Array.from({ length: totalDays }).map((_, i) => {
@@ -448,7 +448,7 @@ export function CalendarPopover({
                   }}
                   onKeyDown={(e) => handleDayKeyDown(e, i)}
                   aria-label={cellDate}
-                  className={`h-12 [@media(max-height:500px)]:h-9 w-full rounded-xl text-sm font-medium num-tabular flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli ${
+                  className={`h-12 [@media(max-height:500px)]:h-11 w-full rounded-xl text-sm font-medium num-tabular flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli ${
                     isSelected
                       ? "bg-brand-cta text-brand-cta-ink font-bold shadow-card"
                       : isFuture

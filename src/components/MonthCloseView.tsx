@@ -215,6 +215,7 @@ export function MonthCloseView({
   const reopenReasonRef = useRef<HTMLInputElement | null>(null);
   const cashOnHandInputRef = useRef<HTMLInputElement | null>(null);
   const errorAlertRef = useRef<HTMLDivElement | null>(null);
+  const staleRetryRef = useRef<HTMLButtonElement | null>(null);
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
@@ -298,6 +299,13 @@ export function MonthCloseView({
     isClosedRef.current = isClosed;
   }, [isCloseDraftDirty, submitting, isTransitioning, refreshFailed, isClosed]);
 
+  // A write landed but the refresh failed: move focus to the inline Retry
+  useEffect(() => {
+    if (refreshFailed && pendingStatusTarget !== null) {
+      requestAnimationFrame(() => staleRetryRef.current?.focus());
+    }
+  }, [refreshFailed, pendingStatusTarget]);
+
   // Clear pending refresh lock once the refreshed status actually lands
   useEffect(() => {
     if (
@@ -306,6 +314,13 @@ export function MonthCloseView({
     ) {
       setPendingStatusTarget(null);
       setRefreshFailed(false);
+      // The form that held focus was replaced; land focus on the new state's
+      // first control instead of leaving it on <body>.
+      requestAnimationFrame(() => {
+        const active = document.activeElement;
+        if (active && active !== document.body) return;
+        (isClosed ? reopenBtnRef.current : cashOnHandInputRef.current)?.focus();
+      });
     }
   }, [pendingStatusTarget, isClosed]);
 
@@ -460,6 +475,26 @@ export function MonthCloseView({
       setSubmitting(false);
     }
   }
+
+  // Shown beside the action that just saved, so the user knows the write landed
+  // and only the displayed status is out of date.
+  const staleStatusNotice =
+    refreshFailed && pendingStatusTarget !== null ? (
+      <div
+        role="alert"
+        className="flex items-center justify-between gap-3 p-3.5 rounded-xl bg-status-reopened-bg border border-status-reopened/20 text-sm text-status-reopened font-semibold"
+      >
+        <span>{pendingStatusTarget === "closed" ? t.closeSavedStatusStale : t.reopenSavedStatusStale}</span>
+        <button
+          ref={staleRetryRef}
+          type="button"
+          onClick={() => void runStatusRefresh(pendingStatusTarget)}
+          className="shrink-0 min-h-[44px] px-4 rounded-xl border border-status-reopened/30 bg-surface hover:bg-surface-subtle btn-tactile text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+        >
+          {t.retry}
+        </button>
+      </div>
+    ) : null;
 
   return (
     <>
@@ -743,7 +778,8 @@ export function MonthCloseView({
 
                   {/* Admin Reopen Section */}
                   {userRole === "Admin" && (
-                    <div className="pt-4 border-t border-surface-border">
+                    <div className="pt-4 border-t border-surface-border space-y-3">
+                      {pendingStatusTarget === "open" && staleStatusNotice}
                       {!showReopenBox ? (
                         <button
                           ref={reopenBtnRef}
@@ -801,7 +837,7 @@ export function MonthCloseView({
                               disabled={isTransitioning}
                               className="min-h-[48px] px-5 rounded-xl bg-brand-cta hover:bg-brand-cta-hover text-brand-cta-ink btn-tactile font-semibold text-sm disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
                             >
-                              {isTransitioning ? t.reopening : t.btnPerformReopen}
+                              {submitting ? t.reopening : t.btnPerformReopen}
                             </button>
                             <button
                               type="button"
@@ -813,7 +849,7 @@ export function MonthCloseView({
                                 setShowReopenBox(false);
                                 requestAnimationFrame(() => reopenBtnRef.current?.focus());
                               }}
-                              className="min-h-[48px] px-4 rounded-xl text-sm font-semibold text-ink-muted hover:text-ink-primary disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+                              className="min-h-[48px] px-4 rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary text-sm font-semibold disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
                             >
                               {t.cancel}
                             </button>
@@ -1107,12 +1143,16 @@ export function MonthCloseView({
                       disabled={!canSubmitClose}
                       className="w-full h-12 rounded-xl bg-brand-cta hover:bg-brand-cta-hover btn-tactile text-brand-cta-ink font-semibold text-sm tracking-wide shadow-card flex items-center justify-center disabled:bg-surface-subtle disabled:text-ink-muted disabled:border disabled:border-surface-border disabled:shadow-none disabled:opacity-100 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
                     >
-                      {isTransitioning ? t.closingMonth : t.btnPerformClose}
+                      {submitting ? t.closingMonth : t.btnPerformClose}
                     </button>
 
-                    <p className="text-xs text-ink-muted text-center">
-                      {closeReadinessHint ?? t.closeWarning}
-                    </p>
+                    {pendingStatusTarget === "closed" && staleStatusNotice ? (
+                      staleStatusNotice
+                    ) : (
+                      <p className="text-xs text-ink-muted text-center">
+                        {closeReadinessHint ?? t.closeWarning}
+                      </p>
+                    )}
                   </div>
                 </form>
               )}
