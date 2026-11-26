@@ -3,11 +3,13 @@
 import { CloudPage } from "@/components/CloudPage";
 import { MonthCloseSkeleton } from "@/components/Skeletons";
 import { MonthCloseView } from "@/components/MonthCloseView";
-import { cloudIdentity, cloudRead } from "@/lib/cloud-client";
+import { cloudRead } from "@/lib/cloud-client";
 import { formatKlDate, formatKlDateTime } from "@/lib/datetime";
 
 async function load(query: string) {
-  const [page, identity] = await Promise.all([cloudRead("close", query), cloudIdentity()]);
+  // The close read already carries the signed-in role; a separate identity
+  // read could stall and make every Retry wait on the same request.
+  const page = await cloudRead("close", query);
   const c = page.closeRecord;
   return {
     currentMonth: page.activeMonth,
@@ -16,7 +18,7 @@ async function load(query: string) {
     financials: page.financials,
     hasSheetsInMonth: page.hasSheetsInMonth,
     // Only an Admin sees Reopen; the Worker enforces it again on the write.
-    userRole: identity.role,
+    userRole: page.userRole,
     closeRecord: c && {
       isClosed: !c.reopenedAt,
       isReopened: Boolean(c.reopenedAt),

@@ -13,11 +13,12 @@ export interface MonthOption {
 interface MonthSelectorDropdownProps {
   currentMonth: string;
   options: MonthOption[];
-  onSelect: (month: string) => void;
+  onSelect: (month: string, triggerEl?: HTMLButtonElement | null) => boolean | void;
   ariaLabel?: string;
   showStatusInTrigger?: boolean;
   className?: string;
   defaultOpen?: boolean;
+  disabled?: boolean;
 }
 
 export function MonthSelectorDropdown({
@@ -28,12 +29,60 @@ export function MonthSelectorDropdown({
   showStatusInTrigger = true,
   className = "",
   defaultOpen = false,
+  disabled = false,
 }: MonthSelectorDropdownProps) {
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerBtnRef = useRef<HTMLButtonElement>(null);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const prevOpenRef = useRef(defaultOpen);
+  const restoreFocusOnCloseRef = useRef(false);
 
-  // Click outside and Escape key to close
+  const currentOption = options.find((opt) => opt.month === currentMonth);
+  const currentStatus = currentOption?.status ?? "open";
+
+  const fullOptions = options.some((opt) => opt.month === currentMonth)
+    ? options
+    : [{ month: currentMonth, status: "open" as const }, ...options];
+
+  const getInitialActiveIdx = () => {
+    const selectedIdx = fullOptions.findIndex(
+      (opt) => opt.month === currentMonth && !opt.disabled
+    );
+    if (selectedIdx >= 0) return selectedIdx;
+    const firstEnabledIdx = fullOptions.findIndex((opt) => !opt.disabled);
+    return firstEnabledIdx >= 0 ? firstEnabledIdx : 0;
+  };
+
+  const [activeIdx, setActiveIdx] = useState<number>(getInitialActiveIdx);
+
+  useEffect(() => {
+    if (!isOpen) {
+      if (prevOpenRef.current) {
+        prevOpenRef.current = false;
+        if (restoreFocusOnCloseRef.current) {
+          restoreFocusOnCloseRef.current = false;
+          triggerBtnRef.current?.focus();
+        }
+      }
+      return;
+    }
+
+    if (!prevOpenRef.current) {
+      prevOpenRef.current = true;
+      const focusIdx = getInitialActiveIdx();
+      setActiveIdx(focusIdx);
+      const raf = requestAnimationFrame(() => {
+        if (focusIdx >= 0) {
+          optionRefs.current[focusIdx]?.focus();
+        }
+      });
+      return () => cancelAnimationFrame(raf);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen) return;
 
@@ -42,12 +91,15 @@ export function MonthSelectorDropdown({
         containerRef.current &&
         !containerRef.current.contains(e.target as Node)
       ) {
+        restoreFocusOnCloseRef.current = false;
         setIsOpen(false);
       }
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        e.preventDefault();
+        restoreFocusOnCloseRef.current = true;
         setIsOpen(false);
       }
     };
@@ -59,9 +111,6 @@ export function MonthSelectorDropdown({
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isOpen]);
-
-  const currentOption = options.find((opt) => opt.month === currentMonth);
-  const currentStatus = currentOption?.status ?? "open";
 
   function getStatusLabel(status?: MonthStatus) {
     switch (status) {
@@ -85,36 +134,103 @@ export function MonthSelectorDropdown({
     }
   }
 
-  // Ensure currentMonth is present in options list
-  const fullOptions = options.some((opt) => opt.month === currentMonth)
-    ? options
-    : [{ month: currentMonth, status: "open" as const }, ...options];
+  const effectiveActiveIdx =
+    activeIdx >= 0 && activeIdx < fullOptions.length && !fullOptions[activeIdx]?.disabled
+      ? activeIdx
+      : getInitialActiveIdx();
+
+  const moveFocus = (fromIdx: number, direction: 1 | -1) => {
+    const len = fullOptions.length;
+    for (let step = 1; step <= len; step++) {
+      const next = (fromIdx + direction * step + len) % len;
+      if (!fullOptions[next]?.disabled) {
+        setActiveIdx(next);
+        optionRefs.current[next]?.focus();
+        return;
+      }
+    }
+  };
+
+  const handleTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!isOpen) setIsOpen(true);
+    }
+  };
+
+  const handleOptionKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, idx: number) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      moveFocus(idx, 1);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      moveFocus(idx, -1);
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      const first = fullOptions.findIndex((opt) => !opt.disabled);
+      if (first >= 0) {
+        setActiveIdx(first);
+        optionRefs.current[first]?.focus();
+      }
+    } else if (e.key === "End") {
+      e.preventDefault();
+      for (let i = fullOptions.length - 1; i >= 0; i--) {
+        if (!fullOptions[i].disabled) {
+          setActiveIdx(i);
+          optionRefs.current[i]?.focus();
+          break;
+        }
+      }
+    }
+  };
+
+  const handleContainerBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    if (isOpen && !containerRef.current?.contains(e.relatedTarget as Node | null)) {
+      restoreFocusOnCloseRef.current = false;
+      setIsOpen(false);
+    }
+  };
+
+  const baseLabel = ariaLabel || t.monthSelect;
+  const triggerAriaLabel = showStatusInTrigger
+    ? `${baseLabel}: ${currentMonth} (${getStatusLabel(currentStatus)})`
+    : `${baseLabel}: ${currentMonth}`;
 
   return (
-    <div ref={containerRef} className={`relative inline-block text-left ${className}`}>
+    <div
+      ref={containerRef}
+      onBlur={handleContainerBlur}
+      className={`relative inline-block text-left shrink-0 ${className}`}
+    >
       {/* Dropdown Trigger Button */}
       <button
+        ref={triggerBtnRef}
+        data-period-control="trigger"
         type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
+        disabled={disabled}
+        onClick={() => {
+          if (!disabled) setIsOpen((prev) => !prev);
+        }}
+        onKeyDown={handleTriggerKeyDown}
         aria-haspopup="listbox"
-        aria-expanded={isOpen}
-        aria-label={ariaLabel || t.monthSelect}
-        className="h-10 pl-3 pr-2.5 rounded-xl border border-surface-border bg-white hover:bg-surface-subtle active:scale-[0.98] transition-all flex items-center gap-2 shadow-xs cursor-pointer btn-wave focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli/60"
+        aria-expanded={isOpen && !disabled}
+        aria-label={triggerAriaLabel}
+        className="min-h-[48px] h-12 lg:min-h-[44px] lg:h-11 px-2.5 sm:px-3 rounded-xl border border-surface-border bg-surface hover:border-surface-border-strong hover:bg-surface-subtle/50 btn-tactile flex items-center gap-1.5 sm:gap-2 shadow-card cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli"
       >
-        <span className="font-bold text-sm text-ink-primary tracking-tight">
+        <svg className="hidden min-[360px]:block w-4 h-4 text-ink-muted shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24" aria-hidden="true">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+        </svg>
+        <span className="font-semibold text-sm text-ink-primary tracking-tight num-tabular whitespace-nowrap shrink-0">
           {currentMonth}
         </span>
         {showStatusInTrigger && (
-          // Every status label in one grid cell, only the current one visible:
-          // the badge keeps the widest label's width, so the picker doesn't
-          // change size between months (or from the loading skeleton).
           <span
-            className={`grid text-center text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${getStatusBadgeStyle(
+            className={`grid text-center text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${getStatusBadgeStyle(
               currentStatus,
             )}`}
           >
             {(["open", "closed", "reopened"] as const).map((status) => (
-              <span key={status} className={`col-start-1 row-start-1${status === currentStatus ? "" : " invisible"}`}>
+              <span key={status} className={`col-start-1 row-start-1 whitespace-nowrap${status === currentStatus ? "" : " invisible"}`}>
                 {getStatusLabel(status)}
               </span>
             ))}
@@ -122,7 +238,7 @@ export function MonthSelectorDropdown({
         )}
         <svg
           aria-hidden="true"
-          className={`w-4 h-4 text-ink-muted transition-transform duration-200 shrink-0 ${
+          className={`w-4 h-4 text-ink-muted transition-transform duration-150 shrink-0 ${
             isOpen ? "rotate-180 text-brand-broccoli" : ""
           }`}
           fill="none"
@@ -134,42 +250,53 @@ export function MonthSelectorDropdown({
         </svg>
       </button>
 
-      {/* Styled Dropdown Menu */}
-      {isOpen && (
+      {/* Dropdown Menu — Single Tab stop via roving tabIndex + Arrow/Home/End navigation */}
+      {isOpen && !disabled && (
         <div
           role="listbox"
-          aria-label={ariaLabel || t.monthSelect}
-          className="absolute right-0 top-full mt-1.5 z-50 w-56 max-h-64 overflow-y-auto bg-white border border-surface-border rounded-xl shadow-lg p-1.5 space-y-1 animate-dropdown focus:outline-none"
+          aria-label={baseLabel}
+          className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 z-50 w-60 max-h-72 overflow-y-auto bg-surface border border-surface-border rounded-2xl shadow-popover p-1.5 space-y-2 animate-dropdown focus:outline-none"
         >
-          {fullOptions.map((opt) => {
+          {fullOptions.map((opt, idx) => {
             const isSelected = opt.month === currentMonth;
             const status = opt.status ?? "open";
+            const isTabStop = !opt.disabled && idx === effectiveActiveIdx;
             return (
               <button
                 key={opt.month}
+                ref={(el) => {
+                  optionRefs.current[idx] = el;
+                }}
                 role="option"
                 aria-selected={isSelected}
                 type="button"
                 disabled={opt.disabled}
+                tabIndex={isTabStop ? 0 : -1}
+                onFocus={() => setActiveIdx(idx)}
+                onKeyDown={(e) => handleOptionKeyDown(e, idx)}
                 onClick={() => {
                   if (opt.disabled) return;
-                  setIsOpen(false);
+                  let proceeded: boolean | void = true;
                   if (opt.month !== currentMonth) {
-                    onSelect(opt.month);
+                    proceeded = triggerBtnRef.current
+                      ? onSelect(opt.month, triggerBtnRef.current)
+                      : onSelect(opt.month);
                   }
+                  restoreFocusOnCloseRef.current = proceeded !== false;
+                  setIsOpen(false);
                 }}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all text-left ${
+                className={`w-full min-h-[48px] lg:min-h-[44px] flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli ${
                   opt.disabled
                     ? "opacity-40 cursor-not-allowed text-ink-muted"
                     : "cursor-pointer " +
                       (isSelected
-                        ? "bg-brand-broccoli-light/70 font-bold text-brand-broccoli"
+                        ? "bg-brand-broccoli-light font-semibold text-brand-broccoli"
                         : "text-ink-primary hover:bg-surface-subtle font-medium")
                 }`}
               >
-                <span className="truncate">{opt.month}</span>
+                <span className="truncate num-tabular">{opt.month}</span>
                 <span
-                  className={`text-xs font-semibold px-2 py-0.5 rounded-full border shrink-0 ${getStatusBadgeStyle(
+                  className={`text-xs font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 ${getStatusBadgeStyle(
                     status,
                   )}`}
                 >

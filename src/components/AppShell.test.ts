@@ -36,3 +36,17 @@ describe("AppShell bottom navigation order", () => {
     expect(dashIndex).toBeLessThan(sheetIndex);
   });
 });
+
+import { skipToMainContent } from "./AppShell";
+
+describe("skip link", () => {
+  it("moves focus to the main content without adding a history entry", () => {
+    const calls: string[] = [];
+    const main = { focus: () => calls.push("focus") };
+    const event = { preventDefault: () => calls.push("preventDefault") };
+    skipToMainContent(event, { getElementById: (id: string) => (id === "main-content" ? main : null) });
+    // preventDefault stops the "#main-content" hash push that the unsaved-changes
+    // guard cannot index (a later multi-step Back would undo one entry short).
+    expect(calls).toEqual(["preventDefault", "focus"]);
+  });
+});

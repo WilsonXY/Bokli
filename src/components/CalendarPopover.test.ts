@@ -56,8 +56,14 @@ describe("CalendarPopover", () => {
       );
       expect(html).toContain('role="dialog"');
       expect(html).toContain('aria-modal="true"');
-      expect(html).toContain('aria-label="Date Picker"');
+      expect(html).toContain('aria-label="选择日期"');
+      expect(html).toContain("z-[45]");
       expect(html).toContain("2026");
+      // Single Tab stop inside day grid via roving tabIndex
+      const tabZeroDayButtons =
+        html.match(/<button[^>]*tabindex="0"[^>]*aria-label="2026-05-\d{2}"/g) ?? [];
+      expect(tabZeroDayButtons).toHaveLength(1);
+      expect(tabZeroDayButtons[0]).toContain('aria-label="2026-05-15"');
     });
   });
 
@@ -103,7 +109,7 @@ describe("CalendarPopover", () => {
           onSelectDate: vi.fn(),
         }),
       );
-      expect(html).toMatch(/<button[^>]*disabled=""[^>]*aria-label="Next Month"/);
+      expect(html).toMatch(/<button[^>]*disabled=""[^>]*aria-label="下个月"/);
     });
   });
 

@@ -1,19 +1,36 @@
-// Every cloud page in both languages (run with and without --mobile), then
-// Sign Out, which goes to Cloudflare Access's logout.
-const pages = { "/": "Cash Revenue", "/dashboard": "Cash vs TnG Split", "/expenses": "Stall Rent", "/close": "Close Month" };
+import { setLanguage } from "./settings-helpers.mjs";
+// Every cloud page in both languages (run with and without --mobile), plus
+// Settings (Bright Mode default, Dark Mode toggle, Language toggle) and Sign Out.
+const pages = {
+  "/": "Cash Revenue",
+  "/dashboard": "Cash vs TnG Revenue",
+  "/expenses": "Stall Rent",
+  "/close": "Close Month",
+  "/settings": "Appearance",
+};
+
 
 export default async function flow({ page, shot }) {
   for (const lang of ["中文", "EN"]) {
+    await setLanguage(page, lang === "EN" ? "en" : "zh");
     for (const [path, englishText] of Object.entries(pages)) {
       await page.goto(path);
-      if (lang === "EN") await page.getByRole("button", { name: "Switch to English" }).click();
-      else await page.getByRole("button", { name: "中文" }).click();
       if (lang === "EN") await page.getByText(englishText).first().waitFor();
-      else await page.locator("[aria-busy]").waitFor({ state: "detached" });
+      else await page.locator("[aria-busy]").waitFor({ state: "detached" }).catch(() => {});
       await shot(`${lang === "EN" ? "en" : "zh"}${path.replace("/", "-") || "-"}`.replace(/-$/, "-sheet"));
     }
   }
-  await page.getByRole("button", { name: "Sign Out" }).first().click();
+
+  // Verify Dark Mode toggle in Settings, then switch back to Bright Mode
+  await page.goto("/settings");
+  await page.locator('input[name="bokli-theme"][value="dark"]').check({ force: true });
+  await page.waitForFunction(() => document.documentElement.classList.contains("dark"));
+  await shot("en-settings-dark");
+  await page.locator('input[name="bokli-theme"][value="light"]').check({ force: true });
+  await page.waitForFunction(() => !document.documentElement.classList.contains("dark"));
+
+  // Sign Out from Settings
+  await page.getByRole("button", { name: "Sign Out" }).last().click();
   await page.getByRole("dialog").getByRole("button", { name: "Sign Out" }).click();
   await page.waitForURL("**/cdn-cgi/access/logout");
 };

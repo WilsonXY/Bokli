@@ -8,6 +8,13 @@ async function getJson<T>(url: string, headers?: HeadersInit): Promise<T> {
   return data;
 }
 
+/**
+ * How long a page read (first load, refresh, Retry, Month Close status
+ * refresh) may take before the screen offers Retry. Generous enough for a
+ * slow phone connection.
+ */
+export const READ_DEADLINE_MS = 15_000;
+
 let identity: Promise<CloudReads["identity"]> | null = null;
 /** The signed-in mapped user, fetched once per page load. */
 export function cloudIdentity(): Promise<CloudReads["identity"]> {

@@ -68,3 +68,18 @@ describe("isFutureDateInKL", () => {
     expect(isFutureDateInKL("2026-09-09", now)).toBe(true);
   });
 });
+
+import { formatWeekday } from "./datetime";
+
+describe("formatWeekday", () => {
+  it("names the weekday of a YYYY-MM-DD date in both languages", () => {
+    expect(formatWeekday("2026-11-26", "zh")).toBe("周四");
+    expect(formatWeekday("2026-11-26", "en")).toBe("Thu");
+    expect(formatWeekday("2026-08-31", "en")).toBe("Mon");
+  });
+
+  it("returns an empty string for a malformed date", () => {
+    expect(formatWeekday("2026-11", "en")).toBe("");
+    expect(formatWeekday("not-a-date", "zh")).toBe("");
+  });
+});

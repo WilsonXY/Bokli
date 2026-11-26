@@ -1,236 +1,218 @@
 "use client";
 
-// Loading screens shaped like each loaded page, so switching dates or months
-// doesn't shift the page. Every card, button and list row is a plain grey
-// block the same size as on the loaded page; headings and dividers keep their
-// space but don't show. Blocks keep the page's own content, hidden, so they
-// size and wrap like the real thing in both languages.
-// scripts/cloud-flows/skeletons.mjs checks the boxes line up with the loaded pages.
 import React from "react";
 import { useI18n } from "@/lib/i18n";
 
-/** A grey block; its children only give it its size. */
-const block = "rounded-xl bg-surface-subtle animate-pulse border border-transparent [&>*]:invisible";
-const amount = "RM0,000.00";
-const divider = (
-  <div className="pt-2 pb-0.5 invisible">
-    <hr />
-  </div>
-);
-/** Heading row: keeps its space, shows nothing. */
-const heading = (className: string) => <div className={`invisible ${className}`}>&nbsp;</div>;
+const bar = "rounded-lg bg-surface-subtle animate-pulse";
+const card = "bg-surface border border-surface-border rounded-2xl p-5 sm:p-6 shadow-card";
 
-/** Empty Daily Sheet (no cost lines). */
+/**
+ * Same-size stand-in for the MonthSelectorDropdown trigger: its real (hidden)
+ * contents give it the real width in either language, so the header wraps
+ * exactly like the loaded page. "0000-00" has the width of any month
+ * (tabular digits), and the three status labels stack like the real badge.
+ */
+function MonthPickerBar() {
+  const { t } = useI18n();
+  return (
+    <div aria-hidden="true" className={`${bar} h-12 lg:h-11 px-2.5 sm:px-3 rounded-xl border border-transparent flex items-center gap-1.5 sm:gap-2 whitespace-nowrap shrink-0 self-start sm:self-auto`}>
+      <span className="invisible hidden min-[360px]:block w-4 h-4 shrink-0" />
+      <span className="invisible font-semibold text-sm tracking-tight num-tabular">0000-00</span>
+      <span className="invisible grid text-xs font-semibold px-2 py-0.5 border">
+        {[t.openStatus, t.closedStatus, t.reopenedStatus].map((label) => (
+          <span key={label} className="col-start-1 row-start-1">{label}</span>
+        ))}
+      </span>
+      <span className="invisible w-4 h-4 shrink-0" />
+    </div>
+  );
+}
+
+// Matches the month pages' header: 32px title over (phones) or beside the month picker.
+function HeaderBar() {
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className={`${bar} h-8 w-44`} />
+      <MonthPickerBar />
+    </div>
+  );
+}
+
+/**
+ * Matches DailySheetForm box for box: the same root spacing, a 36px title row
+ * over a 54px date toolbar (58px from 640 to 1023px), then Revenue + Daily
+ * Costs (empty day) and the Save card, with the same 1px sticky sentinel below
+ * on phones. scripts/cloud-flows/skeletons.mjs checks it at 390px and 1280px
+ * only, so check the 640-1023px band by hand after changing the date bar.
+ */
 export function DailySheetSkeleton() {
   return (
-    <div className="space-y-4" aria-busy="true">
-      <div className={`${block} p-3`}>
-        <div className="h-[51.5px]" />
+    <div className="space-y-3 sm:space-y-5" aria-busy="true">
+      <div className="space-y-2.5 sm:space-y-3">
+        <div className="flex flex-col gap-2.5 sm:gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center min-h-9">
+            <div className={`${bar} h-8 w-36`} />
+          </div>
+          <div className={`${bar} h-[54px] sm:h-[58px] lg:h-[54px] w-full md:w-[277px] rounded-xl`} />
+        </div>
       </div>
 
-      <div className="space-y-2">
-        {heading("h-6")}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {[0, 1].map((i) => (
-            <div key={i} className={`${block} p-3`}>
-              <div className="h-[74px]" />
+      <div className="grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-[auto_1fr] gap-3 sm:gap-5 items-start">
+        <div className="lg:col-span-7 lg:row-span-2 space-y-3 sm:space-y-5">
+          <div className={`${card} h-[120px] sm:h-[182px] space-y-4 overflow-hidden`}>
+            <div className="flex items-center justify-between">
+              <div className={`${bar} h-5 w-24`} />
+              <div className={`${bar} h-5 w-28`} />
             </div>
-          ))}
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
+              <div className={`${bar} h-12 sm:h-14 rounded-xl`} />
+              <div className={`${bar} h-12 sm:h-14 rounded-xl`} />
+            </div>
+          </div>
+          <div className={`${card} h-[148px] sm:h-[200px] space-y-4 overflow-hidden`}>
+            <div className="flex items-center justify-between">
+              <div className={`${bar} h-5 w-24`} />
+              <div className={`${bar} h-5 w-16`} />
+            </div>
+            <div className={`${bar} h-12 rounded-xl`} />
+          </div>
         </div>
-      </div>
 
-      <div className="space-y-2.5">
-        {divider}
-        {heading("h-6")}
-        <div className={`${block} h-[60px]`} />
-        {divider}
-      </div>
-
-      <div className="sticky bottom-16 z-30">
-        <div className={`${block} p-3`}>
-          <div className="h-12" />
+        <div className="lg:col-span-5">
+          <div className={`${card} h-[62px] lg:h-[256px] overflow-hidden space-y-4`}>
+            <div className={`${bar} h-5 w-28`} />
+            <div className={`${bar} hidden lg:block h-10 w-40`} />
+            <div className={`${bar} hidden lg:block h-12 rounded-xl`} />
+          </div>
         </div>
+        <div className="h-px w-full -mt-2 sm:-mt-5 lg:hidden" aria-hidden="true" />
       </div>
     </div>
   );
 }
 
-/** Page title and month picker, shared by the month pages. */
-function MonthHeader({ title }: { title: string }) {
+/** Matches DashboardView: header, hero Profit Story + Waterfall card, 7/5 analytics row, and Daily Sheets ledger. */
+// The Overview header also carries the "+ 记账" / "+ Today's Sheet" button; its
+// hidden label wraps the row onto two lines exactly when the real one does
+// (English on phones), so the content below starts at the same height.
+function DashboardHeaderBar() {
   const { t } = useI18n();
   return (
-    <div className="flex items-center justify-between gap-3">
-      <h1 className="text-xl font-bold text-ink-primary tracking-tight">{title}</h1>
-      {/* Same content as MonthSelectorDropdown's button, so it is as wide. */}
-      <div className="inline-block">
-        <div className={`${block} h-10 pl-3 pr-2.5 flex items-center gap-2`} aria-hidden="true">
-          <span className="font-bold text-sm tracking-tight">2026-10</span>
-          <span className="grid text-xs font-semibold px-2 py-0.5 border shrink-0">
-            {[t.openStatus, t.closedStatus, t.reopenedStatus].map((label) => (
-              <span key={label} className="col-start-1 row-start-1">{label}</span>
-            ))}
-          </span>
-          <span className="w-4 h-4 shrink-0" />
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className={`${bar} h-8 w-44`} />
+      <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2">
+        <MonthPickerBar />
+        <div aria-hidden="true" className={`${bar} h-12 lg:h-11 px-3 sm:px-4 rounded-xl flex items-center gap-1.5 text-sm font-semibold whitespace-nowrap shrink-0`}>
+          <span className="invisible w-4 h-4 shrink-0" />
+          <span className="invisible sm:hidden">{t.recordTodayShort}</span>
+          <span className="invisible hidden sm:inline">{t.recordTodaySheet}</span>
         </div>
       </div>
     </div>
   );
 }
 
-/** Label over an amount, as in the summary strips. */
-function Stat({ label, className, amountClass }: { label: string; className: string; amountClass: string }) {
-  return (
-    <div className={className}>
-      <div className="text-sm font-medium mb-0.5">{label}</div>
-      <div className={`${amountClass} font-bold`}>{amount}</div>
-    </div>
-  );
-}
-
-function TotalRow({ label, colSpan, amountClass }: { label: string; colSpan: string; amountClass: string }) {
-  return (
-    <div className={`${colSpan} p-3.5 sm:px-5 flex items-center justify-between`}>
-      <div className="text-base font-bold">{label}</div>
-      <div className={`${amountClass} font-extrabold tracking-tight`}>{amount}</div>
-    </div>
-  );
-}
-
-/** One line of text at the row's size, as in the ledger rows. */
-function Row({ className = "", textClass = "" }: { className?: string; textClass?: string }) {
-  return <div className={`flex text-sm ${className}`}><span className={textClass}>{amount}</span></div>;
-}
-
-/** Overview with two cost categories and three days of entries. */
 export function DashboardSkeleton() {
-  const { t } = useI18n();
   return (
-    <div className="space-y-4" aria-busy="true">
-      <MonthHeader title={t.overviewTitle} />
+    <div className="space-y-5" aria-busy="true">
+      <DashboardHeaderBar />
 
-      <section className={block}>
-        <div className="px-5 py-4 sm:px-6 sm:py-5">
-          <div className="text-base font-bold">{t.netProfit}</div>
-          <div className="mt-1 text-3xl sm:text-4xl font-extrabold">{amount}</div>
+      <div className={`${card} grid grid-cols-1 md:grid-cols-12 gap-6`}>
+        <div className="md:col-span-6 space-y-3">
+          <div className={`${bar} h-4 w-24`} />
+          <div className={`${bar} h-11 w-48`} />
+          <div className={`${bar} h-4 w-full max-w-sm`} />
         </div>
-        <div className="border-t">
-          <div className="px-3.5 py-3 sm:px-5 sm:py-3.5">
-            <span className="block text-sm font-bold">{t.totalRevenue}</span>
-            <span className="mt-1 block text-sm sm:text-xl font-bold">{amount}</span>
-          </div>
+        <div className="md:col-span-6 space-y-3">
+          <div className={`${bar} h-5 w-full`} />
+          <div className={`${bar} h-5 w-full`} />
+          <div className={`${bar} h-5 w-full`} />
+          <div className={`${bar} h-2.5 w-full rounded-full`} />
         </div>
-      </section>
+      </div>
 
-      <section className={`${block} p-4 space-y-3`}>
-        <h2 className="text-base font-bold">{t.revenueSplit}</h2>
-        <div className="space-y-3 pt-1">
-          <div className="h-8" />
-          <div className="divide-y border-t pt-1">
-            <Row className="py-2" />
-            <Row className="py-2" />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        <div className="lg:col-span-7 bg-surface border border-surface-border rounded-2xl shadow-card overflow-hidden">
+          <div className="bg-surface-subtle dark:bg-surface-canvas border-b border-surface-border px-3 pt-2 flex items-end gap-1.5">
+            <div className="h-10 w-28 rounded-t-xl bg-surface border border-surface-border border-b-0" />
+            <div className={`${bar} h-8 w-24 mb-1`} />
+          </div>
+          <div className="p-5 sm:p-6 space-y-4">
+            <div className={`${bar} h-4 w-56`} />
+            <div className={`${bar} h-56 rounded-xl`} />
           </div>
         </div>
-      </section>
+        <div className="lg:col-span-5 space-y-5">
+          <div className={`${card} space-y-3`}>
+            <div className={`${bar} h-5 w-32`} />
+            <div className={`${bar} h-3 w-full rounded-full`} />
+            <div className={`${bar} h-12 rounded-xl`} />
+          </div>
+          <div className={`${card} space-y-3`}>
+            <div className={`${bar} h-5 w-32`} />
+            <div className={`${bar} h-10 rounded-xl`} />
+            <div className={`${bar} h-10 rounded-xl`} />
+          </div>
+        </div>
+      </div>
 
-      <section className={`${block} p-4 space-y-4`}>
-        <h2 className="text-base font-bold">{t.costDistribution}</h2>
-        <div className="flex flex-col md:flex-row items-center gap-5 pt-1">
-          <div className="shrink-0 p-1">
-            <div className="w-48 h-48 sm:w-52 sm:h-52" />
-          </div>
-          <div className="flex-1 w-full divide-y border-t md:border-t-0">
-            <Row className="py-2.5" />
-            <Row className="py-2.5" />
-          </div>
-        </div>
-      </section>
-
-      <section className={`${block} p-4 space-y-3`}>
-        <div className="h-[46px]" />
-        <div className="pb-1">
-          <h2 className="text-base font-bold">{t.dailyTrend}</h2>
-        </div>
-        <div className="space-y-4">
-          <div className="w-full overflow-x-auto pb-2">
-            <div className="w-full min-w-[340px] aspect-[3/1]" />
-          </div>
-          <div className="divide-y border-t">
-            {[0, 1, 2].map((i) => (
-              <Row key={i} className="min-h-[52px] py-3" />
-            ))}
-          </div>
-        </div>
-      </section>
+      <div className={`${card} space-y-3`}>
+        <div className={`${bar} h-5 w-32`} />
+        <div className={`${bar} h-12 rounded-xl`} />
+        <div className={`${bar} h-12 rounded-xl`} />
+      </div>
     </div>
   );
 }
 
-/** Expenses with two expense lines. */
+/** Matches ExpensesView: header, 5/7 desktop grid with Profit Impact card and Recorded Items card. */
 export function ExpensesSkeleton() {
-  const { t } = useI18n();
   return (
-    <div className="space-y-4" aria-busy="true">
-      <MonthHeader title={t.expensesTitle} />
-
-      <section className={`${block} grid grid-cols-2`}>
-        <Stat label={t.monthGrossProfit} className="p-3 border-b" amountClass="text-base sm:text-xl" />
-        <Stat label={t.operatingExpenses} className="p-3 border-l border-b" amountClass="text-base sm:text-xl" />
-        <TotalRow label={t.netProfit} colSpan="col-span-2" amountClass="text-2xl sm:text-3xl" />
-      </section>
-
-      <section className="space-y-2.5">
-        {divider}
-        {heading("h-5")}
-        <div className="space-y-2">
-          {[0, 1].map((i) => (
-            <div key={i} className={`${block} px-4 py-3`}>
-              <div className="h-9" />
-            </div>
-          ))}
+    <div className="space-y-6" aria-busy="true">
+      <HeaderBar />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        <div className={`lg:col-span-5 ${card} space-y-4`}>
+          <div className={`${bar} h-4 w-28`} />
+          <div className={`${bar} h-10 w-40`} />
+          <div className={`${bar} h-2.5 w-full rounded-full`} />
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <div className={`${bar} h-14 rounded-xl`} />
+            <div className={`${bar} h-14 rounded-xl`} />
+          </div>
         </div>
-        <div className={`${block} h-[60px]`} />
-      </section>
+        <div className={`lg:col-span-7 ${card} space-y-3`}>
+          <div className={`${bar} h-5 w-28`} />
+          <div className={`${bar} h-14 rounded-xl`} />
+          <div className={`${bar} h-14 rounded-xl`} />
+          <div className={`${bar} h-12 rounded-xl`} />
+        </div>
+      </div>
     </div>
   );
 }
 
-/** Month Close for a month that is still open. */
+/** Matches MonthCloseView: header, 5/7 desktop grid with Book Summary waterfall and Reconciliation card. */
 export function MonthCloseSkeleton() {
-  const { t } = useI18n();
-  const field = (label: string) => (
-    <div>
-      <div className="text-sm font-semibold mb-1.5">{label}</div>
-      <div className="h-12" />
-    </div>
-  );
   return (
-    <div className="space-y-4" aria-busy="true">
-      <MonthHeader title={t.closeTitle} />
-
-      <section className={`${block} grid grid-cols-3`}>
-        <Stat label={t.totalRevenue} className="p-3 border-b" amountClass="text-base sm:text-xl" />
-        <Stat label={t.costsTitle} className="p-3 border-x border-b" amountClass="text-base sm:text-xl" />
-        <Stat label={t.operatingExpenses} className="p-3 border-b" amountClass="text-base sm:text-xl" />
-        <TotalRow label={t.expectedNet} colSpan="col-span-3" amountClass="text-2xl sm:text-3xl" />
-      </section>
-
-      <div className={`${block} p-4 space-y-3.5`}>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {field(t.cashOnHand)}
-          {field(t.tngOnHand)}
+    <div className="space-y-6" aria-busy="true">
+      <HeaderBar />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+        <div className={`lg:col-span-5 ${card} space-y-3`}>
+          <div className={`${bar} h-5 w-32`} />
+          <div className={`${bar} h-6 w-full`} />
+          <div className={`${bar} h-6 w-full`} />
+          <div className={`${bar} h-6 w-full`} />
+          <div className={`${bar} h-10 w-full mt-2`} />
         </div>
-        <div className="p-3 border space-y-2">
-          <Row textClass="text-base" />
-          <Row textClass="text-base" />
-          <div className="pt-2 border-t">
-            <Row textClass="text-base" />
+        <div className={`lg:col-span-7 ${card} space-y-4`}>
+          <div className={`${bar} h-5 w-32`} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className={`${bar} h-20 rounded-xl`} />
+            <div className={`${bar} h-20 rounded-xl`} />
           </div>
+          <div className={`${bar} h-24 rounded-xl`} />
+          <div className={`${bar} h-12 rounded-xl`} />
         </div>
-        <div>
-          <div className="text-xs font-semibold mb-1">{t.closeNote}</div>
-          <div className="h-11" />
-        </div>
-        <div className="h-12" />
       </div>
     </div>
   );
