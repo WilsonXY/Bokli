@@ -1,3 +1,4 @@
+import { setLanguage } from "./settings-helpers.mjs";
 // Daily Sheet on the cloud build: add, edit, delete; checked after a reload.
 const expectValue = async (input, value) => {
   for (let i = 0; i < 50 && (await input.inputValue()) !== value; i++) await new Promise((r) => setTimeout(r, 100));
@@ -6,12 +7,11 @@ const expectValue = async (input, value) => {
 async function save(page) {
   await page.getByRole("button", { name: "Save Sheet" }).click();
   await page.getByRole("button", { name: "Confirm & Save" }).click();
-  await page.getByText("Daily Sheet saved successfully").first().waitFor();
+  await page.getByText("Daily Sheet saved successfully").filter({ visible: true }).first().waitFor();
 }
 
 export default async function flow({ page, shot }) {
-  await page.goto("/settings");
-  await page.locator('input[name="bokli-language"][value="en"]').check({ force: true });
+  await setLanguage(page, "en");
   await page.goto("/");
   await page.locator("#cash-input").fill("450.00");
   await page.locator("#tng-input").fill("120.50");
@@ -23,7 +23,7 @@ export default async function flow({ page, shot }) {
 
   await page.reload();
   await expectValue(page.locator("#cash-input"), "450");
-  await page.getByText(/RM\s?80\.00/).first().waitFor();
+  await page.getByText(/RM\s?80\.00/).filter({ visible: true }).first().waitFor();
   await page.locator("#cash-input").fill("500.00");
   await save(page);
   await page.reload();
@@ -33,7 +33,7 @@ export default async function flow({ page, shot }) {
   await page.getByRole("button", { name: "Delete Daily Sheet" }).click();
   await shot("delete-confirm");
   await page.getByRole("dialog").getByRole("button", { name: "Delete" }).click();
-  await page.getByText("Daily Sheet deleted").first().waitFor();
+  await page.getByText("Daily Sheet deleted").filter({ visible: true }).first().waitFor();
   await page.reload();
   await expectValue(page.locator("#cash-input"), "");
   if (await page.getByRole("button", { name: "Delete Daily Sheet" }).count()) throw new Error("sheet still there");

@@ -1,3 +1,4 @@
+import { setLanguage } from "./settings-helpers.mjs";
 // Every cloud page in both languages (run with and without --mobile), plus
 // Settings (Bright Mode default, Dark Mode toggle, Language toggle) and Sign Out.
 const pages = {
@@ -8,14 +9,10 @@ const pages = {
   "/settings": "Appearance",
 };
 
-async function setLanguage(page, lang) {
-  await page.goto("/settings");
-  await page.locator(`input[name="bokli-language"][value="${lang === "EN" ? "en" : "zh"}"]`).check({ force: true });
-}
 
 export default async function flow({ page, shot }) {
   for (const lang of ["中文", "EN"]) {
-    await setLanguage(page, lang);
+    await setLanguage(page, lang === "EN" ? "en" : "zh");
     for (const [path, englishText] of Object.entries(pages)) {
       await page.goto(path);
       if (lang === "EN") await page.getByText(englishText).first().waitFor();

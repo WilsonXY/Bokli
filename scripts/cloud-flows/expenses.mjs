@@ -1,3 +1,4 @@
+import { setLanguage } from "./settings-helpers.mjs";
 // Operating Expenses on the cloud build: a double click and a lost reply both
 // still add exactly one expense.
 const month = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 7); // KL month
@@ -18,13 +19,12 @@ const expectStored = async (page, want) => {
 };
 
 export default async function flow({ page, shot }) {
-  await page.goto("/settings");
-  await page.locator('input[name="bokli-language"][value="en"]').check({ force: true });
+  await setLanguage(page, "en");
   await page.goto(`/expenses?month=${month}`);
 
   // Double click on Save.
   await (await draft(page, "Utilities", "12.34")).dblclick();
-  await page.getByText("Expense added successfully").first().waitFor();
+  await page.getByText("Expense added successfully").filter({ visible: true }).first().waitFor();
   await expectStored(page, "utilities:1234");
   await shot("double-click-one-row");
 
@@ -37,7 +37,7 @@ export default async function flow({ page, shot }) {
     await route.abort("failed");
   });
   await (await draft(page, "Stall Rent", "50")).click();
-  await page.getByText("Not sure it saved").first().waitFor();
+  await page.getByText("Not sure it saved").filter({ visible: true }).first().waitFor();
   await shot("lost-reply");
   await page.unrouteAll({ behavior: "wait" });
   if (lost < 2) throw new Error(`only ${lost} requests were dropped`);
@@ -45,9 +45,9 @@ export default async function flow({ page, shot }) {
 
   // Save again: asks the server first, finds it saved, adds nothing.
   await page.locator("form").getByRole("button", { name: "Add Operating Expense" }).click();
-  await page.getByText("Expense added successfully").first().waitFor();
+  await page.getByText("Expense added successfully").filter({ visible: true }).first().waitFor();
   await expectStored(page, "rental:5000,utilities:1234");
   await page.reload();
-  await page.getByText(/RM\s?50\.00/).first().waitFor();
+  await page.getByText(/RM\s?50\.00/).filter({ visible: true }).first().waitFor();
   await shot("retried-one-row");
 };

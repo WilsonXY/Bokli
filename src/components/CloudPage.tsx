@@ -88,6 +88,10 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
           done();
           if (call === latest.current) {
             setState({ query, props });
+            // The page recovered: any Retry still in flight is moot and must
+            // not come back later to flag "still couldn't load".
+            retryAttempt.current += 1;
+            setRetrying(false);
             setRetryFailed(false);
           }
           resolve(call === latest.current);
@@ -173,12 +177,16 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
           const attempt = ++retryAttempt.current;
           setRetrying(true);
           void reload().then((ok) => {
-            if (attempt !== retryAttempt.current) return;
-            setRetrying(false);
-            setRetryFailed(!ok);
-            if (!ok) return;
-            // The focused Retry is gone once the page recovers: land on the
-            // remembered period control, else the period trigger.
+            if (!ok) {
+              // Only the latest attempt may flag "still couldn't load".
+              if (attempt !== retryAttempt.current) return;
+              setRetrying(false);
+              setRetryFailed(true);
+              return;
+            }
+            // Recovered (reload already cleared the busy state). The focused
+            // Retry is gone: land on the remembered period control, else the
+            // period trigger.
             requestAnimationFrame(() => {
               const active = document.activeElement;
               if (active && active !== document.body) return;

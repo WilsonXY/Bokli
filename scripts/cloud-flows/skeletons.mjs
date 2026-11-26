@@ -1,3 +1,4 @@
+import { setLanguage } from "./settings-helpers.mjs";
 // Loading skeletons: each page's skeleton has the same boxes as the loaded page
 // (fake data), so nothing jumps when the data lands. Both languages; run with
 // and without --mobile. The Daily Sheet is checked on a date switch, the month
@@ -68,8 +69,7 @@ async function monthPage(page, path, api, lang, name, shot) {
 export default async function flow({ page, shot }) {
   page.setDefaultTimeout(60000); // this machine can be slow; data loads took 7 s
   for (const [lang, button] of languages) {
-    await page.goto("/settings");
-    await page.locator(`input[name="bokli-language"][value="${button}"]`).check({ force: true });
+    await setLanguage(page, button);
     await page.goto("/");
     await page.locator("#cash-input").waitFor();
     await pause(800);
@@ -100,8 +100,7 @@ export default async function flow({ page, shot }) {
 
   // The header (block 0) keeps its height and width whatever the month's status.
   for (const [lang, button] of languages) {
-    await page.goto("/settings");
-    await page.locator(`input[name="bokli-language"][value="${button}"]`).check({ force: true });
+    await setLanguage(page, button);
     for (const [path, api] of monthPages) {
       const [skeleton, loaded] = await monthPage(page, `${path}?month=${lastMonth}`, api, lang, `${lang}-closed-${api}`, shot);
       compare(`${lang} ${path} (closed month) header`, skeleton.slice(0, 1), loaded.slice(0, 1));
