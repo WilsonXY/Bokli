@@ -8,7 +8,8 @@ const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // The page's top-level layout sections: x, y, width, height.
 const layout = (page) =>
-  page.locator("main div.space-y-6").first().evaluate((root) =>
+  // Each view (and its skeleton) renders one root <div> under <main>.
+  page.locator("main > div").first().evaluate((root) =>
     [...root.children].map((block) => {
       const r = block.getBoundingClientRect();
       return [r.x, r.y, r.width, r.height].map(Math.round);
@@ -17,7 +18,7 @@ const layout = (page) =>
 
 const kl = new Date(Date.now() + 8 * 3600e3);
 const lastMonth = new Date(Date.UTC(kl.getUTCFullYear(), kl.getUTCMonth() - 1, 1)).toISOString().slice(0, 7);
-const languages = [["en", "Switch to English"], ["zh", "切换到中文 (Switch to Chinese)"]];
+const languages = [["en", "en"], ["zh-Hans", "zh"]];
 const languageReady = (page, lang) =>
   page.waitForFunction((expected) => document.documentElement.lang === expected, lang);
 
@@ -68,7 +69,7 @@ export default async function flow({ page, shot }) {
   page.setDefaultTimeout(60000); // this machine can be slow; data loads took 7 s
   for (const [lang, button] of languages) {
     await page.goto("/settings");
-    await page.getByRole("radio", { name: button }).click();
+    await page.locator(`input[name="bokli-language"][value="${button}"]`).check({ force: true });
     await page.goto("/");
     await page.locator("#cash-input").waitFor();
     await pause(800);
@@ -100,7 +101,7 @@ export default async function flow({ page, shot }) {
   // The header (block 0) keeps its height and width whatever the month's status.
   for (const [lang, button] of languages) {
     await page.goto("/settings");
-    await page.getByRole("radio", { name: button }).click();
+    await page.locator(`input[name="bokli-language"][value="${button}"]`).check({ force: true });
     for (const [path, api] of monthPages) {
       const [skeleton, loaded] = await monthPage(page, `${path}?month=${lastMonth}`, api, lang, `${lang}-closed-${api}`, shot);
       compare(`${lang} ${path} (closed month) header`, skeleton.slice(0, 1), loaded.slice(0, 1));

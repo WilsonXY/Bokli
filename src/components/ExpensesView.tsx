@@ -11,6 +11,7 @@ import { MonthSelectorDropdown, MonthOption } from "@/components/MonthSelectorDr
 import { MoneyValue, formatDisplayMyr } from "@/components/MoneyValue";
 import type { OperatingExpenseType } from "@/services/operating-expense";
 
+// How long the add/delete success banner stays visible before it auto-dismisses.
 const SUCCESS_BANNER_MS = 3000;
 
 export interface OperatingExpenseItem {
@@ -72,8 +73,15 @@ export function mergeOperatingExpenses(items: OperatingExpenseItem[]): MergedExp
   return merged;
 }
 
+// Draft fields of the add-expense form that the in-flight rebase tracks.
 export type ExpenseDraftField = "amount" | "note";
 
+// Rebase helper (local-first draft + authoritative server list). After an add
+// succeeds, the list refreshes from the server, but a half-typed draft the
+// Operator started while the request was in flight must survive — mom's typing
+// wins. Only fields she did NOT touch during the flight were the ones actually
+// submitted, so only those get cleared; if she touched anything, the draft card
+// stays open with her text intact.
 export function resolveExpenseDraftAfterAdd(
   touchedDuringAdd: ReadonlySet<ExpenseDraftField>
 ): { clearAmount: boolean; clearNote: boolean; closeDraft: boolean } {
@@ -84,10 +92,25 @@ export function resolveExpenseDraftAfterAdd(
   };
 }
 
+// One Idempotency-Key per Save action. If a save's reply is lost (dropped
+// connection, server killed mid-reply) the add may already be stored; tapping
+// Save again with the same values must resend the same key so the server adds
+// nothing twice. Changed values are a new Save action and get a new key.
+// Unconfirmed Saves are also kept in browser storage (one entry per key, so
+// tabs and reloads don't erase each other's), so a reload still reuses the key
+// and can ask the server whether the Save went through.
+// Scope: built for one expenses tab at a time (the Operator's normal use).
+// Two tabs open together share the storage without coordination, so rare
+// cross-tab timing (simultaneous Saves, one tab confirming while another holds
+// an older answer or key) is not handled.
+// Known limit: when unsure, a stored key is reused (never double count). If
+// storage cleanup fails after an OK reply and, after a reload, the status check
+// also fails, one genuine identical repeat Save can be dropped as a replay.
 export interface PendingExpenseAdd {
   key: string;
   body: string;
   createdAt: number;
+  /** The "not saved" notice was shown; don't repeat it on every load. */
   reported?: boolean;
 }
 
@@ -107,6 +130,8 @@ type KeyValueStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 const PENDING_EXPENSE_ADDS_STORAGE_KEY = "bokli.pendingExpenseAdds";
 export const PENDING_EXPENSE_ADD_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
+// Storage can be missing or throw (private mode, blocked); losing it only
+// falls back to the in-page key, so every access swallows errors.
 function getBrowserStorage(): KeyValueStorage | null {
   try {
     return window.localStorage;
@@ -166,6 +191,8 @@ export function loadPendingExpenseAdds(
   );
 }
 
+// Adds or replaces the entry for this key and drops expired entries. Unexpired
+// entries are never dropped by count: each still protects a possible retry.
 export function savePendingExpenseAdd(
   storage: KeyValueStorage | null,
   pending: PendingExpenseAdd,
@@ -177,6 +204,10 @@ export function savePendingExpenseAdd(
   writePendingExpenseAdds(storage, [...others, pending]);
 }
 
+// Candidates a new Save may reuse a key from: stored entries first (they carry
+// the current reported flag), then the in-page copy (the fallback when storage
+// is unavailable). Keys this page saw confirmed are excluded even if a failed
+// storage cleanup left them behind.
 export function reusablePendingExpenseAdds(
   stored: readonly PendingExpenseAdd[],
   inPage: PendingExpenseAdd | null,
@@ -187,6 +218,7 @@ export function reusablePendingExpenseAdds(
   );
 }
 
+// Only if storage still holds this key: it may have been confirmed meanwhile.
 export function markPendingExpenseAddReported(
   storage: KeyValueStorage | null,
   key: string
@@ -213,6 +245,7 @@ export function clearPendingExpenseAdd(
   }
 }
 
+// getRandomValues, unlike randomUUID, also works on a plain-http page.
 export function generateIdempotencyKey(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
@@ -257,6 +290,7 @@ function ExpenseCategoryIcon({ type }: { type: OperatingExpenseType }) {
 }
 
 interface ExpensesViewProps {
+  /** Cloud build: re-fetch the page data; router.refresh() only re-renders a static page. */
   onRefresh?: () => void;
   currentMonth: string;
   availableMonths: string[];
@@ -303,6 +337,7 @@ export function ExpensesView({
     setExpenses(initialExpenses);
   }, [initialExpenses]);
 
+  // Merge expense items on frontend if same category and same note
   const mergedExpenses = useMemo(
     () => mergeOperatingExpenses(expenses),
     [expenses],
@@ -330,9 +365,18 @@ export function ExpensesView({
   }, [noteError]);
 
   const [adding, setAdding] = useState(false);
+  // Draft fields the Operator touched after the add request left the browser.
+  // The inputs are disabled while `adding`, but a keystroke can still land in
+  // the same tick (queued event, IME commit, paste), so this set — not the
+  // disabled attribute — is what guarantees no keystroke is lost. Non-null only
+  // while an add is in flight.
   const touchedDuringAddRef = useRef<Set<ExpenseDraftField> | null>(null);
+  // The Save whose outcome is unknown (no OK reply yet); see resolveExpenseAddRequest.
   const pendingAddRef = useRef<PendingExpenseAdd | null>(null);
+  // Set once the Operator saves on this page: from then on her own Save's
+  // reply decides, and a late status answer for an older key is ignored.
   const addAttemptedRef = useRef(false);
+  // Keys confirmed saved on this page; never reused for a later Save.
   const confirmedKeysRef = useRef(new Set<string>());
 
   function markTouchedDuringAdd(field: ExpenseDraftField) {
@@ -341,6 +385,9 @@ export function ExpensesView({
 
   const [inlineError, setInlineError] = useState<string | null>(initialInlineError);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  // Add and delete share one banner, so both share one timer: every show/dismiss
+  // cancels the pending expiry first, otherwise the timeout armed by an earlier
+  // action wipes the banner raised by a later one within SUCCESS_BANNER_MS.
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function clearSuccessTimer() {
@@ -350,6 +397,7 @@ export function ExpensesView({
     }
   }
 
+  // Banner-only: deliberately touches no draft state.
   function dismissSuccessBanner() {
     clearSuccessTimer();
     setSuccessBanner(null);
@@ -374,6 +422,7 @@ export function ExpensesView({
 
   const [deletingKey, setDeletingKey] = useState<string | null>(null);
   const [deleteExpenseError, setDeleteExpenseError] = useState<string | null>(null);
+  // Confirmation modal state for batch deletion
   const [pendingDeleteExpense, setPendingDeleteExpense] =
     useState<MergedExpenseItem | null>(initialPendingDeleteExpense);
 
@@ -391,6 +440,8 @@ export function ExpensesView({
 
   useEffect(() => {
     const storage = getBrowserStorage();
+    // Reported entries are checked too: a retry may have saved since the
+    // "not saved" notice; only that notice is not repeated.
     const unconfirmed = loadPendingExpenseAdds(storage, Date.now());
     if (unconfirmed.length === 0) return;
 
@@ -410,6 +461,7 @@ export function ExpensesView({
           .then((data: { saved?: unknown } | null) =>
             typeof data?.saved === "boolean" ? data.saved : null
           )
+          // Unknown again; the next page load asks again.
           .catch(() => null)
       )
     ).then((answers) => {
@@ -423,6 +475,8 @@ export function ExpensesView({
         confirmedKeysRef.current.add(p.key);
         clearPendingExpenseAdd(storage, p.key);
       }
+      // Keep the key: re-adding the same values must still not double count
+      // if the lost request lands late.
       for (const p of notSaved) markPendingExpenseAddReported(storage, p.key);
 
       if (saved.length > 0) {
@@ -473,17 +527,6 @@ export function ExpensesView({
     deletingKeyRef.current = deletingKey;
     pendingDeleteExpenseRef.current = pendingDeleteExpense;
   }, [isDraftDirty, adding, deletingKey, pendingDeleteExpense]);
-
-  // Reset draft & leave dialog when switching to another month
-  useEffect(() => {
-    setIsDraftOpen(initialIsDraftOpen);
-    setNewType(initialNewType);
-    setAmountInput("");
-    setNoteInput(initialNoteInput);
-    setAmountError(initialAmountError);
-    setNoteError(initialNoteError);
-    setPendingNavigation(null);
-  }, [currentMonth, initialIsDraftOpen, initialNewType, initialNoteInput, initialAmountError, initialNoteError]);
 
   useEffect(() => {
     return registerGuard({
@@ -558,7 +601,8 @@ export function ExpensesView({
     },
     canClose: deletingKey === null,
     returnFocusTo: deleteExpenseTriggerRef.current,
-    fallbackFocusRef: addExpenseBtnRef,
+    // With the add form open its button is gone; fall back to the form's field.
+    fallbackFocusRef: isDraftOpen ? amountInputRef : addExpenseBtnRef,
     suppressFocusRestore: pendingNavigation !== null,
   });
 
@@ -596,6 +640,7 @@ export function ExpensesView({
     }
     setNoteError(false);
 
+    // Open the touched-fields window for the duration of the flight.
     touchedDuringAddRef.current = new Set<ExpenseDraftField>();
     setAdding(true);
 
@@ -634,6 +679,7 @@ export function ExpensesView({
       if (!res.ok) {
         throw Object.assign(new Error(data.error ?? ""), { code: data.code });
       }
+      // Confirmed saved: the next Save is a new action with a new key.
       pendingAddRef.current = null;
       confirmedKeysRef.current.add(request.key);
       clearPendingExpenseAdd(storage, request.key);
@@ -644,6 +690,8 @@ export function ExpensesView({
           ? prev.map((item) => (item.id === data.expense.id ? data.expense : item))
           : [...prev, data.expense];
       });
+      // Only clear what was actually submitted: anything she typed during the
+      // flight is a new draft and stays on screen (with the card open).
       const rebase = resolveExpenseDraftAfterAdd(
         touchedDuringAddRef.current ?? new Set<ExpenseDraftField>()
       );
@@ -677,6 +725,8 @@ export function ExpensesView({
     deleteExpenseModalRef.current?.focus();
     setDeletingKey(key);
 
+    // One request for the whole card: the server deletes every id in a single
+    // transaction, so a failure leaves nothing half-deleted.
     const deletedIds: number[] = [];
     let succeeded = false;
     try {

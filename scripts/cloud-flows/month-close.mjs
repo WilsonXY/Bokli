@@ -6,14 +6,14 @@ const reopenButton = (page) => page.getByRole("button", { name: "Reopen Month (A
 
 export default async function flow({ page, shot, openAs }) {
   await page.goto("/settings");
-  await page.getByRole("radio", { name: "Switch to English" }).click();
+  await page.locator('input[name="bokli-language"][value="en"]').check({ force: true });
   await page.goto(`/close?month=${month}`);
   // Seeded month: net profit RM305.00, all counted as cash.
   await page.getByPlaceholder("0.00").nth(0).fill("305");
   await page.getByPlaceholder("0.00").nth(1).fill("0");
   await shot("operator-before-close");
   await page.getByRole("button", { name: "Close Month" }).click();
-  await page.getByText("Month closed and locked successfully").waitFor();
+  await page.getByText("Month Close complete").first().waitFor();
   await page.reload();
   await page.getByText("Closed At").first().waitFor();
   if (await reopenButton(page).count()) throw new Error("Operator sees Reopen");
@@ -26,13 +26,13 @@ export default async function flow({ page, shot, openAs }) {
 
   const admin = await openAs("katte");
   await admin.goto("/settings");
-  await admin.getByRole("radio", { name: "Switch to English" }).click();
+  await admin.locator('input[name="bokli-language"][value="en"]').check({ force: true });
   await admin.goto(`/close?month=${month}`);
   await reopenButton(admin).click();
   await admin.getByPlaceholder("Explain why this month must be reopened").fill("Fix a typo in a sheet");
   await shot("admin-reopen-reason", admin);
   await admin.getByRole("button", { name: "Confirm Reopen" }).click();
-  await admin.getByText("Month reopened successfully").waitFor();
+  await admin.getByText("Month reopened successfully").first().waitFor();
   await admin.reload();
   await admin.getByText("Fix a typo in a sheet").waitFor();
   await shot("admin-reopened", admin);

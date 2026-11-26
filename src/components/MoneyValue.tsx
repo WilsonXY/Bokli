@@ -52,7 +52,7 @@ export function formatCompactMyr(sen: bigint | number): string {
 
 interface MoneyValueProps {
   sen: bigint | number;
-  variant?: "hero" | "metric" | "row" | "inline";
+  variant?: "hero" | "metric" | "inline";
   showPlus?: boolean;
   className?: string;
 }

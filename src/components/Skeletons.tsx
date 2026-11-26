@@ -16,45 +16,53 @@ function HeaderBar() {
   );
 }
 
-/** Matches DailySheetForm: header + date toolbar, 7/5 desktop split with Revenue + Daily Costs on left, Day Summary on right. */
+/**
+ * Matches DailySheetForm box for box (scripts/cloud-flows/skeletons.mjs checks
+ * it at 390px and 1280px): the same root spacing, a 36px title row over a 54px
+ * date toolbar, then Revenue + Daily Costs (empty day) and the Save card, with
+ * the same 1px sticky sentinel below on phones.
+ */
 export function DailySheetSkeleton() {
   return (
-    <div className="space-y-5" aria-busy="true">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className={`${bar} h-8 w-36`} />
-        <div className={`${bar} h-12 w-full sm:w-80 rounded-xl`} />
+    <div className="space-y-3 sm:space-y-5" aria-busy="true">
+      <div className="space-y-2.5 sm:space-y-3">
+        <div className="flex flex-col gap-2.5 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center min-h-9">
+            <div className={`${bar} h-8 w-36`} />
+          </div>
+          <div className={`${bar} h-[54px] w-full sm:w-[277px] rounded-xl`} />
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-        <div className="lg:col-span-7 space-y-5">
-          <div className={`${card} space-y-4`}>
+      <div className="grid grid-cols-1 lg:grid-cols-12 lg:grid-rows-[auto_1fr] gap-3 sm:gap-5 items-start">
+        <div className="lg:col-span-7 lg:row-span-2 space-y-3 sm:space-y-5">
+          <div className={`${card} h-[120px] sm:h-[182px] space-y-4 overflow-hidden`}>
             <div className="flex items-center justify-between">
               <div className={`${bar} h-5 w-24`} />
               <div className={`${bar} h-5 w-28`} />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className={`${bar} h-20 rounded-xl`} />
-              <div className={`${bar} h-20 rounded-xl`} />
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
+              <div className={`${bar} h-12 sm:h-14 rounded-xl`} />
+              <div className={`${bar} h-12 sm:h-14 rounded-xl`} />
             </div>
           </div>
-
-          <div className={`${card} space-y-4`}>
+          <div className={`${card} h-[148px] sm:h-[200px] space-y-4 overflow-hidden`}>
             <div className="flex items-center justify-between">
               <div className={`${bar} h-5 w-24`} />
-              <div className={`${bar} h-5 w-28`} />
+              <div className={`${bar} h-5 w-16`} />
             </div>
-            <div className={`${bar} h-16 rounded-xl`} />
             <div className={`${bar} h-12 rounded-xl`} />
           </div>
         </div>
 
         <div className="lg:col-span-5">
-          <div className={`${card} space-y-4`}>
+          <div className={`${card} h-[62px] lg:h-[256px] overflow-hidden space-y-4`}>
             <div className={`${bar} h-5 w-28`} />
-            <div className={`${bar} h-10 w-40`} />
-            <div className={`${bar} h-12 rounded-xl`} />
+            <div className={`${bar} hidden lg:block h-10 w-40`} />
+            <div className={`${bar} hidden lg:block h-12 rounded-xl`} />
           </div>
         </div>
+        <div className="h-px w-full -mt-2 sm:-mt-5 lg:hidden" aria-hidden="true" />
       </div>
     </div>
   );

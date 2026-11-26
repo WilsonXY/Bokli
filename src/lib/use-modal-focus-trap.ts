@@ -31,9 +31,10 @@ let savedScrollState: {
 
 /**
  * Reference-counted document scroll lock for open modal dialogs & pickers.
- * Prevents wheel and touch-swipe scrolling of the background page while
- * preserving internal scrolling inside modal content and restoring exact
- * window scroll coordinates when the last modal closes.
+ * Stops wheel scrolling of the background page (and touch scrolling on
+ * current browsers; iOS Safari before 16 ignores overflow on <html>, so the
+ * calendar backdrop also sets touch-action: none) while modal content scrolls,
+ * and restores the window scroll position when the last modal closes.
  */
 export function acquireDocumentScrollLock(): () => void {
   if (typeof window === "undefined" || typeof document === "undefined") {
@@ -114,6 +115,14 @@ export function useModalFocusTrap({
   const canCloseRef = useRef(canClose);
   const suppressFocusRestoreRef = useRef(suppressFocusRestore);
   suppressFocusRestoreRef.current = suppressFocusRestore;
+  // Read once when the dialog opens: callers pass `someRef.current`, and a new
+  // element there mid-dialog must not tear down and rebuild the trap.
+  const returnFocusToRef = useRef(returnFocusTo);
+  returnFocusToRef.current = returnFocusTo;
+  // Callers pick the fallback conditionally (e.g. by isClosed); a switch while
+  // the dialog is open must not rebuild the trap either. Read at close.
+  const fallbackFocusRefRef = useRef(fallbackFocusRef);
+  fallbackFocusRefRef.current = fallbackFocusRef;
 
   useEffect(() => {
     onCloseRef.current = onClose;
@@ -129,7 +138,7 @@ export function useModalFocusTrap({
     const releaseScrollLock = acquireDocumentScrollLock();
 
     const invoker =
-      returnFocusTo ??
+      returnFocusToRef.current ??
       (document.activeElement instanceof HTMLElement ? document.activeElement : null);
 
     const inerted: HTMLElement[] = [];
@@ -203,7 +212,7 @@ export function useModalFocusTrap({
       }
     };
 
-    const readFallbackTarget = () => fallbackFocusRef?.current ?? null;
+    const readFallbackTarget = () => fallbackFocusRefRef.current?.current ?? null;
     document.addEventListener("keydown", handleKeyDown);
     return () => {
       releaseScrollLock();
@@ -239,5 +248,5 @@ export function useModalFocusTrap({
         }
       }
     };
-  }, [isOpen, containerRef, returnFocusTo, fallbackFocusRef]);
+  }, [isOpen, containerRef]);
 }

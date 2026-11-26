@@ -2,7 +2,7 @@
 // Settings (Bright Mode default, Dark Mode toggle, Language toggle) and Sign Out.
 const pages = {
   "/": "Cash Revenue",
-  "/dashboard": "Cash vs TnG Split",
+  "/dashboard": "Cash vs TnG Revenue",
   "/expenses": "Stall Rent",
   "/close": "Close Month",
   "/settings": "Appearance",
@@ -10,8 +10,7 @@ const pages = {
 
 async function setLanguage(page, lang) {
   await page.goto("/settings");
-  const name = lang === "EN" ? "Switch to English" : "切换到中文 (Switch to Chinese)";
-  await page.getByRole("radio", { name }).click();
+  await page.locator(`input[name="bokli-language"][value="${lang === "EN" ? "en" : "zh"}"]`).check({ force: true });
 }
 
 export default async function flow({ page, shot }) {
@@ -27,10 +26,10 @@ export default async function flow({ page, shot }) {
 
   // Verify Dark Mode toggle in Settings, then switch back to Bright Mode
   await page.goto("/settings");
-  await page.getByRole("radio", { name: "Switch to Dark Mode" }).click();
+  await page.locator('input[name="bokli-theme"][value="dark"]').check({ force: true });
   await page.waitForFunction(() => document.documentElement.classList.contains("dark"));
   await shot("en-settings-dark");
-  await page.getByRole("radio", { name: "Switch to Bright Mode" }).click();
+  await page.locator('input[name="bokli-theme"][value="light"]').check({ force: true });
   await page.waitForFunction(() => !document.documentElement.classList.contains("dark"));
 
   // Sign Out from Settings

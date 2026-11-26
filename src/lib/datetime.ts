@@ -76,3 +76,13 @@ export function isFutureDateInKL(date: string, now: Date = new Date()): boolean 
   const today = getTodayInKualaLumpur(now);
   return date > today;
 }
+
+/** Short weekday for a YYYY-MM-DD date: 周一 / Mon. "" for a malformed date. */
+export function formatWeekday(dateStr: string, lang: "zh" | "en"): string {
+  const parts = dateStr.split("-").map(Number);
+  if (parts.length !== 3 || parts.some(Number.isNaN)) return "";
+  const dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+  const zhDays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+  const enDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return lang === "zh" ? zhDays[dt.getUTCDay()] : enDays[dt.getUTCDay()];
+}

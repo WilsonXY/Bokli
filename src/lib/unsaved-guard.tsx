@@ -62,6 +62,10 @@ export function UnsavedGuardProvider({ children }: { children: React.ReactNode }
 
   const onRouteSync = useCallback(() => {
     if (typeof window === "undefined") return;
+    // A route actually changed: any pending corrective traversal is spent. A
+    // stale counter or flag would otherwise swallow the next real Back.
+    suppressPopstateRef.current = 0;
+    allowNextPopstateRef.current = false;
     const state = window.history.state;
     const existing =
       state && typeof state === "object" && typeof state.__bokliIdx === "number"

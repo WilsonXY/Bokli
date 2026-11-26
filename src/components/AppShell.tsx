@@ -15,6 +15,19 @@ interface AppShellProps {
   todayKl?: string;
 }
 
+/**
+ * Skip link: focus <main> directly instead of following "#main-content", which
+ * would push a hash history entry the unsaved-changes guard cannot index (a
+ * later multi-step Back would then undo one entry short).
+ */
+export function skipToMainContent(
+  event: { preventDefault: () => void },
+  doc: { getElementById: (id: string) => { focus: () => void } | null },
+) {
+  event.preventDefault();
+  doc.getElementById("main-content")?.focus();
+}
+
 export function AppShell({ children, userRole }: AppShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -47,7 +60,7 @@ export function AppShell({ children, userRole }: AppShellProps) {
       if (!returnHref || returnHref.startsWith("/settings")) {
         try {
           const saved = sessionStorage.getItem("bokli_prev_route");
-          if (saved && saved.startsWith("/") && !saved.startsWith("/settings")) {
+          if (saved && saved.startsWith("/") && !saved.startsWith("//") && !saved.startsWith("/settings")) {
             returnHref = saved;
           }
         } catch {
@@ -161,6 +174,7 @@ export function AppShell({ children, userRole }: AppShellProps) {
       {/* Keyboard Skip Link */}
       <a
         href="#main-content"
+        onClick={(e) => skipToMainContent(e, document)}
         className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2.5 focus:rounded-xl focus:bg-brand-cta focus:text-brand-cta-ink focus:text-sm focus:font-semibold focus:shadow-popover focus:outline-none focus:ring-2 focus:ring-surface"
       >
         {t.skipToMain}

@@ -6,11 +6,11 @@ const stored = (page) => page.evaluate(async (m) => {
   return (await res.json()).expenses.map((e) => `${e.type}:${e.amountSen}`).sort().join(",");
 }, month);
 async function draft(page, category, amount) {
-  await page.getByRole("button", { name: "Add Expense" }).click();
+  await page.getByRole("button", { name: "Add Operating Expense" }).click();
   const form = page.locator("form");
   await form.getByRole("button", { name: category }).click();
   await form.getByPlaceholder("0.00").fill(amount);
-  return form.getByRole("button", { name: "Add Expense" });
+  return form.getByRole("button", { name: "Add Operating Expense" });
 }
 const expectStored = async (page, want) => {
   const got = await stored(page);
@@ -19,12 +19,12 @@ const expectStored = async (page, want) => {
 
 export default async function flow({ page, shot }) {
   await page.goto("/settings");
-  await page.getByRole("radio", { name: "Switch to English" }).click();
+  await page.locator('input[name="bokli-language"][value="en"]').check({ force: true });
   await page.goto(`/expenses?month=${month}`);
 
   // Double click on Save.
   await (await draft(page, "Utilities", "12.34")).dblclick();
-  await page.getByText("Expense added successfully").waitFor();
+  await page.getByText("Expense added successfully").first().waitFor();
   await expectStored(page, "utilities:1234");
   await shot("double-click-one-row");
 
@@ -37,17 +37,17 @@ export default async function flow({ page, shot }) {
     await route.abort("failed");
   });
   await (await draft(page, "Stall Rent", "50")).click();
-  await page.getByText("Not sure it saved").waitFor();
+  await page.getByText("Not sure it saved").first().waitFor();
   await shot("lost-reply");
   await page.unrouteAll({ behavior: "wait" });
   if (lost < 2) throw new Error(`only ${lost} requests were dropped`);
   await expectStored(page, "rental:5000,utilities:1234");
 
   // Save again: asks the server first, finds it saved, adds nothing.
-  await page.locator("form").getByRole("button", { name: "Add Expense" }).click();
-  await page.getByText("Expense added successfully").waitFor();
+  await page.locator("form").getByRole("button", { name: "Add Operating Expense" }).click();
+  await page.getByText("Expense added successfully").first().waitFor();
   await expectStored(page, "rental:5000,utilities:1234");
   await page.reload();
-  await page.getByText("RM50.00").first().waitFor();
+  await page.getByText(/RM\s?50\.00/).first().waitFor();
   await shot("retried-one-row");
 };

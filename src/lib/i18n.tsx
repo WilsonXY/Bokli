@@ -130,7 +130,6 @@ export const DICTIONARY = {
     netProfit: "本月净利润",
     netProfitFormula: "毛利润 − 固定支出",
     profitMargin: "净利率",
-    shortfallLabel: "亏损",
     dailyCostsCoveredLabel: "日常开销（营业额内）",
     opexCoveredLabel: "固定支出（营业额内）",
     shortfallUncoveredLabel: "超出营业额",
@@ -143,17 +142,13 @@ export const DICTIONARY = {
     chartEarlierDays: "较早日期",
     chartLaterDays: "较近日期",
     vsPrevMonth: "较",
-    profitFlowTitle: "本月利润构成",
     insightEmpty: "本月尚未录入经营数据，点击「记账」开始。",
     insightDaysAndTopCost: "已记录 {days} 天营业，{category}占日常开销 {pct}%。",
     insightDaysOnly: "本月已记录 {days} 天营业账单。",
     insightLossCallout: "本月总开支超出营业额 {loss}。",
     dailyAverage: "已记日均",
     peakDay: "最高日",
-    prevRecordedDay: "前一个记录日",
-    nextRecordedDay: "后一个记录日",
     revenueSplit: "收入构成",
-    revenueSplitSub: "现金与 TnG 渠道占比",
     noRevenueData: "本月暂无收入数据",
     costDistribution: "日常开销分布",
     costDistributionSub: "按类别统计本月日常开销",
@@ -184,7 +179,6 @@ export const DICTIONARY = {
     expensesThisMonthLabel: "本月合计",
     itemUnitSingular: "项",
     itemsUnit: "项",
-    grossProfitBoundaryLabel: "本月毛利润",
     monthSelect: "月份",
     // Month Close
     closeTitle: "月度结账与对账",
@@ -387,7 +381,6 @@ export const DICTIONARY = {
     netProfit: "Net Profit",
     netProfitFormula: "Gross Profit \u2212 Operating Expenses",
     profitMargin: "Net Margin",
-    shortfallLabel: "Shortfall",
     dailyCostsCoveredLabel: "Daily Costs (within revenue)",
     opexCoveredLabel: "Operating Expenses (covered)",
     shortfallUncoveredLabel: "Uncovered",
@@ -400,17 +393,13 @@ export const DICTIONARY = {
     chartEarlierDays: "Earlier days",
     chartLaterDays: "Later days",
     vsPrevMonth: "vs",
-    profitFlowTitle: "Profit Breakdown",
     insightEmpty: "No Daily Sheets recorded for this month yet.",
     insightDaysAndTopCost: "{days} sheets logged · {category} is {pct}% of Daily\u00A0Costs",
     insightDaysOnly: "{days} Daily Sheets recorded this month",
     insightLossCallout: "Total costs exceed revenue by {loss}",
     dailyAverage: "Logged-day avg",
     peakDay: "Peak day",
-    prevRecordedDay: "Previous recorded day",
-    nextRecordedDay: "Next recorded day",
     revenueSplit: "Cash vs TnG Revenue",
-    revenueSplitSub: "Revenue share by payment channel",
     noRevenueData: "No revenue data for this month",
     costDistribution: "Cost Categories",
     costDistributionSub: "Daily Costs ranked by category",
@@ -441,7 +430,6 @@ export const DICTIONARY = {
     expensesThisMonthLabel: "This month",
     itemUnitSingular: "item",
     itemsUnit: "items",
-    grossProfitBoundaryLabel: "Gross Profit",
     monthSelect: "Month",
     // Month Close
     closeTitle: "Month Close",
@@ -585,16 +573,32 @@ export function useI18n() {
   return useContext(I18nContext);
 }
 
+/**
+ * The structured error body every API route now returns: `code` is the stable
+ * protocol, `error` is English prose kept for logs and legacy fallback.
+ */
 export interface ApiErrorPayload {
   error?: string | null;
   code?: string | null;
 }
 
+/**
+ * Reads the payload back out of a caught value: client code throws
+ * `Object.assign(new Error(data.error), { code: data.code })`. Same property
+ * reads as the former inline `{ error: err.message, code: err.code }`.
+ */
 export function apiErrorPayloadFrom(err: unknown): ApiErrorPayload {
   const { message, code } = err as { message?: string; code?: string | null };
   return { error: message, code };
 }
 
+/**
+ * The API error protocol: stable error code -> i18n key.
+ *
+ * This record is the ONLY place a server error code becomes a user-facing
+ * string. `notFound` and `futureDate` have no dedicated i18n case, so they
+ * intentionally land on the generic save error rather than inventing one.
+ */
 export const API_ERROR_CODE_TO_KEY: Record<string, keyof TranslationMap> = {
   unauthorized: "unauthorizedError",
   identityChanged: "unauthorizedError",
@@ -612,6 +616,15 @@ export const API_ERROR_CODE_TO_KEY: Record<string, keyof TranslationMap> = {
   saveError: "saveError",
 };
 
+/**
+ * Translates an API error for display.
+ *
+ * Prefers the structured `code`; the English-prose substring matcher below is
+ * ONLY a fallback for codeless errors (client-side failures, legacy or
+ * deliberately codeless 400s). Substring matching on prose is what used to
+ * collide "note is required when Operating Expense type is 'other'" with the
+ * Reconciliation variance message — a coded error never reaches it.
+ */
 export function translateApiError(
   error: string | ApiErrorPayload | undefined | null,
   t: TranslationMap

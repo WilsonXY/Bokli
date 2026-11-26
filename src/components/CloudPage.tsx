@@ -4,8 +4,7 @@ import React, { Suspense, useCallback, useEffect, useRef, useState } from "react
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
 import { isValidDateStr, isValidMonthStr } from "@/lib/money";
-
-const LOAD_DEADLINE_MS = 15_000;
+import { READ_DEADLINE_MS } from "@/lib/cloud-client";
 
 interface CloudPageProps<P> {
   /** The one query parameter the page reads (?date= or ?month=). */
@@ -57,7 +56,7 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
 
   // A reload keeps the current screen (and its drafts) until the new data
   // lands. Every read (first load, refresh, Retry) gives up after
-  // LOAD_DEADLINE_MS: the read is invalidated, so a late answer is ignored, and
+  // READ_DEADLINE_MS: the read is invalidated, so a late answer is ignored, and
   // the page shows the Retry banner instead of a skeleton or spinner forever.
   const reload = useCallback((opts?: { quiet?: boolean }): Promise<boolean> => {
     const call = ++latest.current;
@@ -76,7 +75,7 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
           fail();
         }
         resolve(false);
-      }, LOAD_DEADLINE_MS);
+      }, READ_DEADLINE_MS);
       deadlines.current.add(deadline);
       const done = () => {
         clearTimeout(deadline);
@@ -87,7 +86,10 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
           if (settled) return;
           settled = true;
           done();
-          if (call === latest.current) setState({ query, props });
+          if (call === latest.current) {
+            setState({ query, props });
+            setRetryFailed(false);
+          }
           resolve(call === latest.current);
         },
         (err) => {

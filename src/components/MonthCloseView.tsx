@@ -1,17 +1,15 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useTransition } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sanitizeMoneyInput, tryParseSen } from "@/lib/money";
-import { apiFetch } from "@/lib/cloud-client";
+import { apiFetch, READ_DEADLINE_MS } from "@/lib/cloud-client";
 import { useI18n, translateApiError, apiErrorPayloadFrom, type TranslationMap } from "@/lib/i18n";
 import { useModalFocusTrap } from "@/lib/use-modal-focus-trap";
 import { useUnsavedGuard } from "@/lib/unsaved-guard";
 import { MonthSelectorDropdown, MonthOption } from "@/components/MonthSelectorDropdown";
 import { MoneyValue } from "@/components/MoneyValue";
 import { CashIcon, TngIcon } from "@/components/BokliIcons";
-
-const STATUS_REFRESH_DEADLINE_MS = 10_000;
 
 interface FinancialSnapshot {
   revenueSen: number;
@@ -37,6 +35,10 @@ export interface CloseRecordData {
 }
 
 export interface MonthCloseViewProps {
+  /**
+   * Cloud build: re-fetch the page data; router.refresh() only re-renders a
+   * static page. `quiet`: this view reports a failed refresh itself.
+   */
   onRefresh?: (opts?: { quiet?: boolean }) => void | Promise<boolean | void>;
   currentMonth: string;
   availableMonths: string[];
@@ -126,6 +128,7 @@ export interface SubmitMonthCloseParams {
   fetchImpl?: (url: string, init?: RequestInit) => Promise<Response>;
 }
 
+// Month Close submission; the gating result is the single source for validation and parsed amounts.
 export async function submitMonthClose({
   submitting,
   gating,
@@ -147,6 +150,7 @@ export async function submitMonthClose({
     setErrorMessage(t[gating.validationError]);
     return;
   }
+  // Non-null: validationError is "invalidAmount" whenever either amount is null.
   const cashOnHandSen = gating.cashOnHandSen!;
   const tngOnHandSen = gating.tngOnHandSen!;
 
@@ -203,7 +207,6 @@ export function MonthCloseView({
   const router = useRouter();
   const refresh = onRefresh ?? (() => router.refresh());
   const { t, lang } = useI18n();
-  const [, startTransition] = useTransition();
 
   const [cashOnHandInput, setCashOnHandInput] = useState(initialCashOnHandInput);
   const [tngOnHandInput, setTngOnHandInput] = useState(initialTngOnHandInput);
@@ -299,17 +302,15 @@ export function MonthCloseView({
     (isClosed && showReopenBox && reopenReasonInput.trim() !== "");
 
   const isCloseDraftDirtyRef = useRef(isCloseDraftDirty);
+  // Only the write itself blocks leaving: once the server has acknowledged it,
+  // a slow status refresh must not trap the user on this page.
   const submittingRef = useRef(submitting);
-  const isTransitioningRef = useRef(isTransitioning);
   const isClosedRef = useRef(isClosed);
   useEffect(() => {
     isCloseDraftDirtyRef.current = isCloseDraftDirty;
     submittingRef.current = submitting;
-    // Only the write itself blocks leaving: once the server has acknowledged
-    // it, a slow status refresh must not trap the user on this page.
-    isTransitioningRef.current = submitting;
     isClosedRef.current = isClosed;
-  }, [isCloseDraftDirty, submitting, isTransitioning, refreshFailed, isClosed]);
+  }, [isCloseDraftDirty, submitting, isClosed]);
 
   // A write landed but the refresh failed: move focus to the inline Retry, but
   // only when focus was dropped or still sits in the action area; never pull
@@ -327,10 +328,10 @@ export function MonthCloseView({
 
   // The deadline runs until the expected status is on screen, not just until
   // a request resolves: a read that returns the old status still surfaces
-  // Retry after STATUS_REFRESH_DEADLINE_MS.
+  // Retry after READ_DEADLINE_MS.
   useEffect(() => {
     if (pendingStatusTarget === null || refreshFailed || submitting) return;
-    const id = setTimeout(() => setRefreshFailed(true), STATUS_REFRESH_DEADLINE_MS);
+    const id = setTimeout(() => setRefreshFailed(true), READ_DEADLINE_MS);
     return () => clearTimeout(id);
   }, [pendingStatusTarget, refreshFailed, submitting]);
   useEffect(() => {
@@ -339,7 +340,7 @@ export function MonthCloseView({
       refreshAttemptRef.current += 1; // abandon the stalled attempt
       setRetryingRefresh(false);
       setRetryFailedOnce(true);
-    }, STATUS_REFRESH_DEADLINE_MS);
+    }, READ_DEADLINE_MS);
     return () => clearTimeout(id);
   }, [retryingRefresh]);
 
@@ -358,6 +359,8 @@ export function MonthCloseView({
       setPendingStatusTarget(null);
       setRefreshFailed(false);
       setRetryFailedOnce(false);
+      setRetryingRefresh(false);
+      refreshAttemptRef.current += 1; // a retry still in flight is now moot
       // The form that held focus was replaced; land focus on the new state's
       // first control instead of leaving it on <body>.
       requestAnimationFrame(() => {
@@ -377,28 +380,12 @@ export function MonthCloseView({
     initialConfirmEmpty,
   ]);
 
-  // Reset local draft inputs when navigating to a different month
-  useEffect(() => {
-    setCashOnHandInput(initialCashOnHandInput);
-    setTngOnHandInput(initialTngOnHandInput);
-    setCloseNote(initialCloseNote);
-    setConfirmEmpty(initialConfirmEmpty);
-    setShowReopenBox(false);
-    setReopenReasonInput("");
-    setReopenReasonError(null);
-    setPendingStatusTarget(null);
-    setRefreshFailed(false);
-    refreshAttemptRef.current += 1;
-    setRetryingRefresh(false);
-    setRetryFailedOnce(false);
-    setPendingNavigation(null);
-  }, [currentMonth, initialCashOnHandInput, initialTngOnHandInput, initialCloseNote, initialConfirmEmpty]);
 
   useEffect(() => {
     return registerGuard({
-      isDirty: () => isCloseDraftDirtyRef.current || isTransitioningRef.current,
+      isDirty: () => isCloseDraftDirtyRef.current || submittingRef.current,
       onRequestLeave: ({ href, historyDelta, triggerEl }) => {
-        if (isTransitioningRef.current) return;
+        if (submittingRef.current) return;
         const fallbackFocus = isClosedRef.current
           ? (reopenReasonRef.current ?? reopenBtnRef.current)
           : cashOnHandInputRef.current;
@@ -488,10 +475,10 @@ export function MonthCloseView({
       showSuccessMessage,
       // Keep the submitted count on screen (read-only) until the closed record
       // lands; the reset happens then, so a later reopen starts fresh.
+      // Not in a transition: pendingStatusTarget must commit with (urgent)
+      // setSubmitting(false), or the form would briefly unlock in between.
       onClosed: () => {
-        startTransition(() => {
-          void runStatusRefresh("closed");
-        });
+        void runStatusRefresh("closed");
       },
     });
   }
@@ -534,9 +521,7 @@ export function MonthCloseView({
       setConfirmEmpty(initialConfirmEmpty);
       showSuccessMessage(t.reopenSuccess);
 
-      startTransition(() => {
-        void runStatusRefresh("open");
-      });
+      void runStatusRefresh("open");
     } catch (err) {
       setErrorMessage(translateApiError(apiErrorPayloadFrom(err), t));
     } finally {

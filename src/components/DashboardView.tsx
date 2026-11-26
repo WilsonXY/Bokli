@@ -19,6 +19,7 @@ import {
   TngIcon,
   type CostCategoryKey,
 } from "@/components/BokliIcons";
+import { formatWeekday } from "@/lib/datetime";
 
 export interface SerializedMonthTile {
   month: string;
@@ -243,15 +244,6 @@ export function computeRevenueAllocation(
   };
 }
 
-function formatShortWeekday(dateStr: string, lang: "zh" | "en"): string {
-  const parts = dateStr.split("-").map(Number);
-  if (parts.length !== 3 || parts.some(Number.isNaN)) return "";
-  const dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
-  const zhDays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-  const enDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  return lang === "zh" ? zhDays[dt.getUTCDay()] : enDays[dt.getUTCDay()];
-}
-
 function formatSignedPercent(pct: number): string {
   return pct < 0 ? `\u2212${Math.abs(pct)}%` : `${pct}%`;
 }
@@ -293,7 +285,6 @@ export function DashboardView({
   const [plotScrollLeft, setPlotScrollLeft] = useState(0);
   const [isCoarsePointer, setIsCoarsePointer] = useState(false);
   const suppressedHoverDateRef = useRef<string | null>(null);
-  const pinnedByKeyboardRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
@@ -327,7 +318,6 @@ export function DashboardView({
     if (!validPinnedDate) return;
     const handlePointerDown = (event: PointerEvent) => {
       if (chartPlotRef.current && !chartPlotRef.current.contains(event.target as Node)) {
-        pinnedByKeyboardRef.current = false;
         setPinnedDate(null);
         setFocusedDate(null);
         setHoveredDate(null);
@@ -341,7 +331,6 @@ export function DashboardView({
     if (!activeDate) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        pinnedByKeyboardRef.current = false;
         setPinnedDate(null);
         setFocusedDate(null);
         setHoveredDate(null);
@@ -941,7 +930,7 @@ export function DashboardView({
                     {/* Screen-reader live readout only when a bar is explicitly pinned or keyboard-focused (never noisy passive hover) */}
                     <div className="sr-only" aria-live="polite" aria-atomic="true">
                       {(validPinnedDate ?? validFocusedDate) && activeRow
-                        ? `${activeRow.date} ${formatShortWeekday(activeRow.date, lang)} ${
+                        ? `${activeRow.date} ${formatWeekday(activeRow.date, lang)} ${
                             trendMetric === "revenue" ? t.sheetRevCol : t.sheetCostCol
                           } ${formatDisplayMyr(trendMetric === "revenue" ? activeRow.totalSen : activeRow.costSen)}`
                         : ""}
@@ -1009,7 +998,6 @@ export function DashboardView({
                               }}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                pinnedByKeyboardRef.current = false;
                                 setPinnedDate(null);
                                 setFocusedDate(null);
                                 setHoveredDate(null);
@@ -1029,7 +1017,7 @@ export function DashboardView({
                               />
                               <div className="flex items-center justify-between gap-1.5 text-[11px] font-semibold text-ink-muted leading-tight whitespace-nowrap">
                                 <span className="num-tabular text-ink-secondary">{activeRow.date}</span>
-                                <span>{formatShortWeekday(activeRow.date, lang)}</span>
+                                <span>{formatWeekday(activeRow.date, lang)}</span>
                               </div>
                               <div
                                 className={`text-sm font-bold num-tabular leading-snug whitespace-nowrap ${
@@ -1071,14 +1059,12 @@ export function DashboardView({
                               ref={chartPlotRef}
                               onBlur={(e) => {
                                 if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-                                  pinnedByKeyboardRef.current = false;
                                   setFocusedDate(null);
                                   setPinnedDate(null);
                                 }
                               }}
                               onClick={(e) => {
                                 if (e.target === e.currentTarget) {
-                                  pinnedByKeyboardRef.current = false;
                                   setPinnedDate(null);
                                   setFocusedDate(null);
                                   setHoveredDate(null);
@@ -1134,13 +1120,11 @@ export function DashboardView({
                                           e.stopPropagation();
                                           setRovingDateState(slot.date);
                                           if (validPinnedDate === slot.date) {
-                                            pinnedByKeyboardRef.current = false;
                                             setPinnedDate(null);
                                             setFocusedDate(null);
                                             setHoveredDate(null);
                                             suppressedHoverDateRef.current = slot.date;
                                           } else {
-                                            pinnedByKeyboardRef.current = e.detail === 0;
                                             suppressedHoverDateRef.current = null;
                                             setPinnedDate(slot.date);
                                           }
@@ -1170,7 +1154,6 @@ export function DashboardView({
                                         onKeyDown={(e) => {
                                           if (e.key === "Escape") {
                                             e.preventDefault();
-                                            pinnedByKeyboardRef.current = false;
                                             setPinnedDate(null);
                                             setFocusedDate(null);
                                             setHoveredDate(null);
@@ -1186,7 +1169,6 @@ export function DashboardView({
                                           if (nextIdx === -1 || nextIdx === currentIdx) return;
                                           e.preventDefault();
                                           const nextDate = trend[nextIdx].date;
-                                          pinnedByKeyboardRef.current = false;
                                           setRovingDateState(nextDate);
                                           setFocusedDate(nextDate);
                                           setPinnedDate(null);
@@ -1566,7 +1548,7 @@ export function DashboardView({
                   <div className="divide-y divide-surface-border">
                     {[...trend].reverse().map((row) => {
                       const grossSen = row.totalSen - row.costSen;
-                      const weekday = formatShortWeekday(row.date, lang);
+                      const weekday = formatWeekday(row.date, lang);
                       return (
                         <Link
                           key={row.date}

@@ -23,6 +23,7 @@ import {
   type CostLineGroup,
 } from "@/lib/cost-line-group";
 import type { CostLine } from "@/db/schema";
+import { formatWeekday } from "@/lib/datetime";
 
 export interface CostLineItem {
   id?: number;
@@ -43,6 +44,8 @@ export interface DailySheetFormProps {
   initialCostLines: CostLineItem[];
   isClosed: boolean;
   todayKl: string;
+  // The saved Daily Sheet for `date`, or null if none (gates the delete-sheet
+  // button; the delete sends it so the server can refuse if it changed since)
   savedSheet?: { id: number; updatedAt: string } | null;
   initialCashInput?: string;
   initialTngInput?: string;
@@ -52,6 +55,7 @@ export interface DailySheetFormProps {
   initialExpandedIndex?: number | null;
 }
 
+// How long the save-success banner stays visible before it auto-dismisses.
 const SUCCESS_BANNER_MS = 3500;
 
 export function normalizeNote(note?: unknown): string {
@@ -61,12 +65,16 @@ export function normalizeNote(note?: unknown): string {
   return note.trim();
 }
 
+// Save-gate helper: index of the first "other"-category line missing its
+// required note, or -1. Used by handleSave to block the request client-side.
 export function findMissingOtherNoteIndex(
   lines: Pick<CostLineItem, "category" | "note">[]
 ): number {
   return lines.findIndex((line) => isOtherNoteMissing(line.category, line.note));
 }
 
+// Save-gate helper: index of the first cost line with zero or non-positive amount,
+// or -1. Used to block save and display inline invalid-amount error under that row.
 export function findZeroCostLineIndex(
   lines: Pick<CostLineItem, "amountSen">[]
 ): number {
@@ -105,6 +113,9 @@ function extractCostLineIds(line: CostLineItem): number[] {
   ];
 }
 
+// Folds a merged group back into one form row: first-seen category/note/position,
+// exact summed amount, every underlying id once (so deleting the row drops the
+// whole group), and the first clientId that exists.
 function toMergedCostLine(group: CostLineGroup<CostLineItem>): CostLineItem {
   const first = group.members[0];
   const ids: number[] = [];
@@ -123,6 +134,11 @@ function toMergedCostLine(group: CostLineGroup<CostLineItem>): CostLineItem {
   };
 }
 
+// Merges the draft by the shared Cost Line identity (groupCostLines). Rows with
+// amount <= 0 are unsaved drafts: they are never merged and keep their position,
+// so the save gate can flag them. A row that is not merged is returned as the
+// same object, so its in-progress input is untouched. Throws
+// CostLineAmountOverflowError (index into `lines`) instead of clamping.
 export function consolidateCostLines(lines: CostLineItem[]): CostLineItem[] {
   const positiveIdx: number[] = [];
   lines.forEach((line, i) => {
@@ -166,10 +182,15 @@ function normalizeLoadedCostLine(line: CostLineItem): CostLineItem {
   };
 }
 
+// Load path (server props / save response): normalizes each row (trimmed note,
+// id folded into ids, amountInput derived) and then applies the same merge.
 export function mergeCostLines(lines: CostLineItem[]): CostLineItem[] {
   return consolidateCostLines(lines.map(normalizeLoadedCostLine));
 }
 
+// Non-throwing consolidate for draft paths (add, expand, save): on overflow
+// the draft is kept exactly as-is (never merged, never clamped) and the index of
+// the row that could not be merged is reported; the save gate then blocks it.
 export function tryConsolidateCostLines(lines: CostLineItem[]): {
   lines: CostLineItem[];
   overflowIndex: number | null;
@@ -184,6 +205,9 @@ export function tryConsolidateCostLines(lines: CostLineItem[]): {
   }
 }
 
+// Save-gate helper: consolidates the draft and returns the index of the first
+// row that blocks saving on its amount (a merge that would overflow, or an
+// unsaved <= 0 draft), or null.
 export function consolidateCostLinesForSave(lines: CostLineItem[]): {
   lines: CostLineItem[];
   amountErrorIndex: number | null;
@@ -209,6 +233,7 @@ export function createNewCostLine(
   costLines: CostLineItem[],
   newLineFactory?: () => CostLineItem
 ): { lines: CostLineItem[]; expandedIndex: number; reopenedPartial?: boolean } {
+  // (1) consolidate existing lines (kept unmerged if a merge would overflow)
   const consolidated = tryConsolidateCostLines(costLines).lines;
   // Preserve filled lines AND any partially entered zero-amount line (chosen category, note, or typed amount)
   const kept = consolidated.filter((line) => !isUntouchedCostLinePlaceholder(line));
@@ -220,6 +245,7 @@ export function createNewCostLine(
       reopenedPartial: true,
     };
   }
+  // (3) append one fresh empty row and expand it
   const newLine: CostLineItem = newLineFactory
     ? newLineFactory()
     : {
@@ -367,8 +393,17 @@ export function toggleCostLineExpansion(
   };
 }
 
+// Fields of the visible draft that the in-flight rebase tracks independently.
 export type DraftField = "cash" | "tng" | "costLines";
 
+// Rebase helper (local-first draft + authoritative baseline). After a save
+// returns, the server snapshot is authoritative for the *baseline*, but it must
+// never overwrite cost lines the Operator edited while the request was still in
+// flight — mom's typing wins. An untouched draft takes the saved rows verbatim;
+// a touched draft keeps every local row exactly as typed and only adopts the
+// saved row ids where the content still matches, so the baseline diff flags
+// precisely the rows she changed mid-flight and the next save re-sends the
+// merged draft.
 export function rebaseCostLinesAfterSave(
   localLines: CostLineItem[],
   savedLines: CostLineItem[],
@@ -386,6 +421,7 @@ export function rebaseCostLinesAfterSave(
         normalizeNote(saved.note) === normalizeNote(line.note)
     );
     if (matchIdx === -1) {
+      // Edited during the flight: keep her value, untouched by the snapshot.
       return line;
     }
     claimed.add(matchIdx);
@@ -393,20 +429,15 @@ export function rebaseCostLinesAfterSave(
   });
 }
 
+// The delete-sheet modal may only open while no other confirmation is open:
+// the save and Cost Line delete confirmations render later at the same z-50,
+// so they would sit visibly on top while the delete-sheet modal's inert/focus
+// trap made the hidden delete the one a keyboard confirm acts on.
 export function canOpenDeleteSheetModal(open: {
   showConfirmModal: boolean;
   pendingDeleteIndex: number | null;
 }): boolean {
   return !open.showConfirmModal && open.pendingDeleteIndex === null;
-}
-
-function formatWeekday(dateStr: string, lang: "zh" | "en"): string {
-  const parts = dateStr.split("-").map(Number);
-  if (parts.length !== 3 || parts.some(Number.isNaN)) return "";
-  const dt = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
-  const zhDays = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-  const enDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  return lang === "zh" ? zhDays[dt.getUTCDay()] : enDays[dt.getUTCDay()];
 }
 
 export function DailySheetForm({
@@ -442,6 +473,7 @@ export function DailySheetForm({
     { key: "other", label: t.catOther },
   ];
 
+  // Calendar popover toggle state & trigger ref
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const dateBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -450,6 +482,7 @@ export function DailySheetForm({
   const [cashInput, setCashInput] = useState(initCashStr);
   const [tngInput, setTngInput] = useState(initTngStr);
 
+  // Cost lines state - merged on frontend if same category and same note
   const [costLines, setCostLines] = useState<CostLineItem[]>(() =>
     mergeCostLines(initialCostLines)
   );
@@ -460,6 +493,10 @@ export function DailySheetForm({
   const [showDeleteSheetModal, setShowDeleteSheetModal] = useState(false);
   const [showDiscardDraftModal, setShowDiscardDraftModal] = useState(false);
   const [deletingSheet, setDeletingSheet] = useState(false);
+  // The delete-sheet modal's own error, apart from the shared errorMessage: the
+  // router.refresh() after a refused (409) delete takes the prop-sync full-reset
+  // branch, which clears errorMessage, and the Operator would lose the only sign
+  // that nothing was deleted. Cleared only when she reopens or retries.
   const [deleteSheetError, setDeleteSheetError] = useState<string | null>(null);
   const [savedSheet, setSavedSheet] = useState(initialSavedSheet);
   const savedSheetId = initialSavedSheet?.id ?? null;
@@ -470,6 +507,7 @@ export function DailySheetForm({
         ? { id: savedSheetId, updatedAt: savedSheetUpdatedAt }
         : null,
     );
+    // Nothing left to delete (e.g. removed elsewhere): drop a stale modal
     if (savedSheetId === null) setShowDeleteSheetModal(false);
   }, [savedSheetId, savedSheetUpdatedAt]);
   const sheetExists = savedSheet !== null;
@@ -491,6 +529,9 @@ export function DailySheetForm({
   const dockSentinelRef = useRef<HTMLDivElement>(null);
   const [isDockStuck, setIsDockStuck] = useState(false);
 
+  // One in-flight mutation at a time: a save may not start while a delete is
+  // pending (it would recreate the day being deleted), nor a delete during a
+  // save. A ref, not state, so a second call in the same tick is also refused.
   const mutationInFlightRef = useRef<"save" | "delete" | null>(null);
 
   const isCalendarOpenRef = useRef(isCalendarOpen);
@@ -601,6 +642,9 @@ export function DailySheetForm({
 
   const [errorMessage, setErrorMessage] = useState<string | null>(initialErrorMessage);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  // The success banner is owned by a single timer. Every show/dismiss cancels the
+  // pending expiry first, so a timeout armed by an earlier save can never wipe a
+  // banner raised by a later one (two saves inside SUCCESS_BANNER_MS).
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const expandedEditorRef = useRef<HTMLDivElement | null>(null);
 
@@ -611,6 +655,8 @@ export function DailySheetForm({
     }
   }
 
+  // Banner-only: deliberately touches no draft state, so dismissing it while a
+  // save is in flight cannot disturb the operator's in-flight edits.
   function dismissSuccessMessage() {
     clearSuccessTimer();
     setSuccessMessage(null);
@@ -650,7 +696,17 @@ export function DailySheetForm({
     }
   }, [costAmountErrorIndex]);
 
+  // Draft fields the Operator touched after the save request left the browser.
+  // Inputs are disabled while `saving`, but a keystroke can still land in the
+  // same tick (queued event, IME commit, paste) and the confirm/delete handlers
+  // stay live, so this set — not the disabled attribute — is what guarantees no
+  // keystroke is lost. Non-null only while a save is in flight.
   const touchedDuringSaveRef = useRef<Set<DraftField> | null>(null);
+  // Sticky "she touched the draft at some point" flag for the prop-sync gate
+  // below: isModified alone misses a mid-flight keystroke that lands the draft
+  // back on the baseline (e.g. retyped "12.50" over "12.5" — same sen, so
+  // isModified is false), and the full-reset branch would then wipe the
+  // retyped formatting. Cleared only by explicit date navigation.
   const draftEverTouchedRef = useRef(false);
 
   function markTouchedDuringSave(field: DraftField) {
@@ -658,12 +714,14 @@ export function DailySheetForm({
     draftEverTouchedRef.current = true;
   }
 
+  // Baseline state representing the saved/initial state for the selected date
   const [baseline, setBaseline] = useState(() => ({
     cashInput: initCashStr,
     tngInput: initTngStr,
     costLines: mergeCostLines(initialCostLines),
   }));
 
+  // Check if current form inputs differ from baseline
   const isModified = useMemo(() => {
     if (cashInput.trim() !== baseline.cashInput.trim()) return true;
     if (tngInput.trim() !== baseline.tngInput.trim()) return true;
@@ -685,6 +743,8 @@ export function DailySheetForm({
     return false;
   }, [cashInput, tngInput, costLines, baseline]);
 
+  // Mirror the dirty flag into a ref so the prop-sync effect can consult it
+  // without re-running (and resetting the form) on every keystroke.
   const isModifiedRef = useRef(isModified);
   useEffect(() => {
     isModifiedRef.current = isModified;
@@ -724,6 +784,10 @@ export function DailySheetForm({
     const dateChanged = prevDateRef.current !== date;
     prevDateRef.current = date;
 
+    // Same rebase invariant as handleSave: the router.refresh() fired after a
+    // save re-delivers the server props, and that snapshot may not overwrite a
+    // draft the Operator has already touched. Take it as the authoritative
+    // baseline only. Switching date is explicit navigation, so it still reloads.
     if (!dateChanged && (isModifiedRef.current || draftEverTouchedRef.current)) {
       setBaseline({
         cashInput: cashStr,
@@ -748,6 +812,7 @@ export function DailySheetForm({
     setErrorMessage(null);
   }, [date, initialCashSen, initialTngSen, initialCashInput, initialTngInput, initialCostLines]);
 
+  // Revert modifications back to baseline
   function handleRevert() {
     draftEverTouchedRef.current = false;
     setCashInput(baseline.cashInput);
@@ -782,6 +847,7 @@ export function DailySheetForm({
   const grossProfitSen =
     totalRevenueSen !== null ? totalRevenueSen - totalCostSen : null;
 
+  // Delete-sheet snapshot: the saved figures (baseline), i.e. what is destroyed
   const savedRevenueSen =
     (tryParseSen(baseline.cashInput) ?? 0n) + (tryParseSen(baseline.tngInput) ?? 0n);
   const savedCostSen = baseline.costLines.reduce(
@@ -789,6 +855,7 @@ export function DailySheetForm({
     0n,
   );
 
+  // Create and expand a new empty cost line with stable clientId
   function handleCreateNewCostLine() {
     if (isClosed) return;
     markTouchedDuringSave("costLines");
@@ -864,6 +931,7 @@ export function DailySheetForm({
     if (saving || mutationInFlightRef.current !== null) return false;
     if (isClosed) return false;
     if (hasParseError || cashSen === null || tngSen === null) {
+      setShowConfirmModal(false);
       setErrorMessage(t.invalidAmount);
       return false;
     }
@@ -871,6 +939,8 @@ export function DailySheetForm({
     setCostLines(consolidated);
 
     if (amountErrorIndex !== null) {
+      // The field error sits behind the confirm dialog: close it so focus can land.
+      setShowConfirmModal(false);
       setExpandedIndex(amountErrorIndex);
       setCostAmountErrorIndex(amountErrorIndex);
       setNoteErrorIndex(null);
@@ -885,6 +955,7 @@ export function DailySheetForm({
 
     const missingNoteIdx = findMissingOtherNoteIndex(consolidated);
     if (missingNoteIdx !== -1) {
+      setShowConfirmModal(false);
       setExpandedIndex(missingNoteIdx);
       setNoteErrorIndex(missingNoteIdx);
       setErrorMessage(null);
@@ -899,6 +970,7 @@ export function DailySheetForm({
     setSaveModalError(null);
     dismissSuccessMessage();
 
+    // Open the touched-fields window for the duration of the flight.
     touchedDuringSaveRef.current = new Set<DraftField>();
     mutationInFlightRef.current = "save";
     setSaving(true);
@@ -946,6 +1018,9 @@ export function DailySheetForm({
 
         const touched = touchedDuringSaveRef.current ?? new Set<DraftField>();
 
+        // The baseline always takes the server snapshot: it stays the
+        // authoritative reference for conflict detection and the
+        // unsaved-changes affordance.
         if (!navigatedAway) setBaseline({
           cashInput: savedCash,
           tngInput: savedTng,
@@ -989,6 +1064,7 @@ export function DailySheetForm({
     return succeeded;
   }
 
+  // Delete the whole Daily Sheet for this date, then reset to a clean empty day
   async function handleDeleteSheet() {
     if (deletingSheet || isClosed || !savedSheet) return;
     if (mutationInFlightRef.current !== null) return;
@@ -1001,6 +1077,8 @@ export function DailySheetForm({
     let navigatedAway = false;
 
     try {
+      // The confirmed record's identity: the server refuses (409 sheetChanged)
+      // if the stored sheet was changed or replaced since this snapshot loaded.
       const params = new URLSearchParams({
         date,
         id: String(savedSheet.id),
@@ -1034,6 +1112,8 @@ export function DailySheetForm({
         refresh();
       });
     } catch (err) {
+      // Failure keeps the modal open with the error shown, so she can retry or
+      // cancel. On a conflict, reload so the modal shows the current figures.
       setDeleteSheetError(translateApiError(apiErrorPayloadFrom(err), t));
       if ((err as { code?: string }).code === "sheetChanged") {
         startTransition(() => {
@@ -1166,6 +1246,22 @@ export function DailySheetForm({
         return;
       }
     }
+    // Validate what will actually be saved: duplicate lines merge on save, and a
+    // merged total can overflow. Catch it here, before the confirm dialog opens,
+    // so the error never lands behind the dialog.
+    const { lines: consolidated, amountErrorIndex } = consolidateCostLinesForSave(costLines);
+    if (amountErrorIndex !== null) {
+      setCostLines(consolidated);
+      setExpandedIndex(amountErrorIndex);
+      setCostAmountErrorIndex(amountErrorIndex);
+      setNoteErrorIndex(null);
+      setErrorMessage(null);
+      requestAnimationFrame(() => {
+        costAmountErrorRef.current?.scrollIntoView({ block: "center", behavior: "instant" });
+        costAmountErrorRef.current?.focus();
+      });
+      return;
+    }
     const missingNoteIdx = findMissingOtherNoteIndex(costLines);
     if (missingNoteIdx !== -1) {
       setExpandedIndex(missingNoteIdx);
@@ -1222,7 +1318,7 @@ export function DailySheetForm({
       {/* Consistent Page Header + Compact Date Toolbar (Status pill always visible even at 320px) */}
       <div className="space-y-2.5 sm:space-y-3">
         <div className="flex flex-col gap-2.5 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center justify-between sm:justify-start gap-2">
+          <div className="flex items-center justify-between sm:justify-start gap-2 min-h-9">
             <div className="flex items-center gap-2 min-w-0">
               <h1 className="text-xl sm:text-2xl font-bold text-ink-primary tracking-tight whitespace-nowrap">
                 {t.dailySheetTitle}

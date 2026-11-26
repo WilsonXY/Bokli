@@ -85,16 +85,8 @@
     --op-other-soft: #f0efed;
 
     /* Chart variables */
-    --chart-grid: #e0ddd5;
-    --chart-axis: #66645c;
     --chart-revenue: #15803d;
-    --chart-revenue-soft: rgba(21, 128, 61, 0.14);
     --chart-cost: #b45309;
-    --chart-cost-soft: rgba(180, 83, 9, 0.14);
-    --chart-tooltip-bg: #ffffff;
-    --chart-tooltip-border: #9c978a;
-    --chart-tooltip-ink: #161614;
-    --chart-tooltip-muted: #66645c;
 
     /* Layered elevation shadows — crisp warm bottom drop so cards feel gently lifted */
     --shadow-card: 0 1px 2px rgba(22, 22, 20, 0.06), 0 4px 10px -2px rgba(22, 22, 20, 0.08), 0 2px 4px -2px rgba(22, 22, 20, 0.04);
@@ -190,16 +182,8 @@
     --op-other-soft: rgba(214, 211, 209, 0.16);
 
     /* Chart variables */
-    --chart-grid: #302f2b;
-    --chart-axis: #9c9a90;
     --chart-revenue: #4ade80;
-    --chart-revenue-soft: rgba(74, 222, 128, 0.2);
     --chart-cost: #f59e0b;
-    --chart-cost-soft: rgba(245, 158, 11, 0.2);
-    --chart-tooltip-bg: #242421;
-    --chart-tooltip-border: #54524a;
-    --chart-tooltip-ink: #f3f2ee;
-    --chart-tooltip-muted: #9c9a90;
 
     /* Layered elevation shadows — deep bottom drop + subtle top hairline highlight in Dark Mode */
     --shadow-card: inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 2px 4px rgba(0, 0, 0, 0.34), 0 8px 18px -4px rgba(0, 0, 0, 0.38);
@@ -294,22 +278,6 @@
 
   .animate-slide-up {
     animation: slide-in-up 220ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-  }
-
-  @keyframes popover-enter {
-    0% {
-      opacity: 0;
-      transform: translate(-50%, -6px) scale(0.98);
-    }
-    100% {
-      opacity: 1;
-      transform: translate(-50%, 0) scale(1);
-    }
-  }
-
-  .animate-popover {
-    animation: popover-enter 180ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-    transform-origin: top center;
   }
 
   @keyframes dropdown-enter {

@@ -9,13 +9,11 @@ export const THEME_STORAGE_KEY = "bokli_theme";
 type ThemeContextType = {
   theme: ThemeMode;
   setTheme: (theme: ThemeMode) => void;
-  toggleTheme: () => void;
 };
 
 const ThemeContext = createContext<ThemeContextType>({
   theme: "light",
   setTheme: () => {},
-  toggleTheme: () => {},
 });
 
 function applyThemeToDocument(theme: ThemeMode) {
@@ -61,12 +59,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
-  };
-
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );
