@@ -4,7 +4,7 @@ import React, { Suspense, useCallback, useEffect, useRef, useState } from "react
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
 
-const RETRY_DEADLINE_MS = 10_000;
+const LOAD_DEADLINE_MS = 15_000;
 
 interface CloudPageProps<P> {
   /** The one query parameter the page reads (?date= or ?month=). */
@@ -34,8 +34,8 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
   const latest = useRef(0);
   const [retrying, setRetrying] = useState(false);
   const [retryFailed, setRetryFailed] = useState(false);
-  // A retry belongs to the period it was started for and gives up after
-  // RETRY_DEADLINE_MS; a stale or abandoned attempt never touches the UI.
+  // A retry belongs to the period it was started for; a stale attempt never
+  // touches the UI. The time limit lives in reload() itself.
   const retryAttempt = useRef(0);
   useEffect(() => {
     retryAttempt.current += 1;
@@ -43,24 +43,45 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
     setRetryFailed(false);
   }, [query]);
 
-  // A reload keeps the current screen (and its drafts) until the new data lands.
+  // A reload keeps the current screen (and its drafts) until the new data
+  // lands. Every read (first load, refresh, Retry) gives up after
+  // LOAD_DEADLINE_MS: the read is invalidated, so a late answer is ignored, and
+  // the page shows the Retry banner instead of a skeleton or spinner forever.
   const reload = useCallback((opts?: { quiet?: boolean }): Promise<boolean> => {
     const call = ++latest.current;
-    return load(query).then(
-      (props) => {
-        if (call === latest.current) setState({ query, props });
-        return call === latest.current;
-      },
-      (err) => {
-        console.error("Failed to load page data:", err);
+    const fail = () =>
+      setState((prev) =>
+        prev?.query === query && prev.props ? { ...prev, stale: !opts?.quiet } : { query },
+      );
+    return new Promise<boolean>((resolve) => {
+      let settled = false;
+      const deadline = setTimeout(() => {
+        if (settled) return;
+        settled = true;
         if (call === latest.current) {
-          setState((prev) =>
-            prev?.query === query && prev.props ? { ...prev, stale: !opts?.quiet } : { query },
-          );
+          latest.current += 1;
+          fail();
         }
-        return false;
-      },
-    );
+        resolve(false);
+      }, LOAD_DEADLINE_MS);
+      load(query).then(
+        (props) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(deadline);
+          if (call === latest.current) setState({ query, props });
+          resolve(call === latest.current);
+        },
+        (err) => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(deadline);
+          console.error("Failed to load page data:", err);
+          if (call === latest.current) fail();
+          resolve(false);
+        },
+      );
+    });
   }, [load, query]);
   useEffect(() => {
     void reload();
@@ -127,14 +148,7 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
           if (retrying) return;
           const attempt = ++retryAttempt.current;
           setRetrying(true);
-          const deadline = setTimeout(() => {
-            if (attempt !== retryAttempt.current) return;
-            retryAttempt.current += 1;
-            setRetrying(false);
-            setRetryFailed(true);
-          }, RETRY_DEADLINE_MS);
           void reload().then((ok) => {
-            clearTimeout(deadline);
             if (attempt !== retryAttempt.current) return;
             setRetrying(false);
             setRetryFailed(!ok);

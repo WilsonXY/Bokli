@@ -588,8 +588,10 @@ export function DashboardView({
               {/* Left 6 Cols: Net Profit Hero + Margin/MoM + Concise Localized Insight */}
               <div className="md:col-span-6 p-5 sm:p-6 flex flex-col justify-start gap-5">
                 <div>
-                  <div className="flex items-center flex-wrap gap-2">
-                    <span className="text-sm font-semibold text-ink-muted mr-auto">
+                  {/* Net Profit + its margin pill own the first row at every width;
+                      the month-over-month chip sits on its own line below. */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-ink-muted">
                       {t.netProfit}
                     </span>
                     {netMarginPct !== null && (
@@ -603,7 +605,9 @@ export function DashboardView({
                         {t.profitMargin} {formatSignedPercent(netMarginPct)}
                       </span>
                     )}
-                    {momDeltaSen !== null && previousTile && (
+                  </div>
+                  {momDeltaSen !== null && previousTile && (
+                    <div className="mt-2">
                       <span
                         className={`text-xs font-semibold px-2.5 py-0.5 rounded-full num-tabular border ${
                           momDeltaSen >= 0n
@@ -617,8 +621,8 @@ export function DashboardView({
                           {t.vsPrevMonth} {previousTile.month}
                         </span>
                       </span>
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   <div
                     className={`mt-2.5 ${amountSizeClass(
@@ -700,12 +704,11 @@ export function DashboardView({
                 {/* Single-Scale Allocation Bar (Profit: scaled to revenue; Loss: gapless outflow bar with aligned 100%-revenue boundary + covered-amount legend) */}
                 {allocation && (
                   <div className="space-y-2 pt-1">
-                    {allocation.isLoss && (
+                    {/* The hero line and the legend already state a shortfall; only a
+                        month with no revenue needs this caption. */}
+                    {allocation.isLoss && !allocation.hasRevenue && (
                       <div className="text-xs text-ink-muted num-tabular">
-                        {(allocation.hasRevenue
-                          ? t.shortfallSummaryCaption
-                          : t.shortfallZeroRevenueCaption
-                        )
+                        {t.shortfallZeroRevenueCaption
                           .replace("{outflow}", formatDisplayMyr(allocation.totalOutflowSen))
                           .replace("{revenue}", formatDisplayMyr(allocation.revenueSen))}
                       </div>
@@ -858,7 +861,7 @@ export function DashboardView({
                 <div
                   role="tablist"
                   aria-label={t.chartMetricTabsLabel}
-                  className="bg-surface-subtle dark:bg-surface-canvas border-b border-surface-border rounded-t-2xl px-3 pt-2 flex items-end gap-1"
+                  className="bg-surface-subtle dark:bg-surface-canvas border-b border-surface-border rounded-t-2xl px-3 pt-2 flex items-end gap-2"
                 >
                   {trendTabs.map((tab, idx) => {
                     const active = trendMetric === tab.metric;
@@ -884,7 +887,7 @@ export function DashboardView({
                             trendTabRefs.current[nextIdx]?.focus();
                           }
                         }}
-                        className={`relative min-h-[48px] lg:min-h-[42px] px-3 sm:px-4 rounded-t-xl text-[13px] sm:text-sm transition-colors cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5 sm:gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-broccoli ${
+                        className={`relative min-h-[48px] lg:min-h-[44px] px-3 sm:px-4 rounded-t-xl text-[13px] sm:text-sm transition-colors cursor-pointer whitespace-nowrap inline-flex items-center gap-1.5 sm:gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-broccoli ${
                           active
                             ? "z-10 -mb-px bg-surface text-ink-primary font-bold border border-surface-border border-b-surface"
                             : "mb-1 rounded-xl text-ink-muted hover:text-ink-primary hover:bg-surface/65 font-medium border border-transparent"

@@ -1273,7 +1273,7 @@ export function DailySheetForm({
           </div>
 
           {/* Compact Date Stepper with 48px touch targets on phones & tablets (CalendarPopover right-aligned flush to stepper) */}
-          <div className="relative inline-flex items-center justify-between sm:justify-end gap-1 bg-surface border border-surface-border rounded-xl p-0.5 sm:p-1 shadow-card">
+          <div className="relative inline-flex items-center justify-between sm:justify-end gap-2 bg-surface border border-surface-border rounded-xl p-0.5 sm:p-1 shadow-card">
             <button
               type="button"
               disabled={saving || deletingSheet}
@@ -1281,7 +1281,7 @@ export function DailySheetForm({
               onClick={(e) => navigateDate(-1, e.currentTarget)}
               aria-label={t.prevDay}
               title={t.prevDay}
-              className="w-12 h-12 lg:w-10 lg:h-10 shrink-0 rounded-lg hover:bg-surface-subtle btn-tactile text-ink-secondary hover:text-ink-primary flex items-center justify-center disabled:opacity-30 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+              className="w-12 h-12 lg:w-11 lg:h-11 shrink-0 rounded-lg hover:bg-surface-subtle btn-tactile text-ink-secondary hover:text-ink-primary flex items-center justify-center disabled:opacity-30 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
             >
               <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -1322,7 +1322,7 @@ export function DailySheetForm({
               onClick={(e) => navigateDate(1, e.currentTarget)}
               aria-label={t.nextDay}
               title={t.nextDay}
-              className="w-12 h-12 lg:w-10 lg:h-10 shrink-0 rounded-lg hover:bg-surface-subtle btn-tactile text-ink-secondary hover:text-ink-primary flex items-center justify-center disabled:opacity-30 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+              className="w-12 h-12 lg:w-11 lg:h-11 shrink-0 rounded-lg hover:bg-surface-subtle btn-tactile text-ink-secondary hover:text-ink-primary flex items-center justify-center disabled:opacity-30 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
             >
               <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />

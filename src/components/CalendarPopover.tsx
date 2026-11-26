@@ -332,7 +332,7 @@ export function CalendarPopover({
       />
 
       {/* Static positioning wrapper: full-bottom native sheet on phones (<sm) and short landscape viewports (<=500px tall), right-flush floating popover on tall sm+ */}
-      <div className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-x-auto sm:bottom-auto sm:top-full sm:mt-2.5 sm:right-0 sm:left-auto [@media(max-height:500px)]:fixed [@media(max-height:500px)]:inset-x-0 [@media(max-height:500px)]:bottom-0 [@media(max-height:500px)]:top-auto [@media(max-height:500px)]:mt-0 [@media(max-height:500px)]:w-full [@media(max-height:500px)]:max-w-none z-50 w-full sm:w-[396px] sm:max-w-[calc(100vw-2rem)]">
+      <div className="fixed inset-x-0 bottom-0 sm:absolute sm:inset-x-auto sm:bottom-auto sm:top-full sm:mt-2.5 sm:right-0 sm:left-auto [@media(max-height:500px)]:fixed [@media(max-height:500px)]:inset-x-0 [@media(max-height:500px)]:bottom-0 [@media(max-height:500px)]:top-auto [@media(max-height:500px)]:mt-0 [@media(max-height:500px)]:w-full [@media(max-height:500px)]:max-w-none z-50 w-full sm:w-[414px] sm:max-w-[calc(100vw-2rem)]">
         <div
           ref={popoverRef}
           className="bg-surface border-t sm:border [@media(max-height:500px)]:border-x-0 [@media(max-height:500px)]:border-b-0 border-surface-border rounded-t-2xl rounded-b-none sm:rounded-2xl [@media(max-height:500px)]:rounded-b-none shadow-popover max-h-[calc(100dvh-1rem)] flex flex-col overflow-hidden px-1.5 pt-2.5 pb-[max(1.5rem,calc(1rem+env(safe-area-inset-bottom,0px)))] [@media(max-height:500px)]:pb-1.5 min-[375px]:px-3 sm:p-3.5 [@media(max-height:500px)]:py-2 select-none animate-slide-up sm:animate-slide-down [@media(max-height:500px)]:animate-slide-up"
@@ -403,7 +403,7 @@ export function CalendarPopover({
           </div>
 
           {/* Sticky Weekday Headers above Scrollable Day Grid */}
-          <div className="shrink-0 grid grid-cols-7 min-[375px]:gap-1 text-center mb-1">
+          <div className="shrink-0 grid grid-cols-7 min-[375px]:gap-x-1 sm:gap-x-2 text-center mb-1">
             {weekHeaders.map((w) => (
               <span
                 key={w}
@@ -432,7 +432,7 @@ export function CalendarPopover({
               className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
             >
               {/* Calendar Grid — Single Tab stop via roving tabIndex + Arrow-key grid navigation */}
-              <div className="grid grid-cols-7 min-[375px]:gap-1 text-center [@media(max-height:500px)]:pb-2">
+              <div className="grid grid-cols-7 gap-y-2 min-[375px]:gap-x-1 sm:gap-x-2 text-center [@media(max-height:500px)]:pb-2">
               {Array.from({ length: startDayOffset }).map((_, i) => (
                 <div key={`empty-${i}`} className="h-12 [@media(max-height:500px)]:h-11" />
               ))}
