@@ -60,6 +60,10 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
   // the page shows the Retry banner instead of a skeleton or spinner forever.
   const reload = useCallback((opts?: { quiet?: boolean }): Promise<boolean> => {
     const call = ++latest.current;
+    // Any new read supersedes an outstanding Retry: from here on only this
+    // read's outcome may change the banner.
+    retryAttempt.current += 1;
+    setRetrying(false);
     const fail = () =>
       setState((prev) =>
         prev?.query === query && prev.props ? { ...prev, stale: !opts?.quiet } : { query },
@@ -88,9 +92,6 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
           done();
           if (call === latest.current) {
             setState({ query, props });
-            // The page recovered: any Retry still in flight is moot and must
-            // not come back later to flag "still couldn't load".
-            retryAttempt.current += 1;
             setRetrying(false);
             setRetryFailed(false);
           }
@@ -174,11 +175,15 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
         onClick={() => {
           // One request at a time; the button stays mounted and focused.
           if (retrying) return;
-          const attempt = ++retryAttempt.current;
+          // Start the read first (it supersedes any older attempt), then
+          // claim the attempt number it left behind.
+          const request = reload();
+          const attempt = retryAttempt.current;
           setRetrying(true);
-          void reload().then((ok) => {
+          void request.then((ok) => {
             if (!ok) {
-              // Only the latest attempt may flag "still couldn't load".
+              // Only if no newer read has started since may this flag
+              // "still couldn't load".
               if (attempt !== retryAttempt.current) return;
               setRetrying(false);
               setRetryFailed(true);
