@@ -946,7 +946,7 @@ export function MonthCloseView({
                             <button
                               type="submit"
                               disabled={isTransitioning}
-                              className="min-h-[48px] px-5 rounded-xl bg-brand-cta hover:bg-brand-cta-hover text-brand-cta-ink btn-tactile font-semibold text-sm disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:ring-brand-broccoli cursor-pointer"
+                              className="min-h-[48px] px-5 rounded-xl bg-brand-cta hover:bg-brand-cta-hover text-brand-cta-ink btn-tactile font-semibold text-sm disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-subtle focus-visible:ring-brand-broccoli cursor-pointer"
                             >
                               {submitting ? t.reopening : t.btnPerformReopen}
                             </button>

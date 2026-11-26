@@ -1318,8 +1318,8 @@ export function DailySheetForm({
 
       {/* Consistent Page Header + Compact Date Toolbar (Status pill always visible even at 320px) */}
       <div className="space-y-2.5 sm:space-y-3">
-        {/* Title row and date bar stay stacked until md, so the floating Today pill always has the title row's free middle (side by side, a 640-714px window puts the date bar under it) */}
-        <div className="flex flex-col gap-2.5 sm:gap-3 md:flex-row md:items-center md:justify-between">
+        {/* Title row and date bar stay stacked until md, so the Today pill always has the title row's free middle (side by side, a 640-714px window puts the date bar under it) */}
+        <div className="relative flex flex-col gap-2.5 sm:gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center justify-between md:justify-start gap-2 min-h-9">
             <div className="flex items-center gap-2 min-w-0">
               <h1 className="text-xl sm:text-2xl font-bold text-ink-primary tracking-tight whitespace-nowrap">
@@ -1347,15 +1347,14 @@ export function DailySheetForm({
             )}
           </div>
 
-          {/* Floating Today (今天) pill on past days only. Fixed (not in the flow) and centred over the
-              title row's free middle, so it stays reachable while Mom scrolls a long sheet. It sits
-              under the app header (z-30), the calendar (z-45/50) and every dialog (z-50), hides while the calendar is
-              open (the anchored panel would cut across it) and while CloudPage's refresh-failed banner is up (globals.css).
-              In the DOM right after the title row, so Tab reaches it before the date bar, as it reads on screen.
-              The button is exactly the visible 44px pill (no transparent margin), so a tap beside it reaches the field
-              underneath; on phones it sits 2px above the title row's centre to keep 8px clear of the date bar. */}
+          {/* Today (今天) pill on past days only, floating over the title row's free middle (owner: like X's
+              centred pill). Absolute inside this header, so it scrolls away with the title instead of
+              covering the date bar or Cost Lines (a fixed pill sat on them mid-scroll and turned taps meant
+              for them into a jump to today). Hidden while the calendar is open. In the DOM right after the
+              title row, so Tab reaches it before the date bar, as it reads on screen. The button is exactly
+              the visible 44px pill. Phones: 6px above the 36px title row so it keeps 8px from the date bar. */}
           {!isToday && (
-            <div data-today-pill className={`fixed inset-x-0 lg:left-[244px] top-[50px] sm:top-[72px] md:top-[83px] lg:top-[37px] z-20 flex justify-center pointer-events-none${isCalendarOpen ? " invisible" : ""}`}>
+            <div data-today-pill className={`absolute inset-x-0 -top-1.5 sm:-top-1 md:top-0 md:bottom-0 z-10 flex justify-center items-start md:items-center pointer-events-none${isCalendarOpen ? " invisible" : ""}`}>
               <button
                 type="button"
                 data-period-control="today"
@@ -1363,9 +1362,9 @@ export function DailySheetForm({
                 onClick={(e) => requestNavigateToDate(todayKl, e.currentTarget)}
                 aria-label={t.jumpToToday}
                 title={t.jumpToToday}
-                className="group pointer-events-auto animate-slide-down inline-flex items-center rounded-full focus:outline-none cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+                className="group pointer-events-auto animate-slide-down inline-flex items-center rounded-full focus:outline-none cursor-pointer disabled:pointer-events-none"
               >
-                <span className="inline-flex items-center justify-center gap-1.5 h-11 min-w-11 px-3 min-[375px]:px-4 rounded-full bg-brand-cta text-brand-cta-ink shadow-popover btn-tactile group-hover:bg-brand-cta-hover group-focus-visible:ring-2 group-focus-visible:ring-brand-broccoli group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-surface text-sm font-semibold transition-colors whitespace-nowrap">
+                <span className="inline-flex items-center justify-center gap-1.5 h-11 min-w-11 px-3 min-[375px]:px-4 rounded-full group-disabled:opacity-40 bg-brand-cta text-brand-cta-ink shadow-popover btn-tactile group-hover:bg-brand-cta-hover group-focus-visible:ring-2 group-focus-visible:ring-brand-broccoli group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-surface text-sm font-semibold transition-colors whitespace-nowrap">
                   {/* Owner's choice: the curved "go back" arrow, even though Discard uses the same glyph */}
                   <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.3" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />

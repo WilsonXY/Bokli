@@ -167,7 +167,9 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
           : value && (param === "month" ? isValidMonthStr(value) : isValidDateStr(value))
           ? t.loadErrorFor.replace("{period}", value)
           : t.loadError}
-        {retryFailed && <span className="block mt-0.5 font-medium">{t.loadStillFailing}</span>}
+        {retryFailed && (
+          <span className="block mt-0.5 font-medium">{state.props ? t.refreshStillFailing : t.loadStillFailing}</span>
+        )}
       </span>
       <button
         ref={retryRef}
