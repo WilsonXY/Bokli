@@ -208,7 +208,7 @@
       scroll-padding-top: 3.75rem;
       scroll-padding-bottom: calc(var(--mobile-nav-height) + 1.5rem);
     }
-    /* The floating 回今天 pill (past days only) also covers the top of the page: clear its 48px hit area too */
+    /* The floating 今天 pill (past days only) also covers the top of the page: clear its 48px hit area too */
     html:has([data-period-control="today"]) {
       scroll-padding-top: 6.5rem;
     }
@@ -216,6 +216,12 @@
   @media (min-width: 640px) and (max-width: 1023px) {
     html:has([data-period-control="today"]) {
       scroll-padding-top: 8.5rem;
+    }
+  }
+  /* Desktop has no app header, but the pill still covers y 35-83 over the content column */
+  @media (min-width: 1024px) {
+    html:has([data-period-control="today"]) {
+      scroll-padding-top: 5.75rem;
     }
   }
   /* CloudPage's refresh-failed banner (role=alert, first in <main>) pushes the Daily Sheet title down, so the

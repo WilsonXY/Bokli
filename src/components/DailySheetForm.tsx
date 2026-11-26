@@ -1350,9 +1350,11 @@ export function DailySheetForm({
               title row's free middle, so it stays reachable while Mom scrolls a long sheet. It sits
               under the app header (z-30), the calendar (z-45/50) and every dialog (z-50), hides while the calendar is
               open (the anchored panel would cut across it) and while CloudPage's refresh-failed banner is up (globals.css).
-              In the DOM right after the title row, so Tab reaches it before the date bar, as it reads on screen. */}
+              In the DOM right after the title row, so Tab reaches it before the date bar, as it reads on screen.
+              The button is exactly the visible 44px pill (no transparent margin), so a tap beside it reaches the field
+              underneath; on phones it sits 2px above the title row's centre to keep 8px clear of the date bar. */}
           {!isToday && (
-            <div data-today-pill className={`fixed inset-x-0 lg:left-[244px] top-[50px] sm:top-[70px] md:top-[81px] lg:top-[35px] z-20 flex justify-center pointer-events-none${isCalendarOpen ? " invisible" : ""}`}>
+            <div data-today-pill className={`fixed inset-x-0 lg:left-[244px] top-[50px] sm:top-[72px] md:top-[83px] lg:top-[37px] z-20 flex justify-center pointer-events-none${isCalendarOpen ? " invisible" : ""}`}>
               <button
                 type="button"
                 data-period-control="today"
@@ -1360,9 +1362,9 @@ export function DailySheetForm({
                 onClick={(e) => requestNavigateToDate(todayKl, e.currentTarget)}
                 aria-label={t.jumpToToday}
                 title={t.jumpToToday}
-                className="group pointer-events-auto animate-slide-down inline-flex items-center h-12 px-1 focus:outline-none cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
+                className="group pointer-events-auto animate-slide-down inline-flex items-center rounded-full focus:outline-none cursor-pointer disabled:opacity-40 disabled:pointer-events-none"
               >
-                <span className="inline-flex items-center justify-center gap-1.5 h-10 min-w-10 px-3 min-[375px]:px-4 rounded-full bg-brand-cta text-brand-cta-ink shadow-popover btn-tactile group-hover:bg-brand-cta-hover group-focus-visible:ring-2 group-focus-visible:ring-brand-broccoli group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-surface text-sm font-semibold transition-colors whitespace-nowrap">
+                <span className="inline-flex items-center justify-center gap-1.5 h-11 min-w-11 px-3 min-[375px]:px-4 rounded-full bg-brand-cta text-brand-cta-ink shadow-popover btn-tactile group-hover:bg-brand-cta-hover group-focus-visible:ring-2 group-focus-visible:ring-brand-broccoli group-focus-visible:ring-offset-2 group-focus-visible:ring-offset-surface text-sm font-semibold transition-colors whitespace-nowrap">
                   {/* Owner's choice: the curved "go back" arrow, even though Discard uses the same glyph */}
                   <svg aria-hidden="true" className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.3" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
@@ -2022,7 +2024,7 @@ export function DailySheetForm({
                         disabled={saving || hasParseError || !saveIsPrimary}
                         onClick={handleSaveTrigger}
                         aria-label={t.saveSheet}
-                        className={`h-12 px-3.5 sm:px-5 lg:px-6 lg:flex-1 rounded-xl btn-tactile font-semibold text-sm tracking-wide flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli focus-visible:ring-offset-1 cursor-pointer whitespace-nowrap ${
+                        className={`h-12 px-3.5 sm:px-5 lg:px-6 lg:flex-1 rounded-xl btn-tactile font-semibold text-sm tracking-wide flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli focus-visible:ring-offset-1 focus-visible:ring-offset-surface cursor-pointer whitespace-nowrap ${
                           saveIsPrimary
                             ? "bg-brand-cta hover:bg-brand-cta-hover text-brand-cta-ink shadow-card disabled:opacity-50"
                             : "bg-surface-subtle enabled:hover:bg-surface-hover text-ink-muted enabled:hover:text-ink-secondary border border-surface-border shadow-none disabled:cursor-default"

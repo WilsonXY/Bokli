@@ -52,7 +52,7 @@ export function DailySheetSkeleton() {
           <div className="flex items-center min-h-9">
             <div className={`${bar} h-8 w-36`} />
           </div>
-          <div className={`${bar} h-[54px] w-full md:w-[277px] rounded-xl`} />
+          <div className={`${bar} h-[54px] sm:h-[58px] lg:h-[54px] w-full md:w-[277px] rounded-xl`} />
         </div>
       </div>
 
