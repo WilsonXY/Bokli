@@ -255,7 +255,7 @@ export function MonthSelectorDropdown({
         <div
           role="listbox"
           aria-label={baseLabel}
-          className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 z-50 w-60 max-h-72 overflow-y-auto bg-surface border border-surface-border rounded-2xl shadow-popover p-1.5 space-y-1 animate-dropdown focus:outline-none"
+          className="absolute left-0 sm:left-auto sm:right-0 top-full mt-2 z-50 w-60 max-h-72 overflow-y-auto bg-surface border border-surface-border rounded-2xl shadow-popover p-1.5 space-y-2 animate-dropdown focus:outline-none"
         >
           {fullOptions.map((opt, idx) => {
             const isSelected = opt.month === currentMonth;

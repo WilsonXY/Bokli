@@ -991,7 +991,9 @@ export function MonthCloseView({
                       </span>
                     </div>
 
-                    {isReopened && closeRecord?.reopenReason && (
+                    {/* History banner; hidden once a new close is acknowledged so the
+                        page never says "Reopened" and "Month closed" at once. */}
+                    {isReopened && closeRecord?.reopenReason && pendingStatusTarget !== "closed" && (
                       <div className="p-3.5 rounded-xl bg-status-reopened-bg border border-status-reopened/20 text-sm">
                         <span className="font-semibold text-status-reopened block mb-0.5">
                           {t.reopenedStatus} ({closeRecord.reopenedAt?.slice(0, 10)})

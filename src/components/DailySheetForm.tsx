@@ -1237,7 +1237,7 @@ export function DailySheetForm({
                   data-period-control="today"
                   disabled={saving || deletingSheet}
                   onClick={(e) => requestNavigateToDate(todayKl, e.currentTarget)}
-                  className="group inline-flex items-center min-h-[48px] lg:min-h-[40px] -my-1.5 lg:my-0 focus:outline-none cursor-pointer disabled:opacity-40 disabled:pointer-events-none shrink-0"
+                  className="group inline-flex items-center min-h-[48px] lg:min-h-[44px] -my-1.5 lg:-my-0.5 focus:outline-none cursor-pointer disabled:opacity-40 disabled:pointer-events-none shrink-0"
                 >
                   <span className="inline-flex items-center gap-1.5 h-9 sm:h-10 px-3 sm:px-3.5 rounded-xl bg-brand-broccoli-light text-brand-broccoli border border-brand-broccoli/40 shadow-control btn-tactile group-hover:bg-[#dff4e7] group-hover:text-brand-broccoli-dark dark:group-hover:bg-brand-broccoli/20 dark:group-hover:text-brand-broccoli group-hover:border-brand-broccoli/55 group-focus-visible:ring-2 group-focus-visible:ring-brand-broccoli text-[13px] sm:text-sm font-semibold transition-colors whitespace-nowrap">
                     <svg

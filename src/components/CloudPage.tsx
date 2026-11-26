@@ -32,6 +32,17 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
   const query = value ? `?${param}=${encodeURIComponent(value)}` : "";
   const [state, setState] = useState<{ query: string; props?: P; stale?: boolean } | null>(null);
   const latest = useRef(0);
+  // Read deadlines are cleared on unmount; bumping `latest` there also makes
+  // any in-flight read a no-op.
+  const deadlines = useRef(new Set<ReturnType<typeof setTimeout>>());
+  useEffect(() => {
+    const pending = deadlines.current;
+    return () => {
+      pending.forEach(clearTimeout);
+      pending.clear();
+      latest.current += 1;
+    };
+  }, []);
   const [retrying, setRetrying] = useState(false);
   const [retryFailed, setRetryFailed] = useState(false);
   // A retry belongs to the period it was started for; a stale attempt never
@@ -56,6 +67,7 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
     return new Promise<boolean>((resolve) => {
       let settled = false;
       const deadline = setTimeout(() => {
+        deadlines.current.delete(deadline);
         if (settled) return;
         settled = true;
         if (call === latest.current) {
@@ -64,18 +76,23 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
         }
         resolve(false);
       }, LOAD_DEADLINE_MS);
+      deadlines.current.add(deadline);
+      const done = () => {
+        clearTimeout(deadline);
+        deadlines.current.delete(deadline);
+      };
       load(query).then(
         (props) => {
           if (settled) return;
           settled = true;
-          clearTimeout(deadline);
+          done();
           if (call === latest.current) setState({ query, props });
           resolve(call === latest.current);
         },
         (err) => {
           if (settled) return;
           settled = true;
-          clearTimeout(deadline);
+          done();
           console.error("Failed to load page data:", err);
           if (call === latest.current) fail();
           resolve(false);
@@ -134,7 +151,8 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
   const error = (
     <div role="alert" className="mb-3 p-4 rounded-xl bg-finance-loss-light border border-finance-loss-border text-finance-loss text-sm font-semibold flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
       <span>
-        {t.loadError}
+        {/* With no page behind it, say which period failed. */}
+        {!state.props && value ? t.loadErrorFor.replace("{period}", value) : t.loadError}
         {retryFailed && <span className="block mt-0.5 font-medium">{t.loadStillFailing}</span>}
       </span>
       <button
