@@ -196,12 +196,30 @@ export function consolidateCostLinesForSave(lines: CostLineItem[]): {
   return { lines: result.lines, amountErrorIndex: zeroIdx === -1 ? null : zeroIdx };
 }
 
+function isUntouchedCostLinePlaceholder(line: CostLineItem): boolean {
+  return (
+    line.amountSen <= 0 &&
+    (line.amountInput ?? "").trim() === "" &&
+    (line.note ?? "").trim() === "" &&
+    line.category === "restock"
+  );
+}
+
 export function createNewCostLine(
   costLines: CostLineItem[],
   newLineFactory?: () => CostLineItem
-): { lines: CostLineItem[]; expandedIndex: number } {
+): { lines: CostLineItem[]; expandedIndex: number; reopenedPartial?: boolean } {
   const consolidated = tryConsolidateCostLines(costLines).lines;
-  const filledOnly = consolidated.filter((line) => line.amountSen > 0);
+  // Preserve filled lines AND any partially entered zero-amount line (chosen category, note, or typed amount)
+  const kept = consolidated.filter((line) => !isUntouchedCostLinePlaceholder(line));
+  const partialIdx = kept.findIndex((line) => line.amountSen <= 0);
+  if (partialIdx !== -1) {
+    return {
+      lines: kept,
+      expandedIndex: partialIdx,
+      reopenedPartial: true,
+    };
+  }
   const newLine: CostLineItem = newLineFactory
     ? newLineFactory()
     : {
@@ -213,8 +231,9 @@ export function createNewCostLine(
         ids: [],
       };
   return {
-    lines: [...filledOnly, newLine],
-    expandedIndex: filledOnly.length,
+    lines: [...kept, newLine],
+    expandedIndex: kept.length,
+    reopenedPartial: false,
   };
 }
 
@@ -439,6 +458,7 @@ export function DailySheetForm({
   const [saveModalError, setSaveModalError] = useState<string | null>(null);
   const [pendingDeleteIndex, setPendingDeleteIndex] = useState<number | null>(null);
   const [showDeleteSheetModal, setShowDeleteSheetModal] = useState(false);
+  const [showDiscardDraftModal, setShowDiscardDraftModal] = useState(false);
   const [deletingSheet, setDeletingSheet] = useState(false);
   const [deleteSheetError, setDeleteSheetError] = useState<string | null>(null);
   const [savedSheet, setSavedSheet] = useState(initialSavedSheet);
@@ -456,37 +476,19 @@ export function DailySheetForm({
   const deleteSheetBtnRef = useRef<HTMLButtonElement>(null);
   const [saving, setSaving] = useState(false);
   const cashInputRef = useRef<HTMLInputElement>(null);
+  const addCostBtnRef = useRef<HTMLButtonElement>(null);
+  const discardDraftBtnRef = useRef<HTMLButtonElement>(null);
   const saveBtnRef = useRef<HTMLButtonElement>(null);
   const deleteCostLineTriggerRef = useRef<HTMLButtonElement | null>(null);
   const deleteSheetModalRef = useRef<HTMLDivElement>(null);
+  const discardDraftModalRef = useRef<HTMLDivElement>(null);
   const deleteCostLineModalRef = useRef<HTMLDivElement>(null);
+  const deleteCostNoteRef = useRef<HTMLDivElement>(null);
+  const [deleteCostNoteOverflows, setDeleteCostNoteOverflows] = useState(false);
+  const [deleteCostNoteCanScrollDown, setDeleteCostNoteCanScrollDown] = useState(false);
   const confirmSaveModalRef = useRef<HTMLDivElement>(null);
   const dockSentinelRef = useRef<HTMLDivElement>(null);
   const [isDockStuck, setIsDockStuck] = useState(false);
-
-  useEffect(() => {
-    const updateDockStuck = () => {
-      if (window.innerWidth >= 1024) {
-        setIsDockStuck(false);
-        return;
-      }
-      const sentinel = dockSentinelRef.current;
-      if (!sentinel) return;
-      const nav = document.querySelector<HTMLElement>('[data-bottom-nav="true"]');
-      const navHeight = nav ? nav.getBoundingClientRect().height : 64;
-      setIsDockStuck(sentinel.getBoundingClientRect().top > window.innerHeight - navHeight + 2);
-    };
-    updateDockStuck();
-    window.addEventListener("scroll", updateDockStuck, { passive: true });
-    window.addEventListener("resize", updateDockStuck, { passive: true });
-    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateDockStuck) : null;
-    ro?.observe(document.documentElement);
-    return () => {
-      window.removeEventListener("scroll", updateDockStuck);
-      window.removeEventListener("resize", updateDockStuck);
-      ro?.disconnect();
-    };
-  }, []);
 
   const mutationInFlightRef = useRef<"save" | "delete" | null>(null);
 
@@ -494,6 +496,7 @@ export function DailySheetForm({
   const showConfirmModalRef = useRef(showConfirmModal);
   const pendingDeleteIndexRef = useRef(pendingDeleteIndex);
   const showDeleteSheetModalRef = useRef(showDeleteSheetModal);
+  const showDiscardDraftModalRef = useRef(showDiscardDraftModal);
   const savingRef = useRef(saving);
   const deletingSheetRef = useRef(deletingSheet);
   useEffect(() => {
@@ -501,9 +504,10 @@ export function DailySheetForm({
     showConfirmModalRef.current = showConfirmModal;
     pendingDeleteIndexRef.current = pendingDeleteIndex;
     showDeleteSheetModalRef.current = showDeleteSheetModal;
+    showDiscardDraftModalRef.current = showDiscardDraftModal;
     savingRef.current = saving;
     deletingSheetRef.current = deletingSheet;
-  }, [isCalendarOpen, showConfirmModal, pendingDeleteIndex, showDeleteSheetModal, saving, deletingSheet]);
+  }, [isCalendarOpen, showConfirmModal, pendingDeleteIndex, showDeleteSheetModal, showDiscardDraftModal, saving, deletingSheet]);
 
   const [expandedIndex, setExpandedIndex] = useState<number | null>(() => {
     if (initialExpandedIndex !== undefined) return initialExpandedIndex;
@@ -545,12 +549,39 @@ export function DailySheetForm({
   });
 
   useModalFocusTrap({
-    isOpen: pendingDeleteIndex !== null && Boolean(costLines[pendingDeleteIndex]),
-    containerRef: deleteCostLineModalRef,
-    onClose: () => setPendingDeleteIndex(null),
+    isOpen: showDiscardDraftModal,
+    containerRef: discardDraftModalRef,
+    onClose: () => setShowDiscardDraftModal(false),
+    returnFocusTo: discardDraftBtnRef.current,
     fallbackFocusRef: cashInputRef,
     suppressFocusRestore: pendingNavigation !== null,
   });
+
+  useModalFocusTrap({
+    isOpen: pendingDeleteIndex !== null && Boolean(costLines[pendingDeleteIndex]),
+    containerRef: deleteCostLineModalRef,
+    onClose: () => setPendingDeleteIndex(null),
+    returnFocusTo: deleteCostLineTriggerRef.current,
+    fallbackFocusRef: addCostBtnRef,
+    suppressFocusRestore: pendingNavigation !== null,
+  });
+
+  useEffect(() => {
+    const el = deleteCostNoteRef.current;
+    if (!el || pendingDeleteIndex === null) {
+      setDeleteCostNoteOverflows(false);
+      setDeleteCostNoteCanScrollDown(false);
+      return;
+    }
+    const measure = () => {
+      setDeleteCostNoteOverflows(el.scrollHeight > el.clientHeight + 1);
+      setDeleteCostNoteCanScrollDown(el.scrollTop + el.clientHeight < el.scrollHeight - 2);
+    };
+    measure();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    return () => ro?.disconnect();
+  }, [pendingDeleteIndex, costLines]);
 
   useModalFocusTrap({
     isOpen: showConfirmModal,
@@ -560,6 +591,7 @@ export function DailySheetForm({
       setShowConfirmModal(false);
     },
     canClose: !saving,
+    returnFocusTo: saveBtnRef.current,
     fallbackFocusRef: cashInputRef,
     suppressFocusRestore: pendingNavigation !== null,
   });
@@ -655,6 +687,31 @@ export function DailySheetForm({
     isModifiedRef.current = isModified;
   }, [isModified]);
 
+  useEffect(() => {
+    const updateDockStuck = () => {
+      if (window.innerWidth >= 1024) {
+        setIsDockStuck(false);
+        return;
+      }
+      const sentinel = dockSentinelRef.current;
+      if (!sentinel) return;
+      const nav = document.querySelector<HTMLElement>('[data-bottom-nav="true"]');
+      const navHeight = nav ? nav.getBoundingClientRect().height : 64;
+      const dockGap = window.innerWidth >= 640 ? 12 : 6;
+      setIsDockStuck(sentinel.getBoundingClientRect().top > window.innerHeight - navHeight - dockGap + 2);
+    };
+    updateDockStuck();
+    window.addEventListener("scroll", updateDockStuck, { passive: true });
+    window.addEventListener("resize", updateDockStuck, { passive: true });
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(updateDockStuck) : null;
+    ro?.observe(document.documentElement);
+    return () => {
+      window.removeEventListener("scroll", updateDockStuck);
+      window.removeEventListener("resize", updateDockStuck);
+      ro?.disconnect();
+    };
+  }, []);
+
   const prevDateRef = useRef(date);
 
   useEffect(() => {
@@ -684,13 +741,19 @@ export function DailySheetForm({
     });
     const zeroIdx = mergedInitial.findIndex((l) => l.amountSen === 0);
     setExpandedIndex(zeroIdx !== -1 ? zeroIdx : (mergedInitial.length === 1 ? 0 : null));
+    setShowDiscardDraftModal(false);
     setErrorMessage(null);
   }, [date, initialCashSen, initialTngSen, initialCashInput, initialTngInput, initialCostLines]);
 
   function handleRevert() {
+    draftEverTouchedRef.current = false;
     setCashInput(baseline.cashInput);
     setTngInput(baseline.tngInput);
     setCostLines(baseline.costLines);
+    setExpandedIndex((prev) =>
+      prev !== null && prev < baseline.costLines.length ? prev : null
+    );
+    setShowDiscardDraftModal(false);
     setErrorMessage(null);
     setNoteErrorIndex(null);
     setCostAmountErrorIndex(null);
@@ -732,10 +795,17 @@ export function DailySheetForm({
     setCostLines(result.lines);
     setExpandedIndex(result.expandedIndex);
     requestAnimationFrame(() => {
-      expandedEditorRef.current?.scrollIntoView({
+      const editor = expandedEditorRef.current;
+      editor?.scrollIntoView({
         behavior: "smooth",
         block: "center",
       });
+      const firstTarget = result.reopenedPartial
+        ? (editor?.querySelector<HTMLElement>(`#cost-amount-input-${result.expandedIndex}`) ??
+            editor?.querySelector<HTMLElement>('button[aria-pressed="true"]'))
+        : (editor?.querySelector<HTMLElement>('button[aria-pressed="true"]') ??
+            editor?.querySelector<HTMLElement>('input:not([disabled])'));
+      firstTarget?.focus({ preventScroll: true });
     });
   }
 
@@ -1002,11 +1072,13 @@ export function DailySheetForm({
         const confirmSaveWasOpen = showConfirmModalRef.current;
         const deleteCostWasOpen = pendingDeleteIndexRef.current !== null;
         const deleteSheetWasOpen = showDeleteSheetModalRef.current;
+        const discardDraftWasOpen = showDiscardDraftModalRef.current;
 
         if (calendarWasOpen) setIsCalendarOpen(false);
         if (confirmSaveWasOpen) setShowConfirmModal(false);
         if (deleteCostWasOpen) setPendingDeleteIndex(null);
         if (deleteSheetWasOpen) setShowDeleteSheetModal(false);
+        if (discardDraftWasOpen) setShowDiscardDraftModal(false);
 
         const resolvedReturnFocus = calendarWasOpen
           ? dateBtnRef.current
@@ -1016,8 +1088,10 @@ export function DailySheetForm({
               ? deleteCostLineTriggerRef.current
               : deleteSheetWasOpen
                 ? deleteSheetBtnRef.current
-                : (triggerEl ??
-                  (document.activeElement instanceof HTMLElement ? document.activeElement : null));
+                : discardDraftWasOpen
+                  ? discardDraftBtnRef.current
+                  : (triggerEl ??
+                    (document.activeElement instanceof HTMLElement ? document.activeElement : null));
 
         setPendingNavigation({
           href,
@@ -1128,15 +1202,23 @@ export function DailySheetForm({
     !sheetExists && !isModified && totalRevenueSen === 0n && totalCostSen === 0n;
 
   return (
-    <div className="space-y-1.5 sm:space-y-5">
-      {/* Polite mutation status region mounted outside aria-busy dialogs so assistive tech announces immediately */}
-      <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-        {saving ? t.saving : deletingSheet ? t.deleting : ""}
+    <>
+      {/* Polite post-mutation status region exempt from modal inert isolation so completion announcements are never dropped */}
+      <span
+        data-inert-exempt="true"
+        className="sr-only"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {successMessage ?? ""}
       </span>
 
+      <div className="space-y-1.5 sm:space-y-5">
+
       {/* Consistent Page Header + Compact Date Toolbar (Status pill always visible even at 320px) */}
-      <div className="space-y-1.5 sm:space-y-3">
-        <div className="flex flex-col gap-2 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="space-y-1 sm:space-y-3">
+        <div className="flex flex-col gap-1.5 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center justify-between sm:justify-start gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <h1 className="text-xl sm:text-2xl font-bold text-ink-primary tracking-tight whitespace-nowrap">
@@ -1150,12 +1232,20 @@ export function DailySheetForm({
                 <button
                   type="button"
                   disabled={saving || deletingSheet}
-                  onClick={() => requestNavigateToDate(todayKl)}
-                  aria-label={t.jumpToToday}
-                  className="group inline-flex items-center min-h-[48px] lg:min-h-[34px] -my-2.5 lg:my-0 focus:outline-none cursor-pointer disabled:opacity-40 disabled:pointer-events-none shrink-0"
+                  onClick={(e) => requestNavigateToDate(todayKl, e.currentTarget)}
+                  className="group inline-flex items-center min-h-[48px] lg:min-h-[40px] -my-1.5 lg:my-0 focus:outline-none cursor-pointer disabled:opacity-40 disabled:pointer-events-none shrink-0"
                 >
-                  <span className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-full bg-surface text-brand-broccoli border border-brand-broccoli/35 shadow-control group-hover:bg-brand-broccoli-light group-focus-visible:ring-2 group-focus-visible:ring-brand-broccoli text-xs font-semibold transition-colors whitespace-nowrap">
-                    <span aria-hidden="true">↺</span>
+                  <span className="inline-flex items-center gap-1.5 h-9 sm:h-10 px-3 sm:px-3.5 rounded-xl bg-brand-broccoli-light text-brand-broccoli border border-brand-broccoli/40 shadow-control btn-tactile group-hover:bg-[#dff4e7] group-hover:text-brand-broccoli-dark dark:group-hover:bg-brand-broccoli/20 dark:group-hover:text-brand-broccoli group-hover:border-brand-broccoli/55 group-focus-visible:ring-2 group-focus-visible:ring-brand-broccoli text-[13px] sm:text-sm font-semibold transition-colors whitespace-nowrap">
+                    <svg
+                      aria-hidden="true"
+                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.3"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
+                    </svg>
                     <span className="sm:hidden">{t.jumpToTodayShort}</span>
                     <span className="hidden sm:inline">{t.jumpToToday}</span>
                   </span>
@@ -1183,7 +1273,7 @@ export function DailySheetForm({
             <button
               type="button"
               disabled={saving || deletingSheet}
-              onClick={() => navigateDate(-1)}
+              onClick={(e) => navigateDate(-1, e.currentTarget)}
               aria-label={t.prevDay}
               title={t.prevDay}
               className="w-12 h-12 lg:w-10 lg:h-10 shrink-0 rounded-lg hover:bg-surface-subtle btn-tactile text-ink-secondary hover:text-ink-primary flex items-center justify-center disabled:opacity-30 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
@@ -1222,7 +1312,7 @@ export function DailySheetForm({
             <button
               type="button"
               disabled={!canGoNext || saving || deletingSheet}
-              onClick={() => navigateDate(1)}
+              onClick={(e) => navigateDate(1, e.currentTarget)}
               aria-label={t.nextDay}
               title={t.nextDay}
               className="w-12 h-12 lg:w-10 lg:h-10 shrink-0 rounded-lg hover:bg-surface-subtle btn-tactile text-ink-secondary hover:text-ink-primary flex items-center justify-center disabled:opacity-30 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
@@ -1267,27 +1357,27 @@ export function DailySheetForm({
                 {t.revenueTitle}
               </h2>
               <span className="text-xs sm:text-sm font-medium text-ink-muted num-tabular whitespace-nowrap">
-                {t.totalRevenue}:{" "}
+                {t.totalRevenue}{lang === "zh" ? "：" : ": "}
                 <span className="font-bold text-ink-primary">
                   {totalRevenueSen !== null ? <MoneyValue sen={totalRevenueSen} /> : "—"}
                 </span>
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-4">
+            <div className="grid grid-cols-2 gap-2 sm:gap-4">
               {/* Cash Revenue Input */}
-              <div>
-                <div className="flex items-center gap-2 mb-1 sm:mb-2">
-                  <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-channel-cash-light text-channel-cash flex items-center justify-center shrink-0">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 sm:gap-2 mb-1 sm:mb-2">
+                  <span className="w-5 h-5 sm:w-7 sm:h-7 rounded-md sm:rounded-lg bg-channel-cash-light text-channel-cash flex items-center justify-center shrink-0">
                     <CashIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </span>
-                  <label htmlFor="cash-input" className="text-sm font-semibold text-ink-primary">
+                  <label htmlFor="cash-input" className="text-xs sm:text-sm font-semibold text-ink-primary truncate">
                     {t.cashRevenue}
                   </label>
                 </div>
 
                 <div className="relative flex items-center">
-                  <span className="absolute left-3.5 text-sm font-bold text-channel-cash select-none">
+                  <span className="absolute left-2.5 sm:left-3.5 text-xs sm:text-sm font-bold text-channel-cash select-none">
                     RM
                   </span>
                   <input
@@ -1297,6 +1387,8 @@ export function DailySheetForm({
                     inputMode="decimal"
                     disabled={isClosed || saving}
                     value={cashInput}
+                    aria-invalid={cashError || undefined}
+                    aria-describedby={cashError ? "cash-input-error" : undefined}
                     onChange={(e) => {
                       const sanitized = sanitizeMoneyInput(e.target.value);
                       if (sanitized !== null) {
@@ -1307,9 +1399,9 @@ export function DailySheetForm({
                       }
                     }}
                     placeholder="0.00"
-                    className={`w-full h-12 sm:h-14 pl-11 pr-3.5 scroll-mb-40 rounded-xl bg-surface-input border ${
+                    className={`w-full h-12 sm:h-14 pl-9 sm:pl-11 pr-2.5 sm:pr-3.5 scroll-mb-40 rounded-xl bg-surface-input border ${
                       cashError ? "border-finance-loss" : "border-surface-border-strong"
-                    } text-lg sm:text-xl font-bold text-ink-primary num-tabular focus:outline-none focus:bg-surface ${
+                    } text-base sm:text-xl font-bold text-ink-primary num-tabular focus:outline-none focus:bg-surface ${
                       cashError
                         ? "focus:border-finance-loss focus-visible:ring-finance-loss/40"
                         : "focus:border-channel-cash focus-visible:ring-channel-cash/30"
@@ -1317,25 +1409,29 @@ export function DailySheetForm({
                   />
                 </div>
                 {cashError && (
-                  <div role="alert" className="mt-1.5 py-1.5 px-3 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium">
+                  <div
+                    id="cash-input-error"
+                    role="alert"
+                    className="mt-1.5 py-1.5 px-3 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium"
+                  >
                     <span>{t.invalidAmount}</span>
                   </div>
                 )}
               </div>
 
               {/* TnG Revenue Input */}
-              <div>
-                <div className="flex items-center gap-2 mb-1 sm:mb-2">
-                  <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-channel-tng-light text-channel-tng flex items-center justify-center shrink-0">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 sm:gap-2 mb-1 sm:mb-2">
+                  <span className="w-5 h-5 sm:w-7 sm:h-7 rounded-md sm:rounded-lg bg-channel-tng-light text-channel-tng flex items-center justify-center shrink-0">
                     <TngIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   </span>
-                  <label htmlFor="tng-input" className="text-sm font-semibold text-ink-primary">
+                  <label htmlFor="tng-input" className="text-xs sm:text-sm font-semibold text-ink-primary truncate">
                     {t.tngRevenue}
                   </label>
                 </div>
 
                 <div className="relative flex items-center">
-                  <span className="absolute left-3.5 text-sm font-bold text-channel-tng select-none">
+                  <span className="absolute left-2.5 sm:left-3.5 text-xs sm:text-sm font-bold text-channel-tng select-none">
                     RM
                   </span>
                   <input
@@ -1344,6 +1440,8 @@ export function DailySheetForm({
                     inputMode="decimal"
                     disabled={isClosed || saving}
                     value={tngInput}
+                    aria-invalid={tngError || undefined}
+                    aria-describedby={tngError ? "tng-input-error" : undefined}
                     onChange={(e) => {
                       const sanitized = sanitizeMoneyInput(e.target.value);
                       if (sanitized !== null) {
@@ -1354,9 +1452,9 @@ export function DailySheetForm({
                       }
                     }}
                     placeholder="0.00"
-                    className={`w-full h-12 sm:h-14 pl-11 pr-3.5 scroll-mb-40 rounded-xl bg-surface-input border ${
+                    className={`w-full h-12 sm:h-14 pl-9 sm:pl-11 pr-2.5 sm:pr-3.5 scroll-mb-40 rounded-xl bg-surface-input border ${
                       tngError ? "border-finance-loss" : "border-surface-border-strong"
-                    } text-lg sm:text-xl font-bold text-ink-primary num-tabular focus:outline-none focus:bg-surface ${
+                    } text-base sm:text-xl font-bold text-ink-primary num-tabular focus:outline-none focus:bg-surface ${
                       tngError
                         ? "focus:border-finance-loss focus-visible:ring-finance-loss/40"
                         : "focus:border-channel-tng focus-visible:ring-channel-tng/30"
@@ -1364,7 +1462,11 @@ export function DailySheetForm({
                   />
                 </div>
                 {tngError && (
-                  <div role="alert" className="mt-1.5 py-1.5 px-3 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium">
+                  <div
+                    id="tng-input-error"
+                    role="alert"
+                    className="mt-1.5 py-1.5 px-3 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium"
+                  >
                     <span>{t.invalidAmount}</span>
                   </div>
                 )}
@@ -1374,7 +1476,7 @@ export function DailySheetForm({
 
           {/* Section 2: Daily Costs Card (matches Operating Expenses card: title + total in header, full-width 48px Add button in footer) */}
           <section aria-label={t.costsTitle} className="bg-surface border border-surface-border rounded-2xl shadow-card overflow-hidden">
-            <div className="px-3.5 py-2 sm:px-6 sm:py-4 border-b border-surface-border flex items-center justify-between gap-2">
+            <div className="px-3.5 py-1.5 sm:px-6 sm:py-4 border-b border-surface-border flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <h2 className="text-base font-bold text-ink-primary whitespace-nowrap">
                   {t.costsTitle}
@@ -1473,7 +1575,12 @@ export function DailySheetForm({
                                 deleteCostLineTriggerRef.current = e.currentTarget;
                                 setPendingDeleteIndex(idx);
                               }}
-                              aria-label={t.delete}
+                              aria-label={(() => {
+                                const trimmedNote = line.note?.trim() ?? "";
+                                const shortNote =
+                                  trimmedNote.length > 40 ? `${trimmedNote.slice(0, 40)}…` : trimmedNote;
+                                return `${t.delete} ${catLabel} ${formatDisplayMyr(BigInt(line.amountSen))}${shortNote ? ` (${shortNote})` : ""}`;
+                              })()}
                               title={`${t.delete} ${catLabel}`}
                               className="w-12 h-12 scroll-mb-40 rounded-xl hover:bg-finance-loss-light text-ink-muted hover:text-finance-loss flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
                             >
@@ -1489,20 +1596,25 @@ export function DailySheetForm({
                       {isExpanded && !isClosed && (
                         <div
                           ref={expandedEditorRef}
-                          className="px-3.5 sm:px-6 pb-5 pt-3 border-t border-surface-border/70 space-y-4 scroll-mb-40"
+                          className="px-3.5 sm:px-6 pb-3 pt-2.5 sm:pb-5 sm:pt-3 border-t border-surface-border/70 space-y-2.5 sm:space-y-4 scroll-mb-40"
                         >
                           {/* Category Pills */}
                           <div>
-                            <span className="block text-xs font-semibold text-ink-muted mb-2">
+                            <span id={`cost-category-label-${idx}`} className="block text-xs font-semibold text-ink-muted mb-2">
                               {t.costCategory ?? t.selectCategory}
                             </span>
-                            <div className="flex flex-wrap gap-2">
+                            <div
+                              role="group"
+                              aria-labelledby={`cost-category-label-${idx}`}
+                              className="flex flex-wrap gap-2"
+                            >
                               {categories.map((cat) => {
                                 const isSelected = line.category === cat.key;
                                 return (
                                   <button
                                     key={cat.key}
                                     type="button"
+                                    aria-pressed={isSelected}
                                     disabled={isClosed || saving}
                                     onClick={() => handleUpdateCostLine(idx, { category: cat.key })}
                                     className={`min-h-[48px] lg:min-h-[44px] px-3.5 py-2 scroll-mb-40 rounded-xl text-sm font-semibold border btn-tactile select-none flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli disabled:opacity-50 cursor-pointer ${
@@ -1577,6 +1689,7 @@ export function DailySheetForm({
                                 disabled={isClosed || saving}
                                 value={line.note ?? ""}
                                 ref={idx === noteErrorIndex ? noteErrorRef : undefined}
+                                aria-required={line.category === "other" || undefined}
                                 aria-invalid={idx === noteErrorIndex || undefined}
                                 aria-describedby={idx === noteErrorIndex ? `other-note-error-${idx}` : undefined}
                                 onChange={(e) => {
@@ -1584,7 +1697,7 @@ export function DailySheetForm({
                                 }}
                                 onFocus={() => setExpandedIndex(idx)}
                                 placeholder={line.category === "other" ? t.noteRequired : t.noteOptional}
-                                className={`w-full h-12 px-3.5 scroll-mb-40 rounded-xl bg-surface-input border text-sm text-ink-primary focus:outline-none focus:bg-surface focus-visible:ring-2 transition-colors ${
+                                className={`w-full h-12 px-3.5 scroll-mb-40 rounded-xl bg-surface-input border text-base sm:text-sm [@media(pointer:coarse)]:text-base text-ink-primary focus:outline-none focus:bg-surface focus-visible:ring-2 transition-colors ${
                                   idx === noteErrorIndex
                                     ? "border-finance-loss focus:border-finance-loss focus-visible:ring-finance-loss/40"
                                     : "border-surface-border-strong focus:border-brand-broccoli focus-visible:ring-brand-broccoli/30"
@@ -1608,19 +1721,20 @@ export function DailySheetForm({
                 })}
               </div>
             ) : (
-              <div className="px-4 py-1 sm:px-5 sm:py-5 text-center text-xs sm:text-sm text-ink-muted">
+              <div className="px-4 py-4 sm:px-5 sm:py-5 text-center text-xs sm:text-sm text-ink-muted">
                 {t.noCostsRecorded}
               </div>
             )}
 
             {/* Add Cost Line Footer Action — consistent with Operating Expenses card & uniform px-3.5 mobile edge */}
             {!isClosed && (
-              <div className="px-3.5 py-2 sm:p-4 sm:px-6 border-t border-surface-border bg-surface-subtle/30">
+              <div className="px-3.5 py-1.5 sm:p-4 sm:px-6 border-t border-surface-border bg-surface-subtle/30">
                 <button
+                  ref={addCostBtnRef}
                   type="button"
                   disabled={saving}
                   onClick={handleCreateNewCostLine}
-                  className="w-full min-h-[48px] px-4 scroll-mb-40 rounded-xl bg-brand-broccoli-light hover:bg-brand-broccoli/15 border border-brand-broccoli/25 shadow-control text-brand-broccoli font-semibold text-sm btn-tactile flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli"
+                  className="w-full min-h-[48px] px-4 scroll-mb-40 rounded-xl bg-brand-broccoli-light hover:bg-[#dff4e7] hover:text-brand-broccoli-dark dark:hover:bg-brand-broccoli/20 dark:hover:text-brand-broccoli border border-brand-broccoli/25 hover:border-brand-broccoli/45 shadow-control text-brand-broccoli font-semibold text-sm btn-tactile flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli transition-colors"
                 >
                   <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -1632,18 +1746,14 @@ export function DailySheetForm({
           </section>
         </div>
 
-        {/* Floating Sticky Summary & Save Card on Mobile/Tablet (identical vertical padding in stuck & floating states = 0px jump), Sticky Sidebar Card on Desktop (lg+) */}
+        {/* Floating Sticky Summary & Save Card on Mobile/Tablet (pure floating card, zero backdrop bar behind it), Sticky Sidebar Card on Desktop (lg+) */}
         <div
           data-testid="floating-save-card"
           data-stuck={isDockStuck ? "true" : "false"}
-          className={`sticky bottom-[var(--mobile-nav-height)] z-30 pt-1.5 pb-1.5 sm:pt-2.5 sm:pb-2.5 border-t transition-colors lg:mx-0 lg:p-0 lg:bg-transparent lg:backdrop-blur-none lg:border-0 lg:top-8 lg:bottom-auto lg:col-span-5 lg:col-start-8 space-y-2.5 ${
-            isDockStuck
-              ? "-mx-4 px-4 sm:-mx-6 sm:px-6 bg-surface-canvas/95 backdrop-blur-md border-surface-border/80"
-              : "border-transparent"
-          }`}
+          className="sticky bottom-[calc(var(--mobile-nav-height)+0.375rem)] sm:bottom-[calc(var(--mobile-nav-height)+0.75rem)] z-30 pointer-events-none lg:pointer-events-auto lg:top-8 lg:bottom-auto lg:col-span-5 lg:col-start-8 space-y-2.5"
         >
             {errorMessage && (
-              <div role="alert" className="py-2.5 px-4 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-start justify-between gap-2 shadow-card animate-slide-down">
+              <div role="alert" className="pointer-events-auto py-2.5 px-4 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-start justify-between gap-2 shadow-card animate-slide-down">
                 <div className="flex items-start gap-2 min-w-0">
                   <svg className="w-4 h-4 mt-0.5 shrink-0 text-finance-loss" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -1653,7 +1763,7 @@ export function DailySheetForm({
                 <button
                   type="button"
                   onClick={() => setErrorMessage(null)}
-                  className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss w-7 h-7 flex items-center justify-center rounded-lg shrink-0 cursor-pointer"
+                  className="text-xs font-bold text-ink-muted hover:text-finance-loss min-w-[44px] min-h-[44px] -my-2 -mr-2 flex items-center justify-center rounded-lg shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60"
                   aria-label={t.closeLabel}
                 >
                   ✕
@@ -1662,17 +1772,17 @@ export function DailySheetForm({
             )}
 
             {successMessage && (
-              <div className="py-2.5 px-4 rounded-xl bg-brand-broccoli-light border border-brand-broccoli/30 text-sm text-brand-broccoli font-semibold flex items-center justify-between shadow-card animate-slide-down">
-                <div className="flex items-center gap-2 min-w-0">
-                  <svg className="w-4 h-4 shrink-0 text-brand-broccoli" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
+              <div className="pointer-events-auto py-2.5 px-4 rounded-xl bg-brand-broccoli-light border border-brand-broccoli/30 text-sm text-brand-broccoli font-semibold flex items-center justify-between gap-2 shadow-card animate-slide-down">
+                <div className="flex items-start gap-2 min-w-0">
+                  <svg className="w-4 h-4 mt-0.5 shrink-0 text-brand-broccoli" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
-                  <span className="truncate">{successMessage}</span>
+                  <span className="break-words whitespace-normal">{successMessage}</span>
                 </div>
                 <button
                   type="button"
                   onClick={dismissSuccessMessage}
-                  className="text-xs font-bold ml-2 text-ink-muted hover:text-brand-broccoli w-7 h-7 flex items-center justify-center rounded-lg shrink-0 cursor-pointer"
+                  className="text-xs font-bold text-ink-muted hover:text-brand-broccoli min-w-[44px] min-h-[44px] -my-2 -mr-2 flex items-center justify-center rounded-lg shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli"
                   aria-label={t.closeLabel}
                 >
                   ✕
@@ -1680,8 +1790,14 @@ export function DailySheetForm({
               </div>
             )}
 
-            <div className="bg-surface/95 backdrop-blur-md border border-surface-border-strong/45 lg:border-surface-border rounded-2xl shadow-popover lg:bg-surface lg:backdrop-blur-none lg:shadow-card">
-              <div className="px-3.5 py-2 sm:px-5 sm:py-3 lg:p-5 lg:space-y-4">
+            <div
+              className={`pointer-events-auto bg-surface/95 backdrop-blur-md rounded-2xl transition-shadow lg:bg-surface lg:backdrop-blur-none lg:border-surface-border lg:shadow-card border ${
+                isDockStuck
+                  ? "border-surface-border-strong/55 shadow-popover"
+                  : "border-surface-border shadow-card"
+              }`}
+            >
+              <div className="px-3.5 py-1.5 sm:px-5 sm:py-3 lg:p-5 lg:space-y-4">
                 {/* Desktop Equation Breakdown */}
                 <div className="hidden lg:block space-y-2.5 pb-4 border-b border-surface-border">
                   <div className="flex items-center justify-between">
@@ -1705,7 +1821,11 @@ export function DailySheetForm({
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-ink-muted">{t.totalCosts}</span>
-                    <span className="font-semibold text-ink-secondary num-tabular">
+                    <span
+                      className={`font-semibold num-tabular ${
+                        totalCostSen > 0n ? "text-finance-loss" : "text-ink-secondary"
+                      }`}
+                    >
                       {totalCostSen > 0n ? "\u2212" : ""}
                       <MoneyValue sen={totalCostSen} />
                     </span>
@@ -1758,17 +1878,18 @@ export function DailySheetForm({
                     <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 lg:w-full">
                       {isModified && (
                         <button
+                          ref={discardDraftBtnRef}
                           type="button"
-                          onClick={handleRevert}
+                          onClick={() => setShowDiscardDraftModal(true)}
                           disabled={saving}
-                          title={t.undoChanges}
-                          aria-label={t.undoChanges}
+                          title={t.discardChanges}
+                          aria-label={t.discardChanges}
                           className="h-12 px-2.5 sm:px-3.5 shrink-0 rounded-xl border border-surface-border-strong bg-surface hover:bg-surface-subtle shadow-control text-ink-secondary hover:text-ink-primary btn-tactile inline-flex items-center justify-center gap-1 sm:gap-1.5 text-sm font-semibold focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer disabled:opacity-50 whitespace-nowrap"
                         >
-                          <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.1" viewBox="0 0 24 24" aria-hidden="true">
+                          <svg className="hidden sm:block w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.1" viewBox="0 0 24 24" aria-hidden="true">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" />
                           </svg>
-                          <span>{t.undoShort}</span>
+                          <span>{t.discardShort}</span>
                         </button>
                       )}
 
@@ -1807,9 +1928,9 @@ export function DailySheetForm({
             className="h-px w-full -mt-2 sm:-mt-5 pointer-events-none lg:hidden"
           />
 
-          {/* Quiet De-Escalated Destructive Action — Directly under Day Summary (centered, zero chasm) */}
+          {/* Quiet De-Escalated Destructive Action — Directly under Day Summary (cleanly below fold on 320x660 so it never peeks cut-off) */}
           {sheetExists && (
-            <div className="lg:col-span-5 lg:col-start-8 pt-1 pb-2 flex justify-center">
+            <div className="lg:col-span-5 lg:col-start-8 pt-6 lg:pt-1 pb-2 flex justify-center">
               <button
                 ref={deleteSheetBtnRef}
                 type="button"
@@ -1843,15 +1964,21 @@ export function DailySheetForm({
           tabIndex={-1}
           role="dialog"
           aria-modal="true"
-          aria-busy={deletingSheet}
           aria-labelledby="confirm-delete-sheet-title"
           aria-describedby="confirm-delete-sheet-desc"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm animate-slide-down focus:outline-none"
+          className="fixed inset-0 !mt-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm animate-slide-down focus:outline-none"
           onClick={(e) => {
             if (e.target === e.currentTarget && !deletingSheet) setShowDeleteSheetModal(false);
           }}
         >
-          <div className="w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto bg-surface rounded-2xl p-6 shadow-popover border border-surface-border space-y-5">
+          {/* Persistent non-inert status region outside inner aria-busy card */}
+          <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+            {deletingSheet ? t.deleting : ""}
+          </span>
+          <div
+            aria-busy={deletingSheet}
+            className="w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto bg-surface rounded-2xl p-6 shadow-popover border border-surface-border space-y-5"
+          >
             <div className="flex flex-col items-center text-center gap-3">
               <div className="w-14 h-14 rounded-2xl bg-finance-loss-light border border-finance-loss-border text-finance-loss flex items-center justify-center shrink-0 select-none">
                 <svg aria-hidden="true" className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
@@ -1879,7 +2006,14 @@ export function DailySheetForm({
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-ink-secondary">{t.savedTotalCosts}</span>
-                <MoneyValue sen={savedCostSen} className="font-bold text-finance-loss" />
+                <span
+                  className={`font-bold num-tabular ${
+                    savedCostSen > 0n ? "text-finance-loss" : "text-ink-primary"
+                  }`}
+                >
+                  {savedCostSen > 0n ? "\u2212" : ""}
+                  <MoneyValue sen={savedCostSen} />
+                </span>
               </div>
             </div>
 
@@ -1889,13 +2023,13 @@ export function DailySheetForm({
               </p>
             )}
 
-            <div className="flex items-center gap-2.5 pt-1">
+            <div className="flex items-stretch gap-2.5 pt-1">
               <button
                 type="button"
                 autoFocus
                 disabled={deletingSheet}
                 onClick={() => setShowDeleteSheetModal(false)}
-                className="flex-1 min-h-[48px] rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer disabled:opacity-50"
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer disabled:opacity-50"
               >
                 {t.cancel}
               </button>
@@ -1903,7 +2037,7 @@ export function DailySheetForm({
                 type="button"
                 disabled={deletingSheet}
                 onClick={handleDeleteSheet}
-                className="flex-1 min-h-[48px] rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer disabled:opacity-50"
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer disabled:opacity-50"
               >
                 {deletingSheet ? t.deleting : t.confirmDeleteBtn}
               </button>
@@ -1920,7 +2054,8 @@ export function DailySheetForm({
           role="dialog"
           aria-modal="true"
           aria-labelledby="confirm-delete-cost-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm animate-slide-down focus:outline-none"
+          aria-describedby="confirm-delete-cost-desc"
+          className="fixed inset-0 !mt-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm animate-slide-down focus:outline-none"
           onClick={(e) => {
             if (e.target === e.currentTarget) setPendingDeleteIndex(null);
           }}
@@ -1934,10 +2069,10 @@ export function DailySheetForm({
               </div>
               <div className="min-w-0">
                 <h3 id="confirm-delete-cost-title" className="text-base font-bold text-ink-primary">
-                  {t.confirmDeleteItemTitle}
+                  {t.confirmDeleteCostLineTitle}
                 </h3>
-                <p className="text-xs text-ink-muted mt-0.5">
-                  {t.confirmDeleteItemDesc}
+                <p id="confirm-delete-cost-desc" className="text-xs text-ink-muted mt-0.5">
+                  {t.confirmDeleteCostLineDesc}
                 </p>
               </div>
             </div>
@@ -1958,21 +2093,44 @@ export function DailySheetForm({
                 </span>
               </div>
               {costLines[pendingDeleteIndex].note && (
-                <p
-                  tabIndex={0}
-                  aria-label={t.note}
-                  className="min-h-0 flex-1 max-h-36 overflow-y-auto px-2.5 py-2 rounded-lg bg-surface/75 border border-surface-border/80 text-xs text-ink-secondary break-words whitespace-normal leading-relaxed focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli"
-                >
-                  {costLines[pendingDeleteIndex].note}
-                </p>
+                <div className="relative min-h-0 flex-1 flex flex-col">
+                  <div
+                    ref={deleteCostNoteRef}
+                    role="region"
+                    tabIndex={deleteCostNoteOverflows ? 0 : undefined}
+                    aria-label={t.note}
+                    onScroll={(e) => {
+                      const el = e.currentTarget;
+                      setDeleteCostNoteCanScrollDown(
+                        el.scrollTop + el.clientHeight < el.scrollHeight - 2
+                      );
+                    }}
+                    className={`min-h-0 flex-1 max-h-36 overflow-y-auto px-2.5 py-2 rounded-lg bg-surface/75 border border-surface-border/80 text-xs text-ink-secondary break-words whitespace-normal leading-relaxed focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli ${
+                      deleteCostNoteOverflows ? "pb-5" : ""
+                    }`}
+                  >
+                    {costLines[pendingDeleteIndex].note}
+                  </div>
+                  {deleteCostNoteCanScrollDown && (
+                    <div
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-px bottom-px h-7 rounded-b-lg bg-gradient-to-t from-surface from-45% via-surface/95 to-transparent flex items-end justify-center pb-0.5"
+                    >
+                      <svg className="w-3 h-3 text-ink-muted/80" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
-            <div className="flex items-center gap-2.5 pt-1 shrink-0">
+            <div className="flex items-stretch gap-2.5 pt-1 shrink-0">
               <button
                 type="button"
+                autoFocus
                 onClick={() => setPendingDeleteIndex(null)}
-                className="flex-1 min-h-[48px] rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
               >
                 {t.cancel}
               </button>
@@ -1982,9 +2140,53 @@ export function DailySheetForm({
                   handleRemoveCostLine(pendingDeleteIndex);
                   setPendingDeleteIndex(null);
                 }}
-                className="flex-1 min-h-[48px] rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
               >
                 {t.confirmDeleteBtn}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Discard Draft Confirmation Modal (prevents accidental one-tap draft loss beside Save) */}
+      {showDiscardDraftModal && (
+        <div
+          ref={discardDraftModalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="discard-draft-title"
+          aria-describedby="discard-draft-desc"
+          className="fixed inset-0 !mt-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm animate-slide-down"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowDiscardDraftModal(false);
+          }}
+        >
+          <div className="w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto bg-surface rounded-2xl p-6 shadow-popover border border-surface-border space-y-5">
+            <div className="space-y-1.5">
+              <h3 id="discard-draft-title" className="text-lg font-bold text-ink-primary">
+                {t.discardUnsavedTitle}
+              </h3>
+              <p id="discard-draft-desc" className="text-[13px] text-ink-muted leading-relaxed">
+                {t.discardDraftDesc}
+              </p>
+            </div>
+
+            <div className="flex items-stretch gap-2.5 pt-1">
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setShowDiscardDraftModal(false)}
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+              >
+                {t.keepEditingBtn}
+              </button>
+              <button
+                type="button"
+                onClick={handleRevert}
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+              >
+                {t.discardChangesBtn}
               </button>
             </div>
           </div>
@@ -1999,7 +2201,7 @@ export function DailySheetForm({
           aria-modal="true"
           aria-labelledby="discard-unsaved-title"
           aria-describedby="discard-unsaved-desc"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm animate-slide-down"
+          className="fixed inset-0 !mt-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm animate-slide-down"
           onClick={(e) => {
             if (e.target === e.currentTarget) setPendingNavigation(null);
           }}
@@ -2014,12 +2216,12 @@ export function DailySheetForm({
               </p>
             </div>
 
-            <div className="flex items-center gap-2.5 pt-1">
+            <div className="flex items-stretch gap-2.5 pt-1">
               <button
                 type="button"
                 autoFocus
                 onClick={() => setPendingNavigation(null)}
-                className="flex-1 min-h-[48px] rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
               >
                 {t.keepEditingBtn}
               </button>
@@ -2034,7 +2236,7 @@ export function DailySheetForm({
                     router.push(target.href);
                   }
                 }}
-                className="flex-1 min-h-[48px] rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
               >
                 {t.discardAndSwitchBtn}
               </button>
@@ -2050,10 +2252,9 @@ export function DailySheetForm({
           tabIndex={-1}
           role="dialog"
           aria-modal="true"
-          aria-busy={saving}
           aria-labelledby="confirm-modal-title"
           aria-describedby="confirm-modal-desc"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm animate-slide-down focus:outline-none"
+          className="fixed inset-0 !mt-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm animate-slide-down focus:outline-none"
           onClick={(e) => {
             if (e.target === e.currentTarget && !saving) {
               setSaveModalError(null);
@@ -2061,7 +2262,14 @@ export function DailySheetForm({
             }
           }}
         >
-          <div className="w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto bg-surface rounded-2xl p-6 shadow-popover border border-surface-border space-y-5">
+          {/* Persistent non-inert status region outside inner aria-busy card */}
+          <span className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+            {saving ? t.saving : ""}
+          </span>
+          <div
+            aria-busy={saving}
+            className="w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto bg-surface rounded-2xl p-6 shadow-popover border border-surface-border space-y-5"
+          >
             <div className="space-y-1">
               <h3 id="confirm-modal-title" className="text-lg font-bold text-ink-primary">
                 {t.confirmSaveTitle}
@@ -2080,7 +2288,14 @@ export function DailySheetForm({
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-ink-secondary">{t.totalCosts}</span>
-                <MoneyValue sen={totalCostSen} className="font-bold text-ink-primary" />
+                <span
+                  className={`font-bold num-tabular ${
+                    totalCostSen > 0n ? "text-finance-loss" : "text-ink-primary"
+                  }`}
+                >
+                  {totalCostSen > 0n ? "\u2212" : ""}
+                  <MoneyValue sen={totalCostSen} />
+                </span>
               </div>
               <div className="pt-2.5 border-t border-surface-border flex justify-between text-base">
                 <span className="font-bold text-ink-primary">{t.grossProfit}</span>
@@ -2100,7 +2315,7 @@ export function DailySheetForm({
               </p>
             )}
 
-            <div className="flex items-center gap-2.5 pt-1">
+            <div className="flex items-stretch gap-2.5 pt-1">
               <button
                 type="button"
                 disabled={saving}
@@ -2108,7 +2323,7 @@ export function DailySheetForm({
                   setSaveModalError(null);
                   setShowConfirmModal(false);
                 }}
-                className="flex-1 min-h-[48px] rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer disabled:opacity-50"
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer disabled:opacity-50"
               >
                 {t.cancel}
               </button>
@@ -2123,7 +2338,7 @@ export function DailySheetForm({
                     setShowConfirmModal(false);
                   }
                 }}
-                className="flex-1 min-h-[48px] rounded-xl bg-brand-cta hover:bg-brand-cta-hover btn-tactile text-brand-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer disabled:opacity-50"
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-brand-cta hover:bg-brand-cta-hover btn-tactile text-brand-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer disabled:opacity-50"
               >
                 {saving ? t.saving : t.confirmSaveBtn}
               </button>
@@ -2131,6 +2346,7 @@ export function DailySheetForm({
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

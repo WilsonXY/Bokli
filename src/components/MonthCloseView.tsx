@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { sanitizeMoneyInput, tryParseSen } from "@/lib/money";
 import { apiFetch } from "@/lib/cloud-client";
 import { useI18n, translateApiError, apiErrorPayloadFrom, type TranslationMap } from "@/lib/i18n";
+import { useModalFocusTrap } from "@/lib/use-modal-focus-trap";
+import { useUnsavedGuard } from "@/lib/unsaved-guard";
 import { MonthSelectorDropdown, MonthOption } from "@/components/MonthSelectorDropdown";
 import { MoneyValue } from "@/components/MoneyValue";
 import { CashIcon, TngIcon } from "@/components/BokliIcons";
@@ -33,7 +35,7 @@ export interface CloseRecordData {
 }
 
 export interface MonthCloseViewProps {
-  onRefresh?: () => void;
+  onRefresh?: () => void | Promise<boolean | void>;
   currentMonth: string;
   availableMonths: string[];
   financials?: FinancialSnapshot | null;
@@ -117,6 +119,7 @@ export interface SubmitMonthCloseParams {
   setErrorMessage: (message: string | null) => void;
   setSubmitting: (submitting: boolean) => void;
   setSuccessMessage: (message: string | null) => void;
+  showSuccessMessage?: (message: string) => void;
   onClosed: () => void;
   fetchImpl?: (url: string, init?: RequestInit) => Promise<Response>;
 }
@@ -131,6 +134,7 @@ export async function submitMonthClose({
   setErrorMessage,
   setSubmitting,
   setSuccessMessage,
+  showSuccessMessage,
   onClosed,
   fetchImpl = apiFetch,
 }: SubmitMonthCloseParams): Promise<void> {
@@ -164,9 +168,12 @@ export async function submitMonthClose({
       throw Object.assign(new Error(data.error ?? ""), { code: data.code });
     }
 
-    setSuccessMessage(t.closeSuccess);
-    setTimeout(() => setSuccessMessage(null), 3500);
-
+    if (showSuccessMessage) {
+      showSuccessMessage(t.closeSuccess);
+    } else {
+      setSuccessMessage(t.closeSuccess);
+      setTimeout(() => setSuccessMessage(null), 3500);
+    }
     onClosed();
   } catch (err) {
     setErrorMessage(translateApiError(apiErrorPayloadFrom(err), t));
@@ -203,10 +210,40 @@ export function MonthCloseView({
 
   const [showReopenBox, setShowReopenBox] = useState(false);
   const [reopenReasonInput, setReopenReasonInput] = useState("");
+  const [reopenReasonError, setReopenReasonError] = useState<string | null>(null);
+  const reopenBtnRef = useRef<HTMLButtonElement | null>(null);
+  const reopenReasonRef = useRef<HTMLInputElement | null>(null);
+  const cashOnHandInputRef = useRef<HTMLInputElement | null>(null);
+  const errorAlertRef = useRef<HTMLDivElement | null>(null);
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
+  const [pendingStatusTarget, setPendingStatusTarget] = useState<"closed" | "open" | null>(null);
+  const [refreshFailed, setRefreshFailed] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(initialErrorMessage);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [pendingNavigation, setPendingNavigation] = useState<{
+    href: string;
+    historyDelta?: number;
+    returnFocusTo: HTMLElement | null;
+    isMonthSwitch?: boolean;
+  } | null>(null);
+  const discardModalRef = useRef<HTMLDivElement | null>(null);
+  const { registerGuard, proceedHistoryNavigation } = useUnsavedGuard();
+
+  useEffect(() => {
+    if (errorMessage) {
+      errorAlertRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }, [errorMessage]);
+
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current !== null) {
+        clearTimeout(successTimerRef.current);
+      }
+    };
+  }, []);
 
   const expectedNetSen = financials ? BigInt(financials.netSen) : 0n;
   const gating = computeReconciliationGating({
@@ -231,7 +268,8 @@ export function MonthCloseView({
   const hasInputs = hasCashInput || hasTngInput;
   const hasPartialInput = hasCashInput !== hasTngInput;
   const isAwaitingCount = !hasInputs && !hasParseError;
-  const canSubmitClose = !submitting && !isAwaitingCount && gating.canClose;
+  const isTransitioning = submitting || pendingStatusTarget !== null;
+  const canSubmitClose = !isTransitioning && !isAwaitingCount && gating.canClose;
   const closeReadinessHint = isAwaitingCount
     ? t.closeReadyAwaitingHint
     : !hasSheetsInMonth && !confirmEmpty
@@ -241,10 +279,119 @@ export function MonthCloseView({
   const isClosed = Boolean(closeRecord?.isClosed);
   const isReopened = Boolean(closeRecord?.isReopened);
 
+  const isCloseDraftDirty =
+    (!isClosed &&
+      (cashOnHandInput !== initialCashOnHandInput ||
+        tngOnHandInput !== initialTngOnHandInput ||
+        closeNote !== initialCloseNote ||
+        confirmEmpty !== initialConfirmEmpty)) ||
+    (isClosed && showReopenBox && reopenReasonInput.trim() !== "");
+
+  const isCloseDraftDirtyRef = useRef(isCloseDraftDirty);
+  const submittingRef = useRef(submitting);
+  const isTransitioningRef = useRef(isTransitioning);
+  const isClosedRef = useRef(isClosed);
+  useEffect(() => {
+    isCloseDraftDirtyRef.current = isCloseDraftDirty;
+    submittingRef.current = submitting;
+    isTransitioningRef.current = isTransitioning && !refreshFailed;
+    isClosedRef.current = isClosed;
+  }, [isCloseDraftDirty, submitting, isTransitioning, refreshFailed, isClosed]);
+
+  // Clear pending refresh lock once the refreshed status actually lands
+  useEffect(() => {
+    if (
+      (pendingStatusTarget === "closed" && isClosed) ||
+      (pendingStatusTarget === "open" && !isClosed)
+    ) {
+      setPendingStatusTarget(null);
+      setRefreshFailed(false);
+    }
+  }, [pendingStatusTarget, isClosed]);
+
+  // Reset local draft inputs when navigating to a different month
+  useEffect(() => {
+    setCashOnHandInput(initialCashOnHandInput);
+    setTngOnHandInput(initialTngOnHandInput);
+    setCloseNote(initialCloseNote);
+    setConfirmEmpty(initialConfirmEmpty);
+    setShowReopenBox(false);
+    setReopenReasonInput("");
+    setReopenReasonError(null);
+    setPendingStatusTarget(null);
+    setRefreshFailed(false);
+    setPendingNavigation(null);
+  }, [currentMonth, initialCashOnHandInput, initialTngOnHandInput, initialCloseNote, initialConfirmEmpty]);
+
+  useEffect(() => {
+    return registerGuard({
+      isDirty: () => isCloseDraftDirtyRef.current || isTransitioningRef.current,
+      onRequestLeave: ({ href, historyDelta, triggerEl }) => {
+        if (isTransitioningRef.current) return;
+        const fallbackFocus = isClosedRef.current
+          ? (reopenReasonRef.current ?? reopenBtnRef.current)
+          : cashOnHandInputRef.current;
+        const resolvedReturnFocus =
+          triggerEl ??
+          (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+        setPendingNavigation({
+          href,
+          historyDelta,
+          returnFocusTo: resolvedReturnFocus ?? fallbackFocus,
+        });
+      },
+    });
+  }, [registerGuard]);
+
+  useEffect(() => {
+    if (!isCloseDraftDirty) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isCloseDraftDirty]);
+
+  useModalFocusTrap({
+    isOpen: pendingNavigation !== null,
+    containerRef: discardModalRef,
+    onClose: () => setPendingNavigation(null),
+    returnFocusTo: pendingNavigation?.returnFocusTo ?? null,
+    fallbackFocusRef: isClosed ? reopenReasonRef : cashOnHandInputRef,
+  });
+
+  function showSuccessMessage(message: string) {
+    if (successTimerRef.current !== null) clearTimeout(successTimerRef.current);
+    setSuccessMessage(message);
+    successTimerRef.current = setTimeout(() => {
+      successTimerRef.current = null;
+      setSuccessMessage(null);
+    }, 3500);
+  }
+
+  async function runStatusRefresh(target: "closed" | "open") {
+    setPendingStatusTarget(target);
+    setRefreshFailed(false);
+    try {
+      const result = refresh();
+      if (result && typeof (result as Promise<unknown>).then === "function") {
+        const ok = await result;
+        if (ok === false) {
+          setRefreshFailed(true);
+        }
+      }
+    } catch {
+      setRefreshFailed(true);
+      setErrorMessage(t.loadError);
+    }
+  }
+
   async function handlePerformClose(e: React.FormEvent) {
     e.preventDefault();
+    if (isTransitioning) return;
     await submitMonthClose({
-      submitting,
+      submitting: isTransitioning,
       gating,
       currentMonth,
       closeNote,
@@ -253,9 +400,14 @@ export function MonthCloseView({
       setErrorMessage,
       setSubmitting,
       setSuccessMessage,
+      showSuccessMessage,
       onClosed: () => {
+        setCashOnHandInput(initialCashOnHandInput);
+        setTngOnHandInput(initialTngOnHandInput);
+        setCloseNote(initialCloseNote);
+        setConfirmEmpty(initialConfirmEmpty);
         startTransition(() => {
-          refresh();
+          void runStatusRefresh("closed");
         });
       },
     });
@@ -263,11 +415,13 @@ export function MonthCloseView({
 
   async function handlePerformReopen(e: React.FormEvent) {
     e.preventDefault();
-    if (submitting) return;
+    if (isTransitioning) return;
     setErrorMessage(null);
+    setReopenReasonError(null);
 
     if (!reopenReasonInput.trim()) {
-      setErrorMessage(t.reopenReasonRequired);
+      setReopenReasonError(t.reopenReasonRequired);
+      requestAnimationFrame(() => reopenReasonRef.current?.focus());
       return;
     }
 
@@ -290,11 +444,15 @@ export function MonthCloseView({
 
       setShowReopenBox(false);
       setReopenReasonInput("");
-      setSuccessMessage(t.reopenSuccess);
-      setTimeout(() => setSuccessMessage(null), 3500);
+      setReopenReasonError(null);
+      setCashOnHandInput(initialCashOnHandInput);
+      setTngOnHandInput(initialTngOnHandInput);
+      setCloseNote(initialCloseNote);
+      setConfirmEmpty(initialConfirmEmpty);
+      showSuccessMessage(t.reopenSuccess);
 
       startTransition(() => {
-        refresh();
+        void runStatusRefresh("open");
       });
     } catch (err) {
       setErrorMessage(translateApiError(apiErrorPayloadFrom(err), t));
@@ -304,7 +462,22 @@ export function MonthCloseView({
   }
 
   return (
-    <div className="space-y-6">
+    <>
+      <span
+        data-inert-exempt="true"
+        className="sr-only"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {submitting
+          ? isClosed
+            ? t.reopening
+            : t.closingMonth
+          : successMessage ?? ""}
+      </span>
+
+      <div className="space-y-6">
       {/* Header & Month Selector — Stacks cleanly on narrow mobile */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-ink-primary tracking-tight">
@@ -313,6 +486,7 @@ export function MonthCloseView({
 
         <MonthSelectorDropdown
           currentMonth={currentMonth}
+          disabled={isTransitioning && !refreshFailed}
           options={
             monthOptions ||
             availableMonths.map((m) => ({
@@ -327,7 +501,24 @@ export function MonthCloseView({
                   : "open",
             }))
           }
-          onSelect={(month) => router.push(`/close?month=${month}`)}
+          onSelect={(month, triggerEl) => {
+            if (month === currentMonth) return;
+            if (isTransitioning && !refreshFailed) return;
+            const targetHref = `/close?month=${month}`;
+            if (isCloseDraftDirty) {
+              setPendingNavigation({
+                href: targetHref,
+                returnFocusTo:
+                  triggerEl ??
+                  (isClosed
+                    ? (reopenReasonRef.current ?? reopenBtnRef.current)
+                    : cashOnHandInputRef.current),
+                isMonthSwitch: true,
+              });
+              return false;
+            }
+            router.push(targetHref);
+          }}
         />
       </div>
 
@@ -348,11 +539,50 @@ export function MonthCloseView({
       ) : (
         <>
           {successMessage && (
-            <div className="py-2.5 px-4 rounded-xl bg-finance-profit-light border border-finance-profit-border text-sm text-brand-broccoli font-semibold flex items-center gap-2 shadow-card animate-slide-down">
-              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-              </svg>
-              <span>{successMessage}</span>
+            <div className="py-2.5 px-4 rounded-xl bg-finance-profit-light border border-finance-profit-border text-sm text-brand-broccoli font-semibold flex items-center justify-between gap-2 shadow-card animate-slide-down">
+              <div className="flex items-start gap-2 min-w-0">
+                <svg className="w-4 h-4 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="break-words whitespace-normal">{successMessage}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (successTimerRef.current !== null) {
+                    clearTimeout(successTimerRef.current);
+                    successTimerRef.current = null;
+                  }
+                  setSuccessMessage(null);
+                }}
+                className="text-xs font-bold text-ink-muted hover:text-brand-broccoli min-w-[44px] min-h-[44px] -my-2 -mr-2 flex items-center justify-center rounded-lg shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli"
+                aria-label={t.closeLabel}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {errorMessage && (
+            <div
+              ref={errorAlertRef}
+              role="alert"
+              className="py-2.5 px-4 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between gap-2 shadow-card animate-slide-down"
+            >
+              <div className="flex items-start gap-2 min-w-0">
+                <svg className="w-4 h-4 mt-0.5 shrink-0 text-finance-loss" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span className="break-words whitespace-normal">{errorMessage}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setErrorMessage(null)}
+                className="text-xs font-bold text-ink-muted hover:text-finance-loss min-w-[44px] min-h-[44px] -my-2 -mr-2 flex items-center justify-center rounded-lg shrink-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60"
+                aria-label={t.closeLabel}
+              >
+                ✕
+              </button>
             </div>
           )}
 
@@ -376,7 +606,11 @@ export function MonthCloseView({
                           : "bg-finance-loss-light text-finance-loss border border-finance-loss-border"
                       }`}
                     >
-                      {t.profitMargin} {Math.round((financials.netSen / financials.revenueSen) * 1000) / 10}%
+                      {t.profitMargin}{" "}
+                      {(() => {
+                        const pct = Math.round((financials.netSen / financials.revenueSen) * 1000) / 10;
+                        return pct < 0 ? `\u2212${Math.abs(pct)}%` : `${pct}%`;
+                      })()}
                     </span>
                   )}
                 </div>
@@ -391,7 +625,11 @@ export function MonthCloseView({
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-ink-muted">{t.costsTitle}</span>
-                    <span className="font-semibold text-ink-secondary num-tabular">
+                    <span
+                      className={`font-semibold num-tabular ${
+                        financials.dailyCostSen > 0 ? "text-finance-loss" : "text-ink-secondary"
+                      }`}
+                    >
                       {financials.dailyCostSen > 0 ? "\u2212" : ""}
                       <MoneyValue sen={BigInt(financials.dailyCostSen)} />
                     </span>
@@ -400,12 +638,18 @@ export function MonthCloseView({
                     <span className="text-ink-primary font-semibold">{t.monthGrossProfit}</span>
                     <MoneyValue
                       sen={BigInt(financials.grossSen)}
-                      className="font-bold text-ink-primary"
+                      className={`font-bold ${
+                        financials.grossSen < 0 ? "text-finance-loss" : "text-ink-primary"
+                      }`}
                     />
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-ink-muted">{t.operatingExpenses}</span>
-                    <span className="font-semibold text-ink-secondary num-tabular">
+                    <span
+                      className={`font-semibold num-tabular ${
+                        financials.operatingSen > 0 ? "text-finance-loss" : "text-ink-secondary"
+                      }`}
+                    >
                       {financials.operatingSen > 0 ? "\u2212" : ""}
                       <MoneyValue sen={BigInt(financials.operatingSen)} />
                     </span>
@@ -487,13 +731,13 @@ export function MonthCloseView({
                   {closeRecord?.note && (
                     <div className="text-sm bg-surface-subtle p-4 rounded-xl border border-surface-border">
                       <span className="font-semibold text-ink-secondary block mb-1 text-xs">{t.closeNote}</span>
-                      <span className="text-ink-primary">{closeRecord.note}</span>
+                      <span className="text-ink-primary break-words whitespace-normal">{closeRecord.note}</span>
                     </div>
                   )}
 
                   {closeRecord?.closedAt && (
                     <div className="text-xs text-ink-muted num-tabular">
-                      {t.closedAtLabel}: {closeRecord.closedAt}
+                      {t.closedAtLabel}{lang === "zh" ? "：" : ": "}{closeRecord.closedAt}
                     </div>
                   )}
 
@@ -502,37 +746,74 @@ export function MonthCloseView({
                     <div className="pt-4 border-t border-surface-border">
                       {!showReopenBox ? (
                         <button
+                          ref={reopenBtnRef}
                           type="button"
-                          onClick={() => setShowReopenBox(true)}
-                          className="min-h-[48px] px-4 rounded-xl border border-surface-border-strong hover:bg-surface-subtle btn-tactile text-sm font-semibold text-ink-secondary hover:text-ink-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+                          disabled={isTransitioning}
+                          onClick={() => {
+                            setErrorMessage(null);
+                            setReopenReasonError(null);
+                            setShowReopenBox(true);
+                            requestAnimationFrame(() => reopenReasonRef.current?.focus());
+                          }}
+                          className="min-h-[48px] px-4 rounded-xl border border-surface-border-strong hover:bg-surface-subtle btn-tactile text-sm font-semibold text-ink-secondary hover:text-ink-primary disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
                         >
                           {t.reopenTitle}
                         </button>
                       ) : (
-                        <form onSubmit={handlePerformReopen} className="space-y-3 bg-surface-subtle/60 p-4 rounded-xl border border-surface-border">
+                        <form onSubmit={handlePerformReopen} noValidate className="space-y-3 bg-surface-subtle/60 p-4 rounded-xl border border-surface-border">
                           <label htmlFor="reopen-reason-input" className="block text-sm font-semibold text-ink-primary">
                             {t.reopenReason} <span className="text-finance-loss">*</span>
                           </label>
                           <input
+                            ref={reopenReasonRef}
                             id="reopen-reason-input"
                             type="text"
+                            required
+                            disabled={isTransitioning}
+                            aria-required="true"
+                            aria-invalid={reopenReasonError !== null || undefined}
+                            aria-describedby={reopenReasonError ? "reopen-reason-error" : undefined}
                             value={reopenReasonInput}
-                            onChange={(e) => setReopenReasonInput(e.target.value)}
+                            onChange={(e) => {
+                              setReopenReasonInput(e.target.value);
+                              if (reopenReasonError) setReopenReasonError(null);
+                              if (errorMessage) setErrorMessage(null);
+                            }}
                             placeholder={t.reopenPlaceholder}
-                            className="w-full h-12 px-3.5 rounded-xl bg-surface-input border border-surface-border-strong text-sm text-ink-primary focus:outline-none focus:bg-surface focus:border-brand-broccoli focus-visible:ring-2 focus-visible:ring-brand-broccoli/40"
+                            className={`w-full h-12 px-3.5 rounded-xl bg-surface-input border text-base sm:text-sm [@media(pointer:coarse)]:text-base text-ink-primary focus:outline-none focus:bg-surface focus-visible:ring-2 disabled:opacity-60 transition-colors ${
+                              reopenReasonError
+                                ? "border-finance-loss focus:border-finance-loss focus-visible:ring-finance-loss/40"
+                                : "border-surface-border-strong focus:border-brand-broccoli focus-visible:ring-brand-broccoli/40"
+                            }`}
                           />
+                          {reopenReasonError && (
+                            <p
+                              id="reopen-reason-error"
+                              role="alert"
+                              className="py-1.5 px-2.5 rounded-lg bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-medium break-words whitespace-normal"
+                            >
+                              {reopenReasonError}
+                            </p>
+                          )}
                           <div className="flex items-center gap-2.5">
                             <button
                               type="submit"
-                              disabled={submitting}
+                              disabled={isTransitioning}
                               className="min-h-[48px] px-5 rounded-xl bg-brand-cta hover:bg-brand-cta-hover text-brand-cta-ink btn-tactile font-semibold text-sm disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
                             >
-                              {submitting ? t.reopening : t.btnPerformReopen}
+                              {isTransitioning ? t.reopening : t.btnPerformReopen}
                             </button>
                             <button
                               type="button"
-                              onClick={() => setShowReopenBox(false)}
-                              className="min-h-[48px] px-4 text-sm font-semibold text-ink-muted hover:text-ink-primary cursor-pointer"
+                              disabled={isTransitioning}
+                              onClick={() => {
+                                setErrorMessage(null);
+                                setReopenReasonInput("");
+                                setReopenReasonError(null);
+                                setShowReopenBox(false);
+                                requestAnimationFrame(() => reopenBtnRef.current?.focus());
+                              }}
+                              className="min-h-[48px] px-4 rounded-xl text-sm font-semibold text-ink-muted hover:text-ink-primary disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
                             >
                               {t.cancel}
                             </button>
@@ -583,8 +864,8 @@ export function MonthCloseView({
                         <span className="font-semibold text-status-reopened block mb-0.5">
                           {t.reopenedStatus} ({closeRecord.reopenedAt?.slice(0, 10)})
                         </span>
-                        <span className="text-ink-secondary">
-                          {t.reasonLabel}: {closeRecord.reopenReason}
+                        <span className="text-ink-secondary break-words whitespace-normal">
+                          {t.reasonLabel}{lang === "zh" ? "：" : ": "}{closeRecord.reopenReason}
                         </span>
                       </div>
                     )}
@@ -605,10 +886,14 @@ export function MonthCloseView({
                             RM
                           </span>
                           <input
+                            ref={cashOnHandInputRef}
                             id="close-cash-input"
                             type="text"
                             inputMode="decimal"
+                            disabled={isTransitioning}
                             value={cashOnHandInput}
+                            aria-invalid={cashError || undefined}
+                            aria-describedby={cashError ? "close-cash-error" : undefined}
                             onChange={(e) => {
                               const sanitized = sanitizeMoneyInput(e.target.value);
                               if (sanitized !== null) {
@@ -623,11 +908,15 @@ export function MonthCloseView({
                               cashError
                                 ? "focus:border-finance-loss focus-visible:ring-finance-loss/40"
                                 : "focus:border-channel-cash focus-visible:ring-channel-cash/30"
-                            } focus-visible:ring-2 transition-colors`}
+                            } focus-visible:ring-2 disabled:opacity-60 transition-colors`}
                           />
                         </div>
                         {cashError && (
-                          <div role="alert" className="mt-1.5 py-1.5 px-3 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium">
+                          <div
+                            id="close-cash-error"
+                            role="alert"
+                            className="mt-1.5 py-1.5 px-3 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium"
+                          >
                             <span>{t.invalidAmount}</span>
                           </div>
                         )}
@@ -650,7 +939,10 @@ export function MonthCloseView({
                             id="close-tng-input"
                             type="text"
                             inputMode="decimal"
+                            disabled={isTransitioning}
                             value={tngOnHandInput}
+                            aria-invalid={tngError || undefined}
+                            aria-describedby={tngError ? "close-tng-error" : undefined}
                             onChange={(e) => {
                               const sanitized = sanitizeMoneyInput(e.target.value);
                               if (sanitized !== null) {
@@ -665,11 +957,15 @@ export function MonthCloseView({
                               tngError
                                 ? "focus:border-finance-loss focus-visible:ring-finance-loss/40"
                                 : "focus:border-channel-tng focus-visible:ring-channel-tng/30"
-                            } focus-visible:ring-2 transition-colors`}
+                            } focus-visible:ring-2 disabled:opacity-60 transition-colors`}
                           />
                         </div>
                         {tngError && (
-                          <div role="alert" className="mt-1.5 py-1.5 px-3 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium">
+                          <div
+                            id="close-tng-error"
+                            role="alert"
+                            className="mt-1.5 py-1.5 px-3 rounded-lg bg-finance-loss-light border border-finance-loss-border text-xs text-finance-loss font-medium"
+                          >
                             <span>{t.invalidAmount}</span>
                           </div>
                         )}
@@ -748,11 +1044,13 @@ export function MonthCloseView({
                       <input
                         id="close-note-input"
                         type="text"
+                        disabled={isTransitioning}
                         value={closeNote}
                         onChange={(e) => {
                           setCloseNote(e.target.value);
                           if (errorMessage) setErrorMessage(null);
                         }}
+                        aria-required={(!isBalanced && hasInputs && !hasParseError) || undefined}
                         aria-describedby={
                           !isBalanced && hasInputs && !hasParseError
                             ? "close-note-hint"
@@ -763,7 +1061,7 @@ export function MonthCloseView({
                             ? t.closeNoteExample
                             : t.closeNoteOptional
                         }
-                        className="w-full h-12 px-3.5 rounded-xl bg-surface-input border border-surface-border-strong text-sm text-ink-primary focus:outline-none focus:bg-surface focus:border-brand-broccoli focus-visible:ring-2 focus-visible:ring-brand-broccoli/30 transition-colors"
+                        className="w-full h-12 px-3.5 rounded-xl bg-surface-input border border-surface-border-strong text-base sm:text-sm [@media(pointer:coarse)]:text-base text-ink-primary focus:outline-none focus:bg-surface focus:border-brand-broccoli focus-visible:ring-2 focus-visible:ring-brand-broccoli/30 disabled:opacity-60 transition-colors"
                       />
                       {!isBalanced && hasInputs && !hasParseError && (
                         <p
@@ -792,9 +1090,10 @@ export function MonthCloseView({
                       <label className="flex items-center gap-2.5 text-sm font-medium text-ink-secondary cursor-pointer select-none py-1">
                         <input
                           type="checkbox"
+                          disabled={isTransitioning}
                           checked={confirmEmpty}
                           onChange={(e) => setConfirmEmpty(e.target.checked)}
-                          className="w-5 h-5 rounded border-surface-border-strong accent-brand-broccoli cursor-pointer focus:ring-2 focus:ring-brand-broccoli/50"
+                          className="w-5 h-5 rounded border-surface-border-strong accent-brand-broccoli cursor-pointer disabled:opacity-50 focus:ring-2 focus:ring-brand-broccoli/50"
                         />
                         <span>{t.confirmEmptyMonth}</span>
                       </label>
@@ -808,26 +1107,12 @@ export function MonthCloseView({
                       disabled={!canSubmitClose}
                       className="w-full h-12 rounded-xl bg-brand-cta hover:bg-brand-cta-hover btn-tactile text-brand-cta-ink font-semibold text-sm tracking-wide shadow-card flex items-center justify-center disabled:bg-surface-subtle disabled:text-ink-muted disabled:border disabled:border-surface-border disabled:shadow-none disabled:opacity-100 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
                     >
-                      {submitting ? t.closingMonth : t.btnPerformClose}
+                      {isTransitioning ? t.closingMonth : t.btnPerformClose}
                     </button>
 
                     <p className="text-xs text-ink-muted text-center">
                       {closeReadinessHint ?? t.closeWarning}
                     </p>
-
-                    {errorMessage && (
-                      <div role="alert" className="py-2.5 px-4 rounded-xl bg-finance-loss-light border border-finance-loss-border text-sm text-finance-loss font-semibold flex items-center justify-between">
-                        <span>{errorMessage}</span>
-                        <button
-                          type="button"
-                          onClick={() => setErrorMessage(null)}
-                          className="text-xs font-bold ml-2 text-ink-muted hover:text-finance-loss w-6 h-6 flex items-center justify-center rounded cursor-pointer"
-                          aria-label={t.closeLabel}
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    )}
                   </div>
                 </form>
               )}
@@ -835,6 +1120,69 @@ export function MonthCloseView({
           </div>
         </>
       )}
-    </div>
+      {/* Unsaved Month Close Draft Guard Modal */}
+      {pendingNavigation !== null && (
+        <div
+          ref={discardModalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="discard-close-title"
+          aria-describedby="discard-close-desc"
+          className="fixed inset-0 !mt-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm animate-slide-down"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setPendingNavigation(null);
+          }}
+        >
+          <div className="w-full max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto bg-surface rounded-2xl p-6 shadow-popover border border-surface-border space-y-5">
+            <div className="space-y-1.5">
+              <h3 id="discard-close-title" className="text-lg font-bold text-ink-primary">
+                {t.discardUnsavedTitle}
+              </h3>
+              <p id="discard-close-desc" className="text-[13px] text-ink-muted leading-relaxed">
+                {pendingNavigation.isMonthSwitch
+                  ? t.discardUnsavedCloseMonthDesc
+                  : t.discardUnsavedCloseDesc}
+              </p>
+            </div>
+
+            <div className="flex items-stretch gap-2.5 pt-1">
+              <button
+                type="button"
+                autoFocus
+                onClick={() => setPendingNavigation(null)}
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+              >
+                {t.keepEditingBtn}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = pendingNavigation;
+                  setPendingNavigation(null);
+                  setCashOnHandInput(initialCashOnHandInput);
+                  setTngOnHandInput(initialTngOnHandInput);
+                  setCloseNote(initialCloseNote);
+                  setConfirmEmpty(initialConfirmEmpty);
+                  setShowReopenBox(false);
+                  setReopenReasonInput("");
+                  setReopenReasonError(null);
+                  if (typeof target.historyDelta === "number") {
+                    proceedHistoryNavigation(target.historyDelta);
+                  } else {
+                    router.push(target.href);
+                  }
+                }}
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+              >
+                {pendingNavigation.isMonthSwitch
+                  ? t.discardAndSwitchMonthBtn
+                  : t.discardAndSwitchBtn}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
+    </>
   );
 }

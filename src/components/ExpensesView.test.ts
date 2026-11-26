@@ -333,9 +333,9 @@ describe("ExpensesView frontend review fixes", () => {
       expect(html).toMatch(/class="[^"]*text-xs sm:text-base font-bold text-ink-primary"[^>]*><span[^>]*>RM 1,005,686\.12/);
       expect(html).not.toMatch(/class="[^"]*text-base sm:text-base font-bold text-ink-primary"[^>]*><span[^>]*>RM 1,005,686\.12/);
 
-      // Summary ruled Operating Expenses: RM 1,200,000.00 (>11 chars) -> replaces text-base with text-xs
+      // Summary ruled Operating Expenses: RM 1,200,000.00 (>11 chars) -> replaces text-base with text-xs and highlights subtracted outflow in red
       expect(html).toContain("RM 1,200,000.00");
-      expect(html).toMatch(/class="[^"]*text-xs sm:text-base font-semibold text-ink-secondary num-tabular"/);
+      expect(html).toMatch(/class="[^"]*text-xs sm:text-base font-semibold num-tabular text-finance-loss"/);
 
       // Summary ruled Net Profit: −RM 194,313.88 (>11 chars) -> text-base instead of text-xl
       expect(html).toContain("194,313");

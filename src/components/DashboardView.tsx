@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n";
@@ -252,6 +252,10 @@ function formatShortWeekday(dateStr: string, lang: "zh" | "en"): string {
   return lang === "zh" ? zhDays[dt.getUTCDay()] : enDays[dt.getUTCDay()];
 }
 
+function formatSignedPercent(pct: number): string {
+  return pct < 0 ? `\u2212${Math.abs(pct)}%` : `${pct}%`;
+}
+
 interface DashboardViewProps {
   tiles: SerializedMonthTile[];
   activeMonth: string;
@@ -278,8 +282,74 @@ export function DashboardView({
   const router = useRouter();
   const { t, lang } = useI18n();
 
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [pinnedDate, setPinnedDate] = useState<string | null>(null);
+  const [focusedDate, setFocusedDate] = useState<string | null>(null);
+  const [hoveredDate, setHoveredDate] = useState<string | null>(null);
+  const [rovingDateState, setRovingDateState] = useState<string | null>(null);
   const [trendMetric, setTrendMetric] = useState<TrendMetric>("revenue");
+  const chartScrollRef = useRef<HTMLDivElement | null>(null);
+  const chartPlotRef = useRef<HTMLDivElement | null>(null);
+  const [plotViewportWidth, setPlotViewportWidth] = useState(0);
+  const [plotScrollLeft, setPlotScrollLeft] = useState(0);
+  const [isCoarsePointer, setIsCoarsePointer] = useState(false);
+  const suppressedHoverDateRef = useRef<string | null>(null);
+  const pinnedByKeyboardRef = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(pointer: coarse)");
+    const sync = () => setIsCoarsePointer(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+
+  const trendDateSet = useMemo(() => new Set(trend.map((r) => r.date)), [trend]);
+  const validPinnedDate = pinnedDate && trendDateSet.has(pinnedDate) ? pinnedDate : null;
+  const validFocusedDate = focusedDate && trendDateSet.has(focusedDate) ? focusedDate : null;
+  const validHoveredDate = hoveredDate && trendDateSet.has(hoveredDate) ? hoveredDate : null;
+  const activeDate = validPinnedDate ?? validFocusedDate ?? validHoveredDate;
+
+  useEffect(() => {
+    const el = chartScrollRef.current;
+    if (!el) return;
+    const measure = () => {
+      setPlotViewportWidth(el.clientWidth);
+      setPlotScrollLeft(el.scrollLeft);
+    };
+    measure();
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    return () => ro?.disconnect();
+  }, [activeMonth, trendMetric, trend.length]);
+
+  useEffect(() => {
+    if (!validPinnedDate) return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (chartPlotRef.current && !chartPlotRef.current.contains(event.target as Node)) {
+        pinnedByKeyboardRef.current = false;
+        setPinnedDate(null);
+        setFocusedDate(null);
+        setHoveredDate(null);
+      }
+    };
+    document.addEventListener("pointerdown", handlePointerDown);
+    return () => document.removeEventListener("pointerdown", handlePointerDown);
+  }, [validPinnedDate]);
+
+  useEffect(() => {
+    if (!activeDate) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        pinnedByKeyboardRef.current = false;
+        setPinnedDate(null);
+        setFocusedDate(null);
+        setHoveredDate(null);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [activeDate]);
 
   const categoryLabels = useMemo<Record<CostCategoryKey, string>>(
     () => ({
@@ -386,19 +456,77 @@ export function DashboardView({
     );
   }, [trend, trendMetric]);
 
-  const inspectedIdx = useMemo(() => {
-    if (trend.length === 0) return -1;
-    const found = trend.findIndex((r) => r.date === selectedDate);
-    return found >= 0 ? found : trend.length - 1;
-  }, [trend, selectedDate]);
+  const activeRow = useMemo(() => {
+    if (!activeDate) return null;
+    return trend.find((r) => r.date === activeDate) ?? null;
+  }, [trend, activeDate]);
+  const activeSlotIdx = useMemo(() => {
+    if (!activeRow) return -1;
+    return calendarSlots.findIndex((s) => s.date === activeRow.date);
+  }, [calendarSlots, activeRow]);
+  const rovingDate =
+    rovingDateState && trendDateSet.has(rovingDateState)
+      ? rovingDateState
+      : trend.length > 0
+        ? trend[trend.length - 1].date
+        : null;
+  // Scroll on touch devices (phones & tablets at any width) and narrow viewports whenever adjacent selectable days sit < 24px apart (WCAG Target Size) or slots < 10px; sparse short ranges fit without hiding early days
+  const minRecordedSlotGap = useMemo(() => {
+    let minGap = Infinity;
+    let prevIdx = -1;
+    for (let i = 0; i < calendarSlots.length; i++) {
+      if (calendarSlots[i].row !== null) {
+        if (prevIdx >= 0) minGap = Math.min(minGap, i - prevIdx);
+        prevIdx = i;
+      }
+    }
+    return minGap;
+  }, [calendarSlots]);
+  const slotWidthIfFit =
+    plotViewportWidth > 0 && calendarSlots.length > 0
+      ? plotViewportWidth / calendarSlots.length
+      : 0;
+  const closestSelectableGapPx =
+    minRecordedSlotGap === Infinity ? plotViewportWidth : minRecordedSlotGap * slotWidthIfFit;
+  const enforceTouchSpacing = isCoarsePointer || plotViewportWidth < 400;
+  const needsPlotScroll =
+    plotViewportWidth > 0 &&
+    calendarSlots.length > 0 &&
+    (enforceTouchSpacing
+      ? closestSelectableGapPx < 24 || slotWidthIfFit < 10
+      : slotWidthIfFit < 14);
+  const trackPadPx = needsPlotScroll ? 4 : 0;
+  const plotTrackWidth = needsPlotScroll
+    ? calendarSlots.length * 24 + trackPadPx * 2
+    : plotViewportWidth;
+  const canScrollPlotLeft = needsPlotScroll && plotScrollLeft > 4;
+  const canScrollPlotRight =
+    needsPlotScroll &&
+    plotViewportWidth > 0 &&
+    plotScrollLeft + plotViewportWidth < plotTrackWidth - 4;
 
-  const inspectedRow = inspectedIdx >= 0 ? trend[inspectedIdx] : null;
+  const scrollChartBy = (direction: -1 | 1) => {
+    const el = chartScrollRef.current;
+    if (!el) return;
+    const step = Math.max(120, Math.round((plotViewportWidth || 240) * 0.75));
+    const nextLeft = Math.max(0, Math.min(el.scrollWidth - el.clientWidth, el.scrollLeft + direction * step));
+    el.scrollTo({ left: nextLeft, behavior: "smooth" });
+  };
+
+  // Start scrolled at the latest recorded days when horizontal scroll is active
+  useEffect(() => {
+    const el = chartScrollRef.current;
+    if (!el || !needsPlotScroll) return;
+    const maxScroll = Math.max(0, el.scrollWidth - el.clientWidth);
+    el.scrollLeft = maxScroll;
+    setPlotScrollLeft(maxScroll);
+  }, [activeMonth, trendMetric, needsPlotScroll, calendarSlots.length]);
 
   const trendTabs: Array<{ metric: TrendMetric; label: string }> = [
     { metric: "revenue", label: t.dailyTrend },
     { metric: "cost", label: t.dailyCostTrend },
   ];
-  const trendTabRefs = React.useRef<Array<HTMLButtonElement | null>>([]);
+  const trendTabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const headlineNetStr = activeTile ? formatDisplayMyr(BigInt(activeTile.netSen)) : "";
   const isSparseTrend = trend.length > 0 && trend.length <= 10;
@@ -454,7 +582,7 @@ export function DashboardView({
           {/* 1. Hero Profit Story & Waterfall Ledger (2-col starting at md:768px for compact tablet fold) */}
           {activeTile && (
             <section
-              aria-label="Month Financial Summary"
+              aria-label={t.monthSummary}
               className="bg-surface border border-surface-border rounded-2xl shadow-card overflow-hidden grid grid-cols-1 md:grid-cols-12"
             >
               {/* Left 6 Cols: Net Profit Hero + Margin/MoM + Concise Localized Insight */}
@@ -472,7 +600,7 @@ export function DashboardView({
                             : "bg-finance-loss-light text-finance-loss border border-finance-loss-border"
                         }`}
                       >
-                        {t.profitMargin} {netMarginPct}%
+                        {t.profitMargin} {formatSignedPercent(netMarginPct)}
                       </span>
                     )}
                     {momDeltaSen !== null && previousTile && (
@@ -531,7 +659,11 @@ export function DashboardView({
                       <span className="w-2 h-2 rounded-full bg-finance-cost shrink-0" aria-hidden="true" />
                       <span>{t.costsTitle}</span>
                     </span>
-                    <span className="font-semibold text-ink-secondary num-tabular whitespace-nowrap">
+                    <span
+                      className={`font-semibold num-tabular whitespace-nowrap ${
+                        activeTile.dailyCostSen > 0 ? "text-finance-loss" : "text-ink-secondary"
+                      }`}
+                    >
                       {activeTile.dailyCostSen > 0 ? "\u2212" : ""}
                       <MoneyValue sen={BigInt(activeTile.dailyCostSen)} />
                     </span>
@@ -543,7 +675,9 @@ export function DashboardView({
                     </span>
                     <MoneyValue
                       sen={BigInt(activeTile.grossSen)}
-                      className="font-bold text-ink-primary"
+                      className={`font-bold ${
+                        activeTile.grossSen < 0 ? "text-finance-loss" : "text-ink-primary"
+                      }`}
                     />
                   </div>
 
@@ -552,7 +686,11 @@ export function DashboardView({
                       <span className="w-2 h-2 rounded-full bg-finance-opex shrink-0" aria-hidden="true" />
                       <span>{t.operatingExpenses}</span>
                     </span>
-                    <span className="font-semibold text-ink-secondary num-tabular whitespace-nowrap">
+                    <span
+                      className={`font-semibold num-tabular whitespace-nowrap ${
+                        activeTile.operatingSen > 0 ? "text-finance-loss" : "text-ink-secondary"
+                      }`}
+                    >
                       {activeTile.operatingSen > 0 ? "\u2212" : ""}
                       <MoneyValue sen={BigInt(activeTile.operatingSen)} />
                     </span>
@@ -711,7 +849,7 @@ export function DashboardView({
             {/* 2. Analytics Bento Row */}
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
               {/* Left 7 Cols: Calendar-Proportional Daily Bar Chart with Chrome-Style Browser Tabs */}
-              <section className="lg:col-span-7 bg-surface border border-surface-border rounded-2xl shadow-card overflow-hidden flex flex-col">
+              <section className="lg:col-span-7 bg-surface border border-surface-border rounded-2xl shadow-card flex flex-col">
                 <h2 className="sr-only">
                   {trendMetric === "revenue" ? t.dailyTrend : t.dailyCostTrend}
                 </h2>
@@ -719,8 +857,8 @@ export function DashboardView({
                 {/* Chrome-style Browser Tab Strip */}
                 <div
                   role="tablist"
-                  aria-label={t.dailyTrend}
-                  className="bg-surface-subtle dark:bg-surface-canvas border-b border-surface-border px-3 pt-2 flex items-end gap-1"
+                  aria-label={t.chartMetricTabsLabel}
+                  className="bg-surface-subtle dark:bg-surface-canvas border-b border-surface-border rounded-t-2xl px-3 pt-2 flex items-end gap-1"
                 >
                   {trendTabs.map((tab, idx) => {
                     const active = trendMetric === tab.metric;
@@ -789,218 +927,408 @@ export function DashboardView({
                   id="daily-trend-panel"
                   role="tabpanel"
                   aria-labelledby={`daily-trend-tab-${trendMetric}`}
-                  className="p-5 sm:p-6 flex-1 flex flex-col gap-4"
+                  className="p-5 sm:p-6 flex-1 flex flex-col gap-3"
                 >
-                  {trend.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted num-tabular">
-                      <span>
-                        {t.dailyAverage}:{" "}
-                        <strong className="text-ink-primary font-semibold">
-                          <MoneyValue sen={dailyAvgSen} />
-                        </strong>
-                      </span>
-                      {peakRow && (
-                        <span>
-                          {t.peakDay}:{" "}
-                          <strong className="text-ink-primary font-semibold">
-                            {peakRow.date.slice(5)} ·{" "}
-                            <MoneyValue sen={trendValueSen(peakRow, trendMetric)} />
-                          </strong>
-                        </span>
-                      )}
-                    </div>
-                  )}
-
                 {trend.length === 0 ? (
-                  <div className="py-12 text-center text-sm text-ink-muted">
+                  <div className="py-10 text-center text-sm text-ink-muted">
                     {t.noDailyEntries}
                   </div>
                 ) : (
-                  <div key={trendMetric} className="flex-1 flex flex-col justify-between gap-4 animate-chart-swap">
-                    {/* Interactive Inspector Bar with 48px Touch-Friendly Day Steppers & Live Readout */}
-                    {inspectedRow && (
-                      <div className="px-2 sm:px-3.5 py-1.5 rounded-xl bg-surface-subtle/60 border border-surface-border flex flex-wrap items-center justify-between gap-2 text-xs num-tabular">
-                        <div className="flex items-center gap-1">
-                          {trend.length > 1 && (
-                            <button
-                              type="button"
-                              disabled={inspectedIdx <= 0}
-                              onClick={() => setSelectedDate(trend[inspectedIdx - 1].date)}
-                              aria-label={t.prevRecordedDay}
-                              className="w-12 h-12 lg:w-10 lg:h-10 rounded-lg hover:bg-surface disabled:opacity-30 flex items-center justify-center text-ink-secondary cursor-pointer disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24" aria-hidden="true">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-                              </svg>
-                            </button>
-                          )}
-                          <span className="font-bold text-ink-primary">
-                            {inspectedRow.date}
-                          </span>
-                          <span className="text-ink-muted">
-                            {formatShortWeekday(inspectedRow.date, lang)}
-                          </span>
-                          {trend.length > 1 && (
-                            <button
-                              type="button"
-                              disabled={inspectedIdx >= trend.length - 1}
-                              onClick={() => setSelectedDate(trend[inspectedIdx + 1].date)}
-                              aria-label={t.nextRecordedDay}
-                              className="w-12 h-12 lg:w-10 lg:h-10 rounded-lg hover:bg-surface disabled:opacity-30 flex items-center justify-center text-ink-secondary cursor-pointer disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.2" viewBox="0 0 24 24" aria-hidden="true">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                        <div
-                          aria-live="polite"
-                          aria-atomic="true"
-                          className="flex items-center gap-3.5 px-1"
-                        >
-                          <span className="sr-only">
-                            {inspectedRow.date} {formatShortWeekday(inspectedRow.date, lang)}{" "}
-                          </span>
-                          <span className="text-ink-muted">
-                            {t.sheetRevCol}{" "}
-                            <strong className="text-ink-primary font-semibold">
-                              <MoneyValue sen={inspectedRow.totalSen} />
-                            </strong>
-                          </span>
-                          <span className="text-ink-muted">
-                            {t.sheetCostCol}{" "}
-                            <strong className="text-ink-secondary font-semibold">
-                              <MoneyValue sen={inspectedRow.costSen} />
-                            </strong>
-                          </span>
-                        </div>
-                      </div>
-                    )}
+                  <div key={trendMetric} className="pt-[52px] sm:pt-12 flex-1 flex flex-col justify-between gap-3 animate-chart-swap">
+                    {/* Screen-reader live readout only when a bar is explicitly pinned or keyboard-focused (never noisy passive hover) */}
+                    <div className="sr-only" aria-live="polite" aria-atomic="true">
+                      {(validPinnedDate ?? validFocusedDate) && activeRow
+                        ? `${activeRow.date} ${formatShortWeekday(activeRow.date, lang)} ${t.sheetRevCol} ${formatDisplayMyr(activeRow.totalSen)} ${t.sheetCostCol} ${formatDisplayMyr(activeRow.costSen)}`
+                        : ""}
+                    </div>
 
-                    {/* Calendar-Proportional Bar Chart with Baseline-Aligned HTML Axes (>= 11px real CSS pixels) */}
-                    <div className="flex-1 grid grid-cols-[auto_1fr] gap-x-2.5 pt-2">
+                    {/* Calendar-Proportional Bar Chart with On-Demand Floating Popout in clean headspace above bars (never covers tabs, bars, or summary figures) */}
+                    <div className="flex-1 grid grid-cols-[auto_1fr] gap-x-2.5">
                       <div
                         aria-hidden="true"
-                        className="flex flex-col justify-between items-end text-[11px] font-medium text-ink-muted num-tabular leading-none shrink-0 select-none"
+                        className="h-[188px] lg:h-[244px] flex flex-col justify-between items-end text-[11px] font-medium text-ink-muted num-tabular leading-none shrink-0 select-none"
                       >
                         <span className="-mt-1">{formatCompactMyr(axisMaxSen)}</span>
                         <span>{formatCompactMyr(axisMidSen)}</span>
                         <span className="-mb-1">RM 0</span>
                       </div>
 
-                      <div className="relative min-w-0 min-h-[176px] lg:min-h-[228px] flex items-end gap-0.5 sm:gap-1 border-b border-surface-border">
-                        <div
-                          aria-hidden="true"
-                          className="pointer-events-none absolute inset-0 flex flex-col justify-between"
-                        >
-                          <div className="border-t border-dashed border-surface-border w-full" />
-                          <div className="border-t border-dashed border-surface-border w-full" />
-                          <div className="w-full" />
-                        </div>
+                      <div
+                        className="relative min-w-0"
+                        onPointerLeave={(e) => {
+                          if (e.pointerType === "mouse") {
+                            setHoveredDate(null);
+                            suppressedHoverDateRef.current = null;
+                          }
+                        }}
+                      >
+                        {/* On-Demand Floating Day Popout positioned strictly ABOVE the bar plot so it never covers or blocks any bar or summary figure */}
+                        {activeRow && activeSlotIdx >= 0 && (() => {
+                          const effectiveViewportW = plotViewportWidth > 0 ? plotViewportWidth : 280;
+                          const effectiveInnerW = needsPlotScroll
+                            ? plotTrackWidth - trackPadPx * 2
+                            : effectiveViewportW;
+                          const slotWidth = effectiveInnerW / calendarSlots.length;
+                          const barLeftPx = trackPadPx + activeSlotIdx * slotWidth;
+                          const barRightPx = trackPadPx + (activeSlotIdx + 1) * slotWidth;
+                          const barCenterPx = trackPadPx + (activeSlotIdx + 0.5) * slotWidth;
+                          const scrollOffset = needsPlotScroll ? plotScrollLeft : 0;
 
-                        {calendarSlots.map((slot) => {
-                          const val = slot.row ? trendValueSen(slot.row, trendMetric) : 0;
-                          // Truthful zero rendering: val === 0 renders flat 2px baseline marker, never a fake positive bar
-                          const heightPct =
-                            slot.row && val > 0
-                              ? Math.max(2, Math.round((val / axisMaxSen) * 1000) / 10)
-                              : 0;
-                          const isSelected = inspectedRow?.date === slot.date;
-                          const barColor =
-                            trendMetric === "revenue"
-                              ? "var(--chart-revenue)"
-                              : "var(--chart-cost)";
+                          // Hide popout cleanly when its bar scrolls completely out of the visible scroll window
+                          if (
+                            needsPlotScroll &&
+                            (barRightPx < scrollOffset + 2 ||
+                              barLeftPx > scrollOffset + effectiveViewportW - 2)
+                          ) {
+                            return null;
+                          }
+
+                          const popW = Math.min(effectiveViewportW, effectiveViewportW < 320 ? 156 : 168);
+                          const visibleCenter = barCenterPx - scrollOffset;
+                          const maxLeft = Math.max(0, effectiveViewportW - popW);
+                          const popLeft = Math.round(Math.max(0, Math.min(maxLeft, visibleCenter - popW / 2)));
+                          const caretLeft = Math.round(
+                            Math.max(12, Math.min(popW - 12, visibleCenter - popLeft))
+                          );
+                          const activeVal = trendValueSen(activeRow, trendMetric);
 
                           return (
                             <div
-                              key={slot.date}
-                              className="relative z-10 flex-1 h-full flex flex-col justify-end items-center min-w-0"
+                              data-testid="chart-day-popover"
+                              aria-hidden="true"
+                              style={{ left: `${popLeft}px`, width: `${popW}px`, bottom: "calc(100% + 4px)" }}
+                              onPointerEnter={(e) => {
+                                if (e.pointerType === "mouse") {
+                                  setHoveredDate(activeRow.date);
+                                }
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                pinnedByKeyboardRef.current = false;
+                                setPinnedDate(null);
+                                setFocusedDate(null);
+                                setHoveredDate(null);
+                              }}
+                              className="pointer-events-auto absolute z-30 rounded-xl bg-surface border border-surface-border-strong/60 shadow-popover px-2.5 py-1 text-left transition-opacity duration-150 cursor-pointer"
                             >
-                              {slot.row ? (
-                                <button
-                                  type="button"
-                                  data-chart-day={slot.date}
-                                  tabIndex={isSelected ? 0 : -1}
-                                  aria-pressed={isSelected}
-                                  onClick={() => setSelectedDate(slot.date)}
-                                  onMouseEnter={() => setSelectedDate(slot.date)}
-                                  onKeyDown={(e) => {
-                                    const currentIdx = trend.findIndex((r) => r.date === slot.date);
-                                    if (currentIdx === -1) return;
-                                    let nextIdx = -1;
-                                    if (e.key === "ArrowLeft") nextIdx = Math.max(0, currentIdx - 1);
-                                    else if (e.key === "ArrowRight") nextIdx = Math.min(trend.length - 1, currentIdx + 1);
-                                    else if (e.key === "Home") nextIdx = 0;
-                                    else if (e.key === "End") nextIdx = trend.length - 1;
-                                    if (nextIdx === -1 || nextIdx === currentIdx) return;
-                                    e.preventDefault();
-                                    const nextDate = trend[nextIdx].date;
-                                    setSelectedDate(nextDate);
-                                    requestAnimationFrame(() => {
-                                      document
-                                        .querySelector<HTMLButtonElement>(`button[data-chart-day="${nextDate}"]`)
-                                        ?.focus();
-                                    });
-                                  }}
-                                  aria-label={`${slot.date}: ${formatDisplayMyr(val)}`}
-                                  className="group w-full h-full flex items-end justify-center px-[1px] sm:px-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli rounded-t cursor-pointer"
-                                >
-                                  {val > 0 ? (
-                                    <span
-                                      className={`w-full max-w-[30px] rounded-t-md sm:rounded-t-lg transition-opacity duration-150 ${
-                                        isSelected ? "opacity-100" : "opacity-65 group-hover:opacity-90"
-                                      }`}
-                                      style={{
-                                        height: `${heightPct}%`,
-                                        backgroundColor: barColor,
-                                      }}
-                                    />
-                                  ) : (
-                                    <span
-                                      className={`w-full max-w-[22px] h-[6px] rounded-full mb-[1px] border-[1.5px] bg-surface ${
-                                        isSelected
-                                          ? "opacity-100 ring-2 ring-surface-border-strong"
-                                          : "opacity-100"
-                                      }`}
-                                      style={{ borderColor: barColor }}
-                                    />
-                                  )}
-                                </button>
-                              ) : (
-                                <span
-                                  aria-hidden="true"
-                                  className="w-1.5 h-1.5 rounded-full bg-ink-muted/70 mb-1"
-                                />
-                              )}
+                              {/* Exact 4px vertical hover seam ending at the plot top boundary (never extends into bar hit targets) */}
+                              <span
+                                aria-hidden="true"
+                                className="absolute -bottom-1 inset-x-0 h-1"
+                              />
+                              {/* Downward caret pointing directly to the inspected bar */}
+                              <span
+                                aria-hidden="true"
+                                style={{ left: `${caretLeft}px` }}
+                                className="pointer-events-none absolute -bottom-[5px] -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-surface border-r border-b border-surface-border-strong/60"
+                              />
+                              <div className="flex items-center justify-between gap-1.5 text-[11px] font-semibold text-ink-muted leading-tight whitespace-nowrap">
+                                <span className="num-tabular text-ink-secondary">{activeRow.date}</span>
+                                <span>{formatShortWeekday(activeRow.date, lang)}</span>
+                              </div>
+                              <div
+                                className={`text-sm font-bold num-tabular leading-snug whitespace-nowrap ${
+                                  trendMetric === "revenue" ? "text-ink-primary" : "text-finance-cost"
+                                }`}
+                              >
+                                <MoneyValue sen={activeVal} />
+                              </div>
+                              <div className="flex items-baseline justify-between gap-1.5 text-[11px] text-ink-muted num-tabular leading-tight whitespace-nowrap">
+                                <span className="truncate">{trendMetric === "revenue" ? t.sheetCostCol : t.sheetRevCol}</span>
+                                <strong className="font-semibold text-ink-secondary shrink-0">
+                                  <MoneyValue
+                                    sen={trendMetric === "revenue" ? activeRow.costSen : activeRow.totalSen}
+                                  />
+                                </strong>
+                              </div>
                             </div>
                           );
-                        })}
+                        })()}
+
+                        {canScrollPlotLeft && (
+                          <div
+                            aria-hidden="true"
+                            className="pointer-events-none absolute inset-y-0 left-0 w-7 z-20 bg-gradient-to-r from-surface via-surface/75 to-transparent"
+                          />
+                        )}
+                        {canScrollPlotRight && (
+                          <div
+                            aria-hidden="true"
+                            className="pointer-events-none absolute inset-y-0 right-0 w-7 z-20 bg-gradient-to-l from-surface via-surface/75 to-transparent"
+                          />
+                        )}
+                        <div
+                          ref={chartScrollRef}
+                          onScroll={(e) => setPlotScrollLeft(e.currentTarget.scrollLeft)}
+                          className={`min-w-0 ${needsPlotScroll ? "overflow-x-auto pb-1 -mb-1" : ""}`}
+                        >
+                          <div
+                            className={needsPlotScroll ? "px-1" : undefined}
+                            style={
+                              needsPlotScroll
+                                ? { minWidth: `${plotTrackWidth}px` }
+                                : undefined
+                            }
+                          >
+                            <div
+                              ref={chartPlotRef}
+                              onBlur={(e) => {
+                                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                                  pinnedByKeyboardRef.current = false;
+                                  setFocusedDate(null);
+                                  setPinnedDate(null);
+                                }
+                              }}
+                              onClick={(e) => {
+                                if (e.target === e.currentTarget) {
+                                  pinnedByKeyboardRef.current = false;
+                                  setPinnedDate(null);
+                                  setFocusedDate(null);
+                                  setHoveredDate(null);
+                                }
+                              }}
+                              className="relative min-w-0 h-[188px] lg:h-[244px] flex items-end gap-0.5 sm:gap-1 border-b border-surface-border"
+                            >
+                              <div
+                                aria-hidden="true"
+                                className="pointer-events-none absolute inset-0 flex flex-col justify-between"
+                              >
+                                <div className="border-t border-dashed border-surface-border w-full" />
+                                <div className="border-t border-dashed border-surface-border w-full" />
+                                <div className="w-full" />
+                              </div>
+
+                              {calendarSlots.map((slot) => {
+                                const val = slot.row ? trendValueSen(slot.row, trendMetric) : 0;
+                                // Truthful zero rendering: val === 0 renders flat baseline pill, never a fake positive bar
+                                const heightPct =
+                                  slot.row && val > 0
+                                    ? Math.max(2, Math.round((val / axisMaxSen) * 1000) / 10)
+                                    : 0;
+                                const isSelected = activeRow?.date === slot.date;
+                                const hasAnySelection = activeRow !== null;
+                                const barColor =
+                                  trendMetric === "revenue"
+                                    ? "var(--chart-revenue)"
+                                    : "var(--chart-cost)";
+
+                                return (
+                                  <div
+                                    key={slot.date}
+                                    onPointerEnter={
+                                      slot.row === null
+                                        ? (e) => {
+                                            if (e.pointerType === "mouse") {
+                                              setHoveredDate(null);
+                                              suppressedHoverDateRef.current = null;
+                                            }
+                                          }
+                                        : undefined
+                                    }
+                                    className="relative z-10 flex-1 h-full flex flex-col justify-end items-center min-w-0"
+                                  >
+                                    {slot.row ? (
+                                      <button
+                                        type="button"
+                                        data-chart-day={slot.date}
+                                        tabIndex={slot.date === rovingDate ? 0 : -1}
+                                        aria-pressed={validPinnedDate === slot.date}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setRovingDateState(slot.date);
+                                          if (validPinnedDate === slot.date) {
+                                            pinnedByKeyboardRef.current = false;
+                                            setPinnedDate(null);
+                                            setFocusedDate(null);
+                                            setHoveredDate(null);
+                                            suppressedHoverDateRef.current = slot.date;
+                                          } else {
+                                            pinnedByKeyboardRef.current = e.detail === 0;
+                                            suppressedHoverDateRef.current = null;
+                                            setPinnedDate(slot.date);
+                                          }
+                                        }}
+                                        onPointerEnter={(e) => {
+                                          if (
+                                            e.pointerType === "mouse" &&
+                                            suppressedHoverDateRef.current !== slot.date
+                                          ) {
+                                            setHoveredDate(slot.date);
+                                          }
+                                        }}
+                                        onPointerLeave={(e) => {
+                                          if (
+                                            e.pointerType === "mouse" &&
+                                            suppressedHoverDateRef.current === slot.date
+                                          ) {
+                                            suppressedHoverDateRef.current = null;
+                                          }
+                                        }}
+                                        onFocus={(e) => {
+                                          setRovingDateState(slot.date);
+                                          if (e.currentTarget.matches(":focus-visible")) {
+                                            setFocusedDate(slot.date);
+                                          }
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Escape") {
+                                            e.preventDefault();
+                                            pinnedByKeyboardRef.current = false;
+                                            setPinnedDate(null);
+                                            setFocusedDate(null);
+                                            setHoveredDate(null);
+                                            return;
+                                          }
+                                          const currentIdx = trend.findIndex((r) => r.date === slot.date);
+                                          if (currentIdx === -1) return;
+                                          let nextIdx = -1;
+                                          if (e.key === "ArrowLeft") nextIdx = Math.max(0, currentIdx - 1);
+                                          else if (e.key === "ArrowRight") nextIdx = Math.min(trend.length - 1, currentIdx + 1);
+                                          else if (e.key === "Home") nextIdx = 0;
+                                          else if (e.key === "End") nextIdx = trend.length - 1;
+                                          if (nextIdx === -1 || nextIdx === currentIdx) return;
+                                          e.preventDefault();
+                                          const nextDate = trend[nextIdx].date;
+                                          pinnedByKeyboardRef.current = false;
+                                          setRovingDateState(nextDate);
+                                          setFocusedDate(nextDate);
+                                          setPinnedDate(null);
+                                          requestAnimationFrame(() => {
+                                            const nextBtn = document.querySelector<HTMLButtonElement>(
+                                              `button[data-chart-day="${nextDate}"]`
+                                            );
+                                            nextBtn?.focus();
+                                            nextBtn?.scrollIntoView({ block: "nearest", inline: "nearest" });
+                                          });
+                                        }}
+                                        aria-label={`${slot.date}: ${formatDisplayMyr(val)}`}
+                                        aria-describedby="chart-kbd-hint"
+                                        className="group w-full h-full flex items-end justify-center px-[1px] sm:px-0.5 focus:outline-none rounded-t cursor-pointer"
+                                      >
+                                        {val > 0 ? (
+                                          <span
+                                            className={`w-full max-w-[30px] rounded-t-md sm:rounded-t-lg transition-all duration-150 group-focus-visible:opacity-100 group-focus-visible:ring-2 group-focus-visible:ring-brand-broccoli group-focus-visible:ring-offset-1 group-focus-visible:ring-offset-surface ${
+                                              isSelected
+                                                ? focusedDate === slot.date
+                                                  ? "opacity-100 shadow-sm"
+                                                  : "opacity-100 ring-2 ring-ink-primary/85 dark:ring-ink-primary/90 ring-offset-1 ring-offset-surface shadow-sm"
+                                                : hasAnySelection
+                                                  ? "opacity-80 group-hover:opacity-100"
+                                                  : "opacity-90 group-hover:opacity-100"
+                                            }`}
+                                            style={{
+                                              height: `${heightPct}%`,
+                                              backgroundColor: barColor,
+                                            }}
+                                          />
+                                        ) : (
+                                          <span
+                                            className={`w-full max-w-[22px] h-[6px] rounded-full mb-[1px] border-[1.5px] bg-surface transition-all duration-150 group-focus-visible:ring-2 group-focus-visible:ring-brand-broccoli group-focus-visible:ring-offset-1 group-focus-visible:ring-offset-surface ${
+                                              isSelected && focusedDate !== slot.date
+                                                ? "opacity-100 ring-2 ring-ink-primary/85 dark:ring-ink-primary/90 ring-offset-1 ring-offset-surface"
+                                                : "opacity-100"
+                                            }`}
+                                            style={{ borderColor: barColor }}
+                                          />
+                                        )}
+                                      </button>
+                                    ) : (
+                                      <span
+                                        aria-hidden="true"
+                                        className="w-1.5 h-1.5 rounded-full bg-ink-muted/70 mb-1"
+                                      />
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Calendar Day Tick Labels: Always include start & end bounds, skipping adjacent ticks within 2 slots of end */}
+                            <div className="flex items-center gap-0.5 sm:gap-1 pt-2 h-6 min-w-0">
+                              {calendarSlots.map((slot, idx) => {
+                                const lastIdx = calendarSlots.length - 1;
+                                const step = needsPlotScroll
+                                  ? 3
+                                  : Math.max(1, Math.ceil(calendarSlots.length / 6));
+                                const showTick = isSparseTrend
+                                  ? slot.row !== null || idx === 0 || idx === lastIdx
+                                  : idx === 0 ||
+                                    idx === lastIdx ||
+                                    (idx <= lastIdx - 3 && idx % step === 0);
+                                const isSelected = activeRow?.date === slot.date;
+                                return (
+                                  <span
+                                    key={`lbl-${slot.date}`}
+                                    className={`flex-1 text-center text-[11px] num-tabular leading-none ${
+                                      isSelected
+                                        ? "font-bold text-ink-primary"
+                                        : "text-ink-muted"
+                                    }`}
+                                  >
+                                    {showTick ? slot.date.slice(8, 10) : ""}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
-                      {/* Calendar Day Tick Labels: Prioritize recorded bars when sparse so Peak Day is always labeled */}
-                      <div className="col-start-2 flex items-center gap-0.5 sm:gap-1 pt-2 h-6 min-w-0">
-                        {calendarSlots.map((slot, idx) => {
-                          const showTick = isSparseTrend
-                            ? slot.row !== null
-                            : idx === 0 ||
-                              idx === calendarSlots.length - 1 ||
-                              idx % Math.ceil(calendarSlots.length / 6) === 0;
-                          const isSelected = inspectedRow?.date === slot.date;
-                          return (
+                      {/* Persistent horizontal scroll controls when dense months scroll on phones/touch tablets (44px touch targets, rounded-xl button shape, aria-disabled keeps focus ring at boundaries) */}
+                      {needsPlotScroll && (
+                        <div className="col-start-2 flex items-center justify-between gap-2 pt-1">
+                          <button
+                            type="button"
+                            aria-disabled={!canScrollPlotLeft}
+                            onClick={() => {
+                              if (canScrollPlotLeft) scrollChartBy(-1);
+                            }}
+                            className={`group inline-flex items-center min-h-[44px] -my-1 focus:outline-none ${
+                              canScrollPlotLeft ? "cursor-pointer" : "opacity-35 cursor-not-allowed"
+                            }`}
+                          >
                             <span
-                              key={`lbl-${slot.date}`}
-                              className={`flex-1 text-center text-[11px] num-tabular leading-none ${
-                                isSelected
-                                  ? "font-bold text-ink-primary"
-                                  : "text-ink-muted"
+                              className={`inline-flex items-center gap-1 h-9 px-3 rounded-xl bg-surface-subtle group-focus-visible:ring-2 group-focus-visible:ring-brand-broccoli border border-surface-border shadow-control text-xs font-semibold text-ink-secondary transition-colors ${
+                                canScrollPlotLeft ? "group-hover:bg-surface-hover" : ""
                               }`}
                             >
-                              {showTick ? slot.date.slice(8, 10) : ""}
+                              <span aria-hidden="true">←</span>
+                              <span>{t.chartEarlierDays}</span>
                             </span>
-                          );
-                        })}
-                      </div>
+                          </button>
+                          <button
+                            type="button"
+                            aria-disabled={!canScrollPlotRight}
+                            onClick={() => {
+                              if (canScrollPlotRight) scrollChartBy(1);
+                            }}
+                            className={`group inline-flex items-center min-h-[44px] -my-1 focus:outline-none ${
+                              canScrollPlotRight ? "cursor-pointer" : "opacity-35 cursor-not-allowed"
+                            }`}
+                          >
+                            <span
+                              className={`inline-flex items-center gap-1 h-9 px-3 rounded-xl bg-surface-subtle group-focus-visible:ring-2 group-focus-visible:ring-brand-broccoli border border-surface-border shadow-control text-xs font-semibold text-ink-secondary transition-colors ${
+                                canScrollPlotRight ? "group-hover:bg-surface-hover" : ""
+                              }`}
+                            >
+                              <span>{t.chartLaterDays}</span>
+                              <span aria-hidden="true">→</span>
+                            </span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Discoverable keyboard hint (always available to SR via aria-describedby, visible when keyboard-focusing chart bars) */}
+                      <p
+                        id="chart-kbd-hint"
+                        className={
+                          focusedDate !== null
+                            ? "col-start-2 pt-1.5 text-[11px] text-ink-muted text-right"
+                            : "sr-only"
+                        }
+                      >
+                        {t.chartKeyboardHint}
+                      </p>
 
                       {/* Micro-key explaining recorded zero marker vs unrecorded gap dots when present */}
                       {(metricValues.some((v) => v === 0) || calendarSlots.some((s) => s.row === null)) && (
@@ -1030,6 +1358,25 @@ export function DashboardView({
                             </span>
                           )}
                         </div>
+                      )}
+                    </div>
+
+                    {/* Reference Summary Footer (Logged-day avg & Peak day stay 100% readable below the plot while inspecting any bar) */}
+                    <div className="pt-2.5 border-t border-surface-border/70 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-ink-muted num-tabular">
+                      <span>
+                        {t.dailyAverage}{lang === "zh" ? "：" : ": "}
+                        <strong className="text-ink-primary font-semibold">
+                          <MoneyValue sen={dailyAvgSen} />
+                        </strong>
+                      </span>
+                      {peakRow && (
+                        <span>
+                          {t.peakDay}{lang === "zh" ? "：" : ": "}
+                          <strong className="text-ink-primary font-semibold">
+                            {peakRow.date.slice(5)} ·{" "}
+                            <MoneyValue sen={trendValueSen(peakRow, trendMetric)} />
+                          </strong>
+                        </span>
                       )}
                     </div>
                   </div>
@@ -1242,12 +1589,15 @@ export function DashboardView({
 
                           {/* Desktop Columns */}
                           <div className="hidden sm:block sm:col-span-3 text-right text-sm font-semibold text-ink-primary">
+                            <span className="sr-only">{t.sheetRevCol}: </span>
                             <MoneyValue sen={row.totalSen} />
                           </div>
                           <div className="hidden sm:block sm:col-span-2 text-right text-sm font-medium text-ink-secondary">
+                            <span className="sr-only">{t.sheetCostCol}: </span>
                             <MoneyValue sen={row.costSen} />
                           </div>
                           <div className="hidden sm:flex sm:col-span-3 items-center justify-end gap-2">
+                            <span className="sr-only">{t.sheetProfitCol}: </span>
                             <MoneyValue
                               sen={grossSen}
                               className={`text-sm font-bold ${
@@ -1263,6 +1613,7 @@ export function DashboardView({
                           <div className="sm:hidden flex items-center justify-end gap-2">
                             <div className="text-right">
                               <div className="text-sm font-bold text-ink-primary">
+                                <span className="sr-only">{t.sheetRevCol}: </span>
                                 <MoneyValue sen={row.totalSen} />
                               </div>
                               <div className="text-xs text-ink-muted">

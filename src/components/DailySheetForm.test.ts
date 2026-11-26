@@ -108,9 +108,9 @@ describe("DailySheetForm parse error handling and tryParseSen helper", () => {
     expect(html).toContain("日常开销");
     expect(html).not.toContain("日常开销明细");
 
-    // P2: 开销总额 without 今日
-    expect(html).toContain("开销总额");
+    // P2: Unified 日常开销 without 今日开销总额 / 开销总额
     expect(html).not.toContain("今日开销总额");
+    expect(html).not.toContain("开销总额");
 
     // P3: 开销类别 instead of 支出类别
     expect(html).toContain("开销类别");
@@ -286,8 +286,8 @@ describe("mergeCostLines, getCostLineKey, and deletion logic", () => {
     // The merged line amount RM 50.00 is rendered
     expect(html).toContain("RM 50.00");
 
-    // Exactly one delete button is rendered for the single merged row
-    const deleteButtonMatches = html.match(new RegExp(`aria-label="${t.delete}"`, "g")) || [];
+    // Exactly one delete button is rendered for the single merged row (with category + amount + note accessible name)
+    const deleteButtonMatches = html.match(new RegExp(`aria-label="${t.delete} ${t.catRestock} RM 50\\.00 \\(Rice\\)"`, "g")) || [];
     expect(deleteButtonMatches).toHaveLength(1);
   });
 
@@ -1297,11 +1297,27 @@ describe("shared merge rule in the form (Phase 7)", () => {
     expect(closed.expandedIndex).toBeNull();
   });
 
+  it("preserves and reopens a partially entered zero-amount row instead of discarding its category or note", () => {
+    const lines: CostLineItem[] = [
+      { clientId: "c-1", category: "restock", amountSen: 2000, amountInput: "20", note: "Rice" },
+      { clientId: "c-partial", category: "gas", amountSen: 0, amountInput: "", note: "Petronas refill" },
+    ];
+
+    const result = createNewCostLine(lines);
+
+    expect(result.lines).toHaveLength(2);
+    expect(result.lines[1].clientId).toBe("c-partial");
+    expect(result.lines[1].category).toBe("gas");
+    expect(result.lines[1].note).toBe("Petronas refill");
+    expect(result.expandedIndex).toBe(1);
+    expect(result.reopenedPartial).toBe(true);
+  });
+
   it("add on an overflowing draft appends a fresh row without merging or clamping", () => {
     const draft: CostLineItem[] = [
       { clientId: "a", category: "gas", amountSen: MAX },
       { clientId: "b", category: "gas", amountSen: 5 },
-      { clientId: "z", category: "gas", amountSen: 0 },
+      { clientId: "z", category: "restock", amountSen: 0 },
     ];
     const result = createNewCostLine(draft, () => ({ clientId: "new", category: "restock", amountSen: 0 }));
     expect(result.lines.map((l) => l.clientId)).toEqual(["a", "b", "new"]);
@@ -1380,7 +1396,8 @@ describe("Delete Daily Sheet button and sticky summary bar", () => {
     for (const savedSheet of [null, SAVED]) {
       const html = render({ savedSheet });
       expect(html).toContain('data-testid="floating-save-card"');
-      expect(html).toContain("sticky bottom-[var(--mobile-nav-height)]");
+      expect(html).toContain("sticky bottom-[calc(var(--mobile-nav-height)+0.375rem)]");
+      expect(html).toContain("pointer-events-none lg:pointer-events-auto");
       expect(html).toContain("lg:top-8 lg:bottom-auto");
       expect(html).toContain("backdrop-blur-md");
     }

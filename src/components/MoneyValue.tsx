@@ -70,11 +70,11 @@ export function MoneyValue({
   if (variant === "hero") {
     return (
       <span className={`inline-flex items-baseline num-tabular whitespace-nowrap ${className}`}>
-        <span className="text-[0.52em] font-semibold tracking-normal opacity-85 mr-1.5">
+        <span className="text-[0.52em] font-semibold tracking-normal mr-1.5">
           {prefixSign ? `${prefixSign}RM` : "RM"}
         </span>
         <span>{parts.whole}</span>
-        <span className="text-[0.66em] font-semibold opacity-80">.{parts.cents}</span>
+        <span className="text-[0.66em] font-semibold">.{parts.cents}</span>
       </span>
     );
   }
@@ -82,11 +82,11 @@ export function MoneyValue({
   if (variant === "metric") {
     return (
       <span className={`inline-flex items-baseline num-tabular whitespace-nowrap ${className}`}>
-        <span className="text-[0.68em] font-semibold opacity-85 mr-1">
+        <span className="text-[0.68em] font-semibold mr-1">
           {prefixSign ? `${prefixSign}RM` : "RM"}
         </span>
         <span>{parts.whole}</span>
-        <span className="text-[0.76em] opacity-80">.{parts.cents}</span>
+        <span className="text-[0.76em]">.{parts.cents}</span>
       </span>
     );
   }

@@ -22,12 +22,12 @@
     --ink-muted: 102 100 92;              /* #66645c — >= 5.5:1 on #fff */
 
     /* Brand accent — Broccoli Forest Green (text/icons) */
-    --brand-broccoli: 21 128 61;          /* #15803d — 5.13:1 on #fff */
+    --brand-broccoli: 21 128 61;          /* #15803d — 5.02:1 on #fff, 4.59:1 on #ecf8f0 */
     --brand-broccoli-dark: 22 101 52;     /* #166534 */
-    --brand-broccoli-light: 232 245 237;  /* #e8f5ed */
+    --brand-broccoli-light: 236 248 240;  /* #ecf8f0 */
 
     /* Solid CTA surfaces (WCAG AA guaranteed in both Light & Dark modes) */
-    --brand-cta: 21 128 61;               /* #15803d + #fff = 5.13:1 */
+    --brand-cta: 21 128 61;               /* #15803d + #fff = 5.02:1 */
     --brand-cta-hover: 22 101 52;         /* #166534 */
     --brand-cta-ink: 255 255 255;         /* #ffffff */
     --danger-cta: 185 28 28;              /* #b91c1c + #fff = 6.47:1 */
@@ -131,12 +131,12 @@
     --brand-broccoli-dark: 34 197 94;     /* #22c55e */
     --brand-broccoli-light: 20 46 31;     /* #142e1f */
 
-    /* Solid CTA surfaces in Dark Mode — rich forest green + crisp white (>= 5.1:1) */
-    --brand-cta: 21 128 61;               /* #15803d + #fff = 5.13:1 */
-    --brand-cta-hover: 22 150 70;         /* #169646 */
+    /* Solid CTA surfaces in Dark Mode — rich forest green + crisp white (>= 5.0:1 resting & hover) */
+    --brand-cta: 21 128 61;               /* #15803d + #fff = 5.02:1 */
+    --brand-cta-hover: 18 106 51;         /* #126a33 + #fff = 6.70:1 */
     --brand-cta-ink: 255 255 255;         /* #ffffff */
     --danger-cta: 185 28 28;              /* #b91c1c + #fff = 6.47:1 */
-    --danger-cta-hover: 210 38 38;        /* #d22626 */
+    --danger-cta-hover: 153 27 27;        /* #991b1b + #fff = 8.31:1 */
     --danger-cta-ink: 255 255 255;        /* #ffffff */
 
     /* Semantic money channels */
@@ -216,6 +216,14 @@
     font-weight: 500;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Reserve fixed mobile header and bottom navigation (--mobile-nav-height already includes safe-area inset) so keyboard focus never scrolls under fixed chrome */
+  @media (max-width: 1023px) {
+    html {
+      scroll-padding-top: 3.75rem;
+      scroll-padding-bottom: calc(var(--mobile-nav-height) + 1.5rem);
+    }
   }
 
   input,

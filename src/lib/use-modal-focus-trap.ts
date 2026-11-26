@@ -20,6 +20,86 @@ const FOCUSABLE_SELECTOR =
 const openModalStack: HTMLElement[] = [];
 const inertRefCounts = new WeakMap<HTMLElement, number>();
 
+let scrollLockCount = 0;
+let savedScrollState: {
+  scrollX: number;
+  scrollY: number;
+  htmlOverflow: string;
+  htmlOverscrollBehavior: string;
+  bodyOverflow: string;
+  bodyPosition: string;
+  bodyTop: string;
+  bodyLeft: string;
+  bodyRight: string;
+  bodyWidth: string;
+  bodyPaddingRight: string;
+} | null = null;
+
+/**
+ * Reference-counted document scroll lock for open modal dialogs & pickers.
+ * Prevents wheel and touch-swipe scrolling of the background page while
+ * preserving internal scrolling inside modal content and restoring exact
+ * window scroll coordinates when the last modal closes.
+ */
+export function acquireDocumentScrollLock(): () => void {
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    return () => {};
+  }
+  const html = document.documentElement;
+  const body = document.body;
+  if (scrollLockCount === 0) {
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    const scrollbarWidth = Math.max(0, window.innerWidth - html.clientWidth);
+    savedScrollState = {
+      scrollX,
+      scrollY,
+      htmlOverflow: html.style.overflow,
+      htmlOverscrollBehavior: html.style.overscrollBehavior,
+      bodyOverflow: body.style.overflow,
+      bodyPosition: body.style.position,
+      bodyTop: body.style.top,
+      bodyLeft: body.style.left,
+      bodyRight: body.style.right,
+      bodyWidth: body.style.width,
+      bodyPaddingRight: body.style.paddingRight,
+    };
+    html.style.overflow = "hidden";
+    html.style.overscrollBehavior = "none";
+    body.style.overflow = "hidden";
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = `-${scrollX}px`;
+    body.style.right = "0";
+    body.style.width = "100%";
+    if (scrollbarWidth > 0) {
+      body.style.paddingRight = `${scrollbarWidth}px`;
+    }
+  }
+  scrollLockCount += 1;
+
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    scrollLockCount = Math.max(0, scrollLockCount - 1);
+    if (scrollLockCount === 0 && savedScrollState) {
+      const prev = savedScrollState;
+      savedScrollState = null;
+      html.style.overflow = prev.htmlOverflow;
+      html.style.overscrollBehavior = prev.htmlOverscrollBehavior;
+      body.style.overflow = prev.bodyOverflow;
+      body.style.position = prev.bodyPosition;
+      body.style.top = prev.bodyTop;
+      body.style.left = prev.bodyLeft;
+      body.style.right = prev.bodyRight;
+      body.style.width = prev.bodyWidth;
+      body.style.paddingRight = prev.bodyPaddingRight;
+      window.scrollTo(prev.scrollX, prev.scrollY);
+    }
+  };
+}
+
 function isElementVisible(el: HTMLElement): boolean {
   if (el.closest("[inert]") || el.hasAttribute("hidden")) return false;
   if (typeof window !== "undefined") {
@@ -65,6 +145,7 @@ export function useModalFocusTrap({
     if (!modal) return;
 
     openModalStack.push(modal);
+    const releaseScrollLock = acquireDocumentScrollLock();
 
     const invoker =
       returnFocusTo ??
@@ -77,7 +158,11 @@ export function useModalFocusTrap({
       node = node.parentElement
     ) {
       for (const sibling of Array.from(node.parentElement?.children ?? [])) {
-        if (sibling !== node && sibling instanceof HTMLElement) {
+        if (
+          sibling !== node &&
+          sibling instanceof HTMLElement &&
+          !sibling.hasAttribute("data-inert-exempt")
+        ) {
           const prevCount = inertRefCounts.get(sibling) ?? 0;
           if (prevCount > 0 || !sibling.inert) {
             sibling.inert = true;
@@ -140,6 +225,7 @@ export function useModalFocusTrap({
     const readFallbackTarget = () => fallbackFocusRef?.current ?? null;
     document.addEventListener("keydown", handleKeyDown);
     return () => {
+      releaseScrollLock();
       const stackIdx = openModalStack.lastIndexOf(modal);
       if (stackIdx !== -1) openModalStack.splice(stackIdx, 1);
       document.removeEventListener("keydown", handleKeyDown);
@@ -161,14 +247,14 @@ export function useModalFocusTrap({
           !invoker.hasAttribute("disabled") &&
           isElementVisible(invoker);
         if (canFocusInvoker) {
-          invoker.focus();
+          invoker.focus({ preventScroll: true });
         } else if (
           fallbackTarget &&
           document.contains(fallbackTarget) &&
           !fallbackTarget.hasAttribute("disabled") &&
           isElementVisible(fallbackTarget)
         ) {
-          fallbackTarget.focus();
+          fallbackTarget.focus({ preventScroll: true });
         }
       }
     };

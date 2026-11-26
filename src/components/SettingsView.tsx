@@ -16,12 +16,14 @@ export function SettingsView({ initialRole = null }: SettingsViewProps) {
   const { theme, setTheme } = useTheme();
   const [role, setRole] = useState<UserRole | null>(initialRole);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const signOutBtnRef = useRef<HTMLButtonElement>(null);
   const signOutModalRef = useRef<HTMLDivElement>(null);
 
   useModalFocusTrap({
     isOpen: showSignOutModal,
     containerRef: signOutModalRef,
     onClose: () => setShowSignOutModal(false),
+    returnFocusTo: signOutBtnRef.current,
   });
 
   useEffect(() => {
@@ -87,21 +89,18 @@ export function SettingsView({ initialRole = null }: SettingsViewProps) {
     label: string;
     desc: string;
     badge: string;
-    ariaLabel: string;
   }> = [
     {
       value: "zh",
       label: t.langZh,
       desc: t.langZhDesc,
       badge: "中文",
-      ariaLabel: "切换到中文 (Switch to Chinese)",
     },
     {
       value: "en",
       label: t.langEn,
       desc: t.langEnDesc,
       badge: "EN",
-      ariaLabel: "Switch to English",
     },
   ];
 
@@ -122,17 +121,21 @@ export function SettingsView({ initialRole = null }: SettingsViewProps) {
         {/* Left 7 Cols: Appearance & Language Preferences */}
         <div className="lg:col-span-7 space-y-5">
           {/* Appearance Section */}
-          <fieldset className="bg-surface border border-surface-border rounded-2xl p-5 sm:p-6 shadow-card space-y-4">
+          <section className="bg-surface border border-surface-border rounded-2xl p-5 sm:p-6 shadow-card space-y-4">
             <div>
-              <legend className="text-base font-bold text-ink-primary">
+              <h2 id="settings-appearance-heading" className="text-base font-bold text-ink-primary">
                 {t.appearanceTitle}
-              </legend>
+              </h2>
               <p className="text-[13px] text-ink-muted mt-0.5">
                 {t.appearanceDesc}
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div
+              role="radiogroup"
+              aria-labelledby="settings-appearance-heading"
+              className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+            >
               {themeOptions.map((opt) => {
                 const active = theme === opt.value;
                 return (
@@ -149,6 +152,8 @@ export function SettingsView({ initialRole = null }: SettingsViewProps) {
                       name="bokli-theme"
                       value={opt.value}
                       checked={active}
+                      aria-labelledby={`settings-theme-title-${opt.value}`}
+                      aria-describedby={`settings-theme-desc-${opt.value}`}
                       onChange={() => setTheme(opt.value)}
                       className="sr-only"
                     />
@@ -181,14 +186,20 @@ export function SettingsView({ initialRole = null }: SettingsViewProps) {
                     {/* Label & Active Check */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-start gap-2.5 min-w-0">
-                        <span className={`mt-0.5 shrink-0 ${active ? "text-brand-broccoli" : "text-ink-muted"}`}>
+                        <span aria-hidden="true" className={`mt-0.5 shrink-0 ${active ? "text-brand-broccoli" : "text-ink-muted"}`}>
                           {opt.icon}
                         </span>
                         <div className="min-w-0">
-                          <div className={`text-sm font-semibold ${active ? "text-brand-broccoli" : "text-ink-primary"}`}>
+                          <div
+                            id={`settings-theme-title-${opt.value}`}
+                            className={`text-sm font-semibold ${active ? "text-brand-broccoli" : "text-ink-primary"}`}
+                          >
                             {opt.label}
                           </div>
-                          <div className="text-xs text-ink-muted mt-0.5 leading-snug">
+                          <div
+                            id={`settings-theme-desc-${opt.value}`}
+                            className="text-xs text-ink-muted mt-0.5 leading-snug"
+                          >
                             {opt.desc}
                           </div>
                         </div>
@@ -212,20 +223,24 @@ export function SettingsView({ initialRole = null }: SettingsViewProps) {
                 );
               })}
             </div>
-          </fieldset>
+          </section>
 
           {/* Language Section */}
-          <fieldset className="bg-surface border border-surface-border rounded-2xl p-5 sm:p-6 shadow-card space-y-4">
+          <section className="bg-surface border border-surface-border rounded-2xl p-5 sm:p-6 shadow-card space-y-4">
             <div>
-              <legend className="text-base font-bold text-ink-primary">
+              <h2 id="settings-language-heading" className="text-base font-bold text-ink-primary">
                 {t.languageTitle}
-              </legend>
+              </h2>
               <p className="text-[13px] text-ink-muted mt-0.5">
                 {t.languageDesc}
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div
+              role="radiogroup"
+              aria-labelledby="settings-language-heading"
+              className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+            >
               {languageOptions.map((opt) => {
                 const active = lang === opt.value;
                 return (
@@ -242,12 +257,14 @@ export function SettingsView({ initialRole = null }: SettingsViewProps) {
                       name="bokli-language"
                       value={opt.value}
                       checked={active}
+                      aria-labelledby={`settings-lang-title-${opt.value}`}
+                      aria-describedby={`settings-lang-desc-${opt.value}`}
                       onChange={() => setLang(opt.value)}
-                      aria-label={opt.ariaLabel}
                       className="sr-only"
                     />
                     <div className="flex items-center gap-3 min-w-0">
                       <span
+                        aria-hidden="true"
                         className={`w-10 h-10 rounded-lg text-xs font-bold flex items-center justify-center shrink-0 border ${
                           active
                             ? "bg-brand-cta text-brand-cta-ink border-brand-cta"
@@ -257,10 +274,16 @@ export function SettingsView({ initialRole = null }: SettingsViewProps) {
                         {opt.badge}
                       </span>
                       <div className="min-w-0">
-                        <div className={`text-sm font-semibold ${active ? "text-brand-broccoli" : "text-ink-primary"}`}>
+                        <div
+                          id={`settings-lang-title-${opt.value}`}
+                          className={`text-sm font-semibold ${active ? "text-brand-broccoli" : "text-ink-primary"}`}
+                        >
                           {opt.label}
                         </div>
-                        <div className="text-xs text-ink-muted mt-0.5">
+                        <div
+                          id={`settings-lang-desc-${opt.value}`}
+                          className="text-xs text-ink-muted mt-0.5"
+                        >
                           {opt.desc}
                         </div>
                       </div>
@@ -284,7 +307,7 @@ export function SettingsView({ initialRole = null }: SettingsViewProps) {
                 );
               })}
             </div>
-          </fieldset>
+          </section>
         </div>
 
         {/* Right 5 Cols: Account & Ledger Context */}
@@ -314,6 +337,7 @@ export function SettingsView({ initialRole = null }: SettingsViewProps) {
                 {t.signOutDesc}
               </p>
               <button
+                ref={signOutBtnRef}
                 type="button"
                 onClick={() => setShowSignOutModal(true)}
                 className="w-full min-h-[48px] px-4 rounded-xl bg-danger-cta hover:bg-danger-cta-hover text-danger-cta-ink font-semibold text-sm btn-tactile shadow-card flex items-center justify-center gap-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 focus-visible:ring-offset-1 cursor-pointer"
@@ -361,12 +385,13 @@ export function SettingsView({ initialRole = null }: SettingsViewProps) {
           role="dialog"
           aria-modal="true"
           aria-labelledby="settings-signout-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm animate-slide-down"
+          aria-describedby="settings-signout-desc"
+          className="fixed inset-0 !mt-0 z-50 flex items-center justify-center p-4 bg-black/45 backdrop-blur-sm animate-slide-down"
           onClick={(e) => {
             if (e.target === e.currentTarget) setShowSignOutModal(false);
           }}
         >
-          <div className="w-full max-w-xs sm:max-w-sm bg-surface rounded-2xl p-6 shadow-popover border border-surface-border space-y-5">
+          <div className="w-full max-w-xs sm:max-w-sm max-h-[calc(100dvh-2rem)] overflow-y-auto bg-surface rounded-2xl p-6 shadow-popover border border-surface-border space-y-5">
             <div className="flex items-center gap-3.5">
               <div className="w-11 h-11 rounded-xl bg-finance-loss-light border border-finance-loss-border text-finance-loss flex items-center justify-center shrink-0 select-none">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
@@ -377,24 +402,24 @@ export function SettingsView({ initialRole = null }: SettingsViewProps) {
                 <h3 id="settings-signout-title" className="text-base font-bold text-ink-primary">
                   {t.confirmSignOutTitle}
                 </h3>
-                <p className="text-[13px] text-ink-muted mt-0.5">
+                <p id="settings-signout-desc" className="text-[13px] text-ink-muted mt-0.5">
                   {t.signOutDesc}
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 pt-1">
+            <div className="flex items-stretch gap-2.5 pt-1">
               <button
                 type="button"
                 onClick={() => setShowSignOutModal(false)}
-                className="flex-1 min-h-[48px] rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl border border-surface-border hover:bg-surface-subtle btn-tactile text-ink-secondary font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
               >
                 {t.cancel}
               </button>
               <button
                 type="button"
                 onClick={() => window.location.assign("/cdn-cgi/access/logout")}
-                className="flex-1 min-h-[48px] rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
               >
                 <span>{t.confirmSignOutBtn}</span>
               </button>

@@ -8,7 +8,7 @@ interface CloudPageProps<P> {
   /** The one query parameter the page reads (?date= or ?month=). */
   param: "date" | "month";
   load: (query: string) => Promise<P>;
-  render: (props: P, reload: () => void) => React.ReactNode;
+  render: (props: P, reload: () => Promise<boolean>) => React.ReactNode;
   /** Shown while loading; shape it like the loaded page so nothing jumps. */
   skeleton?: React.ReactNode;
 }
@@ -31,22 +31,35 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
   const latest = useRef(0);
 
   // A reload keeps the current screen (and its drafts) until the new data lands.
-  const reload = useCallback(() => {
+  const reload = useCallback((): Promise<boolean> => {
     const call = ++latest.current;
-    load(query).then(
-      (props) => call === latest.current && setState({ query, props }),
+    return load(query).then(
+      (props) => {
+        if (call === latest.current) setState({ query, props });
+        return call === latest.current;
+      },
       (err) => {
         console.error("Failed to load page data:", err);
         if (call === latest.current) setState((prev) => (prev?.query === query && prev.props ? { ...prev, stale: true } : { query }));
+        return false;
       },
     );
   }, [load, query]);
-  useEffect(reload, [reload]);
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   if (state?.query !== query) return skeleton;
   const error = (
-    <div role="alert" className="mb-3 p-4 rounded-xl bg-finance-loss-light border border-finance-loss-border text-finance-loss text-sm font-semibold">
-      {t.loadError}
+    <div role="alert" className="mb-3 p-4 rounded-xl bg-finance-loss-light border border-finance-loss-border text-finance-loss text-sm font-semibold flex items-center justify-between gap-3">
+      <span>{t.loadError}</span>
+      <button
+        type="button"
+        onClick={() => void reload()}
+        className="shrink-0 min-h-[40px] px-3.5 rounded-lg border border-finance-loss-border bg-surface hover:bg-surface-subtle text-finance-loss font-semibold text-xs btn-tactile cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60"
+      >
+        {t.retry}
+      </button>
     </div>
   );
   if (!state.props) return error;

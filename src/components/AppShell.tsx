@@ -25,11 +25,12 @@ export function AppShell({ children, userRole }: AppShellProps) {
     userRole === "Admin" || userRole === "Operator" ? userRole : null,
   );
 
-  // Remember the last non-Settings page so clicking the Settings button again closes Settings and returns there
+  // Remember the last non-Settings page (including query params and hash fragments) so clicking the Settings button again closes Settings and returns there
   useEffect(() => {
     if (pathname.startsWith("/settings")) return;
     const search = typeof window !== "undefined" ? window.location.search : "";
-    const href = `${pathname}${search}`;
+    const hash = typeof window !== "undefined" ? window.location.hash : "";
+    const href = `${pathname}${search}${hash}`;
     lastNonSettingsHrefRef.current = href;
     try {
       sessionStorage.setItem("bokli_prev_route", href);
@@ -56,9 +57,10 @@ export function AppShell({ children, userRole }: AppShellProps) {
       router.push(returnHref && !returnHref.startsWith("/settings") ? returnHref : "/");
       return;
     }
-    // Capture the exact current URL (including ?date= or ?month= query changes on the same pathname) right before leaving
+    // Capture the exact current URL (including ?date=/?month= query changes and #hash fragments) right before leaving
     const currentSearch = typeof window !== "undefined" ? window.location.search : "";
-    const currentHref = `${pathname}${currentSearch}`;
+    const currentHash = typeof window !== "undefined" ? window.location.hash : "";
+    const currentHref = `${pathname}${currentSearch}${currentHash}`;
     lastNonSettingsHrefRef.current = currentHref;
     try {
       sessionStorage.setItem("bokli_prev_route", currentHref);
@@ -118,6 +120,7 @@ export function AppShell({ children, userRole }: AppShellProps) {
     {
       href: "/expenses",
       label: t.navExpenses,
+      sidebarLabel: t.expensesTitle,
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" />
@@ -155,6 +158,13 @@ export function AppShell({ children, userRole }: AppShellProps) {
 
   return (
     <div className="min-h-screen bg-surface-canvas text-ink-primary flex flex-col lg:flex-row">
+      {/* Keyboard Skip Link */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:px-4 focus:py-2.5 focus:rounded-xl focus:bg-brand-cta focus:text-brand-cta-ink focus:text-sm focus:font-semibold focus:shadow-popover focus:outline-none focus:ring-2 focus:ring-surface"
+      >
+        {t.skipToMain}
+      </a>
       {/* Desktop Left Sidebar Navigation (Full-height architectural rail with sticky nav) */}
       <aside
         aria-label={t.navSidebarLabel}
@@ -206,7 +216,7 @@ export function AppShell({ children, userRole }: AppShellProps) {
                 <span className={active ? "text-brand-broccoli" : "text-ink-muted group-hover:text-ink-primary transition-colors"}>
                   {item.icon}
                 </span>
-                <span className="truncate">{item.label}</span>
+                <span className="truncate">{"sidebarLabel" in item ? item.sidebarLabel : item.label}</span>
               </Link>
             );
           })}
@@ -218,6 +228,7 @@ export function AppShell({ children, userRole }: AppShellProps) {
             href="/settings"
             onClick={handleSettingsToggleClick}
             aria-current={isNavActive("/settings") ? "page" : undefined}
+            aria-label={isNavActive("/settings") ? t.closeSettings : t.navSettings}
             title={isNavActive("/settings") ? t.closeSettings : t.navSettings}
             className={`group flex items-center justify-between gap-2.5 px-3.5 py-2.5 min-h-[48px] rounded-xl text-[14px] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli ${
               isNavActive("/settings")
@@ -244,7 +255,7 @@ export function AppShell({ children, userRole }: AppShellProps) {
       {/* Main Content Wrapper */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile & Tablet Top Header — Solid opaque surface so scrolled amounts never bleed through */}
-        <header className="lg:hidden sticky top-0 z-30 bg-surface border-b border-surface-border shadow-[0_1px_4px_rgba(22,22,20,0.06)] dark:shadow-[0_2px_6px_rgba(0,0,0,0.34)] px-4 h-14 flex items-center justify-between">
+        <header className="lg:hidden sticky top-0 z-30 bg-surface border-b border-surface-border shadow-[0_1px_4px_rgba(22,22,20,0.06)] dark:shadow-[0_2px_6px_rgba(0,0,0,0.34)] px-4 h-12 sm:h-14 flex items-center justify-between">
           <Link
             href="/dashboard"
             onClick={(e) => handleNavClick(e, "/dashboard")}
@@ -271,18 +282,26 @@ export function AppShell({ children, userRole }: AppShellProps) {
             aria-label={isNavActive("/settings") ? t.closeSettings : t.navSettings}
             aria-current={isNavActive("/settings") ? "page" : undefined}
             title={isNavActive("/settings") ? t.closeSettings : t.navSettings}
-            className={`min-h-[48px] min-w-[48px] rounded-xl flex items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli ${
-              isNavActive("/settings")
-                ? "bg-brand-broccoli-light text-brand-broccoli"
-                : "text-ink-muted hover:bg-surface-subtle hover:text-ink-primary"
-            }`}
+            className="group min-h-[48px] min-w-[48px] -mr-1.5 flex items-center justify-center focus:outline-none"
           >
-            {settingsIcon}
+            <span
+              className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center transition-colors group-focus-visible:ring-2 group-focus-visible:ring-brand-broccoli ${
+                isNavActive("/settings")
+                  ? "bg-brand-broccoli-light text-brand-broccoli"
+                  : "text-ink-muted group-hover:bg-surface-subtle group-hover:text-ink-primary"
+              }`}
+            >
+              {settingsIcon}
+            </span>
           </Link>
         </header>
 
         {/* Responsive Main Workspace */}
-        <main className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-5 lg:py-8 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] lg:pb-12">
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-2 sm:pt-5 lg:pt-8 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] lg:pb-12 focus:outline-none"
+        >
           {children}
         </main>
 

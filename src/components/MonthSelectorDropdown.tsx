@@ -13,11 +13,12 @@ export interface MonthOption {
 interface MonthSelectorDropdownProps {
   currentMonth: string;
   options: MonthOption[];
-  onSelect: (month: string) => void;
+  onSelect: (month: string, triggerEl?: HTMLButtonElement | null) => boolean | void;
   ariaLabel?: string;
   showStatusInTrigger?: boolean;
   className?: string;
   defaultOpen?: boolean;
+  disabled?: boolean;
 }
 
 export function MonthSelectorDropdown({
@@ -28,6 +29,7 @@ export function MonthSelectorDropdown({
   showStatusInTrigger = true,
   className = "",
   defaultOpen = false,
+  disabled = false,
 }: MonthSelectorDropdownProps) {
   const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -204,12 +206,15 @@ export function MonthSelectorDropdown({
       <button
         ref={triggerBtnRef}
         type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
+        disabled={disabled}
+        onClick={() => {
+          if (!disabled) setIsOpen((prev) => !prev);
+        }}
         onKeyDown={handleTriggerKeyDown}
         aria-haspopup="listbox"
-        aria-expanded={isOpen}
+        aria-expanded={isOpen && !disabled}
         aria-label={triggerAriaLabel}
-        className="min-h-[48px] h-12 lg:min-h-[44px] lg:h-11 px-2.5 sm:px-3 rounded-xl border border-surface-border bg-surface hover:border-surface-border-strong hover:bg-surface-subtle/50 btn-tactile flex items-center gap-1.5 sm:gap-2 shadow-card cursor-pointer whitespace-nowrap shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli"
+        className="min-h-[48px] h-12 lg:min-h-[44px] lg:h-11 px-2.5 sm:px-3 rounded-xl border border-surface-border bg-surface hover:border-surface-border-strong hover:bg-surface-subtle/50 btn-tactile flex items-center gap-1.5 sm:gap-2 shadow-card cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli"
       >
         <svg className="hidden min-[360px]:block w-4 h-4 text-ink-muted shrink-0" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24" aria-hidden="true">
           <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
@@ -245,7 +250,7 @@ export function MonthSelectorDropdown({
       </button>
 
       {/* Dropdown Menu — Single Tab stop via roving tabIndex + Arrow/Home/End navigation */}
-      {isOpen && (
+      {isOpen && !disabled && (
         <div
           role="listbox"
           aria-label={baseLabel}
@@ -270,11 +275,14 @@ export function MonthSelectorDropdown({
                 onKeyDown={(e) => handleOptionKeyDown(e, idx)}
                 onClick={() => {
                   if (opt.disabled) return;
-                  restoreFocusOnCloseRef.current = true;
-                  setIsOpen(false);
+                  let proceeded: boolean | void = true;
                   if (opt.month !== currentMonth) {
-                    onSelect(opt.month);
+                    proceeded = triggerBtnRef.current
+                      ? onSelect(opt.month, triggerBtnRef.current)
+                      : onSelect(opt.month);
                   }
+                  restoreFocusOnCloseRef.current = proceeded !== false;
+                  setIsOpen(false);
                 }}
                 className={`w-full min-h-[48px] lg:min-h-[44px] flex items-center justify-between px-3 py-2 rounded-xl text-sm transition-colors text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli ${
                   opt.disabled
