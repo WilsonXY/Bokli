@@ -24,6 +24,7 @@ import {
 } from "@/lib/cost-line-group";
 import type { CostLine } from "@/db/schema";
 import { formatWeekday } from "@/lib/datetime";
+import { scrollBehavior } from "@/lib/motion";
 
 export interface CostLineItem {
   id?: number;
@@ -867,7 +868,7 @@ export function DailySheetForm({
     requestAnimationFrame(() => {
       const editor = expandedEditorRef.current;
       editor?.scrollIntoView({
-        behavior: "smooth",
+        behavior: scrollBehavior(),
         block: "center",
       });
       const firstTarget = result.reopenedPartial
@@ -2162,7 +2163,7 @@ export function DailySheetForm({
                 type="button"
                 disabled={deletingSheet}
                 onClick={handleDeleteSheet}
-                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer disabled:opacity-50"
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:ring-finance-loss/60 cursor-pointer disabled:opacity-50"
               >
                 {deletingSheet ? t.deleting : t.confirmDeleteBtn}
               </button>
@@ -2265,7 +2266,7 @@ export function DailySheetForm({
                   handleRemoveCostLine(pendingDeleteIndex);
                   setPendingDeleteIndex(null);
                 }}
-                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:ring-finance-loss/60 cursor-pointer"
               >
                 {t.confirmDeleteBtn}
               </button>
@@ -2309,7 +2310,7 @@ export function DailySheetForm({
               <button
                 type="button"
                 onClick={handleRevert}
-                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:ring-finance-loss/60 cursor-pointer"
               >
                 {t.discardChangesBtn}
               </button>
@@ -2361,7 +2362,7 @@ export function DailySheetForm({
                     router.push(target.href);
                   }
                 }}
-                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:ring-finance-loss/60 cursor-pointer"
               >
                 {t.discardAndSwitchBtn}
               </button>
@@ -2463,7 +2464,7 @@ export function DailySheetForm({
                     setShowConfirmModal(false);
                   }
                 }}
-                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-brand-cta hover:bg-brand-cta-hover btn-tactile text-brand-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer disabled:opacity-50"
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-brand-cta hover:bg-brand-cta-hover btn-tactile text-brand-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:ring-brand-broccoli cursor-pointer disabled:opacity-50"
               >
                 {saving ? t.saving : t.confirmSaveBtn}
               </button>

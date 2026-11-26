@@ -419,7 +419,7 @@ export function SettingsView({ initialRole = null }: SettingsViewProps) {
               <button
                 type="button"
                 onClick={() => window.location.assign("/cdn-cgi/access/logout")}
-                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center gap-1.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface cursor-pointer"
               >
                 <span>{t.confirmSignOutBtn}</span>
               </button>

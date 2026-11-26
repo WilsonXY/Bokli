@@ -159,9 +159,12 @@ function Loader<P>({ param, load, render, skeleton = <Skeleton /> }: CloudPagePr
   const error = (
     <div role="alert" className="mb-3 p-4 rounded-xl bg-finance-loss-light border border-finance-loss-border text-finance-loss text-sm font-semibold flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
       <span className="min-w-0 break-words">
-        {/* With no page behind it, say which period failed (only a real month
-            or date for this page; anything else gets the generic line). */}
-        {!state.props && value && (param === "month" ? isValidMonthStr(value) : isValidDateStr(value))
+        {/* With the last loaded page still showing, say so. With no page behind
+            it, say which period failed (only a real month or date for this page;
+            anything else gets the generic line). */}
+        {state.props
+          ? t.refreshError
+          : value && (param === "month" ? isValidMonthStr(value) : isValidDateStr(value))
           ? t.loadErrorFor.replace("{period}", value)
           : t.loadError}
         {retryFailed && <span className="block mt-0.5 font-medium">{t.loadStillFailing}</span>}

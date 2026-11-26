@@ -40,7 +40,7 @@ function HeaderBar() {
 
 /**
  * Matches DailySheetForm box for box (scripts/cloud-flows/skeletons.mjs checks
- * it at 390px and 1280px): the same root spacing, a 36px title row over a 54px
+ * it at 390px and 1280px): the same root spacing, a 36px title row over a 54px (58px at sm-md)
  * date toolbar, then Revenue + Daily Costs (empty day) and the Save card, with
  * the same 1px sticky sentinel below on phones.
  */

@@ -10,6 +10,7 @@ import { useUnsavedGuard } from "@/lib/unsaved-guard";
 import { MonthSelectorDropdown, MonthOption } from "@/components/MonthSelectorDropdown";
 import { MoneyValue } from "@/components/MoneyValue";
 import { CashIcon, TngIcon } from "@/components/BokliIcons";
+import { scrollBehavior } from "@/lib/motion";
 
 interface FinancialSnapshot {
   revenueSen: number;
@@ -245,7 +246,7 @@ export function MonthCloseView({
 
   useEffect(() => {
     if (errorMessage) {
-      errorAlertRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      errorAlertRef.current?.scrollIntoView({ block: "nearest", behavior: scrollBehavior() });
     }
   }, [errorMessage]);
 
@@ -945,7 +946,7 @@ export function MonthCloseView({
                             <button
                               type="submit"
                               disabled={isTransitioning}
-                              className="min-h-[48px] px-5 rounded-xl bg-brand-cta hover:bg-brand-cta-hover text-brand-cta-ink btn-tactile font-semibold text-sm disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+                              className="min-h-[48px] px-5 rounded-xl bg-brand-cta hover:bg-brand-cta-hover text-brand-cta-ink btn-tactile font-semibold text-sm disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:ring-brand-broccoli cursor-pointer"
                             >
                               {submitting ? t.reopening : t.btnPerformReopen}
                             </button>
@@ -1241,7 +1242,7 @@ export function MonthCloseView({
                     <button
                       type="submit"
                       disabled={!canSubmitClose}
-                      className="w-full h-12 rounded-xl bg-brand-cta hover:bg-brand-cta-hover btn-tactile text-brand-cta-ink font-semibold text-sm tracking-wide shadow-card flex items-center justify-center disabled:bg-surface-subtle disabled:text-ink-muted disabled:border disabled:border-surface-border disabled:shadow-none disabled:opacity-100 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli cursor-pointer"
+                      className="w-full h-12 rounded-xl bg-brand-cta hover:bg-brand-cta-hover btn-tactile text-brand-cta-ink font-semibold text-sm tracking-wide shadow-card flex items-center justify-center disabled:bg-surface-subtle disabled:text-ink-muted disabled:border disabled:border-surface-border disabled:shadow-none disabled:opacity-100 disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:ring-brand-broccoli cursor-pointer"
                     >
                       {submitting ? t.closingMonth : t.btnPerformClose}
                     </button>
@@ -1313,7 +1314,7 @@ export function MonthCloseView({
                     router.push(target.href);
                   }
                 }}
-                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-finance-loss/60 cursor-pointer"
+                className="flex-1 min-h-[48px] px-3 py-2 text-center leading-snug rounded-xl bg-danger-cta hover:bg-danger-cta-hover btn-tactile text-danger-cta-ink font-semibold text-sm flex items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:ring-finance-loss/60 cursor-pointer"
               >
                 {pendingNavigation.isMonthSwitch
                   ? t.discardAndSwitchMonthBtn

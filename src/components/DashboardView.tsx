@@ -20,6 +20,7 @@ import {
   type CostCategoryKey,
 } from "@/components/BokliIcons";
 import { formatWeekday } from "@/lib/datetime";
+import { scrollBehavior } from "@/lib/motion";
 
 export interface SerializedMonthTile {
   month: string;
@@ -499,7 +500,7 @@ export function DashboardView({
     if (!el) return;
     const step = Math.max(120, Math.round((plotViewportWidth || 240) * 0.75));
     const nextLeft = Math.max(0, Math.min(el.scrollWidth - el.clientWidth, el.scrollLeft + direction * step));
-    el.scrollTo({ left: nextLeft, behavior: "smooth" });
+    el.scrollTo({ left: nextLeft, behavior: scrollBehavior() });
   };
 
   // Start scrolled at the latest recorded days when horizontal scroll is active
@@ -541,7 +542,7 @@ export function DashboardView({
           <Link
             href="/"
             aria-label={t.recordTodaySheet}
-            className="inline-flex items-center gap-1.5 min-h-[48px] h-12 lg:min-h-[44px] lg:h-11 px-3 sm:px-4 rounded-xl bg-brand-cta hover:bg-brand-cta-hover text-brand-cta-ink text-sm font-semibold btn-tactile shadow-card whitespace-nowrap shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-broccoli"
+            className="inline-flex items-center gap-1.5 min-h-[48px] h-12 lg:min-h-[44px] lg:h-11 px-3 sm:px-4 rounded-xl bg-brand-cta hover:bg-brand-cta-hover text-brand-cta-ink text-sm font-semibold btn-tactile shadow-card whitespace-nowrap shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-surface-canvas focus-visible:ring-brand-broccoli"
           >
             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.4" viewBox="0 0 24 24" aria-hidden="true">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
