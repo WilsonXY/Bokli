@@ -308,12 +308,36 @@ export function MonthCloseView({
     isClosedRef.current = isClosed;
   }, [isCloseDraftDirty, submitting, isTransitioning, refreshFailed, isClosed]);
 
-  // A write landed but the refresh failed: move focus to the inline Retry
+  // A write landed but the refresh failed: move focus to the inline Retry, but
+  // only when focus was dropped or still sits in the action area; never pull
+  // it out of the month picker or anything else the user moved on to.
   useEffect(() => {
     if (refreshFailed && pendingStatusTarget !== null) {
-      requestAnimationFrame(() => staleRetryRef.current?.focus());
+      requestAnimationFrame(() => {
+        const active = document.activeElement;
+        if (!active || active === document.body || active.closest("[data-close-action-area]")) {
+          staleRetryRef.current?.focus();
+        }
+      });
     }
   }, [refreshFailed, pendingStatusTarget]);
+
+  // The deadline runs until the expected status is on screen, not just until
+  // a request resolves: a read that returns the old status still surfaces
+  // Retry after STATUS_REFRESH_DEADLINE_MS.
+  useEffect(() => {
+    if (pendingStatusTarget === null || refreshFailed || submitting) return;
+    const id = setTimeout(() => setRefreshFailed(true), STATUS_REFRESH_DEADLINE_MS);
+    return () => clearTimeout(id);
+  }, [pendingStatusTarget, refreshFailed, submitting]);
+  useEffect(() => {
+    if (!retryingRefresh) return;
+    const id = setTimeout(() => {
+      setRetryingRefresh(false);
+      setRetryFailedOnce(true);
+    }, STATUS_REFRESH_DEADLINE_MS);
+    return () => clearTimeout(id);
+  }, [retryingRefresh]);
 
   // Clear pending refresh lock once the refreshed status actually lands
   useEffect(() => {
@@ -414,30 +438,28 @@ export function MonthCloseView({
   // and shows progress in place, instead of unmounting it mid-request.
   async function runStatusRefresh(target: "closed" | "open", isRetry = false) {
     setPendingStatusTarget(target);
-    if (isRetry) setRetryingRefresh(true);
-    else setRefreshFailed(false);
+    if (isRetry) {
+      setRetryingRefresh(true);
+    } else {
+      setRefreshFailed(false);
+      setRetryFailedOnce(false);
+    }
     let failed = false;
-    let deadline: ReturnType<typeof setTimeout> | undefined;
     try {
       const result = refresh({ quiet: true });
       if (result && typeof (result as Promise<unknown>).then === "function") {
-        // A stalled read surfaces Retry after 10s; if it lands later, the
-        // status effect still clears the notice.
-        const timedOut = new Promise<false>((resolve) => {
-          deadline = setTimeout(() => resolve(false), STATUS_REFRESH_DEADLINE_MS);
-        });
-        failed = (await Promise.race([result, timedOut])) === false;
+        failed = (await result) === false;
       }
     } catch {
       failed = true;
-    } finally {
-      clearTimeout(deadline);
     }
-    setRetryingRefresh(false);
-    if (failed) {
+    if (isRetry) {
+      setRetryingRefresh(false);
+      // Either the read failed or it still showed the old status (the notice
+      // is cleared by the status effect if the expected status landed).
+      setRetryFailedOnce(true);
+    } else if (failed) {
       setRefreshFailed(true);
-      // Visible change for sighted users when a retry fails fast.
-      if (isRetry) setRetryFailedOnce(true);
     }
   }
 
@@ -843,7 +865,7 @@ export function MonthCloseView({
 
                   {/* Admin Reopen Section */}
                   {userRole === "Admin" && (
-                    <div className="pt-4 border-t border-surface-border space-y-3">
+                    <div data-close-action-area className="pt-4 border-t border-surface-border space-y-3">
                       {pendingStatusTarget === "open" && staleStatusNotice}
                       {!showReopenBox ? (
                         <button
@@ -881,7 +903,7 @@ export function MonthCloseView({
                               if (errorMessage) setErrorMessage(null);
                             }}
                             placeholder={t.reopenPlaceholder}
-                            className={`w-full h-12 px-3.5 rounded-xl bg-surface-input border text-base sm:text-sm [@media(pointer:coarse)]:text-base text-ink-primary focus:outline-none focus:bg-surface focus-visible:ring-2 disabled:opacity-60 transition-colors ${
+                            className={`w-full h-12 px-3.5 rounded-xl bg-surface-input border text-base sm:text-sm [@media(pointer:coarse)]:text-base text-ink-primary focus:outline-none focus:bg-surface focus-visible:ring-2 disabled:opacity-100 disabled:bg-surface-subtle disabled:text-ink-secondary disabled:cursor-default transition-colors ${
                               reopenReasonError
                                 ? "border-finance-loss focus:border-finance-loss focus-visible:ring-finance-loss/40"
                                 : "border-surface-border-strong focus:border-brand-broccoli focus-visible:ring-brand-broccoli/40"
@@ -1009,7 +1031,7 @@ export function MonthCloseView({
                               cashError
                                 ? "focus:border-finance-loss focus-visible:ring-finance-loss/40"
                                 : "focus:border-channel-cash focus-visible:ring-channel-cash/30"
-                            } focus-visible:ring-2 disabled:opacity-60 transition-colors`}
+                            } focus-visible:ring-2 disabled:opacity-100 disabled:bg-surface-subtle disabled:text-ink-secondary disabled:cursor-default transition-colors`}
                           />
                         </div>
                         {cashError && (
@@ -1058,7 +1080,7 @@ export function MonthCloseView({
                               tngError
                                 ? "focus:border-finance-loss focus-visible:ring-finance-loss/40"
                                 : "focus:border-channel-tng focus-visible:ring-channel-tng/30"
-                            } focus-visible:ring-2 disabled:opacity-60 transition-colors`}
+                            } focus-visible:ring-2 disabled:opacity-100 disabled:bg-surface-subtle disabled:text-ink-secondary disabled:cursor-default transition-colors`}
                           />
                         </div>
                         {tngError && (
@@ -1162,7 +1184,7 @@ export function MonthCloseView({
                             ? t.closeNoteExample
                             : t.closeNoteOptional
                         }
-                        className="w-full h-12 px-3.5 rounded-xl bg-surface-input border border-surface-border-strong text-base sm:text-sm [@media(pointer:coarse)]:text-base text-ink-primary focus:outline-none focus:bg-surface focus:border-brand-broccoli focus-visible:ring-2 focus-visible:ring-brand-broccoli/30 disabled:opacity-60 transition-colors"
+                        className="w-full h-12 px-3.5 rounded-xl bg-surface-input border border-surface-border-strong text-base sm:text-sm [@media(pointer:coarse)]:text-base text-ink-primary focus:outline-none focus:bg-surface focus:border-brand-broccoli focus-visible:ring-2 focus-visible:ring-brand-broccoli/30 disabled:opacity-100 disabled:bg-surface-subtle disabled:text-ink-secondary disabled:cursor-default transition-colors"
                       />
                       {!isBalanced && hasInputs && !hasParseError && (
                         <p
@@ -1202,7 +1224,9 @@ export function MonthCloseView({
                   </div>
 
                   {/* Action Footer: Close Month aligns strictly with Reconciliation readiness */}
-                  <div className="space-y-2.5 pt-2">
+                  <div data-close-action-area className="space-y-2.5 pt-2">
+                    {/* Once the close is acknowledged, the notice takes the button's place */}
+                    {pendingStatusTarget !== "closed" && (
                     <button
                       type="submit"
                       disabled={!canSubmitClose}
@@ -1210,6 +1234,7 @@ export function MonthCloseView({
                     >
                       {submitting ? t.closingMonth : t.btnPerformClose}
                     </button>
+                    )}
 
                     {pendingStatusTarget === "closed" && staleStatusNotice ? (
                       staleStatusNotice

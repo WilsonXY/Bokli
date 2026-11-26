@@ -1887,7 +1887,7 @@ export function DailySheetForm({
                   </div>
 
                   {!isClosed && (
-                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 lg:w-full">
+                    <div className="flex items-center gap-2 shrink-0 lg:w-full">
                       {isModified && (
                         <button
                           ref={discardDraftBtnRef}
